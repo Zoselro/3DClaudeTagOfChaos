@@ -25,7 +25,7 @@ public class GameManager : MonoBehaviourPunCallbacks
     private void Awake()
     {
         Inst = this;
-        CreateHero();
+        CreatePlayer();
     }
 
     private void Start()
@@ -165,7 +165,7 @@ public class GameManager : MonoBehaviourPunCallbacks
         InputFdChat.text = "";
     }
 
-    private void CreateHero()
+    private void CreatePlayer()
     {
         Vector3 hPos = Vector3.zero;
         Vector3 addPos = Vector3.zero;

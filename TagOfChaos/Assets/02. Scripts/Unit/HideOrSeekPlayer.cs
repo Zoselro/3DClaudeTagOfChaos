@@ -40,6 +40,15 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
     // 사망/대화/컷신 등 상위 시스템이 이 프로퍼티만 세팅하면 이동이 잠긴다.
     public bool IsMovementLocked { get; set; }
 
+private void Awake()
+    {
+        if (!pv.IsMine) return;
+
+        Camera_Ctrl camCtrl = Camera.main != null ? Camera.main.GetComponent<Camera_Ctrl>() : null;
+        if (camCtrl != null)
+            camCtrl.InitCamera(gameObject);
+    }
+
     private void Start()
     {
         baseSpeed = speed;

@@ -2,7 +2,9 @@
     "name": "TagOfChaos.Scripts",
     "references": [
         "PhotonUnityNetworking",
-        "PhotonRealtime"
+        "PhotonRealtime",
+        "Unity.TextMeshPro",
+        "Unity.ugui"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
