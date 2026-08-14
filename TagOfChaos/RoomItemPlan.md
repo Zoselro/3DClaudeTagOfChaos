@@ -1,8 +1,15 @@
 # 로비 & 대기방 시스템 설계 (RoomItemPlan.md)
 
-> 상태: **설계 문서 (구현 전)**. 실제 코드베이스(Photon PUN2 SDK, 기존 `ColorTag`/`RoomLifecycleWatcher`
-> 스크립트, `LobbyScene`/`GameLobbyScene`/`GameScene` 씬 파일)를 직접 조사한 뒤 작성했다. 아직 코드나
-> 프리팹은 하나도 만들지 않았다 — 계획 검토 후 승인되면 구현을 진행한다.
+> 상태: **구현 완료**. 아래 각 섹션에 구현 결과를 표시했다. 실제 코드/프리팹/씬 변경 사항은
+> `Assets/02. Scripts/Lobby/*.cs`, `Assets/02. Scripts/ColorTag/RoomLifecycleWatcher.cs`,
+> `Assets/Resources/UI/Scene/{LobbyPanel,RoomListItem,GameLobbyPanel,PlayerListItem}/*.prefab`,
+> `Assets/Scenes/{LobbyScene,GameLobbyScene}.unity`를 참고.
+>
+> **알려진 후속 작업(이번 계획 범위 밖)**: 새로 만든 UI 텍스트(TMP)는 프로젝트 기본 폰트인
+> `LiberationSans SDF`를 그대로 쓰는데, 이 폰트에는 한글 글리프가 없어 한국어 문자열이 화면에서
+> `□`로 표시된다. 한글을 지원하는 TMP 폰트 에셋(예: Noto Sans KR SDF)을 프로젝트에 추가하고
+> 각 TMP 컴포넌트의 Font Asset을 교체해야 실제로 읽을 수 있게 된다 — 이번 계획에 폰트 에셋이
+> 포함되어 있지 않아 별도 작업으로 남겨둔다.
 
 ## 0. 조사 결과 요약
 
@@ -45,7 +52,7 @@
    없다 — 방에 들어가는 순간 바로 씬을 옮긴다(요구사항 원문: "입장을 하게 되면 GameLobbyScene에
    입장을 하게 돼").
 
-## 0.2 게임 종료 → `GameLobbyScene` 복귀 (확정, `RoomLifecycleWatcher` 수정 필요)
+## 0.2 게임 종료 → `GameLobbyScene` 복귀 (확정, `RoomLifecycleWatcher` 수정 필요) — ✅ 구현 완료
 
 **사용자 확인 결과**: 정상 종료 후 목적지는 (제가 처음에 권장했던 `LobbyScene`이 아니라) 원래
 설계대로 **`GameLobbyScene`이 맞다.** "게임 대기방은 어디까지나 대기할 수 있는 방"이라서, 게임이
@@ -64,7 +71,7 @@
 비정상 종료(7.2, 술래 퇴장/인원 부족)는 지금 그대로 "방을 나가고 `LobbyScene`으로" 유지한다 — 이건
 정말로 방이 폭파되는 경우라 다르다.
 
-**변경 전/후 비교** (아직 실제로 고치지 않음, 계획만):
+**변경 전/후 비교** (`Assets/02. Scripts/ColorTag/RoomLifecycleWatcher.cs`에 실제 반영 완료):
 
 ```csharp
 // 변경 전 (현재 코드, GameScenePlan.md 7.3)
@@ -130,7 +137,7 @@ public override void OnLeftRoom()
   버튼)에서 게임을 시작할 때 `IsOpen = false`로 닫아두는데, 게임이 끝나고 대기실로 돌아왔을 때는 다시
   누군가 들어올 수 있어야 하기 때문이다.
 
-## 0.3 게임 시작 방식 변경: 자동 카운트다운 → 방장 전용 수동 시작 버튼
+## 0.3 게임 시작 방식 변경: 자동 카운트다운 → 방장 전용 수동 시작 버튼 — ✅ 구현 완료 (3.3 참고)
 
 **사용자 확인 결과**: "4인이 차면 자동으로 시작"이 아니라, **방장(MasterClient)에게만 "게임 시작"
 버튼이 보이고**, 인원이 다 안 찼으면 버튼이 비활성/회색, 다 찼으면 활성/흰색으로 바뀌어서 **방장이
@@ -198,7 +205,11 @@ Tutorial/Launcher.cs`, `DemoAsteroids/LobbyMainPanel.cs` 둘 다 이 패턴). �
 
 ---
 
-## 2. LobbyScene 설계
+## 2. LobbyScene 설계 — ✅ 구현 완료
+
+`LobbyController.cs`/`RoomListItem.cs` (`Assets/02. Scripts/Lobby/`)와 `LobbyPanel`/`RoomListItem`
+프리팹(`Assets/Resources/UI/Scene/`)을 아래 설계대로 생성했고, `LobbyScene.unity`에
+`LobbyUICanvas`(+ `EventSystem`) 하위에 `LobbyPanel` 인스턴스를 배치해 필드까지 연결했다.
 
 ### 2.1 연결 & 로비 진입
 
@@ -434,7 +445,12 @@ CLAUDE.md 규칙(`Resources/UI/{Popup|Scene|Tab}/{클래스명}`)과 `ColorSelec
 
 ---
 
-## 3. GameLobbyScene 설계
+## 3. GameLobbyScene 설계 — ✅ 구현 완료
+
+`GameLobbyController.cs`/`PlayerListItem.cs` (`Assets/02. Scripts/Lobby/`)와 `GameLobbyPanel`/
+`PlayerListItem` 프리팹(`Assets/Resources/UI/Scene/`)을 아래 설계대로 생성했고,
+`GameLobbyScene.unity`에 `GameLobbyUICanvas`(+ `EventSystem`) 하위에 `GameLobbyPanel` 인스턴스를
+배치해 필드까지 연결했다.
 
 ### 3.1 입장 시 상태
 
@@ -576,3 +592,125 @@ public void OnStartGameButtonClicked()
   Room CustomProperties에 기록해주는 부분은 이미 `GameScenePlan.md` 7.3에서 계약으로 정의돼 있고
   구현도 이미 있다고 가정한다 — 이 문서(0.2)는 그 이후(`RoomLifecycleWatcher`가 감지해서
   `GameLobbyScene`으로 되돌리는 부분)만 다룬다.
+
+---
+
+## 6. UI 후속 조정: Canvas Scaler 통일 & 로비 레이아웃 개선 — ✅ 구현 완료
+
+### 6.1 배경
+
+- 구현 단계(§2, §3)에서 `LobbyUICanvas`/`GameLobbyUICanvas`를 새로 만들면서 `CanvasScaler`는
+  Unity 기본값(`Constant Pixel Size`)을 그대로 두었다. 기존 `PlayerTestScene`의 `GameUICanvas`도
+  같은 기본값이었다. 씬마다 스케일 기준이 다르면 해상도가 다른 화면에서 UI 크기가 제각각으로
+  보인다는 문제가 있어, 프로젝트의 모든 `Canvas`가 항상 같은 스케일 기준을 쓰도록 통일해달라는
+  요청을 받았다.
+- 로비 화면(`LobbyPanel`)에서 `MakeRoomButton`이 `RoomNameInput` 바로 옆(화면 상단, 방 목록 바로
+  위)에 있어 방 목록과 시각적으로 뒤섞여 가시성이 떨어진다는 피드백을 받아, 버튼을 패널 우측 하단
+  (별도 액션 버튼 위치)으로 옮기기로 했다.
+
+### 6.2 계획
+
+1. **`CanvasScaler` 값 통일**: 대상은 현재 프로젝트에 존재하는 모든 `Canvas`
+   — `LobbyScene`의 `LobbyUICanvas`, `GameLobbyScene`의 `GameLobbyUICanvas`,
+   `PlayerTestScene`의 `GameUICanvas`. 아래 값으로 맞춘다(이후 새로 만드는 `Canvas`도 동일하게
+   맞춰야 한다):
+   - `UI Scale Mode` = **Scale With Screen Size** (`CanvasScaler.ScaleMode.ScaleWithScreenSize`)
+   - `Reference Resolution` = **1920 x 1080**
+   - `Screen Match Mode` = **Match Width Or Height**
+     (`CanvasScaler.ScreenMatchMode.MatchWidthOrHeight`)
+2. **`LobbyPanel` 프리팹 레이아웃 조정** (`Assets/Resources/UI/Scene/LobbyPanel/LobbyPanel.prefab`):
+   - `MakeRoomButton`을 2행(RoomName 입력 옆)에서 빼서 패널 **우측 하단**으로 이동
+     (앵커 `(1,0)-(1,0)`, 크기 160x50, 우측/하단 여백 20px).
+   - 버튼이 빠진 자리를 메우기 위해 `RoomNameInput`을 2행 전체 폭으로 넓힌다.
+   - `RoomListScrollView` 하단 여백을 20px → 100px로 넓혀서 새로 옮긴 `MakeRoomButton`과
+     겹치지 않게 한다.
+
+### 6.3 구현 결과
+
+- `LobbyUICanvas`(`LobbyScene`) / `GameLobbyUICanvas`(`GameLobbyScene`) / `GameUICanvas`
+  (`PlayerTestScene`) 세 `Canvas`의 `CanvasScaler`를 모두 `Scale With Screen Size` /
+  `1920x1080` / `Match Width Or Height`로 통일하고 각 씬을 저장했다.
+- `LobbyPanel` 프리팹을 프리팹 스테이지에서 편집: `RoomNameInput`을 2행 전체 폭으로 넓히고,
+  `MakeRoomButton`을 패널 우측 하단(앵커 `(1,0)-(1,0)`, 160x50, 여백 20px)으로 옮기고,
+  `RoomListScrollView`의 하단 여백을 20px → 100px로 넓혀 버튼과 겹치지 않게 했다. 스크롤뷰
+  오브젝트 이름이 `"2"`로 잘못 남아있던 것도 `RoomListScrollView`로 바로잡았다.
+- Play 모드 스크린샷으로 확인: `RandomJoinButton`("랜덤 입장")·`FeedbackText` 등 한글이 정상
+  렌더링되고, `MakeRoomButton`이 우측 하단에 배치되어 방 목록과 겹치지 않는다.
+
+---
+
+## 7. 버그: `GameLobbyScene`에서 카메라 화면 전체가 UI 패널에 뒤덮임 — ✅ 구현 완료
+
+> 사용자 보고: "GameLobbyScene의 문제점은 지금 Camera가 GameLobbyUICanvas에 맞춰져 있어서 게임
+> 전체가 안보여." 아래는 실제 `Assets/Scenes/GameLobbyScene.unity` 파일을 직접 열어 확인한
+> 원인 분석과 수정 계획이다. **지시에 따라 이번에는 계획만 정리했고 실제 수정은 하지 않았다.**
+
+### 7.1 원인 (씬 파일로 직접 확인)
+
+`GameLobbyUICanvas`의 `Canvas` 컴포넌트가 **`m_RenderMode: 2` (World Space)** 로 되어 있다.
+Screen Space - Overlay(`0`)여야 정상이다 — 실제로 같은 방식으로 만든 `LobbyScene`의
+`LobbyUICanvas`는 `m_RenderMode: 0`으로 정상이고, 기존 `PlayerTestScene`의 `GameUICanvas`도
+`0`으로 정상이다. `GameLobbyUICanvas` 하나만 잘못돼 있다.
+
+**왜 이 Canvas만 다르게 만들어졌는가**: 두 Canvas는 생성 방식이 달랐다.
+- `LobbyUICanvas`(§2)는 Unity 에디터 메뉴 `GameObject > UI > Canvas`(`execute_menu_item`)로
+  만들었다. 이 메뉴는 Canvas를 추가한 직후 내부적으로(`UnityEditor.UI.MenuOptions.CreateNewUI()`)
+  `renderMode`를 명시적으로 `ScreenSpaceOverlay`로 설정해준다.
+- `GameLobbyUICanvas`(§3)는 이 메뉴 대신 `manage_gameobject`로 GameObject를 만들면서
+  `UnityEngine.Canvas` 컴포넌트를 `AddComponent`로 직접 붙였다. 이 경로는 메뉴가 해주는 후처리
+  (`renderMode` 명시적 설정)를 거치지 않기 때문에 Canvas가 기본값인 World Space로 남았다.
+
+**왜 "카메라가 Canvas에 맞춰진 것처럼" 보이는가**: World Space Canvas에서는
+`RectTransform`의 크기가 픽셀이 아니라 **월드 단위**로 해석된다. `GameLobbyPanel`은
+700x800(픽셀 기준으로 설계)인데, World Space에서는 `referencePixelsPerUnit(100)` 기준으로
+7 x 8 **유닛** 크기의 거대한 3D 평면이 되어 씬 원점 `(0,0,0)`에 그대로 놓인다. `Main Camera`는
+`(0, 1, -10)`에서 FOV 60으로 원점 방향을 보고 있어서, 카메라로부터 10유닛 거리에 있는 이
+8유닛 높이짜리 불투명 패널이 카메라 시야를 거의 다 채워버린다. 실제로는 카메라 값은 전혀
+바뀌지 않았다 — Canvas 자체가 거대한 3D 오브젝트로 잘못 렌더링되면서 시야를 가리는 것이다.
+
+부가로, §6에서 통일한 `CanvasScaler`의 `Scale With Screen Size` / `1920x1080` /
+`Match Width Or Height` 설정도 World Space 모드에서는 애초에 적용되지 않는 옵션들이라
+(World Space는 `Physical Unit` 기반 스케일링을 쓴다) 사실상 무시되고 있었다 — 즉 `GameLobbyUICanvas`는
+§6 작업의 효과도 받지 못하고 있었다.
+
+### 7.2 수정 계획 (미구현)
+
+1. `GameLobbyScene.unity`의 `GameLobbyUICanvas` → `Canvas` 컴포넌트 `renderMode`를
+   `WorldSpace(2)`에서 `ScreenSpaceOverlay(0)`로 변경한다 (`LobbyUICanvas`와 동일하게).
+2. 전환 후 `RectTransform`의 앵커/크기가 Screen Space - Overlay 기준으로 정상 복귀했는지 확인한다
+   (`GameLobbyPanel` 프리팹은 원래 픽셀 기준 700x800 anchored-center로 설계돼 있어, Canvas
+   렌더 모드만 고치면 별도 프리팹 수정 없이 §3 레이아웃이 의도대로 나타날 것으로 예상).
+3. 수정 후 검증 항목:
+   - Play 모드 스크린샷으로 `GameLobbyPanel`이 화면 중앙에 정상 크기로 보이고(패널이 화면
+     전체를 덮지 않고 배경도 함께 보이는 상태), §3의 `PlayerListScrollView`/`StatusText`/
+     `StartGameButton`이 정상적으로 표시·클릭되는지 확인.
+   - 콘솔에 `Canvas`/`CanvasScaler` 관련 에러·경고가 없는지 확인.
+   - §6에서 적용한 `CanvasScaler`(Scale With Screen Size / 1920x1080 / Match Width Or Height)가
+     Overlay 모드 전환 후 실제로 의도대로 동작하는지 함께 확인.
+4. **재발 방지**: 앞으로 새 `Canvas`를 만들 때는 `manage_gameobject`로 `Canvas` 컴포넌트를
+   직접 `AddComponent`하지 말고, `execute_menu_item("GameObject/UI/Canvas")`로 생성해서
+   Unity가 `renderMode`를 올바르게 초기화하도록 한다. 부득이하게 컴포넌트를 직접 추가해야
+   한다면, 추가 직후 반드시 `renderMode`를 `ScreenSpaceOverlay`로 명시적으로 설정한다.
+
+### 7.3 구현 결과
+
+- `GameLobbyScene.unity`의 `GameLobbyUICanvas` → `Canvas.renderMode`를 `WorldSpace(2)`에서
+  `ScreenSpaceOverlay(0)`로 변경했다. 변경 즉시 `RectTransform`이 Unity에 의해 자동으로
+  화면 전체(1920x1080, `drivenByObject`)로 재계산되는 것을 확인했다 — 프리팹 자체(`GameLobbyPanel`
+  700x800 anchored-center 레이아웃)는 손대지 않았다.
+- 같은 확인 과정에서 `CanvasScaler`(§6에서 설정한 Scale With Screen Size / 1920x1080 /
+  Match Width Or Height)가 Overlay 전환 후 `renderingDisplaySize: 1920x1080`으로 실제 적용되고
+  있음을 함께 확인했다 — World Space일 때는 무시되던 설정이 이제 정상 동작한다.
+- Play 모드 스크린샷으로 확인: `GameLobbyPanel`이 화면 중앙에 정상 크기로 보이고 배경(하늘/바닥)도
+  함께 보인다. `StatusText`("1 / 4"), `StartGameButton`("게임 시작") 등 §3 구성요소도 정상 표시된다.
+- 프로젝트의 모든 씬(`LobbyScene`, `GameLobbyScene`, `GameScene`, `PlayerTestScene`, `SampleScene`)의
+  `Canvas.m_RenderMode`를 전수 조사해, `GameLobbyUICanvas` 외에는 문제가 없음을 확인했다
+  (`GameScene`/`SampleScene`에서 검색된 `m_RenderMode` 항목은 Canvas가 아니라 `Light` 컴포넌트의
+  동명 필드였다).
+- 컴파일/콘솔 에러 없음을 확인했다.
+- (부수 발견) `GameLobbyScene`을 단독으로 Play해서 검증하는 과정에서 `GameLobbyController.Start()`가
+  방에 들어오지 않은 상태로 실행되면 `PhotonNetwork.CurrentRoom`이 `null`이라
+  `NullReferenceException`이 나는 것을 발견해 `Start()`에 다른 스크립트(`ColorSelectionManager`,
+  `RoomLifecycleWatcher`)와 동일한 가드(`if (!PhotonNetwork.InRoom || PhotonNetwork.CurrentRoom == null) return;`)를
+  추가했다. 실제 플레이 흐름(§1)에서는 항상 방에 들어온 뒤에만 이 씬에 도달하므로 정상 흐름에는
+  영향이 없다.

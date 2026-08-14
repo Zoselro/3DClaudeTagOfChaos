@@ -664,3 +664,484 @@ Hero_Ctrl.cs
    코드를 함께 정리한다(§17).
 7. `is_Conversating`을 닫는 경로를 Enter 키 하나에만 의존하지 않도록 보강하는 것을 검토한다(예:
    `InputField.onDeselect`, `Esc` 키 등) — `Hero_Ctrl`의 이동 잠금과 직결되므로 우선순위가 있다(§17).
+
+---
+
+# 조사 보고서: Assets/02. Scripts/
+
+(2026-08-14 추가. `RoomItemPlan.md`/`PlayerControllPlan.md` 작업 과정에서 이미 부분적으로 다룬
+파일들도 있지만, 이 보고서는 그 파일들을 포함해 `Assets/02. Scripts/` 전체를 도메인 횡단으로 다시
+훑어 하나의 문서로 정리한 것이다. 위 §1~§22(`Assets/Scripts/`)와는 별개의 트리이며, 섹션 번호는
+이어서 매긴다.)
+
+## 23. 폴더/어셈블리 구조
+
+```
+Assets/02. Scripts/
+├── TagOfChaos.Scripts.asmdef   # 이 폴더 전체가 공유하는 단일 어셈블리
+├── Camera/
+│   └── Camera_Ctrl.cs
+├── ColorTag/                    # 10개 파일 — 색상 투표/페인팅/술래 판정 미니게임
+│   ├── NetKeys.cs, NetEventCodes.cs, ColorPaletteSO.cs, BrushSettingsSO.cs
+│   ├── ColorVoteTally.cs, TaggerColorAssigner.cs
+│   ├── ColorSelectionManager.cs, ColorSelectionPanel.cs, ColorSwatchButton.cs
+│   ├── PlayerPaintCanvas.cs, BrushCursorController.cs
+│   ├── PlayerColorVoteIndicator.cs, PlayerColorDisplay.cs
+│   └── RoomLifecycleWatcher.cs
+├── Unit/                        # 5개 파일 — 이동 전용 캐릭터 컨트롤러 (PlayerControllPlan.md에서 이미 상세 조사)
+│   ├── HideOrSeekPlayer.cs, PlayerMoveState.cs, PlayerGroundDetector.cs
+│   ├── PlayerAnimationDriver.cs, PlayerNetworkSync.cs
+├── Lobby/                       # 4개 파일 — 로비/대기방 UI (RoomItemPlan.md에서 이미 상세 조사)
+│   ├── LobbyController.cs, RoomListItem.cs
+│   ├── GameLobbyController.cs, PlayerListItem.cs
+└── Dev/
+    └── OfflineModeBootstrap.cs
+```
+
+총 25개 `.cs` 파일. `TagOfChaos.Scripts.asmdef`(`Assets/02. Scripts.asmdef`) 하나가 이 폴더 아래
+**전체**(5개 하위 도메인 전부)를 하나의 어셈블리로 묶는다 — 도메인별로 별도 asmdef가 나뉘어 있지
+않으므로, 예를 들어 `ColorTag/` 안의 스크립트 하나에 컴파일 에러가 나면 `Lobby/`나 `Unit/`도 함께
+빌드가 막힌다(§12.2/§13.7에서 `Hero_Ctrl.cs`의 에러가 `Assembly-CSharp` 전체를 막았던 것과 같은
+종류의 위험이, 이번엔 이 asmdef 하나의 스코프 안에서 여전히 유효하다). 참조 어셈블리는
+`PhotonUnityNetworking`, `PhotonRealtime`, `Unity.TextMeshPro`, `Unity.ugui` 4개이며, 실제 코드가
+쓰는 `UnityEngine.AI`(`NavMeshAgent`)는 별도 참조 없이도 기본 엔진 모듈로 해석된다
+(`noEngineReferences: false`). 현재 이 어셈블리는 **컴파일 에러 0건**이다(이번 조사 중 `read_console`로
+재확인).
+
+`Assets/Scripts/`(§1~§22, 이제 `GameManager.cs` 하나만 남음)와는 별도의 어셈블리 트리다 — 즉
+`Assets/02. Scripts/`의 어떤 스크립트도 `Assets/Scripts/GameManager.cs`를 직접 참조하지 않고
+(§30에서 확인), 그 반대도 마찬가지다. 두 트리는 지금 완전히 분리되어 있다.
+
+## 24. 도메인 개요 (한 줄 요약)
+
+| 도메인 | 파일 수 | 역할 |
+|---|---|---|
+| `Camera/` | 1 | 3인칭 추적 카메라(줌 없음, 우클릭 드래그 회전만) |
+| `ColorTag/` | 10 | 4라운드 색상 투표 → 캐릭터 페인팅 → 술래 컬러 치환까지 이어지는 이 게임의 핵심 미니게임 |
+| `Unit/` | 5 | 이동/점프/회피 전용 캐릭터 컨트롤러(전투/HP 없음, `PlayerControllPlan.md` §1~§16에서 이미 상세 조사·리팩토링·버그 수정 완료) |
+| `Lobby/` | 4 | 로비 방 목록/생성/입장 + 대기방 인원/시작 버튼 UI(`RoomItemPlan.md` §1~§7에서 이미 상세 조사·구현 완료) |
+| `Dev/` | 1 | 오프라인 단독 테스트용 부트스트랩(프로덕션 코드 아님) |
+
+`Unit/`과 `Lobby/`는 각각 별도 계획 문서(`PlayerControllPlan.md`, `RoomItemPlan.md`)에서 이미
+라인 단위로 조사됐으므로, 아래 §26/§28에서는 핵심 요약과 "그 문서 이후 바뀐 것이 있는지"만 다시
+확인하고, 새로 조사하는 `Camera/`(§27)와 `ColorTag/`(§25)를 중심으로 깊이 다룬다.
+
+## 25. `ColorTag/` 도메인 상세 — 4라운드 색상 투표 → 페인팅 → 술래 치환
+
+### 25.1 전체 데이터 흐름 (10개 파일을 하나의 시퀀스로 재구성)
+
+```
+① ColorSelectionManager.StartColorSelection()  [마스터 전용, §25.2]
+   → Room.CustomProperties: RoundIndex=0, RoundEndTime=now+20s,
+     Color0..3=-1, TaggerActorNumber=-1 / Room.IsOpen=false
+
+② (매 프레임, 전 클라이언트) ColorSelectionPanel.Update()
+   → RoundIndex/RoundEndTime을 읽어 "N/4"·남은시간 표시, 이미 확정된 색 스와치 잠금
+
+③ (플레이어 조작) ColorSwatchButton.OnClick → ColorSelectionManager.SubmitVote(colorIndex)
+   → LocalPlayer.CustomProperties: VoteColorIndex = colorIndex
+
+④ (플레이어 조작, 자기 캐릭터 표면 클릭+드래그) PlayerPaintCanvas.Update()
+   → 좌클릭 레이캐스트가 자기 paintableCollider에 맞으면, 현재 VoteColorIndex로 StampBrush()
+   → 로컬 PaintCanvas(RenderTexture)에 즉시 스탬프 + PaintStroke 이벤트로 다른 클라이언트에 전파
+   → BrushCursorController가 마우스 위치에 3D 붓 커서를 투표색으로 표시(§25.7)
+   → PlayerColorVoteIndicator가 캐릭터 머리 위에 현재 투표색 스프라이트를 빌보드로 표시(§25.8)
+
+⑤ (매 프레임, 마스터 전용) ColorSelectionManager.Update()
+   → RoundEndTime 경과 감지 → ResolveRound(roundIndex)
+     - ColorVoteTally.Resolve(): 다수결(동점이면 랜덤) 또는 무투표 시 남은 색 중 랜덤
+     - ColorN = 확정색 세팅
+     - roundIndex+1 < 4  → RoundIndex/RoundEndTime 갱신, 다음 라운드로
+     - roundIndex+1 == 4 → AssignTagger() [무작위 1인 + TaggerColorAssigner.BuildVariantSet로
+       확정 4색 중 한 슬롯을 다른 색으로 치환] 도 같은 트랜잭션에 포함, RoundIndex=5("완료")
+   → 매 라운드 끝에 전원 투표(VoteColorIndex) 초기화(LocalPlayer만, §25.2 버그 참고)
+
+⑥ (매 프레임, 전 클라이언트) PlayerPaintCanvas.DetectRoundChange()
+   → RoundIndex가 바뀐 것을 감지하면, 방금 끝난 라운드에 자신이 칠했던 좌표들을
+     "확정색"으로 강제 재도색(FinalizeCurrentRoundStrokes, 잠금 무시) + 전파
+     → 투표에서 졌거나 다른 색으로 칠했더라도, 라운드가 끝나면 시각적으로 그 라운드의
+       확정색으로 맞춰진다
+
+⑦ RoundIndex == 5("완료")가 되면, PlayerColorDisplay.OnRoomPropertiesUpdate()
+   → 자신이 TaggerActorNumber와 같은 플레이어라면(=술래):
+     baseSet(확정 4색) vs TaggerVariantSet(치환된 4색)에서 다른 슬롯 1개를 찾아,
+     자기 캔버스 전체에서 그 옛 색으로 칠해진 모든 픽셀을 새 색으로 전역 치환
+     (ApplyColorReplace, 브러시 스탬프가 아니라 캔버스 전체 검색-치환)
+```
+
+`NetKeys`(7개 키)와 `NetEventCodes`(`PaintStroke=1` 1개)가 이 전체 흐름에서 쓰이는 Room/Player
+CustomProperties 키와 Photon RaiseEvent 코드를 한곳에 모아둔 상수 클래스다.
+
+### 25.2 `ColorSelectionManager.cs` — 라운드 진행의 유일한 권위자
+
+- **마스터 클라이언트만** `Update()`에서 라운드 만료를 감지하고 `ResolveRound()`를 실행한다
+  (`if (!PhotonNetwork.IsMasterClient) return;`). 결과는 `Room.SetCustomProperties`로 전원에게
+  동기화되므로, 클라이언트마다 다른 `System.Random rng`(시드 미지정, 인스턴스별로 다름)를 갖고
+  있어도 **문제가 되지 않는다** — 오직 마스터의 굴림만 실제로 결과를 결정하고 그 결과만 전파되기
+  때문이다(다수의 리뷰어가 "멀티플레이에서 시드 없는 RNG는 위험하다"고 지레짐작하기 쉬운
+  패턴이지만, 이 경우엔 단일 권위자 구조라 안전하다는 것을 직접 코드 추적으로 확인했다).
+- **사소한 버그 후보**: `ResetAllVotes()`는 `PhotonNetwork.LocalPlayer.SetCustomProperties(...)`만
+  호출한다 — 즉 **이 코드를 실행하는 마스터 클라이언트 자기 자신의 투표만** `-1`로 리셋되고,
+  다른 플레이어들의 `VoteColorIndex`는 리셋되지 않는다. 매 라운드가 시작될 때 이전 라운드에
+  투표했던 값이 남아있는 상태로 새 라운드가 시작되는 것이다. 실제로 문제가 되는지는 UI 쪽
+  동작에 달려 있다: `ColorSwatchButton.SetLocked()`가 이미 확정된 색의 스와치를 잠그므로 "이전
+  라운드에 골랐던 색"이 이번 라운드에서 이미 잠겨있다면 새로 골라야 하지만, 아직 잠기지
+  않은(=아직 확정 안 된) 색이라면 플레이어가 아무 것도 다시 누르지 않아도 예전 선택이 그대로
+  이번 라운드의 투표로 계속 집계된다 — "매 라운드 새로 골라야 한다"는 의도라면 결함이고,
+  "굳이 다시 안 골라도 마지막 선택이 이어진다"는 의도라면 정상이다. 의도 확인이 필요하다.
+- `StartColorSelection()`을 실제로 호출하는 곳은 프로젝트 전체에서
+  **`Assets/02. Scripts/Dev/OfflineModeBootstrap.cs` 단 한 곳뿐**이며, 그마저도
+  `autoStartColorSelection` 체크박스가 켜져 있을 때만 실행된다(현재 `PlayerTestScene.unity`에서는
+  켜져 있음, §25.9 참고). **실제 로비 흐름(`LobbyController` → `GameLobbyController` →
+  `GameScene`) 어디에도 `StartColorSelection()`을 호출하는 코드가 없다** — `GameLobbyController.
+  OnStartGameButtonClicked()`는 `PhotonNetwork.LoadLevel("GameScene")`만 호출할 뿐이다. 즉 지금
+  상태로 실제 멀티플레이 매칭을 끝까지 진행해도, `GameScene`에 도착한 뒤 색상 선택 미니게임이
+  저절로 시작되지 않는다 — 이 미니게임은 현재 오직 `PlayerTestScene`의 개발용 부트스트랩
+  경로로만 실행 가능하다. **이것이 이 도메인 전체에서 가장 중요한 통합 공백이다.**
+
+### 25.3 `ColorSelectionPanel.cs` — 순수 표시 전용
+
+라운드 진행에 어떤 영향도 주지 않는 읽기 전용 UI: `Update()`마다 Room 프로퍼티를 폴링해
+라운드/남은시간 표시와 스와치 잠금만 갱신한다. `PhotonNetwork.InRoom`이 아니면 아무 것도 하지
+않으므로 로비 등 방 밖 화면에서 실수로 동작할 위험은 없다.
+
+### 25.4 `ColorSwatchButton.cs` — 얇은 입력 위임자
+
+클릭 시 `manager.SubmitVote(colorIndex)`만 호출하는 얇은 래퍼. `manager` 필드가 `[SerializeField]`로
+씬/프리팹에서 수동 연결되어야 하며 null 가드가 없다 — `Assets/Scripts/Hero_Ctrl.cs` 시절부터
+이 프로젝트 전반에 걸쳐 반복되는 패턴(§8.7)이 여기도 그대로 있다.
+
+### 25.5 `ColorVoteTally.cs` / `TaggerColorAssigner.cs` — 순수 함수, 부작용 없음
+
+둘 다 `static class`의 순수 함수라 유닛 테스트가 쉬운 형태로 잘 분리되어 있다. `ColorVoteTally.Resolve`는
+무투표/전원-제외색 상황까지 방어적으로 처리한다(§25.1 코드 스니펫 참고). `TaggerColorAssigner.
+FindSwappedSlot`은 정확히 한 슬롯만 다르다고 가정하는데, 이 가정은 `BuildVariantSet`이 항상 정확히
+한 슬롯만 바꾸도록 보장하므로 실제로 깨지지 않는다(교차 확인 완료).
+
+### 25.6 `PlayerPaintCanvas.cs` — 이 도메인에서 가장 복잡한 파일 (213줄)
+
+- 캐릭터 1개당 런타임에 개별 `RenderTexture`(기본 512×512, ARGB32)를 새로 만들어 스킨 머티리얼에
+  합성한다 — 직렬화 필드로 텍스처를 공유하면 모든 캐릭터가 같은 캔버스를 덮어쓰게 된다는 점을
+  주석으로 명시하고 실제로 `InitPaintCanvas()`에서 매번 `new RenderTexture(...)`로 새로 만든다
+  (올바른 패턴).
+- 알파 채널을 "잠금 마스크"로 쓴다: `brushStampMaterial`은 이미 칠해진(알파=1) 픽셀을 다시
+  건드리지 않고, `finalizeStampMaterial`만 잠금을 무시하고 항상 덮어쓴다 — 그래서 라운드 진행
+  중에는 한 번 칠한 자리를 다른 색으로 덮어 칠할 수 없고(§25.1-④), 라운드가 끝나야만
+  확정색으로 강제 재도색된다(§25.1-⑥). 게임 디자인 의도로 보이며 버그는 아니다.
+  - **다만 이 잠금은 최종 사용자에게 설명되지 않는 한 혼란을 줄 수 있다**: 라운드 중 자기가
+    고른 색으로 한 번 칠한 자리는, 그 라운드 안에서는 다른 색으로 다시 칠할 방법이 없다(브러시
+    잠금 때문에). 의도된 "실수해도 못 고친다"는 긴장감인지, UX상 재고가 필요한 제약인지는
+    확인이 필요하다.
+- `ApplyStamp()`가 `[SerializeField] Material` 2개(`brushStampMaterial`/`finalizeStampMaterial`)의
+  셰이더 프로퍼티(`_StampUV`/`_StampRadius`/`_StampColor`)를 매 스탬프마다 직접 변경한다 — 이
+  머티리얼들이 인스턴스가 아니라 **에셋을 그대로 공유**하는 것이라면, 여러 캐릭터가 동시에
+  칠할 때 서로의 프로퍼티 값을 덮어쓸 위험이 있어 보이지만, 실제로는 C#이 싱글스레드로 실행되고
+  `ApplyStamp()` 안에서 프로퍼티 설정 → `Graphics.Blit` → 임시 텍스처 해제까지 한 번에 끝나므로
+  (한 캐릭터의 스탬프 처리가 다음 캐릭터의 스탬프 처리 도중에 끼어들 수 없음) 실질적인 경합은
+  없다 — 겉보기엔 위험해 보이지만 실행 순서상 안전한 패턴으로 확인됐다.
+- 네트워크 전파(`SendStrokeEvent`)는 `ReceiverGroup.Others`로만 보낸다 — 보낸 사람은 자기 스트로크를
+  로컬에서 이미 찍었으므로 자기 자신에게 다시 받아 이중 스탬프를 찍는 것을 원천적으로 피한다
+  (올바른 설계).
+- `DetectRoundChange()`는 소유 여부와 무관하게 **모든 클라이언트에서** 매 프레임 실행되지만,
+  실제 재도색(`FinalizeCurrentRoundStrokes`)은 `pv.IsMine`일 때만 실행된다 — 즉 각자 자신의
+  캐릭터에 대해서만 재도색 책임을 진다(자기 캐릭터니까 당연하지만, 관찰만 하는 리모트 인스턴스도
+  이 메서드 자체는 매 프레임 호출된다는 점은 사소한 낭비다 — `roundIndex == trackedRoundIndex`
+  얼리 리턴이 있어 실질 비용은 낮다).
+- null 가드 없음: `palette`, `bodyRenderer`, `paintedSkinShader` 등 다수의 `[SerializeField]`가
+  인스펙터 미연결 시 `NullReferenceException`으로 즉시 실패한다(§8.7과 동일 패턴). 다만
+  `bodyRenderer == null || paintedSkinShader == null`인 경우 스킨 합성만 건너뛰는 부분적 가드는
+  있다(44행대).
+
+### 25.7 `BrushCursorController.cs` — 3D 붓 커서
+
+`brushSettings.CursorPrefab`을 라운드 시작 시 1회 인스턴스화해 계속 재사용한다(매 프레임 새로
+만들지 않음 — 최적화 관점에서 적절). 자신의 `PlayerPaintCanvas`를 찾을 때
+`FindObjectsByType<PlayerPaintCanvas>`로 **씬 전체를 매 프레임 순회**한다(`localPaintCanvas`가
+아직 없거나 소유자가 아닐 때만) — 플레이어 수가 적어 지금은 문제가 안 되지만, `CLAUDE.md`의
+"최적화를 고려한 코드 작성" 원칙에 비춰보면 씬에 하나뿐인 로컬 캔버스를 찾는 데 매번 전체 탐색을
+쓰는 것은 개선 여지가 있다(예: 찾은 뒤에는 캐싱하고 씬 전환/재접속 시에만 다시 탐색하는 식).
+OS 커서와 3D 커서 전환 로직(캐릭터 표면 위=3D 커서/OS 커서 숨김, 그 외=OS 커서)은 꼼꼼하게
+`OnDisable()`에서도 `Cursor.visible = true`로 복구해 씬 전환 시 커서가 숨겨진 채로 남는 사고를
+막고 있다.
+
+### 25.8 `PlayerColorVoteIndicator.cs` — 투표색 빌보드
+
+캐릭터 머리 위에 자신이 현재 투표 중인 색을 스프라이트로 표시. `LateUpdate()`에서
+`transform.forward = Camera.main.transform.forward`로 빌보드 처리하는데, 이는 "카메라를 향하게"가
+아니라 **"카메라가 보는 방향과 같은 방향을 보게"**(카메라와 평행)로, 일반적인 빌보드
+(`LookAt(Camera.main.transform)`, 즉 카메라를 정면으로 마주보게)와는 미묘하게 다르다.
+원근 카메라를 정면으로 오래 볼 때는 거의 차이가 없지만, 카메라가 스프라이트를 비스듬히
+내려다보는 각도(이 프로젝트의 3인칭 추적 카메라, §27의 `m_DefaultRotV=25°`)에서는 스프라이트
+평면이 카메라 시선과 정확히 수직이 되지 않아 살짝 찌그러져 보일 수 있다 — 크래시는 아니지만
+시각적으로 완벽한 빌보드는 아니다.
+
+### 25.9 `RoomLifecycleWatcher.cs`
+
+이번 세션 앞부분(`RoomItemPlan.md` §0.2/§7)에서 이미 상세히 다루고 직접 수정한 파일이라 여기서는
+요약만 한다: 술래 퇴장/인원 부족 시 방을 나가 `LobbyScene`으로(비정상 종료), 정상 종료(20초 타이머,
+`GameEndTime` 프로퍼티) 시에는 방을 유지한 채 `GameLobbyScene`으로 돌아간다(마스터만 트리거). 현재
+버전은 이 세션에서 수정한 대로 정상 동작한다.
+
+### 25.10 이 도메인의 실제 배선(wiring) 현황
+
+`ColorTag/`의 10개 스크립트가 실제로 GameObject에 붙어 동작하는 곳은 현재 **`PlayerTestScene`
+뿐이다**(이번 세션 초반 씬 계층 조회로 확인: `hide_or_seek_player`에 `PlayerPaintCanvas`/
+`PlayerColorVoteIndicator`/`PlayerColorDisplay`가, `ColorTagManagers`에 `ColorSelectionManager`/
+`RoomLifecycleWatcher`/`BrushCursorController`가 붙어 있음). 정작 실제 매치가 도달하는
+`GameScene.unity`는 이번 세션에서 직접 열어 확인한 대로 카메라+라이트만 있는 빈 템플릿이다
+(`RoomItemPlan.md`의 범위 밖으로 이미 명시됨). 즉 이 도메인은 **코드/에셋 레벨로는 완성도가
+높지만, 실제 매칭 플로우에 아직 배선되지 않았다**는 것이 §25.2의 통합 공백과 함께 이 도메인의
+가장 중요한 현재 상태 요약이다.
+
+## 26. `Unit/` 도메인 요약 (상세는 `PlayerControllPlan.md` §1~§16)
+
+이미 별도 계획 문서에서 라인 단위로 조사·리팩토링·버그 2건 수정(Walk/SneakWalk 루프 설정 누락,
+Dodge Root Motion 겹침)·Dodge 애니메이션 재타이밍까지 끝난 상태라 이번 조사에서 새로 발견한 것은
+없다. 핵심만 재확인:
+
+- `HideOrSeekPlayer`(오케스트레이터, `MonoBehaviourPunCallbacks`+`IPunObservable`) +
+  `PlayerGroundDetector`/`PlayerAnimationDriver`/`PlayerNetworkSync`(순수 C#) +
+  `PlayerMoveState`(enum) 5개 파일로 책임이 분리되어 있다.
+- 전투/HP 없음, 이동·점프·회피·애니메이션·네트워크 동기화만 담당(§2.2 범위 확정).
+- `Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab`로 이미 정식 프리팹 승격 완료
+  (`PlayerControllPlan.md` §13.9/§13.11) — `Resources` 하위에 있어 `PhotonNetwork.Instantiate("Hide
+  OrSeekPlayer", ...)`로 이름으로 스폰 가능한 상태다. **그런데 이 이름으로 스폰을 시도하는 코드가
+  프로젝트 어디에도 없다**(§30에서 재확인) — `Assets/Scripts/GameManager.cs`는 여전히 존재하지 않는
+  `"HeroPrefab"`을 스폰하려 한다(§33 이하 재조사 참고). §25.2의 "미니게임 시작 트리거 없음"과 같은
+  종류의, "만들어는 놨는데 아직 아무도 실제로 부르지 않는" 통합 공백이다.
+- `Awake()`가 `Camera.main`에서 `Camera_Ctrl`을 찾아 스스로 연결하는 방식이라(§27과 연동)
+  씬을 가리지 않고 재사용 가능(`GameLobbyScene`/`GameScene` 어디든 `Main Camera`에 `Camera_Ctrl`만
+  있으면 자동 연결).
+
+## 27. `Camera/Camera_Ctrl.cs` 상세 (신규 조사)
+
+`PlayerControllPlan.md` §13.4/§13.5가 "설계 스니펫"으로 제시했던 코드와 실제 파일을 줄 단위로
+대조했다.
+
+- 구조는 계획대로 정확히 구현되어 있다: 마우스 휠 줌 관련 필드/로직(`zoomSpeed`, `minDist`,
+  `maxDist`, `m_TargetDistance`, `m_CurDistance`, `zoomSmoothTime`, `zoomVelocity`)이 전부 제거됐고,
+  `m_DefaultDist` 하나만 남아 카메라 거리를 고정한다. `InitCamera(GameObject)`는 `HideOrSeekPlayer.
+  Awake()`가 호출하는 유일한 진입점이라 씬에 미리 `m_Player`를 연결해둘 필요가 없다(§26 참고).
+- **수치 불일치 발견**: 계획 문서(§13.4)의 설계 스니펫은 `m_DefaultDist = 5.2f`라고 명시했지만,
+  실제 구현된 파일은 `[SerializeField] float m_DefaultDist = 3.2f;`다 — 값이 다르고, 계획에는 없던
+  `[SerializeField]`도 추가되어 있다(인스펙터에서 개별 조정 가능하게 한 것으로 보임, 합리적인
+  개선). 3.2가 실제로 플레이한 뒤 더 나은 카메라 거리로 판단해 의도적으로 바꾼 것인지, 단순
+  오기인지는 코드만으로는 알 수 없다 — 계획 문서와 실제 값이 다르다는 사실만 기록해둔다.
+- `Update()`가 아니라 `LateUpdate()`에서 카메라를 갱신한다(플레이어의 `Move()`가 `Update()`에서
+  먼저 실행된 뒤 카메라가 뒤따르므로 한 프레임 지연/떨림이 없는 올바른 순서).
+- 회전은 우클릭 드래그(`Input.GetMouseButton(1)`)에서만 마우스 X/Y를 반영하고,
+  `Quaternion.Slerp`로 `rotationSmoothTime`(0.08초) 기준 프레임 독립적으로 보간한다. 수직 각도는
+  `ClampAngle`로 `-7°~80°`로 제한된다.
+- `m_Player`가 `null`이면 `Start()`/`LateUpdate()` 둘 다 조용히 아무 것도 하지 않는다 — 방어적이라
+  안전하지만, `InitCamera()`가 한 번도 호출되지 않은 채(예: `HideOrSeekPlayer`가 소유자가 아니거나
+  `Camera.main`을 못 찾은 경우) 카메라가 원점에 가만히 있는 상태가 되어도 에러/경고가 전혀 없다 —
+  디버깅 시 "왜 카메라가 안 움직이지"를 원인 로그 없이 조사해야 할 수 있다.
+
+## 28. `Lobby/` 도메인 요약 (상세는 `RoomItemPlan.md` §1~§7)
+
+이번 세션에서 직접 설계·구현·검증까지 마친 도메인이라 재조사에서 새로 발견한 것은 없다. 핵심만
+재확인: `LobbyController`(로비 접속/방 목록/생성/입장) + `RoomListItem`(방 목록 항목) +
+`GameLobbyController`(대기방 인원/방장 전용 시작 버튼) + `PlayerListItem`(대기방 플레이어 목록
+항목) 4개 파일. 전부 `MonoBehaviourPunCallbacks`의 `OnEnable`/`OnDisable`에서
+`AddCallbackTarget`/`RemoveCallbackTarget`을 빠짐없이 호출하는 이 프로젝트의 표준 패턴을 따른다.
+`GameLobbyController.Start()`에는 이번 세션에서 발견해 고친 방어 코드(방에 들어오지 않은 채 씬이
+단독 실행되는 경우의 `NullReferenceException` 가드)가 반영되어 있다(`RoomItemPlan.md` §7.3 참고).
+
+**`ColorTag`/`Unit`과의 연결 공백**: `GameLobbyController.OnStartGameButtonClicked()`는
+`PhotonNetwork.LoadLevel("GameScene")`만 호출하고, 그 씬에서 캐릭터를 스폰하거나
+색상 선택을 시작하는 어떤 코드도 호출하지 않는다 — §25.2/§26에서 지적한 두 공백(미니게임
+시작 트리거 없음, `HideOrSeekPlayer` 스폰 코드 없음)이 정확히 이 지점에서 이어져야 할 다음
+작업이다.
+
+## 29. `Dev/OfflineModeBootstrap.cs`
+
+프로덕션 플로우와 무관한 개발용 진입점. `Awake()`에서 무조건 `PhotonNetwork.OfflineMode = true`로
+설정하고, `autoStartColorSelection`이 켜져 있으면 `Start()`에서 오프라인 룸을 만들고
+`ColorSelectionManager.StartColorSelection()`을 직접 호출한다(§25.2에서 확인했듯, 프로젝트 전체에서
+이 메서드를 호출하는 유일한 지점). `CLAUDE.md`의 "개발 도구 → `Scripts/Dev/`" 규칙을 정확히 따르고
+있다. 씬에 `ColorSelectionManager`가 없으면 `Debug.LogWarning`으로 안전하게 알리고 종료한다(이
+파일 안에서는 드물게 존재하는 null 가드/로깅 사례).
+
+## 30. 크로스 도메인 의존성 맵
+
+```
+Lobby/*            (독립적 — ColorTag/Unit/Camera 어느 것도 참조하지 않음)
+
+Unit/HideOrSeekPlayer.cs
+└── Camera/Camera_Ctrl.cs 참조 (Awake()에서 Camera.main.GetComponent<Camera_Ctrl>())
+
+ColorTag/PlayerColorDisplay.cs
+└── [RequireComponent] ColorTag/PlayerPaintCanvas.cs (같은 도메인 내부 결합)
+
+ColorTag/BrushCursorController.cs
+└── ColorTag/PlayerPaintCanvas.cs, ColorPaletteSO, BrushSettingsSO 참조 (같은 도메인)
+
+Dev/OfflineModeBootstrap.cs
+└── ColorTag/ColorSelectionManager.cs 참조 (StartColorSelection 호출)
+
+(모든 도메인) → Assets/Scripts/GameManager.cs 참조 없음 [양방향]
+(모든 도메인) → Assets/02. Scripts/Unit/HideOrSeekPlayer.prefab을 실제로 스폰하는 코드 없음
+(모든 도메인) → Assets/02. Scripts/ColorTag/ColorSelectionManager.StartColorSelection()을
+                실제 매칭 흐름(Lobby)에서 호출하는 코드 없음
+```
+
+`Assets/Scripts/`(구 트리, GameManager.cs만 남음)와 `Assets/02. Scripts/`(신규 트리) 사이에는
+**코드 레벨의 참조가 전혀 없다** — 두 트리는 지금 완전히 분리된 섬처럼 존재한다. 이론적으로
+연결되어야 할 지점(로비에서 방을 나갈 때의 씬 이름, 캐릭터 스폰)은 모두 `GameManager.cs` 쪽이
+낡은 값(`"PhotonLobby"`, `"HeroPrefab"`, `"HeroSpawnPos"`)을 참조하고 있어 실제로는 연결되지 않은
+상태다(§33 이하에서 상세 재조사).
+
+## 31. 확인된 버그·스멜 종합 (`Assets/02. Scripts/`)
+
+1. **[통합 공백, 가장 중요] 실제 매칭 흐름에 색상 선택 시작 트리거가 없음** — `StartColorSelection()`을
+   호출하는 코드가 `OfflineModeBootstrap`(개발용) 하나뿐(§25.2).
+2. **[통합 공백] 실제 매칭 흐름에 `HideOrSeekPlayer` 스폰 코드가 없음** — 프리팹은 완성돼 있지만
+   아무도 `PhotonNetwork.Instantiate`로 부르지 않음(§26, §30).
+3. **[통합 공백] `GameScene.unity`가 아직 빈 템플릿** — `ColorTag/` 10개 스크립트가 실제로 동작하는
+   곳은 `PlayerTestScene` 하나뿐(§25.10).
+4. `ColorSelectionManager.ResetAllVotes()`가 마스터 자신의 투표만 리셋하고 다른 플레이어의
+   투표는 리셋하지 않음 — 의도 확인 필요(§25.2).
+5. `Camera_Ctrl.m_DefaultDist`가 계획 문서(5.2f)와 실제 구현(3.2f)이 서로 다름 — 의도적 튜닝인지
+   오기인지 확인 필요(§27).
+6. `PlayerColorVoteIndicator`의 빌보드가 `LookAt` 방식이 아니라 `forward` 정렬 방식이라, 카메라가
+   비스듬히 내려다보는 각도에서 스프라이트가 살짝 찌그러질 수 있음(§25.8).
+7. `BrushCursorController`가 로컬 캔버스를 찾을 때 매 프레임 `FindObjectsByType`로 씬 전체를
+   순회함 — 결과를 캐싱하지 않는 최적화 여지(§25.7, `CLAUDE.md` 최적화 원칙 관련).
+8. 이 폴더 전반에 걸쳐 반복되는 패턴: `[SerializeField]` 참조 다수가 null 가드/`[RequireComponent]`
+   없이 즉시 역참조됨(`ColorSwatchButton.manager`, `PlayerPaintCanvas`의 다수 필드 등) —
+   `Assets/Scripts/` 시절부터(§8.7) 이어지는 프로젝트 전반의 습관.
+
+## 32. 다음 단계 제안
+
+1. `GameLobbyController.OnStartGameButtonClicked()`(또는 `GameScene` 진입 시점의 별도 매니저)에서
+   `HideOrSeekPlayer.prefab`을 스폰하고 `ColorSelectionManager.StartColorSelection()`을 호출하는
+   실제 연결 코드를 작성한다 — §31-1/2/3을 한 번에 해소하는 핵심 작업.
+2. `GameScene.unity`에 `PlayerTestScene`에 이미 검증된 구성(`ColorTagManagers`, `GameUICanvas` 등)을
+   옮겨 채운다.
+3. `ColorSelectionManager.ResetAllVotes()`의 의도를 확인하고, 전원 리셋이 맞다면
+   `PhotonNetwork.PlayerList`를 순회하도록 고친다(§31-4).
+4. `Camera_Ctrl.m_DefaultDist` 값(3.2 vs 5.2)의 의도를 확인해 계획 문서 쪽을 최신값으로
+   맞추거나, 실제로 오기였다면 되돌린다(§31-5).
+
+---
+
+# 조사 보고서 재조사: Assets/Scripts/GameManager.cs (2026-08-14)
+
+(위 §11~§22가 2026-08-13에 작성된 최초 조사다. 그 사이 `Hero_Ctrl.cs`/`AnimState.cs`/
+`Monster_Ctrl.cs`가 삭제되고, `Assets/02. Scripts/` 전체가 새로 만들어지는 등 프로젝트가 크게
+바뀌었으므로, 사용자 요청에 따라 `GameManager.cs`를 처음부터 다시 정독하고 재조사했다. 파일 자체는
+§11~§22 이후 **한 글자도 바뀌지 않았다**(git 이력·바이트 단위 대조 없이도, 385~13번 줄까지 §11의
+서술과 정확히 일치함을 이번에 재확인) — 달라진 것은 파일이 아니라 **파일을 둘러싼 프로젝트의
+나머지 부분**이다. 이 섹션은 "무엇이 이제는 맞고, 무엇이 여전히 틀렸는지"를 다시 정리한다.)
+
+## 33. 재조사 결론 요약
+
+| §20의 기존 지적 | 2026-08-13 상태 | **2026-08-14 재확인 결과** |
+|---|---|---|
+| ① CP949 인코딩 | 심각 | **그대로 심각.** 이번에 파일을 다시 읽어도 `ä��` 류의 깨진 바이트가 동일하게 나타난다(예: 12행 `MAX_CHAT` 주석, 81행 "방 나감" 메시지 리터럴). 손대지 않았으므로 당연하지만, 여전히 최우선 수정 대상이다. |
+| ② Build Settings 씬 0개 | 심각 | **"완전히 비어있다"는 문제 자체는 해소됨.** 다만 정확히 어떤 씬이 몇 번에 등록돼 있는지는 이 보고서 작성 도중에도 실시간으로 바뀌는 것을 직접 목격했다 — §34에서 스냅샷과 함께 신뢰도 문제를 별도로 기록. |
+| ③ `"PhotonLobby"` 씬 없음 | 버그 | **여전히 버그, 그러나 원인이 바뀜.** 이제 Build Settings는 채워져 있지만 등록된 4개 씬 중 `"PhotonLobby"`라는 이름은 없다(가장 가까운 후보는 `"LobbyScene"`) — 즉 이제는 "Build Settings가 비어서" 실패하는 게 아니라 "이름이 틀려서" 실패한다. 고치는 방법은 여전히 한 줄(`"PhotonLobby"` → `"LobbyScene"`)이다. |
+| ④ `"HeroSpawnPos"` 없음 | 버그 | **여전히 버그.** 프로젝트 전체 재검색(§35)으로도 이 이름의 오브젝트는 `GameManager.cs` 자기 자신 말고 어디에도 없다. |
+| ⑤ `"HeroPrefab"` 없음 | 버그 | **여전히 버그, 그리고 이제 "정답"이 따로 존재한다.** `Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab`이 이번 세션 이전에 이미 정식 프리팹으로 승격되어 있다(`PlayerControllPlan.md` §13.9/§13.11) — `CreatePlayer()`가 스폰해야 할 프리팹은 사실상 이것인데, 코드는 여전히 존재하지 않는 `"HeroPrefab"`이라는 이름을 참조한다. |
+| ⑥ `CreatePlayer()`가 `Awake()`에서 레이스 컨디션 없이 호출됨 | 버그 | **여전히 버그.** 변경 없음. |
+| ⑦ `is_Conversating`이 Enter 키로만 해제됨 | UX 버그 | **성격이 바뀜 — 더 심각한 문제로 대체됨.** §36 참고: 이 프로퍼티를 **읽는 코드 자체가 이제 프로젝트에 없다.** |
+
+## 34. Build Settings 재확인 (§18-1 갱신) — ⚠️ 조사 중 실시간으로 상태가 바뀜, 아래는 스냅샷일 뿐
+
+이 섹션을 작성하는 도중 Unity 에디터에서 Build Settings를 다시 조회했더니, 앞서 확인했던 값과
+**다른 결과**가 나왔다:
+
+```
+0: Assets/Scenes/PhotonLobby.unity       (enabled, guid 5cdf08a4...)
+1: Assets/Scenes/ColorSelectScene.unity  (enabled, guid ae225822...)
+2: Assets/Scenes/GameScene.unity         (enabled, guid 9fc0d401...)
+3: Assets/Scenes/SampleScene.unity       (enabled, guid b551b0be...)
+```
+
+그런데 이 프로젝트의 `Assets/Scenes/` 폴더를 직접 나열해보면 여전히 `SampleScene`/`PlayerTestScene`/
+`LobbyScene`/`GameLobbyScene`/`GameScene` 5개 `.unity` 파일만 존재한다 — **`PhotonLobby.unity`나
+`ColorSelectScene.unity`라는 파일 자체가 디스크에 없다.** 게다가 에디터가 현재 열어 둔
+"활성 씬"은 `Assets/Scenes/GameScene.unity`(guid `11206140...`)인데, 이는 방금 위 Build Settings
+목록에 나온 `GameScene.unity`의 guid(`9fc0d401...`)와도 **서로 다르다.** 같은 세션 중 `git status`로도
+`Assets/Scenes/GameScene.unity` 자체와 `Assets/02. Scripts/ColorTag/Shaders/`의 머티리얼 2개가
+이 보고서 작성 도중 새로 수정됨(M)으로 표시됐고, 이 세션에서 만든 적 없는 `Chatting.png` 파일도
+새로 나타났다.
+
+**해석**: 이 보고서를 작성하는 동안 **사용자가 Unity 에디터에서 직접 `GameScene`을 살아있는
+상태로 편집하고 있었던 것으로 보인다**(새 씬 생성/이름변경, 셰이더 머티리얼 수정, 채팅 UI용
+이미지 추가 등). 즉 위 4줄짜리 Build Settings 스냅샷은 "지금 이 순간" 하나를 찍은 것일 뿐이며,
+이 문서가 읽히는 시점에는 이미 또 달라져 있을 가능성이 크다 — **이 보고서의 다른 어떤 섹션보다도
+신뢰도가 낮으니, 실제 작업 시에는 이 표를 참고하지 말고 그때그때 `File > Build Settings`를 직접
+열어 확인할 것을 권장한다.** §18-1에서 지적했던 "`m_Scenes: []`"(완전히 비어있음) 문제 자체는
+이미 여러 세션 전에 해소됐다는 사실만은 안정적으로 유지되고 있다. `SceneManager.LoadScene
+("PhotonLobby")`(115~120행) 호출은 — 흥미롭게도 지금 이 순간의 스냅샷 기준으로는 `PhotonLobby.unity`가
+Build Settings 0번에 **등록되어 있는 것처럼 보이지만**, 그 경로에 실제 파일이 없으므로 여전히
+런타임에는 실패할 것으로 추정된다(직접 실행해 재현하지는 않았다 — 사용자가 실시간으로 작업
+중인 상태를 건드리고 싶지 않아 보류함).
+
+## 35. 스폰 의존성 재확인 (§19 갱신)
+
+`GameObject.Find("HeroSpawnPos")`와 `PhotonNetwork.Instantiate("HeroPrefab", ...)`가 요구하는 두
+이름을 프로젝트 전체(씬 파일 + `Resources` 하위 에셋)에서 다시 검색했다 — **정확히 1건, 즉
+`GameManager.cs` 자기 자신의 코드에서만 등장**하고 그 외에는 어디에도 없다. §19의 결론(스폰이
+조용히 스킵됨)은 그대로 유효하다.
+
+**새로 확인된 사실**: 이제 이 프로젝트에는 스폰 가능한 "진짜" 캐릭터 프리팹이 존재한다 —
+`Assets/04. Prefabs/Resources/HideOrSeekPitle...`가 아니라 정확히
+`Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab`이며, `Resources` 폴더 아래 있으므로
+`PhotonNetwork.Instantiate("HideOrSeekPlayer", ...)`처럼 이름으로 스폰 가능한 상태다
+(`PlayerControllPlan.md` §13.9). 즉 `CreatePlayer()`를 고치는 작업은 이제 "프리팹을 새로 만드는"
+작업이 아니라 "이미 있는 프리팹의 정확한 이름으로 문자열만 바꾸고, 스폰 위치를 실제 씬 오브젝트에
+맞추는" 작업으로 범위가 줄어들어 있다 — 다만 이 작업은 `RoomItemPlan.md`/`PlayerControllPlan.md`
+양쪽 모두에서 명시적으로 "범위 밖"으로 분류해 두었으므로(§26의 `Lobby`↔`Unit` 통합 공백과 동일),
+이번 조사에서도 손대지 않았다.
+
+## 36. `Is_Conversating` — 이제는 아무도 읽지 않는 완전한 고아 프로퍼티
+
+§17/§20-7에서는 "Enter 키로만 닫혀서 소프트락 위험이 있다"는 **UX 버그**로 지적했다. 이번에
+`grep`으로 프로젝트 전체에서 `Is_Conversating`/`is_Conversating`을 다시 찾아본 결과, **선언된
+바로 그 줄(`GameManager.cs:23`) 외에는 어디에도 등장하지 않는다.**
+
+이유는 명확하다: 원래 이 프로퍼티를 읽던 유일한 소비자는 `Hero_Ctrl.CheckMovementInput()`(§14에서
+교차 확인했던 그 지점)이었는데, `Hero_Ctrl.cs`가 `PlayerControllPlan.md` §13.3-2/§13.7에서 완전히
+삭제됐다. 그리고 그 자리를 대신하도록 설계됐던 `HideOrSeekPlayer.IsMovementLocked`(`PlayerControllPlan.md`
+§9, "사망/대화/컷신 등 상위 시스템이 이 프로퍼티만 세팅하면 이동이 잠긴다")도, 이번에 다시
+검색해보니 **`get; set;`로 선언되고 `Update()` 최상단에서 읽히기만 할 뿐, 어디서도
+`true`로 세팅하는 코드가 없다**(`HideOrSeekPlayer.cs:41,66` 외 참조 0건).
+
+**결론**: 지금 이 프로젝트에는
+- 채팅 중임을 나타내는 값을 들고 있는 `GameManager.is_Conversating`이 있지만 **아무도 읽지 않고**,
+- 이동을 잠글 수 있는 `HideOrSeekPlayer.IsMovementLocked`가 있지만 **아무도 쓰지(set) 않는다.**
+
+두 절반이 서로 다른 클래스에 따로 존재하고, 그 사이를 이어주는 코드가 없다 — "채팅 중에는
+캐릭터가 못 움직인다"는 원래 `Hero_Ctrl` 시절의 기능이 리팩토링 과정에서 **완전히 끊어진
+채로 방치되어 있다.** 이전 조사(§17)가 지적했던 "닫는 방법이 Enter 하나뿐이라 소프트락 위험"이라는
+문제보다 근본적으로 더 심각한 상태로 바뀐 셈이다(소프트락은 "기능이 있는데 가끔 오작동"하는
+문제였지만, 지금은 "기능 자체가 아예 작동하지 않는" 상태). `GameManager`(채팅 UI)와
+`HideOrSeekPlayer`(이동)를 다시 연결하는 코드 — 예를 들어 `GameManager.Update()`의 `bEnter` 토글
+지점에서 로컬 `HideOrSeekPlayer` 인스턴스를 찾아 `IsMovementLocked`를 세팅해주는 한 줄 — 가
+없으면, 이 프로젝트에는 현재 "채팅 중 이동 잠금" 기능이 사실상 존재하지 않는다.
+
+## 37. 인코딩 재확인 (§12 갱신)
+
+`iconv -f UTF-8 -t UTF-8` strict 디코딩을 다시 시도한 결과 이번에도 동일하게 실패했고(12행 부근),
+`iconv -f CP949 -t UTF-8`로는 처음부터 끝까지 정상 복원된다 — §12의 진단이 여전히 정확하다. 파일
+자체가 바뀌지 않았으므로 당연한 결과지만, "혹시 프로젝트의 다른 부분이 바뀌면서 이 파일도 같이
+재저장됐을까"라는 가능성을 배제하기 위해 다시 직접 확인했다.
+
+## 38. 재조사 총괄 — 남은 작업 우선순위
+
+이번 재조사로 갱신된 우선순위(중복 제거, §20 대비 변경분 반영):
+
+1. **[신규 최우선] `GameManager`의 채팅-이동잠금 연결 복구**(§36) — 기능이 아예 끊어져 있다는 게
+   이번에 새로 확인된 사실이라, CP949 인코딩 다음으로 우선순위가 높다고 판단된다.
+2. CP949 → UTF-8(BOM) 재저장(§37, 변경 없음, 여전히 최우선급).
+3. `OnLeftRoom()`의 `"PhotonLobby"` → `"LobbyScene"`(§34에서 확인한 대로 이제 Build Settings 문제는
+   해소됐으니 이름만 고치면 됨).
+4. `CreatePlayer()`를 `"HeroPrefab"`/`"HeroSpawnPos"` 대신 실제로 존재하는
+   `"HideOrSeekPlayer"`(§35) 프리팹과 실제 씬의 스폰 포인트를 쓰도록 갱신 — 다만 이 작업은
+   `RoomItemPlan.md §31-1/2`와 정확히 같은 통합 공백의 반대쪽 절반이므로, 두 문서의 "다음 단계"를
+   함께 보고 한 번에 처리하는 것이 합리적이다.
+5. `CreatePlayer()`를 `Awake()`가 아니라 `OnJoinedRoom()`으로 옮겨 레이스 컨디션 제거(§20-5, 변경
+   없음).
+6. `LogMsg` 색상 치환 로직과 주석 정리(§20-6, 변경 없음).

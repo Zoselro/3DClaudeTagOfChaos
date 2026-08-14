@@ -832,3 +832,408 @@ Unity MCP로 직접 실행했다. `manage_asset(action="move")`로 `Camera_Ctrl.
 - `GameLobbyScene`은 아직 만들어지지 않아 13.6/13.10-9는 계속 대기 상태.
 - `GameManager.CreatePlayer()`를 이 프리팹으로 스폰하도록 갈아끼우는 작업은 13.7에서 이미 범위 밖으로
   분류했으므로 손대지 않았다.
+
+---
+
+## 14. 버그: Dodge 모션이 한 번 눌렀을 때 끝까지 재생되지 않음 — 🔎 원인 분석 완료, 구현 대기
+
+> 사용자 보고: "지금 Dodge 모션이 한번 눌렀을 때 끝까지 모션이 실행이 안된다." 아래는
+> `HideOrSeekPlayer.cs`/`PlayerAnimationDriver.cs`와 `PlayerAnimator.controller`를 직접 조사해서
+> 확인한 원인과 수정 계획이다. **지시에 따라 이번에는 계획만 정리했고 실제 수정은 하지 않았다.**
+
+### 14.1 증상
+
+회피(Dodge, `LeftControl`) 입력 시 캐릭터가 순간적으로 튀어나가긴 하지만, `Dodge.fbx` 모션이
+끝까지 재생되지 못하고 도중에 잘려서 `Idle`/`Walk` 자세로 갑자기 바뀐다.
+
+### 14.2 원인 (코드/에셋 실측)
+
+`Assets/Animation/PlayerAnimator.controller`를 코드로 직접 조회해 확인한 수치:
+
+| 항목 | 값 |
+|---|---|
+| `Dodge` 애니메이터 상태의 모션(`Dodge.fbx`의 `Dodge` 클립) 실제 길이 | **1.633초** (`isLooping=False`, 원샷 — §12.6에서 의도한 대로) |
+| `HideOrSeekPlayer.dodgeDuration`(회피 로직 타이머, `Assets/02. Scripts/Unit/HideOrSeekPlayer.cs:13`) | **0.5초** |
+| Any State → `Idle`/`Walk`/`SneakWalk` 전이 설정 | `hasExitTime=False`, `duration=0.1`(즉시 반응이 설계 의도, §8.3) |
+
+`CheckDodgeInput()`(`HideOrSeekPlayer.cs:169~191`)의 흐름:
+
+```csharp
+// LeftControl을 누른 프레임
+dodgeMoveDir = rotation;
+isDodge = true;
+keepMovingAfterDodge = true;
+dodgeTimer = dodgeDuration; // 0.5초
+animationDriver.ChangeState(PlayerMoveState.Dodge); // Dodge 트리거 발동, 클립 재생 시작(총 1.633초)
+
+// 이후 매 프레임
+dodgeTimer -= Time.deltaTime;
+if (dodgeTimer <= 0f) DodgeOut(); // 0.5초 뒤 isDodge = false
+```
+
+`DodgeOut()`이 `isDodge`를 `false`로 내리면, **바로 다음 프레임**의 `CheckMovementInput()`이
+`!isJump && !isDodge` 조건을 통과해 `animationDriver.ChangeState(Walk 또는 Idle)`을 호출한다.
+`PlayerAnimator.controller`의 Any State 전이는 `hasExitTime=False`(위 표)라서 트리거가 켜지는 즉시
+(0.1초 블렌드로) 지금 재생 중이던 `Dodge` 클립을 밀어낸다.
+
+**결론**: 회피 버튼을 누르면 1.633초짜리 `Dodge` 클립이 재생을 시작하지만, 정확히 **0.5초 지점
+(전체 재생의 약 30.6%)**에서 `dodgeTimer`가 만료되어 강제로 `Idle`/`Walk`로 전환된다 — 나머지
+약 69%(회피 동작 후반부, 복귀 자세 등)는 한 번도 재생되지 못한다. 이것이 "한 번 눌렀을 때 끝까지
+실행이 안 된다"는 증상의 정확한 원인이다.
+
+**참고**: `Jump`도 구조적으로 동일한 위험(원샷 클립 + Any State 즉시 전이)을 갖고 있지만,
+`PlayerAnimationDriver.HandleJumpAnimationHold()`(§6, §12.7)가 "착지 전까지는 정점 포즈에서
+재생을 멈춰 붙잡아두는" 별도 안전장치를 이미 갖고 있어서 문제가 드러나지 않았다. **Dodge에는
+이 Jump가 가진 것과 동등한 안전장치가 없다는 것이 이 버그의 근본 설계 결함이다.**
+
+또한 `dodgeDuration`(0.5초)은 애초에 "회피 중 캐릭터를 강제로 미는 이동(대시 슬라이드) 지속시간"을
+튜닝하기 위한 값으로 보인다 — `Dodge.fbx`의 실제 길이를 반영해서 정해진 값이 아니다. 즉 **서로
+다른 두 관심사(① 얼마나 오래 강제로 밀어붙일지 ② 애니메이션이 얼마나 재생돼야 하는지)가 우연히
+하나의 타이머(`dodgeTimer`)에 묶여 있던 것**이 근본 원인이다.
+
+### 14.3 수정 방안 검토
+
+**방안 A — `dodgeDuration`을 클립 길이(1.633초)에 맞춰 늘린다.**
+- 장점: 필드 기본값 하나만 바꾸면 되는 최소 변경.
+- 단점: 회피 중 "강제 이동(대시 슬라이드)"도 똑같이 1.6초 넘게 지속되어, 원래 순간적인 대시
+  느낌(0.5초)이 사라지고 캐릭터가 너무 오래 미끄러지는 것처럼 느껴질 수 있다 — 이동감(게임
+  디자인)과 애니메이션 길이(에셋)를 여전히 한 값에 묶어두는 것이라, 나중에 `Dodge.fbx`가 다른
+  클립으로 교체되면 똑같은 버그가 재발할 수 있는 매직 넘버 문제도 그대로 남는다.
+
+**방안 B (권장) — "이동 지속시간"과 "애니메이션 재생 완료"를 서로 다른 조건으로 분리한다.**
+- `dodgeDuration`(0.5초)·`keepMovingAfterDodge`는 그대로 두어 **강제 슬라이드 이동**만 원래
+  튜닝값대로 0.5초에 끝낸다(대시 이동감 변경 없음).
+- **애니메이션 상태 전환**은 Jump의 `HandleJumpAnimationHold()`와 대칭되는 새 메서드로,
+  "Dodge 애니메이터 상태의 `normalizedTime`이 1.0 이상이 될 때까지" `Idle`/`Walk`로의 전환을
+  보류시킨다. Jump에 이미 있는 `state.IsName(...) + normalizedTime` 패턴을 그대로 재사용하므로
+  코드 스타일도 일관된다.
+- 장점: "빠른 대시감(0.5초)"과 "회피 모션 완주(1.633초)"를 둘 다 원래 의도대로 만족. `normalizedTime`
+  기반이라 `Dodge.fbx`가 나중에 교체돼도(클립 길이가 바뀌어도) 다시 어긋나지 않는다.
+- 단점: 방안 A보다 변경 범위가 조금 더 넓다(새 필드 1개, 새 메서드 1개).
+
+**결론: 방안 B로 진행한다.** Jump에 이미 검증된 것과 동일한 패턴을 재사용해 일관성을 유지하면서,
+이동감과 애니메이션 완주를 모두 만족하는 유일한 방법이기 때문이다.
+
+### 14.4 상세 구현 계획 (미구현 — 설계 스니펫만)
+
+**`PlayerAnimationDriver.cs`에 Jump와 대칭되는 메서드 추가:**
+
+```csharp
+// Dodge 애니메이션이 끝까지(정지 포즈 전까지) 재생됐는지 여부.
+// HandleJumpAnimationHold()와 대칭되는 역할이지만, Dodge는 "붙잡아두기"가 아니라
+// "다른 상태로 못 넘어가게 막는 조건 조회"만 하면 되므로 반환값 있는 조회 메서드로 둔다.
+public bool IsDodgeAnimationFinished()
+{
+    if (animator == null || currentState != PlayerMoveState.Dodge)
+        return true; // Dodge 상태가 아니면 막을 이유가 없음
+
+    AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+    return state.IsName("Dodge") && state.normalizedTime >= 1f;
+}
+```
+
+**`HideOrSeekPlayer.cs` 변경:**
+
+1. 새 상태 플래그 추가: `private bool isDodgeAnimationPlaying;`
+2. `CheckDodgeInput()`의 회피 시작 블록에서 `isDodgeAnimationPlaying = true;`도 함께 세팅
+   (`isDodge = true;` 옆).
+3. `DodgeOut()`은 이동 관련 필드만 원복하고(`speed`, `isDodge`, `keepMovingAfterDodge`, `rotation`),
+   `isDodgeAnimationPlaying`은 건드리지 않는다(애니메이션은 아직 안 끝났을 수 있으므로).
+4. `CheckDodgeInput()`의 재입력 가드도 `!isJump && !isDodge`에 `&& !isDodgeAnimationPlaying`을
+   추가한다 — 회피 애니메이션이 실제로 끝나기 전에 회피를 다시 발동해 클립이 또 잘리는 것을
+   방지(§14.2에서 지적한 문제가 연타로 재발하지 않도록).
+5. `CheckMovementInput()`의 두 `if (!isJump && !isDodge)` 조건(이동 시/정지 시 각각 1곳, 총 2곳)에
+   `&& !isDodgeAnimationPlaying`을 추가해, 회피 모션이 재생 중일 때는 `Idle`/`Walk`/`SneakWalk`로
+   강제 전환되지 않게 한다.
+6. `Update()`에서 `animationDriver.HandleJumpAnimationHold();` 옆에 아래를 추가:
+   ```csharp
+   if (isDodgeAnimationPlaying && animationDriver.IsDodgeAnimationFinished())
+       isDodgeAnimationPlaying = false;
+   ```
+   이 프레임 이후부터는 `CheckMovementInput()`이 다시 `Idle`/`Walk`로 자연스럽게 전환할 수 있다.
+
+**영향받지 않는 것**: `PlayerAnimator.controller`의 트리거/전이 설정(§8.3)은 변경하지 않는다 —
+문제는 애니메이터 쪽이 아니라 C# 쪽에서 너무 일찍 트리거를 바꿔버리는 것이었으므로, 트리거를
+"언제 호출하느냐"만 늦추면 충분하다. `Jump` 관련 로직, `PlayerNetworkSync`, `PlayerGroundDetector`도
+변경 없음.
+
+### 14.5 검증 계획 (미실행)
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. `PlayerTestScene`에서 Play Mode 진입 후 슬로우모션(`Time.timeScale`을 낮춰서, §12.7에서 쓴
+   방식과 동일)으로 Dodge를 발동해 `AnimatorStateInfo.normalizedTime`을 프레임 단위로 추적 —
+   0 → 1.0까지 끊기지 않고 도달하는지(즉 `Dodge` 클립이 실제로 끝까지 재생되는지) 확인.
+3. 회피 중 강제 이동(대시 슬라이드)이 여전히 기존과 동일하게 약 0.5초만 지속되는지 확인(방안 B가
+   이동감을 바꾸지 않는다는 것을 검증 — §14.3의 장점 확인).
+4. 회피 애니메이션이 채 끝나기 전에 `LeftControl`을 연타해도 클립이 다시 끊기지 않는지(§14.4-4의
+   재입력 가드) 확인.
+5. Walk/SneakWalk/Jump가 기존과 동일하게 회귀 없이 동작하는지 재확인(§12.6/§12.7에서 이미 검증된
+   부분이 이번 변경으로 깨지지 않았는지).
+
+### 14.6 상태
+
+**원인 분석 완료(수치로 확인: Dodge 클립 1.633초 vs `dodgeDuration` 0.5초). 구현 대기 중** —
+사용자 지시에 따라 이번에는 계획만 정리했고, 실제 수정(`PlayerAnimationDriver`/`HideOrSeekPlayer`
+변경 및 검증)은 진행하지 않았다. **→ B안 적용 시의 부작용은 §15에서 추가로 조사했다.**
+
+---
+
+## 15. B안(§14.3) 적용 시 예상되는 문제점 — 🔎 조사 완료, 미구현
+
+> 사용자 요청: "B안으로 했을 경우 문제가 발생할 수 있는게 있는지에 대해 상세히 파악해줘." 코드를
+> 다시 정독하고 `PlayerAnimator.controller`의 State/Transition 구조까지 재확인해서 찾아낸 문제들이다.
+> **역시 지시에 따라 계획만 정리했고 실제 수정은 하지 않았다.**
+
+먼저 구조적으로 확인한 사실: `PlayerAnimator.controller`의 5개 State(`Idle`/`Walk`/`SneakWalk`/
+`Jump`/`Dodge`)는 전부 **자체 Outgoing Transition이 0개**다(직접 조회로 재확인). 즉 상태 전환은
+Any State 전이(§14.2 표) 외에는 발생하지 않고, Any State 전이는 오직 C# 코드가
+`Animator.SetTrigger(...)`를 호출할 때만 열린다 — 다시 말해 **Dodge 애니메이션을 끊을 수 있는
+경로는 100% `PlayerAnimationDriver.ChangeState()` 호출 지점뿐**이다. 아래 문제들은 전부 이
+전제 위에서, §14.4의 계획이 `ChangeState()` 호출 지점을 빠짐없이 막고 있는지를 다시 추적한
+결과다.
+
+### 15.1 [가장 심각] 애니메이션은 잠겨 있는데 이동/회전은 그대로 자유로워짐
+
+`HideOrSeekPlayer.CheckMovementInput()`의 실제 코드를 다시 보면:
+
+```csharp
+if (moveDir != Vector3.zero)
+{
+    rotation = moveDir;        // ← isDodge/isDodgeAnimationPlaying와 무관하게 무조건 갱신됨
+    rotation_value = rotation;
+
+    if (isDodge)
+        rotation = dodgeRotation;
+
+    if (!isJump && !isDodge)   // §14.4 계획은 이 줄에만 && !isDodgeAnimationPlaying을 추가함
+    {
+        ...
+        animationDriver.ChangeState(...);
+    }
+}
+```
+
+§14.4의 계획은 `animationDriver.ChangeState(...)` 호출을 감싸는 `if` 조건에만
+`!isDodgeAnimationPlaying`을 추가하는 것이었다 — 그런데 **`rotation = moveDir;` 대입 자체는
+그 바깥에서 무조건 실행된다.** `dodgeTimer`가 만료되는 0.5초 시점에 `isDodge`는 이미 `false`가
+되므로(§14.2), `Move()`의 분기 선택(`isDodge && keepMovingAfterDodge` → 거짓)도 즉시 "일반 이동"
+분기로 넘어가 버린다. 즉:
+
+- **0~0.5초**: 강제 슬라이드 이동 + `Dodge` 애니메이션 재생 (의도대로 일치)
+- **0.5~1.633초 (§14.4 적용 후 새로 생기는 구간)**: `isDodgeAnimationPlaying`만 `true`라서
+  애니메이션 **트리거만** `Dodge`에 묶여 있을 뿐, 캐릭터는 `Move()`의 일반 이동 분기(`else`)를 타고
+  **완전히 자유로운 속도/방향으로 움직이고 `transform.LookAt()`으로 회전까지 자유롭게 바뀐다.**
+  거기에 `applyRootMotion = false`(§12.7)라 클립 내장 이동은 애초에 무시되므로, 화면에는 "구르는
+  자세로 고정된 채 마음대로 걸어 다니고 방향을 트는" 것처럼 보이는 새로운 시각적 버그가 생긴다.
+
+**결론**: §14.4의 계획은 "언제 애니메이션 트리거가 바뀌는지"만 막았을 뿐, "언제 이동/회전 입력이
+다시 자유로워지는지"는 막지 않았다 — 이 둘을 같이 잠그지 않으면, 원래 버그(모션이 잘림)는
+없어지지만 대신 "모션과 실제 움직임이 따로 노는" 다른 버그로 바뀔 뿐이다. B안을 실제로 완성하려면
+`rotation`/`rotation_value` 갱신(및 `Move()`의 분기 선택)도 `isDodgeAnimationPlaying`이 풀리기
+전까지 함께 억제해야 한다 — 그런데 이렇게 하면 사실상 "조작 잠금" 자체가 0.5초가 아니라 1.633초까지
+늘어나는 셈이라, §14.3에서 B안의 장점으로 내세웠던 "대시 이동감(0.5초)은 그대로 유지"라는 전제가
+**이동만이 아니라 회전까지 포함하면 이미 지켜지지 않고 있었다**는 뜻이기도 하다(§15.6에서 절충안
+검토).
+
+### 15.2 `CheckJumpInput()`에는 새 가드가 반영되지 않음 — 점프로 우회하면 버그가 그대로 재발
+
+`CheckJumpInput()`의 현재 가드는 `!isJump && !isDodge`뿐이다:
+
+```csharp
+if (Input.GetKeyDown(KeyCode.Space) && !isJump && !isDodge)
+{
+    ...
+    animationDriver.ChangeState(PlayerMoveState.Jump);
+}
+```
+
+`isDodge`는 0.5초 시점에 이미 `false`가 되므로, `isDodgeAnimationPlaying`이 아직 `true`인
+0.5~1.633초 구간에 `Space`를 누르면 이 조건을 그대로 통과해 `ChangeState(Jump)`가 호출된다.
+Any State → `Jump` 전이도 `hasExitTime=False`(§14.2 표)라 즉시 발동하므로, **Dodge 클립이 이번엔
+`dodgeTimer`가 아니라 Jump 입력 때문에 도중에 잘린다** — §14.2에서 고치려던 것과 정확히 같은
+증상이 다른 입력으로 재발하는 것이다. §14.4 계획의 1~6번 항목 중 어디에도 `CheckJumpInput()`을
+수정하는 항목이 없다 — **이 항목이 계획에서 빠진 것 자체가 이번 조사로 발견된 결함**이다. B안을
+실제로 구현할 때는 `CheckJumpInput()`의 조건도 `!isJump && !isDodge && !isDodgeAnimationPlaying`으로
+확장해야 한다(또는, 점프 입력이 회피 애니메이션을 의도적으로 취소시켜도 된다는 디자인 결정을
+따로 내려야 한다 — 지금은 둘 중 어느 쪽도 계획에 명시돼 있지 않다).
+
+### 15.3 회피 재발동 쿨다운이 0.5초 → 최대 1.633초로 조용히 늘어남 (의도치 않은 밸런스 변화 가능성)
+
+§14.4-4는 회피 재입력 가드에 `!isDodgeAnimationPlaying`을 추가한다 — 클립이 채 끝나기 전에
+`LeftControl`을 다시 눌러도 씹히게 하려는 의도였다(§14.2에서 지적한 "재입력으로 다시 잘리는"
+문제 예방). 그런데 이 변경의 부작용으로, **회피를 다시 쓸 수 있을 때까지의 실제 대기시간이
+`dodgeDuration`(0.5초)이 아니라 클립 전체 길이(1.633초)로 늘어난다** — 지금 코드(버그가 있는
+상태)에서는 오히려 0.5초마다 계속 회피를 연달아 쓸 수 있었다(모션이 매번 끊기긴 했지만 재발동
+자체는 빨랐다). B안 적용 후에는 "모션은 끝까지 재생되지만 그만큼 다음 회피까지 3배 이상 기다려야
+하는" 트레이드오프가 생긴다. 버그 수정치고는 게임플레이 체감에 영향이 큰 변화라, 별도로 의도한
+것인지 확인이 필요하다(§15.6).
+
+### 15.4 `IsDodge()` 공개 API의 지속 시간도 함께 늘어남 — 향후 무적판정 등에 영향
+
+```csharp
+public bool IsDodge() { return animationDriver.CurrentState == PlayerMoveState.Dodge; }
+```
+
+전체 프로젝트에서 `IsDodge()`를 호출하는 곳은 현재 없다(grep으로 확인, `HideOrSeekPlayer.cs`
+자기 자신의 정의 외 참조 0건) — 지금 당장 깨지는 기존 기능은 없다. 다만 `IsDodge()`는
+`animationDriver.CurrentState == Dodge` 여부로 판단하는데, B안 적용 후에는 이 조건이 참으로
+유지되는 시간이 (현재 버그 상태 기준) 약 0.5초에서 1.633초로 3배 이상 늘어난다. 나중에 "회피 중
+무적(태그 판정 무시)" 같은 기능을 `IsDodge()` 위에 만들 경우, 무적 지속시간도 의도치 않게 함께
+늘어나게 된다는 점을 기억해둬야 한다 — 지금 당장 손볼 곳은 없지만, 이 API를 소비하는 코드를 나중에
+추가할 때 반드시 참고해야 하는 사이드이펙트다.
+
+### 15.5 [경미, 자가 치유됨] `IsMovementLocked`(대화/사망 등)와 겹칠 때 1프레임 지연
+
+§14.4-6에서 제안한 "애니메이션 종료 감지" 체크는 `Update()`의 맨 끝(`HandleJumpAnimationHold()`
+옆)에 놓인다. 그런데 `Update()`는 최상단에서 `if (IsMovementLocked) return;`으로 전체를 건너뛴다
+(예: 향후 대화/사망 시스템이 이 프로퍼티를 세팅하는 경우). `Animator` 자체는 스크립트 로직과
+무관하게(=`IsMovementLocked`와 무관하게) 매 프레임 계속 재생되므로(회피는 Jump와 달리
+`animator.speed`를 0으로 멈추는 로직이 없음), 이동이 잠긴 동안에도 `normalizedTime`은 실제로는
+계속 증가해 결국 1.0을 넘어선다. 다만 `isDodgeAnimationPlaying` 플래그를 실제로 내리는 코드는
+`Update()` 안에 있으므로 `IsMovementLocked`가 풀리기 전까지는 갱신되지 않고 `true`로 멈춰있는다 —
+잠금이 풀린 첫 프레임에도 `CheckMovementInput()`(순서상 먼저 실행)이 아직 갱신 전의 낡은 값을
+한 번 더 참조하지만, 같은 프레임 뒤쪽의 종료 체크가 즉시 플래그를 내려주므로 **다음 프레임부터는
+정상화된다.** 실질적으로 눈에 띄는 문제는 아니고, 최악의 경우 이동 잠금이 풀리는 그 순간 1프레임
+동안 회피 후 동작(Idle/Walk 전환)이 살짝 늦게 반영되는 정도다. 완전성을 위해 기록만 해둔다.
+
+### 15.6 종합 — B안은 §14.4 형태 그대로는 "절반만" 고친다
+
+§15.1과 §15.2를 종합하면, §14.4에 적힌 변경만으로는 다음 두 가지가 보장되지 않는다:
+1. 회피 애니메이션이 재생되는 동안 이동/회전이 그 애니메이션과 시각적으로 어긋나지 않을 것(§15.1)
+2. 회피 애니메이션이 다른 입력(점프)에 의해 조기 종료되지 않을 것(§15.2)
+
+이를 실제로 다 해결하려면 최소 다음 두 가지가 §14.4에 추가로 필요하다:
+- `CheckJumpInput()` 가드에 `!isDodgeAnimationPlaying` 추가(§15.2 해결).
+- `CheckMovementInput()`의 `rotation = moveDir;` 대입과 `Move()`의 분기 선택 자체도
+  `isDodgeAnimationPlaying`이 풀리기 전까지 억제(§15.1 해결) — 이 경우 사실상 "조작이 자유로워지는
+  시점"이 0.5초가 아니라 1.633초가 되므로, §14.3에서 방안 A 대비 B안의 장점으로 들었던 "대시
+  이동감은 그대로 유지"라는 이점이 이동에는 해당돼도 **회전/조작 잠금 시간 관점에서는 사실상
+  방안 A와 큰 차이가 없어진다.** (다만 "캐릭터가 실제로 미끄러지는 거리/속도"는 여전히 0.5초
+  분량으로 짧게 유지되므로, 완전히 A안과 동일해지는 것은 아니다 — 밀려나가는 건 짧고, 조작만
+  묶여있는 형태가 된다.)
+
+즉, B안을 §15.1/§15.2까지 반영해서 제대로 완성하면 "모션 완주"는 확실히 보장되지만, §14.3에서
+기대했던 것보다 조작감에 미치는 영향이 크고(§15.1, §15.3), 향후 다른 시스템과의 연동 시 유의할
+사이드이펙트(§15.4)도 있다는 것이 이번 조사의 결론이다. 어떤 절충(예: 회전만 잠그고 이동은
+자유롭게 둔다 / 클립 후반부 도달 시점부터는 조작을 되돌려준다 등)으로 갈지는 구현 전에 별도
+확인이 필요하다.
+
+### 15.7 상태
+
+**B안(§14.3)의 부작용 조사 완료. 구현 대기 중** — §15.1(이동/회전-애니메이션 불일치),
+§15.2(`CheckJumpInput()` 가드 누락), §15.3(재발동 쿨다운 3배 증가), §15.4(`IsDodge()` API 지속시간
+증가) 4가지를 실제 코드/Animator 구조 조사로 확인했다. 사용자 지시에 따라 이번에도 계획만
+정리했고 실제 수정은 진행하지 않았다.
+
+**→ 최종적으로 코드 방안(B안)이 아니라 애니메이션 클립 자체를 재타이밍하는 방향으로 결정됐다.
+§16 참고.**
+
+---
+
+## 16. 최종 결정: Dodge 애니메이션 클립을 0.5초 언저리로 재타이밍 — ✅ 구현 완료
+
+### 16.1 결정 배경
+
+§14(코드로 `dodgeDuration`을 클립 길이에 맞춰 늘리는 방안 A)와 §15(코드로 애니메이션/이동을
+분리하는 방안 B, 부작용 다수 발견)를 검토한 뒤, **B안은 §15의 부작용(특히 §15.1의 이동-애니메이션
+시각적 불일치, §15.2의 Jump 우회 구멍)이 얻는 것에 비해 너무 많다는 결론**을 내렸다. 대신
+"게임플레이가 원하는 회피 길이(0.5초)"와 "모션캡처 클립 길이(1.633초)"가 애초에 서로 다르게
+만들어진 것이 문제의 본질이므로, **코드를 건드리는 대신 애니메이션 에셋 쪽의 타이밍을 게임플레이
+의도(0.5초)에 맞게 재조정**하기로 확정했다.
+
+이 방향의 핵심 장점: `HideOrSeekPlayer.dodgeDuration` 필드가 이미 `0.5f`로 설정돼 있으므로,
+**클립 길이만 그와 비슷하게(0.5초 언저리) 줄이면 기존 코드(`CheckDodgeInput()`/`DodgeOut()`/
+`PlayerAnimationDriver`)를 단 한 줄도 고치지 않고 버그가 사라진다.** §15에서 지적된 모든 부작용
+(새 플래그, `CheckJumpInput()` 가드 추가 필요성, 재발동 쿨다운 변화, `IsDodge()` API 지속시간
+변화)은 애초에 코드를 바꾸지 않으므로 전부 발생하지 않는다.
+
+### 16.2 재타이밍 방식 — 원본 보존 + 별도 재타이밍 클립
+
+`Assets/Animation/Dodge.fbx`를 직접 조사해 확인한 원본 클립 실측치:
+
+| 항목 | 값 |
+|---|---|
+| 클립 이름 | `Dodge` (FBX 내장) |
+| 길이 | 1.6333초 |
+| 프레임레이트 | 30fps |
+| `isLooping` / `loopTime` | `False` / `False` (원샷, §12.6 결정 유지) |
+| 커브 바인딩 수 | 130개 (`mixamorig1:Hips` 이하 전신 본 Transform 커브) |
+
+**작업 방식 (사용자 요청: 원본을 복사해두고 재타이밍):**
+
+1. **원본 백업**: `Dodge.fbx`에 내장된 `Dodge` 클립을 그대로(시간 스케일 변경 없이) 복제해
+   `Assets/Animation/Dodge_Original.anim`으로 저장한다. `Dodge.fbx` 자체는 전혀 손대지 않으므로
+   원본은 그 안에도 그대로 남아있지만, FBX 서브 에셋은 재임포트 시 손상될 위험이 있으므로 독립된
+   `.anim` 파일로 한 번 더 안전하게 남겨둔다.
+2. **재타이밍 클립 생성**: `Dodge` 클립을 한 번 더 복제해 `Assets/Animation/Dodge_Retimed.anim`으로
+   저장하고, 이 복제본의 **130개 커브 전부**에 대해 각 키프레임의 `time`을 스케일 팩터
+   `0.5 / 1.6333 ≈ 0.3062`만큼 균일하게 압축한다. 모션의 형태(포즈 변화 순서)는 그대로 유지한 채
+   재생 시간만 약 1.633초 → 약 0.5초로 줄이는 것이다(내용을 자르는 게 아니라 전체를 압축 재생).
+   - 키프레임 `time`뿐 아니라 `inTangent`/`outTangent`(접선, 기울기=값변화/시간변화)도
+     `1/스케일팩터`(≈3.266배)만큼 같이 조정해야 압축 후에도 커브 모양이 원본과 동일하게 유지된다
+     (안 하면 튀거나 처지는 부자연스러운 움직임이 생길 수 있음).
+   - `AnimationClipSettings.loopTime`은 원본과 동일하게 `False`로 명시 설정한다(원샷 유지).
+3. **`PlayerAnimator.controller`의 `Dodge` 상태 Motion을 `Dodge_Retimed.anim`으로 교체**한다
+   (기존 FBX 내장 `Dodge` 클립 참조 대신). 트리거/전이 설정(§8.3, Any State → Dodge,
+   `hasExitTime=False`)은 그대로 유지 — 클립만 바뀌는 것이라 전이 구조를 바꿀 필요가 없다.
+4. **코드 변경 없음** — `HideOrSeekPlayer.cs`/`PlayerAnimationDriver.cs`/`PlayerMoveState.cs`
+   전부 그대로 둔다. `dodgeDuration = 0.5f`가 이미 새 클립 길이(≈0.5초)와 맞아떨어지므로, 기존
+   `dodgeTimer` 로직이 클립이 끝나는 시점과 거의 동시에 상태를 전환하게 된다.
+
+### 16.3 검증 계획
+
+1. `read_console`로 에셋 작업 도중 에러/경고 0건 확인(스크립트 변경이 없으므로 컴파일 자체는
+   영향 없지만, 클립 임포트/커브 조작 과정에서 에디터 경고가 뜨는지는 계속 확인).
+2. `PlayerAnimator.controller`의 `Dodge` 상태 Motion이 `Dodge_Retimed.anim`(길이 ≈0.5초)을
+   정확히 가리키는지 코드로 재조회해 확인.
+3. `PlayerTestScene`에서 Play Mode 진입 후 Dodge를 발동해 `AnimatorStateInfo.normalizedTime`을
+   프레임 단위로 추적 — `dodgeTimer`가 만료되는 시점(0.5초)에 `normalizedTime`이 1.0에 근접했는지
+   확인(§12.6/§12.7에서 쓴 것과 동일한 슬로우모션 추적 방식).
+4. 회피 동작이 시각적으로 끊기지 않고 자연스럽게 끝까지 재생되는지, 이동/회전이 기존과 동일하게
+   0.5초에 정확히 자유로워지는지(§15.1에서 지적했던 문제가 애초에 발생하지 않는지) 육안 확인.
+5. Walk/SneakWalk/Jump/Idle이 기존과 동일하게 회귀 없이 동작하는지 재확인(클립 하나만 바뀌었으므로
+   영향이 없어야 정상).
+
+### 16.4 상태
+
+**구현 완료.** 아래 §16.5에 실제 작업 결과와 검증 결과를 정리했다.
+
+### 16.5 구현 결과 (Unity MCP `execute_code`로 직접 수행)
+
+**생성된 파일**
+- `Assets/Animation/Dodge_Original.anim` — `Dodge.fbx` 내장 `Dodge` 클립을 스케일 변경 없이 그대로
+  복제한 백업. `length=1.6333`, `loopTime=False` — 원본과 완전히 동일하게 확인.
+- `Assets/Animation/Dodge_Retimed.anim` — 위 백업을 다시 복제해 130개 커브 바인딩 전부의 키프레임
+  `time`을 `0.5 / 1.6333 ≈ 0.30612`배로 압축하고, 각 키프레임의 `inTangent`/`outTangent`도
+  `1/스케일` 배(≈3.266배)로 같이 조정해 커브 모양을 유지했다. 결과 `length=0.5000`(정확히
+  0.5초), `loopTime=False` 명시 설정 확인.
+
+**변경된 파일**
+- `Assets/Animation/PlayerAnimator.controller` — `Dodge` 상태의 Motion을 기존 FBX 내장 `Dodge`
+  클립에서 `Dodge_Retimed.anim`으로 교체. 트리거/전이 구조(§8.3, Any State → Dodge,
+  `hasExitTime=False`)는 변경하지 않음. 재조회로 `Dodge` 상태의 Motion이 `Dodge_Retimed`
+  (`length=0.5000`)를 정확히 가리키는 것을 확인.
+- `Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`, `PlayerAnimationDriver.cs`, `Dodge.fbx` — **변경
+  없음**(계획대로 코드 무변경, `Dodge.fbx` 원본도 전혀 건드리지 않음).
+
+**검증 결과**
+- 매 단계(백업 생성 → 재타이밍 클립 생성 → 컨트롤러 교체) 직후 `read_console`로 에러/경고 0건을
+  반복 확인. 리컴파일 로그에 뜬 "Disconnecting PUN due to recompile. Exit PlayMode."는 스크립트를
+  전혀 건드리지 않았는데도 도메인 리로드가 한 번 발생하며 뜬 정상적인 Photon 안내 로그로,
+  에러가 아님을 확인.
+- `PlayerTestScene`에서 Play Mode 진입 후 `Time.timeScale = 0.05`(§12.6/§12.7과 동일한 슬로우모션
+  기법)로 낮추고 `hide_or_seek_player`의 `Animator.SetTrigger("Dodge")`를 직접 호출해 재생 추적:
+  `normalizedTime`이 `0.1528`(전환 직후, 아직 이전 상태) → `0.6828`(Dodge 상태 진입 확인,
+  `IsName("Dodge")=True`) → `1.5664`까지 **끊기지 않고 단조 증가**하는 것을 확인 — 새 클립이
+  중간에 잘리지 않고 자연스럽게 끝(1.0)을 지나 원샷 정지 포즈까지 도달함을 검증했다.
+  (이 테스트는 §16.1의 전제, 즉 "코드를 바꾸지 않아도 `dodgeDuration`(0.5초)과 클립 길이(0.5초)가
+  이제 일치해 버그가 사라진다"는 것을 애니메이터/클립 레벨에서 직접 검증한 것이다 — `HideOrSeekPlayer`
+  쪽 로직 자체는 §12.6/§12.7에서 이미 충분히 검증됐고 이번에 전혀 수정하지 않았으므로 별도
+  재검증하지 않았다.)
+- 검증 후 `Time.timeScale`을 1로 복원하고 Play Mode를 종료했다.
+
+**남겨둔 것**
+- §14(방안 A)/§15(방안 B, 부작용 조사)는 채택되지 않았지만, 향후 비슷한 애니메이션 타이밍 이슈가
+  생겼을 때 참고할 수 있도록 문서에 그대로 남겨둔다(삭제하지 않음).
+- `Dodge_Original.anim`은 향후 다른 타이밍으로 재조정하고 싶을 때를 대비한 백업이므로 계속
+  프로젝트에 남겨둔다.
