@@ -86,7 +86,8 @@ public override void OnDisable()
         if (targetCamera == null) return;
 
         Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
-        bool hitSurface = Physics.Raycast(ray, out RaycastHit hit) && hit.collider == localPaintCanvas.PaintableCollider;
+        bool hitSurface = Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, paintRaycastMask)
+            && hit.collider == localPaintCanvas.PaintableCollider;
 
         cursorInstance.SetActive(hitSurface);
         Cursor.visible = !hitSurface; // 캐릭터 표면 위가 아니면(스와치 클릭 등) OS 커서를 그대로 둔다

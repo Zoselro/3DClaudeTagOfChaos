@@ -29,11 +29,16 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     private float currentBrushRadius;
     private readonly List<Vector2> currentRoundStrokes = new List<Vector2>();
     private int trackedRoundIndex = -1;
+    private int paintRaycastMask;
 
 private void Start()
     {
         localCamera = Camera.main;
         currentBrushRadius = Mathf.Clamp(brushSettings.DefaultRadius, brushSettings.MinRadius, brushSettings.MaxRadius);
+        // 캐릭터 자신의 물리용 CapsuleCollider가 붓칠 대상인 Ch36을 가려 레이캐스트가 항상 캡슐에
+        // 먼저 맞는 문제를 막기 위해, 붓칠 레이캐스트에서는 PlayerCapsule 레이어를 제외한다
+        // (Bug-fix-plan.md §17).
+        paintRaycastMask = Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule");
         InitPaintCanvas();
     }
 
@@ -80,7 +85,7 @@ private void Start()
         if (localCamera == null) return;
 
         Ray ray = localCamera.ScreenPointToRay(Input.mousePosition);
-        if (!Physics.Raycast(ray, out RaycastHit hit)) return;
+        if (!Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, paintRaycastMask)) return;
         if (hit.collider != paintableCollider) return; // 자신의 오브젝트가 아니면 무시
 
         int voteColor = GetCurrentVoteColorIndex();

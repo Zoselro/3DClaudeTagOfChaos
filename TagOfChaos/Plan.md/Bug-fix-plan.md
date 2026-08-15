@@ -1,7 +1,6 @@
 # 계획: 버그 5건 수정 (Bug-fix-plan.md)
 
-> 상태: **①②③④⑤⑥ 구현 완료, ⑦은 1차 수정으로 불충분함이 확인되어 2차 원인을 찾아 계획
-> 수립 중(미구현).** ⑥(미끄러짐·버벅거림)은 §13의 1차 수정(`rb.MoveRotation()`)이
+> 상태: **①②③④⑤⑥⑦⑧ 전부 구현·검증 완료.** ⑥(미끄러짐·버벅거림)은 §13의 1차 수정(`rb.MoveRotation()`)이
 > 실제로는 증상을 고치지 못했음을 사용자가 재테스트로 확인 — `PlayerTestScene`이 아닌
 > `GameLobbyScene`에 직접 들어가 재조사한 결과, 진짜 원인은 회전 문제가 아니라 §21에서 `Ch36`의
 > 콘케이브 메시 콜라이더 에러를 고치려고 추가했던 `Ch36` 전용 키네마틱 `Rigidbody`가 부작용으로
@@ -19,11 +18,11 @@
 > `ChangeState()`는 건드리지 않는 전용 `ReplayJump()` 메서드를 구현했으나(§15), 사용자 재테스트
 > 결과 증상이 남아있어 재조사 — `ReplayJump()`가 요청한 `SetTrigger`가 애니메이터에 실제 반영되기
 > 전 그 틈에 `HandleJumpAnimationHold()`가 오래된 `normalizedTime`을 보고 즉시 다시 얼려버리는
-> 두 번째 메커니즘을 Play Mode 실측으로 확정하고 수정 계획을 세웠다(§16, 2026-08-16) — 아직
-> 미구현, 승인 대기. ⑧(PlayerTestScene에서 붓이 안 보임)은 §18에서 추가한 캐릭터의
-> `CapsuleCollider`가 페인트 대상 `Ch36`을 레이캐스트에서 가려버리는 것이 원인임을 실측(격자
-> 레이캐스트 49/49 캡슐에 막힘)으로 확정하고, 캡슐을 전용 레이어로 분리하는 수정 계획을
-> 세웠다(§17, 2026-08-16) — 아직 미구현, 승인 대기.
+> 두 번째 메커니즘을 Play Mode 실측으로 확정하고, 재생 요청 직후 한 프레임은 정지 판정을
+> 건너뛰는 방식으로 구현·검증까지 완료했다(§16, 2026-08-16). ⑧(PlayerTestScene에서 붓이 안 보임)은
+> §18에서 추가한 캐릭터의 `CapsuleCollider`가 페인트 대상 `Ch36`을 레이캐스트에서 가려버리는
+> 것이 원인임을 실측(격자 레이캐스트 49/49 캡슐에 막힘)으로 확정하고, 캡슐을 `PlayerCapsule`
+> 전용 레이어로 분리해 구현·검증까지 완료했다(§17, 2026-08-16).
 
 ---
 
@@ -37,8 +36,8 @@
 | ④ | GameLobbyScene에서만 플레이어들이 서로 안 보임(방장 퇴장 시 전원 안 보임 포함) | ✅ **최종 원인 확정·수정·실제 4인 멀티 테스트로 검증 완료** | 진짜 원인은 `PhotonNetwork.InRoom`이 `Start()` 시점에 아직 false일 수 있어 `Instantiate`/`RPC`의 네트워크 전송(`RaiseEvent`)이 조용히 실패하는 것 + `HideOrSeekPlayer.networkSync`가 `Start()`에서만 초기화돼 그보다 먼저 오는 `OnPhotonSerializeView` 수신에서 NRE 발생. `InRoom`이 true가 될 때까지 대기 후 전송 + `networkSync`를 `Awake()`로 이동(§12) |
 | ⑤ | 카메라가 캐릭터 뒷모습만 보임 | ✅ **재계획(§10) 구현·검증 완료** | `PlayerColorVoteIndicator`의 `LateUpdate()`가 `indicator.transform`만 회전시키도록 수정 — Play Mode에서 회전값과 스크린샷으로 정면이 정상적으로 보임을 직접 확인(§11) |
 | ⑥ | GameLobbyScene에서 플레이어가 미끄러지고 걸을 때 버벅거림 | ✅ **진짜 원인 실측 확정·구현·`GameLobbyScene` 실측 검증 완료** | §13의 `rb.MoveRotation()` 수정은 실제로는 증상을 고치지 못함(사용자 재테스트로 반증됨). `GameLobbyScene`에 직접 들어가 재조사한 결과, 진짜 원인은 §21에서 추가한 `Ch36` 전용 키네마틱 `Rigidbody`가 루트 `CapsuleCollider`와 자기 자신을 계속 충돌시키는 self-collision — `Physics.IgnoreCollision()`으로 이 둘의 충돌만 끄니 위치 고정·속도 폭주 현상이 완전히 사라지고 매끄러운 선형 이동·회전으로 바뀌는 것을 `GameLobbyScene` 실제 Photon 방에서 확인(§14) |
-| ⑦ | 점프 키를 연속으로 눌렀을 때, 가끔 재점프 시 Jump 애니메이션이 처음부터 재생되지 않고 이전 점프가 멈췄던 지점(중간)부터 이어서 재생됨 | 🔎 **1차 원인(§15) 구현 완료했으나 사용자 재테스트로 불충분함이 확인됨 — 2차 원인(§16) 실측 확정, 수정 계획 수립 완료, 승인 대기, 미구현** | §15: `ChangeState()`의 가드가 `SetTrigger` 자체를 건너뛰던 것 → 점프 전용 `ReplayJump()`로 해결(구현 완료, 그 메커니즘 자체는 실측으로 해소 확인). 그런데 별개의 두 번째 메커니즘이 동시에 존재했다: `ReplayJump()`가 요청한 `SetTrigger`가 애니메이터에 실제 반영되기 전(다음 프레임 전) 그 틈에 `HandleJumpAnimationHold()`가 "재트리거 이전"의 오래된 `normalizedTime`을 보고 즉시 다시 `animator.speed=0`으로 얼려버림 — Play Mode 실측으로 `ReplayJump()` 직후 `HandleJumpAnimationHold()`를 호출하면 즉시 재동결되는 것을 확인(§16.2). 재생 요청 후 한 프레임은 정지 판정을 건너뛰는 방식으로 수정 계획 수립(§16.3) |
-| ⑧ | PlayerTestScene에서 색을 골라도 붓 커서가 나타나지 않음(실제 색칠도 동일 원인으로 막힘) | 🔎 **원인 실측 확정(§17), 수정 계획 수립 완료, 승인 대기 — 미구현** | 라운드/색상 선택 시스템 자체는 정상(`RoundIndex`, `isColorRoundActive` 전부 정상 확인)이었고, 진짜 원인은 §18에서 추가한 캐릭터 루트의 `CapsuleCollider`가 페인트 대상인 `Ch36`(몸 메시)의 `MeshCollider`를 카메라 시점에서 거의 완전히 가리는 것 — 캐릭터 화면 영역 49개 지점에서 레이캐스트를 직접 쏴본 결과 49/49 전부 `Ch36`이 아니라 `CapsuleCollider`가 먼저 맞음을 확인(§17.3). 캡슐을 전용 레이어로 분리하고 붓 관련 레이캐스트 두 곳에서 그 레이어만 제외하는 방식으로 수정 계획 수립(§17.4) |
+| ⑦ | 점프 키를 연속으로 눌렀을 때, 가끔 재점프 시 Jump 애니메이션이 처음부터 재생되지 않고 이전 점프가 멈췄던 지점(중간)부터 이어서 재생됨 | ✅ **1차(§15)+2차(§16) 원인 모두 구현·검증 완료** | §15: `ChangeState()`의 가드가 `SetTrigger` 자체를 건너뛰던 것 → 점프 전용 `ReplayJump()`로 해결. §16: `ReplayJump()`가 요청한 `SetTrigger`가 애니메이터에 실제 반영되기 전 그 틈에 `HandleJumpAnimationHold()`가 오래된 `normalizedTime`을 보고 즉시 다시 얼려버리던 것 → 재생 요청 직후 한 번은 정지 판정을 건너뛰는 `suppressHoldCheckOnce` 플래그로 해결. Play Mode 실측으로 핵심 경합이 해소되고(재트리거 직후 `speed`가 더 이상 즉시 0으로 안 됨) 정점 정지 기능 자체는 회귀 없이 그대로임을 모두 확인(§16.6) |
+| ⑧ | PlayerTestScene에서 색을 골라도 붓 커서가 나타나지 않음(실제 색칠도 동일 원인으로 막힘) | ✅ **원인 실측 확정·구현·검증 완료** | 라운드/색상 선택 시스템 자체는 정상이었고, 진짜 원인은 §18에서 추가한 캐릭터 루트의 `CapsuleCollider`가 페인트 대상인 `Ch36`(몸 메시)의 `MeshCollider`를 카메라 시점에서 거의 완전히 가리는 것 — 캐릭터 화면 영역 49개 지점 중 49/49가 `CapsuleCollider`에 막혔었다(§17.3). 캡슐을 `PlayerCapsule` 전용 레이어로 분리하고 붓 관련 레이캐스트 두 곳에서 그 레이어만 제외하도록 구현, 재측정 결과 0/49 → 44/49로 개선(나머지 5는 캐릭터 실루엣 밖 정상 케이스), 물리 충돌 회귀 없음도 확인(§17.7) |
 
 ---
 
@@ -1875,7 +1874,7 @@ if (jumpRequested && grounded && !isDodge)
 
 ---
 
-## 16. ⑦ 재조사 — `HandleJumpAnimationHold()`가 재트리거 직후의 "아직 갱신 안 된" 상태를 오판하는 두 번째 원인 (승인 대기, 미구현)
+## 16. ⑦ 재조사 — `HandleJumpAnimationHold()`가 재트리거 직후의 "아직 갱신 안 된" 상태를 오판하는 두 번째 원인 — ✅ 구현·검증 완료 (2026-08-16)
 
 ### 16.1 왜 §15만으로는 부족했는가
 
@@ -2006,14 +2005,42 @@ Play Mode 실측(§16.2 대조 실험)에서 "건너뛰고 최소 한 프레임�
    상황에서도 정상 동작하는지.
 6. `read_console` 최종 확인 결과 에러/경고 0건.
 
-### 16.5 상태
+### 16.5 구현 결과
 
-**두 번째 원인을 Play Mode 실측으로 확정, 수정 계획 수립 완료 — 아직 구현하지 않음.** 동의하면
-바로 구현을 시작하겠다.
+`Assets/02. Scripts/Unit/PlayerAnimationDriver.cs`에 §16.3 계획 그대로 `suppressHoldCheckOnce`
+필드를 추가했다 — `ReplayJump()`가 이 플래그를 `true`로 세팅하고, `HandleJumpAnimationHold()`가
+호출될 때 이 플래그가 서 있으면 정지 판정을 건너뛰고 플래그를 소비(`false`로 리셋)한다. 컴파일
+에러 0건.
+
+### 16.6 검증 결과 — `PlayerTestScene` 실측, 단계별 통제된 순서로 재현
+
+§16.2와 동일하게 `HideOrSeekPlayer.enabled = false`로 실제 게임 루프를 차단하고, 리플렉션으로
+정확한 순서를 재현했다:
+
+1. `Jump` 진입 → 실제 시간이 흘러 `HandleJumpAnimationHold()`가 정점에서 얼림
+   (`speed=0`, `normalizedTime≈6.55`).
+2. `ResumePlayback()`(착지 시뮬레이션) → `ReplayJump()`(재점프, 연타 재현) → **곧바로**
+   `HandleJumpAnimationHold()` 호출(문제가 재현됐던 바로 그 타이밍).
+3. **결과: `speed=1`로 유지됨(§16.2에서 확인했던 `speed=0`으로의 즉시 재동결이 더 이상 일어나지
+   않음)** — 수정이 핵심 경합을 정확히 막았음을 확인.
+4. 회귀 확인: 같은 시퀀스에서 `HandleJumpAnimationHold()`를 한 번 더(두 번째로) 호출해보니, 이번엔
+   `suppressHoldCheckOnce`가 이미 소비된 상태라 정상적으로 `normalizedTime`을 검사해
+   `speed=0`으로 다시 얼렸다(`normalizedTime≈6.55`, 임계값 이상) — **정점에서 얼리는 원래 기능
+   자체는 회귀 없이 정상 동작함을 함께 확인.**
+5. `read_console` 최종 확인 결과 이번 테스트 전 구간 에러/경고 0건(기존에 있던 `PlayerTestScene`
+   Main Camera의 "Missing Script" 경고만 남음, 무관).
+
+실제 키보드 연타로 육안 확인하는 것은 이 자동화 환경의 한계로 여전히 불가능하다 — 사용자의
+실제 플레이 테스트를 권장한다.
+
+### 16.7 상태
+
+**두 번째 원인 실측 확정, 구현 완료, Play Mode 실측으로 핵심 경합 해소와 기존 기능 무회귀를
+모두 확인.** 사용자의 실제 연타 플레이 테스트로 최종 체감 확인을 권장한다.
 
 ---
 
-## 17. ⑧ PlayerTestScene(및 실제로는 모든 씬)에서 색을 골라도 붓이 나오지 않는 버그 — 원인 실측 확정 + 수정 계획 (승인 대기, 미구현)
+## 17. ⑧ PlayerTestScene(및 실제로는 모든 씬)에서 색을 골라도 붓이 나오지 않는 버그 — ✅ 원인 실측 확정·구현·검증 완료 (2026-08-16)
 
 ### 17.1 증상
 
@@ -2171,7 +2198,47 @@ private void Update()
    넓게 뚫려서 "아무거나 뚫고 보이는" 회귀가 생기지 않았는지) 확인.
 6. `read_console` 최종 확인 결과 에러/경고 0건.
 
-### 17.6 상태
+### 17.6 구현 결과
 
-**원인을 Play Mode 실측(격자 레이캐스트, 49/49 캡슐에 막힘)으로 확정, 수정 계획 수립 완료 —
-아직 구현하지 않음.** 동의하면 바로 구현을 시작하겠다.
+계획대로 진행했다:
+1. `PlayerCapsule`이라는 새 레이어를 프로젝트에 추가(슬롯 8).
+2. `Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab`의 루트(`CapsuleCollider`가 달린
+   오브젝트)의 `layer`를 `PlayerCapsule`로 변경 — `Ch36`을 포함한 자식 오브젝트들은 손대지 않아
+   전부 `Default`(0)로 그대로 유지됨을 저장 시점에 직접 확인했다.
+3. `Assets/02. Scripts/ColorTag/BrushCursorController.cs`의 `Awake()`에 `paintRaycastMask =
+   Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule");` 추가, `Update()`의
+   `Physics.Raycast` 호출에 이 마스크를 적용.
+4. `Assets/02. Scripts/ColorTag/PlayerPaintCanvas.cs`도 동일한 패턴으로 `Start()`에
+   `paintRaycastMask` 계산 추가, `Update()`의 붓칠 판정 레이캐스트에 적용.
+
+컴파일 에러 0건(프리팹 레이어 변경 후 재확인 포함).
+
+### 17.7 검증 결과 — `PlayerTestScene` 실측
+
+1. **격자 레이캐스트 재측정(17.5-2)** — §17.3과 동일한 방식(캐릭터 화면 위치 주변 7×7=49개 지점)
+   으로 새 레이어 마스크를 적용해 재측정한 결과:
+   ```
+   hitPaintable(Ch36)=44   hitOther=5(전부 Ground)   hitNone=0
+   ```
+   수정 전 `0/49` → 수정 후 `44/49`로 극적으로 개선됐다. 남은 5건은 캐릭터 실루엣 가장자리를
+   살짝 벗어난 지점이 캐릭터 뒤의 바닥(`Ground`)에 맞은 것으로, 실제로 캐릭터 몸 바깥이라
+   페인트 대상이 아닌 게 맞는 정상적인 결과다(버그 아님).
+2. **정중앙 지점 재확인**: 캐릭터 중심을 겨냥한 단일 레이캐스트가 `Ch36`(MeshCollider)에
+   정확히 맞았고, 유효한 `uv=(0.91, 0.57)`까지 반환됨을 확인 — 붓칠에 필요한 텍스처 좌표
+   추출까지 정상 동작.
+3. **회귀 확인(17.5-4)**: `Physics.GetIgnoreLayerCollision(PlayerCapsule, Default)`가
+   `false`임을 직접 확인 — 레이어를 새로 나눴다고 해서 캐릭터의 물리 충돌(바닥 딛기, 사물과의
+   충돌 등)이 끊기지 않았음을 확인했다. 레이어는 "소속 그룹" 개념이라 다른 물리 속성
+   (`Rigidbody`, §14의 `Physics.IgnoreCollision()` 관계 등)에는 영향을 주지 않는다.
+4. `read_console` 최종 확인 결과 이번 테스트 전 구간 에러/경고 0건(기존 Missing Script 경고만
+   남음, 무관).
+
+실제 마우스로 붓 커서를 직접 보고 클릭해 칠해보는 최종 육안 확인(17.5-3)은 이 자동화 환경의
+한계로 수행하지 못했다 — 레이캐스트가 이제 정확히 `Ch36`에 맞고 유효한 UV까지 나오는 것을
+직접 확인했으므로 정상 동작할 것으로 판단하지만, 사용자의 실제 플레이 테스트를 권장한다.
+
+### 17.8 상태
+
+**원인 실측 확정, 구현 완료, `PlayerTestScene` 실측으로 레이캐스트가 정상적으로 `Ch36`에
+맞는 것을 확인(0/49 → 44/49), 물리 회귀 없음도 확인.** 사용자의 실제 마우스 조작 테스트로
+최종 확인을 권장한다.

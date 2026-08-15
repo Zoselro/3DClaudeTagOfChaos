@@ -940,7 +940,7 @@ GameObject:
   - component: {fileID: 5540731927688631156}
   - component: {fileID: 7486122304421332700}
   - component: {fileID: 4821071008990204802}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: HideOrSeekPlayer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
