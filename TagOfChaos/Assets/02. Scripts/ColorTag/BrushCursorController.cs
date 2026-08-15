@@ -16,11 +16,16 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
     private PlayerPaintCanvas localPaintCanvas;
     private Camera targetCamera;
     private bool isColorRoundActive;
+    private int paintRaycastMask;
 
     private void Awake()
     {
         propertyBlock = new MaterialPropertyBlock();
         Cursor.visible = true;
+        // 캐릭터 자신의 물리용 CapsuleCollider가 붓칠 대상인 Ch36을 가려 레이캐스트가 항상 캡슐에
+        // 먼저 맞는 문제를 막기 위해, 붓 관련 레이캐스트에서는 PlayerCapsule 레이어를 제외한다
+        // (Bug-fix-plan.md §17).
+        paintRaycastMask = Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule");
     }
 
 

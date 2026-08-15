@@ -1,6 +1,5 @@
 using Photon.Pun;
 using UnityEngine;
-using UnityEngine.AI;
 
 public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
 {
@@ -14,7 +13,6 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
 
     [Header("Components")]
     [SerializeField] private PhotonView pv;
-    [SerializeField] private NavMeshAgent agent;
 
     private float baseSpeed;
     private float h, v; // 이동 입력 값 저장용 변수
@@ -31,8 +29,10 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
     private Vector3 dodgeMoveDir;
     private Vector3 jumpMoveDir;
     private float dodgeTimer;
+    private bool jumpRequested; // Update()에서 입력만 기록, 실제 점프 적용은 FixedUpdate()에서(PlayerControllPlan.md §18.3)
 
     private Animator animator;
+    private Rigidbody rb;
     private PlayerGroundDetector groundDetector;
     private PlayerAnimationDriver animationDriver;
     private PlayerNetworkSync networkSync;
@@ -64,10 +64,34 @@ private void Awake()
         baseSpeed = speed;
         animator = GetComponent<Animator>();
         if (animator != null)
-            animator.applyRootMotion = false; // 이동은 전부 Move()가 transform.position을 직접 갱신하므로, 클립에 내장된 루트 모션이 겹쳐 적용되면 안 됨
+            animator.applyRootMotion = false; // 이동은 전부 Move()가 Rigidbody 속도를 직접 갱신하므로, 클립에 내장된 루트 모션이 겹쳐 적용되면 안 됨
 
         groundDetector = new PlayerGroundDetector(groundLayer, groundCheckOffset);
         animationDriver = new PlayerAnimationDriver(animator, jumpFreezeNormalizedTime);
+
+        // 물리 엔진(Rigidbody) 도입(PlayerControllPlan.md §18.3) — 로컬 소유 캐릭터만 실제 물리
+        // 시뮬레이션을 받는다. 원격 캐릭터는 지금처럼 networkSync가 transform을 직접 보간하므로,
+        // Rigidbody가 동시에 중력/충돌로 같은 transform을 건드리면 두 시스템이 충돌한다 — 그래서
+        // 원격 인스턴스는 isKinematic으로 물리를 꺼둔다.
+        rb = GetComponent<Rigidbody>();
+        rb.isKinematic = !pv.IsMine;
+        if (pv.IsMine)
+        {
+            rb.useGravity = true;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // 빠른 낙하/점프 시 얇은 바닥·난간을 뚫고 지나가는 것 방지
+            rb.interpolation = RigidbodyInterpolation.Interpolate; // FixedUpdate 사이 시각적 끊김 완화
+            rb.constraints = RigidbodyConstraints.FreezeRotation;  // 회전은 transform.LookAt으로 직접 제어, 물리 충돌로 인한 회전(넘어짐)은 막음
+        }
+
+        // Ch36(캐릭터 몸통 메시)은 콘케이브 메시 콜라이더 에러를 피하려고 별도의 키네마틱 Rigidbody를
+        // 갖고 있는데(§21), 그 결과 루트의 CapsuleCollider와는 서로 다른 물리 바디가 되어버려 매
+        // 물리 스텝마다 자기 자신과 충돌 판정을 일으키고 있었다 — 위치는 고정된 채 속도만 거대하고
+        // 불규칙해지는 원인이었다(Bug-fix-plan.md §14). 같은 캐릭터의 일부이므로 명시적으로 서로의
+        // 충돌을 무시한다(로컬/원격 모두 동일한 구조라 IsMine 여부와 무관하게 적용).
+        Collider rootCollider = GetComponent<CapsuleCollider>();
+        Collider ch36Collider = transform.Find("Ch36")?.GetComponent<Collider>();
+        if (rootCollider != null && ch36Collider != null)
+            Physics.IgnoreCollision(rootCollider, ch36Collider, true);
     }
 
     private void Update()
@@ -75,12 +99,10 @@ private void Awake()
         if (IsMovementLocked)
             return;
 
-        if (pv.IsMine) // 자신이 조종하는 캐릭터일 때만 이동 처리
+        if (pv.IsMine) // 자신이 조종하는 캐릭터일 때만 입력 처리
         {
-            ApplyGravity(); // 수동 중력 적용 및 착지 판정
-            CheckMovementInput(); // 이동 입력 체크 (Move()보다 먼저 호출해 이번 프레임 입력을 바로 반영)
-            Move();
-            CheckJumpInput(); // 점프 입력 체크
+            CheckMovementInput(); // 이동 입력 체크 + 회전 갱신(좌표 이동은 FixedUpdate의 Move()가 담당)
+            CheckJumpInput(); // 점프 입력 체크(의도만 기록, 실제 적용은 FixedUpdate)
             CheckDodgeInput(); // 회피 입력 체크
             animationDriver.HandleJumpAnimationHold(); // 착지 전까지 Jump 애니메이션이 끝까지 재생되지 않도록 고정
         }
@@ -91,30 +113,45 @@ private void Awake()
         }
     }
 
-    private void ApplyGravity()
+    // Rigidbody 조작은 물리 스텝(FixedUpdate)에서만 수행한다(Unity 관례) — 입력은 Update()에서 이미 읽어뒀다.
+    private void FixedUpdate()
     {
-        if (!isJump)
+        if (!pv.IsMine || IsMovementLocked)
             return;
 
-        bool landed = groundDetector.Tick(transform, Time.deltaTime, out float landedHeight);
+        bool grounded = groundDetector.IsGrounded(transform.position);
 
-        if (!landed)
-            return;
-
-        Vector3 pos = transform.position;
-        pos.y = landedHeight; // 고정된 0이 아니라 실제 지형 표면 높이로 착지
-        transform.position = pos;
-
-        isJump = false;
-        keepMovingAfterJump = false;
-
-        animationDriver.ResumePlayback(); // 공중에서 멈춰뒀던 애니메이션 재생 속도 복구
-
-        if (agent != null)
+        // 점프 여부와 무관하게 매 스텝 접지 확인 — 점프 없이 걸어서 맵 밖으로 나가도 이제는
+        // 정상적으로 낙하한다(과거엔 ApplyGravity()가 isJump일 때만 동작해 아예 안 떨어졌음, §18.2).
+        if (isJump && grounded && rb.linearVelocity.y <= 0f) // 상승 중엔 착지 처리하지 않음(막 점프한 순간 오탐 방지)
         {
-            agent.Warp(transform.position); // 에이전트 위치를 현재 착지한 곳으로 순간 이동시킴
-            agent.updatePosition = true;    // 다시 바닥 고정 기능 활성화
+            isJump = false;
+            keepMovingAfterJump = false;
+            animationDriver.ResumePlayback(); // 공중에서 멈춰뒀던 애니메이션 재생 속도 복구
         }
+
+        if (jumpRequested && grounded && !isDodge)
+        {
+            rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpPower, rb.linearVelocity.z);
+            isJump = true;
+            keepMovingAfterJump = true; // 의도한 점프는 방향(관성)을 고정
+            jumpMoveDir = rotation;
+            animationDriver.ReplayJump(); // 연타로 재점프해도 항상 처음부터 재생(Bug-fix-plan.md §15)
+        }
+        else if (!isJump && !grounded && !isDodge) // 점프 없이 걸어서 가장자리를 벗어나 낙하가 시작된 경우
+        {
+            // 의도한 점프와 달리 방향을 고정하지 않는다 — 실수로 벗어난 것이므로 공중에서도
+            // 계속 이동 입력에 반응해 방향을 조절하거나 되돌아올 여지를 준다(PlayerControllPlan.md §23.4).
+            isJump = true;
+            keepMovingAfterJump = false;
+            animationDriver.ReplayJump();
+        }
+        jumpRequested = false;
+
+        Move();
+
+        if (transform.position.y < -100f) // VoidKillZone 배치를 놓쳤을 때의 최후 방어선(PlayerControllPlan.md §18.4)
+            RespawnToSpawnPoint();
     }
 
     private void CheckMovementInput()
@@ -161,17 +198,7 @@ private void Awake()
     {
         if (Input.GetKeyDown(KeyCode.Space) && !isJump && !isDodge)
         {
-            groundDetector.StartJump(jumpPower); // 순간적인 위쪽 속도 부여
-            isJump = true;
-            keepMovingAfterJump = true;
-            jumpMoveDir = rotation;
-
-            if (agent != null) // NavMeshAgent가 있다면 점프 중에는 위치 업데이트를 끕니다.
-            {
-                agent.updatePosition = false;
-            }
-
-            animationDriver.ChangeState(PlayerMoveState.Jump);
+            jumpRequested = true;
         }
     }
 
@@ -207,40 +234,67 @@ private void Awake()
         rotation = rotation_value;
     }
 
-    // 움직일 때
+    // 움직일 때 — 수평 속도만 Rigidbody에 넘기고, 수직 속도(중력/점프)는 물리 엔진이 이미 채운 값을 그대로 보존한다.
     public void Move()
     {
-        Vector3 moveVector;
+        Vector3 dir;
+        float vel;
+        Vector3 lookDir;
 
         if (isDodge && keepMovingAfterDodge) // 캐릭터가 회피중일 경우, 키보드에서 손을 떼더라도 회피를 시작했던 그 방향으로 강제로 밀어붙임
         {
-            moveVector = new Vector3(dodgeMoveDir.x * speed, 0f, dodgeMoveDir.z * speed);
-            if (dodgeMoveDir != Vector3.zero)
-                transform.LookAt(transform.position + new Vector3(dodgeMoveDir.x, 0f, dodgeMoveDir.z));
+            dir = dodgeMoveDir;
+            vel = speed; // CheckDodgeInput에서 이미 2배로 올려둔 speed
+            lookDir = new Vector3(dodgeMoveDir.x, 0f, dodgeMoveDir.z);
         }
         else if (isJump && keepMovingAfterJump) // 점프 도중 키보드 방향을 바꿔도 방향이 바뀌지 않고 포물선을 그리며 이동
         {
-            moveVector = new Vector3(jumpMoveDir.x * baseSpeed, 0f, jumpMoveDir.z * baseSpeed);
-            if (jumpMoveDir != Vector3.zero)
-                transform.LookAt(transform.position + new Vector3(jumpMoveDir.x, 0f, jumpMoveDir.z));
+            dir = jumpMoveDir;
+            vel = baseSpeed;
+            lookDir = new Vector3(jumpMoveDir.x, 0f, jumpMoveDir.z);
         }
         else // Shift를 눌렀을 경우 일반 스피드의 30% 속도만큼 감. 아니면 100% 속도 유지
         {
-            float velocity = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 0.3f : baseSpeed;
-            moveVector = new Vector3(rotation.x * velocity, 0f, rotation.z * velocity);
-            if (rotation != Vector3.zero)
-                transform.LookAt(transform.position + new Vector3(rotation.x, 0f, rotation.z));
+            vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 0.3f : baseSpeed;
+            dir = rotation;
+            lookDir = new Vector3(rotation.x, 0f, rotation.z);
         }
 
-        // 수평 이동(X, Z)에 Y축 속도(점프/중력)를 병합하여 좌표 이동
-        moveVector.y = groundDetector.YVelocity;
-        transform.position += moveVector * Time.deltaTime;
+        // transform.LookAt() 대신 rb.MoveRotation() 사용 — Rigidbody 보간(interpolation)은
+        // MoveRotation으로 갱신된 회전만 인식한다. transform.rotation을 직접 대입하면 Rigidbody가
+        // 추적하는 회전값과 어긋나 매 물리 스텝마다 회전이 튀었다 되돌아가길 반복해 걷는 모습이
+        // 버벅거리고 미끄러지는 것처럼 보이는 버그가 있었다(Bug-fix-plan.md §13).
+        if (lookDir != Vector3.zero)
+            rb.MoveRotation(Quaternion.LookRotation(lookDir));
+
+        Vector3 horizontal = new Vector3(dir.x * vel, 0f, dir.z * vel);
+        rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z); // y는 물리 엔진(중력/점프)이 채운 값 그대로 보존
     }
 
     // 현재 회피 중인지 확인하는 메서드
     public bool IsDodge()
     {
         return animationDriver.CurrentState == PlayerMoveState.Dodge;
+    }
+
+    // 맵 밖으로 떨어졌을 때 VoidKillZone(또는 FixedUpdate의 최후 방어선)이 호출한다(PlayerControllPlan.md §18.4).
+    public void RespawnToSpawnPoint()
+    {
+        GameObject spawnPointObj = GameObject.Find("PlayerSpawnPos");
+        if (spawnPointObj == null)
+            return;
+
+        Vector3 offset = new Vector3(Random.Range(-5f, 5f), 0f, Random.Range(-5f, 5f));
+        rb.linearVelocity = Vector3.zero; // 낙하 속도가 남아있으면 스폰 직후 바닥을 뚫고 지나갈 수 있음
+        // Non-kinematic Rigidbody에서는 transform.position을 직접 대입해도 다음 물리 스텝에서
+        // Rigidbody가 자신이 마지막으로 시뮬레이션한 위치로 되돌려버린다 — 반드시 rb.position으로
+        // 물리 엔진에도 같이 알려줘야 실제로 순간이동이 반영된다(Play Mode 실측으로 확인된 문제).
+        rb.position = spawnPointObj.transform.position + offset;
+        transform.position = rb.position;
+
+        isJump = false;
+        keepMovingAfterJump = false;
+        animationDriver.ResumePlayback();
     }
 
     public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
@@ -255,11 +309,6 @@ private void Awake()
         else // 원격 플레이어의 상태 정보 수신
         {
             networkSync.Read(stream, transform);
-
-            if (networkSync.RemoteIsJump && agent != null)
-            {
-                agent.updatePosition = false; // 점프 중에는 NavMeshAgent 위치 업데이트를 끔
-            }
         }
     }
 }

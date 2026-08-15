@@ -1,12 +1,29 @@
 # 계획: 버그 5건 수정 (Bug-fix-plan.md)
 
-> 상태: **①②③④⑤ 전부 구현·검증 완료, ④는 실제 4인 멀티 테스트로 최종 확인까지 완료
-> (2026-08-15 최종 업데이트)**. ④(GameLobbyScene 가시성)는 1차·2차 수정이 모두 실측에서
+> 상태: **①②③④⑤⑥ 구현 완료, ⑦은 1차 수정으로 불충분함이 확인되어 2차 원인을 찾아 계획
+> 수립 중(미구현).** ⑥(미끄러짐·버벅거림)은 §13의 1차 수정(`rb.MoveRotation()`)이
+> 실제로는 증상을 고치지 못했음을 사용자가 재테스트로 확인 — `PlayerTestScene`이 아닌
+> `GameLobbyScene`에 직접 들어가 재조사한 결과, 진짜 원인은 회전 문제가 아니라 §21에서 `Ch36`의
+> 콘케이브 메시 콜라이더 에러를 고치려고 추가했던 `Ch36` 전용 키네마틱 `Rigidbody`가 부작용으로
+> 캐릭터의 루트 `CapsuleCollider`와 자기 자신의 몸통(`Ch36`) 사이에 "자기 자신과의 충돌
+> (self-collision)"을 새로 만들어낸 것이었다 — `Physics.IgnoreCollision()`으로 수정했고,
+> `GameLobbyScene`에서 실제 Photon 방으로 재측정해 위치 고정·속도 폭주 현상이 완전히 사라짐을
+> 확인했다(§14, 2026-08-16). 다만 실제 체감 확인은 사용자 플레이 테스트가 필요하다(§14.9).
+> (2026-08-16 최종 업데이트). ④(GameLobbyScene 가시성)는 1차·2차 수정이 모두 실측에서
 > 불충분함이 드러났고, 3차 조사에서 사용자가 제공한 실제 빌드 스크린샷 + Unity 에디터를 네 번째
 > 참가자로 투입한 실시간 공동 디버깅으로 진짜 원인(§12)을 찾아 수정했다 — 이번엔 실제 빌드
 > 4개 클라이언트 전원의 화면에서 서로가 보임을 사용자가 직접 확인했다. ⑤는 사용자가 남긴
 > 스크린샷을 근거로 재조사해 확정적 원인을 찾았다(§10). 실제 구현 결과는 §11(④ 2차 시도·⑤),
-> §12(④ 최종 원인·수정·실측 검증)에 정리했다.
+> §12(④ 최종 원인·수정·실측 검증), §13(⑥ 1차 시도 — 불충분했음), §14(⑥ 진짜 원인·구현·검증,
+> 2026-08-16)에 정리했다. ⑦(점프 연타 시 애니메이션이 중간부터 재생)은 1차로 공유 메서드
+> `ChangeState()`는 건드리지 않는 전용 `ReplayJump()` 메서드를 구현했으나(§15), 사용자 재테스트
+> 결과 증상이 남아있어 재조사 — `ReplayJump()`가 요청한 `SetTrigger`가 애니메이터에 실제 반영되기
+> 전 그 틈에 `HandleJumpAnimationHold()`가 오래된 `normalizedTime`을 보고 즉시 다시 얼려버리는
+> 두 번째 메커니즘을 Play Mode 실측으로 확정하고 수정 계획을 세웠다(§16, 2026-08-16) — 아직
+> 미구현, 승인 대기. ⑧(PlayerTestScene에서 붓이 안 보임)은 §18에서 추가한 캐릭터의
+> `CapsuleCollider`가 페인트 대상 `Ch36`을 레이캐스트에서 가려버리는 것이 원인임을 실측(격자
+> 레이캐스트 49/49 캡슐에 막힘)으로 확정하고, 캡슐을 전용 레이어로 분리하는 수정 계획을
+> 세웠다(§17, 2026-08-16) — 아직 미구현, 승인 대기.
 
 ---
 
@@ -19,6 +36,9 @@
 | ③ | 랜덤 입장이 최근 생성된 방으로만 들어감 | ✅ **구현·검증 완료** | §3, §8 |
 | ④ | GameLobbyScene에서만 플레이어들이 서로 안 보임(방장 퇴장 시 전원 안 보임 포함) | ✅ **최종 원인 확정·수정·실제 4인 멀티 테스트로 검증 완료** | 진짜 원인은 `PhotonNetwork.InRoom`이 `Start()` 시점에 아직 false일 수 있어 `Instantiate`/`RPC`의 네트워크 전송(`RaiseEvent`)이 조용히 실패하는 것 + `HideOrSeekPlayer.networkSync`가 `Start()`에서만 초기화돼 그보다 먼저 오는 `OnPhotonSerializeView` 수신에서 NRE 발생. `InRoom`이 true가 될 때까지 대기 후 전송 + `networkSync`를 `Awake()`로 이동(§12) |
 | ⑤ | 카메라가 캐릭터 뒷모습만 보임 | ✅ **재계획(§10) 구현·검증 완료** | `PlayerColorVoteIndicator`의 `LateUpdate()`가 `indicator.transform`만 회전시키도록 수정 — Play Mode에서 회전값과 스크린샷으로 정면이 정상적으로 보임을 직접 확인(§11) |
+| ⑥ | GameLobbyScene에서 플레이어가 미끄러지고 걸을 때 버벅거림 | ✅ **진짜 원인 실측 확정·구현·`GameLobbyScene` 실측 검증 완료** | §13의 `rb.MoveRotation()` 수정은 실제로는 증상을 고치지 못함(사용자 재테스트로 반증됨). `GameLobbyScene`에 직접 들어가 재조사한 결과, 진짜 원인은 §21에서 추가한 `Ch36` 전용 키네마틱 `Rigidbody`가 루트 `CapsuleCollider`와 자기 자신을 계속 충돌시키는 self-collision — `Physics.IgnoreCollision()`으로 이 둘의 충돌만 끄니 위치 고정·속도 폭주 현상이 완전히 사라지고 매끄러운 선형 이동·회전으로 바뀌는 것을 `GameLobbyScene` 실제 Photon 방에서 확인(§14) |
+| ⑦ | 점프 키를 연속으로 눌렀을 때, 가끔 재점프 시 Jump 애니메이션이 처음부터 재생되지 않고 이전 점프가 멈췄던 지점(중간)부터 이어서 재생됨 | 🔎 **1차 원인(§15) 구현 완료했으나 사용자 재테스트로 불충분함이 확인됨 — 2차 원인(§16) 실측 확정, 수정 계획 수립 완료, 승인 대기, 미구현** | §15: `ChangeState()`의 가드가 `SetTrigger` 자체를 건너뛰던 것 → 점프 전용 `ReplayJump()`로 해결(구현 완료, 그 메커니즘 자체는 실측으로 해소 확인). 그런데 별개의 두 번째 메커니즘이 동시에 존재했다: `ReplayJump()`가 요청한 `SetTrigger`가 애니메이터에 실제 반영되기 전(다음 프레임 전) 그 틈에 `HandleJumpAnimationHold()`가 "재트리거 이전"의 오래된 `normalizedTime`을 보고 즉시 다시 `animator.speed=0`으로 얼려버림 — Play Mode 실측으로 `ReplayJump()` 직후 `HandleJumpAnimationHold()`를 호출하면 즉시 재동결되는 것을 확인(§16.2). 재생 요청 후 한 프레임은 정지 판정을 건너뛰는 방식으로 수정 계획 수립(§16.3) |
+| ⑧ | PlayerTestScene에서 색을 골라도 붓 커서가 나타나지 않음(실제 색칠도 동일 원인으로 막힘) | 🔎 **원인 실측 확정(§17), 수정 계획 수립 완료, 승인 대기 — 미구현** | 라운드/색상 선택 시스템 자체는 정상(`RoundIndex`, `isColorRoundActive` 전부 정상 확인)이었고, 진짜 원인은 §18에서 추가한 캐릭터 루트의 `CapsuleCollider`가 페인트 대상인 `Ch36`(몸 메시)의 `MeshCollider`를 카메라 시점에서 거의 완전히 가리는 것 — 캐릭터 화면 영역 49개 지점에서 레이캐스트를 직접 쏴본 결과 49/49 전부 `Ch36`이 아니라 `CapsuleCollider`가 먼저 맞음을 확인(§17.3). 캡슐을 전용 레이어로 분리하고 붓 관련 레이캐스트 두 곳에서 그 레이어만 제외하는 방식으로 수정 계획 수립(§17.4) |
 
 ---
 
@@ -1215,3 +1235,943 @@ private IEnumerator SendConnectedMessageWhenInRoom()
 참가자로 투입해 실시간으로 관찰한 콘솔 로그, 이 세 가지가 함께 있었기에 원인을 정확히
 특정할 수 있었다. §9까지와 달리 이번에는 사용자의 실제 빌드 화면으로 직접 재확인까지
 마쳤으므로, 이 문서에 남아 있던 마지막 "사용자가 최종 확인해야 한다"는 유보 조건도 해소됐다.
+
+---
+
+## 13. `GameLobbyScene` 입장 시 플레이어가 미끄러지고 걸을 때 버벅거리는 버그 — ✅ 원인 분석·구현·검증 완료
+
+### 13.1 증상
+
+사용자 보고: `GameLobbyScene`에 입장했을 때 (1) 캐릭터가 미끄러지는 느낌, (2) 걸을 때 렉 걸린
+것처럼 버벅거리는(끊기는) 느낌이 있다.
+
+### 13.2 이 버그가 언제 생겼는지 — 타이밍상 유력한 용의자
+
+이 두 증상은 이번 대화에서 `HideOrSeekPlayer`에 물리 엔진(Rigidbody)을 새로 도입한
+`PlayerControllPlan.md` §18(물리 도입) + §22(마찰 0 재질 적용) 작업 **직후** 처음 보고됐다 — 그
+전까지는(수동 중력 + `transform.position +=` 방식일 때는) 이런 증상이 보고된 적이 없었다. 즉
+원인은 그 사이에 바뀐 코드 안에 있을 가능성이 매우 높다. 실제로 코드를 다시 읽어보니 **Rigidbody
+보간(Interpolation)과 수동 회전 대입이 서로 충돌하는, 잘 알려진 Unity 함정**을 그대로 밟고 있는
+것을 발견했다.
+
+### 13.3 근본 원인 (유력) — `RigidbodyInterpolation.Interpolate` + `transform.LookAt()` 충돌
+
+`HideOrSeekPlayer.Start()`(§18 구현분)에서 로컬 플레이어의 `Rigidbody`에 보간을 켰다:
+
+```csharp
+rb.interpolation = RigidbodyInterpolation.Interpolate; // FixedUpdate 사이 시각적 끊김 완화
+```
+
+`RigidbodyInterpolation.Interpolate`는 Unity가 **Rigidbody 스스로 추적하는 위치·회전 값**을
+기준으로, 물리 스텝(`FixedUpdate`, 기본 50Hz) 사이사이의 렌더링 프레임에서 이전 스텝과 현재
+스텝 사이를 부드럽게 보간해 보여주는 기능이다 — 단, 이건 **`rb.position`/`rb.rotation`을
+`rb.MovePosition()`/`rb.MoveRotation()`으로 바꿀 때만** 정상적으로 작동한다.
+
+그런데 `Move()`(`FixedUpdate`에서 매 스텝 호출됨)는 회전을 **`transform.LookAt(...)`으로 직접**
+바꾸고 있다(세 곳 전부):
+
+```csharp
+transform.LookAt(transform.position + new Vector3(dodgeMoveDir.x, 0f, dodgeMoveDir.z)); // 회피 중
+transform.LookAt(transform.position + new Vector3(jumpMoveDir.x, 0f, jumpMoveDir.z));    // 점프 관성 중
+transform.LookAt(transform.position + new Vector3(rotation.x, 0f, rotation.z));          // 일반 이동
+```
+
+`transform.rotation`을 직접 건드리는 건 **Rigidbody가 전혀 모르는 변경**이다 — Rigidbody 내부적으로
+추적하는 회전값은 `rb.MoveRotation()`을 부르지 않는 한 그대로 멈춰있다(게다가 `Start()`에서
+`rb.constraints = RigidbodyConstraints.FreezeRotation`까지 걸어놔서 물리적으로도 회전이 바뀔 일이
+없다). 결과적으로 매 프레임 다음과 같은 일이 반복된다:
+
+1. `FixedUpdate`(물리 스텝)에서 `Move()`가 `transform.LookAt(...)`으로 캐릭터를 원하는 방향으로
+   순간적으로 돌려놓는다.
+2. 그 다음 렌더링되는 여러 프레임 동안(다음 `FixedUpdate`가 오기 전까지), Unity의 보간 시스템이
+   "Rigidbody가 추적하는 이전/현재 회전값 사이"를 다시 계산해 `transform.rotation`에 덮어쓴다 —
+   그런데 Rigidbody가 추적하는 회전값은 1번의 `LookAt()` 변경을 전혀 반영하지 못한 채 그대로이므로,
+   보간 시스템이 사실상 회전을 **원래 방향으로 도로 끌어당겨버린다.**
+3. 다음 `FixedUpdate`가 오면 다시 1번이 반복 — 즉 **매 물리 스텝마다 회전이 "홱 돌아갔다가 다시
+   슬며시 되돌아가는" 것을 반복**하게 된다.
+
+이게 정확히 사용자가 보고한 두 증상을 동시에 설명한다:
+- **버벅거림**: 캐릭터의 몸통 방향이 매 물리 스텝(20ms)마다 순간이동하듯 튀었다가 되돌아가길
+  반복하니, 걷는 모습이 매끄럽지 않고 끊기는 것처럼 보인다.
+- **미끄러짐**: 이동 방향(속도 벡터, `rb.linearVelocity`)은 `Move()`가 매 스텝 정확히 원하는
+  방향으로 강제 대입하므로 실제로는 문제없이 부드럽게 움직이는데, **몸통이 그 방향을 제대로
+  따라가지 못하고 흔들리니** 캐릭터가 정면으로 걷지 않고 옆으로 미끄러지듯 이동하는 것처럼
+  보인다(마치 빙판 위에서 스케이팅하는 듯한 시각적 착시 — "몸은 다른 곳을 보는데 이동은 계속되는"
+  전형적인 아이스스케이팅 현상).
+
+`PlayerTestScene`에서 이 문제를 직접 겪지 못하고 놓친 이유: §18/§19 검증 때는 전부 리플렉션으로
+`isJump`/`jumpRequested`를 직접 조작하거나 `rb.position`으로 순간이동시키는 방식으로 테스트했고,
+**실제 방향키를 눌러 지속적으로 걷게 하면서 회전이 자연스러운지 육안으로 확인한 적이 없었다** —
+검증 방법 자체의 사각지대였다.
+
+### 13.4 수정 계획
+
+`Move()` 안의 `transform.LookAt(...)` 세 곳을 전부 `rb.MoveRotation(...)`으로 바꾼다 —
+`transform.LookAt(target)`은 내부적으로 `Quaternion.LookRotation(target - transform.position)`과
+동일하므로, 같은 회전을 계산해 `rb.MoveRotation()`에 넘기면 된다:
+
+```csharp
+public void Move()
+{
+    Vector3 dir;
+    float vel;
+    Vector3 lookDir = Vector3.zero;
+
+    if (isDodge && keepMovingAfterDodge)
+    {
+        dir = dodgeMoveDir;
+        vel = speed;
+        lookDir = new Vector3(dodgeMoveDir.x, 0f, dodgeMoveDir.z);
+    }
+    else if (isJump && keepMovingAfterJump)
+    {
+        dir = jumpMoveDir;
+        vel = baseSpeed;
+        lookDir = new Vector3(jumpMoveDir.x, 0f, jumpMoveDir.z);
+    }
+    else
+    {
+        vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 0.3f : baseSpeed;
+        dir = rotation;
+        lookDir = new Vector3(rotation.x, 0f, rotation.z);
+    }
+
+    if (lookDir != Vector3.zero)
+        rb.MoveRotation(Quaternion.LookRotation(lookDir)); // transform.LookAt 대신 — Rigidbody 보간과 충돌하지 않도록
+
+    Vector3 horizontal = new Vector3(dir.x * vel, 0f, dir.z * vel);
+    rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z);
+}
+```
+
+**왜 이걸로 충분한가**: `rb.MoveRotation()`은 Rigidbody가 추적하는 회전값 자체를 갱신하는
+공식 API이므로, 보간 시스템이 그 다음 렌더링 프레임들에서 "이전 스텝 회전 → 이번 스텝 회전"
+사이를 정확히 매끄럽게 보간하게 된다 — 더 이상 서로 다른 값을 두고 싸우지 않는다. `Rigidbody`
+자체는 `RigidbodyConstraints.FreezeRotation`이 걸려 있어도 `MoveRotation()`을 통한 명시적 회전
+갱신은 constraint의 영향을 받지 않는다(freeze는 "물리 힘/충돌에 의한 회전"만 막는 것이지,
+`MoveRotation()`으로 코드가 직접 지정하는 회전은 막지 않음 — 공식 문서 및 동작 확인 필요, 검증
+계획 1번 참고).
+
+### 13.5 부차적으로 재확인이 필요한 것 — `IsGrounded()` 접지 판정 미세 흔들림
+
+§22 작업 도중(§22.6 참고) 테스트 중에 `Rigidbody`가 바닥에 딱 붙어 쉬는 상태에서 y좌표가
+`0 → -0.2 → -0.8 → ... → 다시 0 부근으로 복귀`하는 식으로 미세하게 진동하는 현상을 관측한 적이
+있다 — 그때는 이 세션의 MCP 브리지 자체가 불안정했던 시점이라 "테스트 환경 문제"로 결론짓고
+넘어갔었는데, 13.3의 회전 문제와는 별개로 **이것도 실제 게임에서 미세한 위아래 흔들림(그리고
+그로 인한 미묘한 미끄러짐)에 일부 기여하고 있을 가능성**을 배제할 수 없다. 13.4를 먼저 적용해
+회전 문제를 없앤 뒤에도 미끄러짐이 남아있다면, 이 접지 판정 흔들림을 추가로 조사한다(예:
+`Rigidbody.solverIterations` 상향, `Physics.defaultContactOffset` 조정, 또는
+`CollisionDetectionMode`를 `ContinuousDynamic`에서 `ContinuousSpeculative`로 바꿔보는 것 등).
+지금 시점에는 13.4가 훨씬 유력한 근본 원인이므로, 그것부터 적용하고 재현 여부로 필요성을
+판단하는 것이 순서상 맞다고 본다.
+
+### 13.6 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. `rb.constraints = RigidbodyConstraints.FreezeRotation`이 걸린 상태에서 `rb.MoveRotation()`
+   호출이 실제로 회전을 반영하는지(Freeze가 이 경로까지 막아버리지는 않는지) Play Mode에서 직접
+   회전값을 찍어 확인 — 계획 문서 13.4의 전제 자체를 먼저 검증한다.
+3. `GameLobbyScene`(또는 `PlayerTestScene`)에서 실제로 WASD를 눌러 캐릭터를 이동시켜보면서(이번엔
+   리플렉션이 아니라 실제 지속 입력으로), 걷는 모습이 끊김 없이 매끄러운지, 방향 전환 시 몸통이
+   즉시 자연스럽게 따라 도는지 육안으로 확인.
+4. 이동 중 카메라를 돌려 다양한 각도에서 캐릭터의 걷는 모습을 관찰해 미끄러지는 느낌이 사라졌는지
+   확인.
+5. 기존 회귀 확인: 점프/회피 중 방향 고정(관성 이동)이 여전히 정상 동작하는지, `IsDodge()`/
+   애니메이션 상태 전환에 영향이 없는지 확인.
+6. 13.4로 해결되지 않으면 13.5(접지 판정 흔들림)를 이어서 조사.
+
+### 13.8 구현 결과
+
+`Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`의 `Move()`에서 13.4 계획 그대로 `transform.LookAt(...)`
+세 곳을 전부 `if (lookDir != Vector3.zero) rb.MoveRotation(Quaternion.LookRotation(lookDir));`
+하나로 통합했다(세 분기가 `lookDir`만 다르게 계산하고 회전 대입 로직은 공유하도록 정리). 컴파일
+에러 0건.
+
+### 13.9 검증 결과 — 13.6의 각 항목
+
+1. **컴파일 확인(13.6-1)** — 통과. `read_console` 결과 새로운 에러/경고 없음(기존에 이미 있던,
+   이번 작업과 무관한 `PlayerTestScene`의 Main Camera "Missing Script" 경고만 남음 — §17.8에 이미
+   기록된 것과 동일).
+2. **`FreezeRotation` 아래에서 `rb.MoveRotation()`이 실제로 회전을 반영하는지(13.6-2)** — **확인
+   완료.** Play Mode에서 `rb.constraints`가 `FreezeRotation`으로 걸려 있는 상태에서 `rb.
+   MoveRotation(Quaternion.Euler(0, 90, 0))`을 직접 호출한 직후 `rb.rotation.eulerAngles`를
+   읽으면 즉시 `(0, 90, 0)`으로 반영됐고, 이후 실제 시간이 흘러 물리 스텝이 지난 뒤
+   `transform.eulerAngles`도 동일하게 `(0, 90, 0)`으로 수렴해 유지됐다(원래 값 `0`으로 되돌아가는
+   현상 없음) — 13.3에서 지목한 "홱 돌아갔다가 되돌아가는" 충돌이 이 경로에서는 재현되지 않음을
+   직접 확인했다. `FreezeRotation`이 `MoveRotation()`을 막지 않는다는 13.4의 전제가 사실로
+   확인됐다.
+3. **실제 지속 입력으로 걷는 모습 확인(13.6-3, 4)** — **이번 세션에서는 신뢰성 있게 수행하지
+   못했다.** 리플렉션으로 `rotation` 필드를 강제 대입하고 `Move()`를 여러 번 호출해 프레임별
+   회전을 관찰하려 시도했으나, 그 과정에서 `Physics.Simulate(...)`가 "simulation mode가 Script가
+   아니라 시뮬레이션이 실행되지 않았다"는 경고와 함께 **매번 아무 일도 하지 않았다는 것**을
+   `read_console`로 뒤늦게 발견했다 — 즉 그 사이 관찰된 값 변화는 내 수동 스텝 호출이 아니라,
+   도구 호출 사이의 실제 경과 시간 동안 백그라운드에서 정상적으로 돌아간 진짜 `Update()`/
+   `FixedUpdate()`(키 입력 없음 → `CheckMovementInput()`이 `rotation`을 계속 0으로 리셋)가 내가
+   리플렉션으로 넣어둔 값을 중간에 지워버린 결과였다 — 이 세션에서 이미 여러 번 기록된 "MCP
+   브리지/세션 불안정성"과 같은 계열의 문제다. 실제 키보드 입력을 이 자동화 환경에서 만들어낼
+   방법이 없어, 실사용자가 WASD로 직접 걸어보며 매끄러움을 육안 확인하는 절차는 **사용자의
+   실제 플레이 테스트로 재확인이 필요하다.**
+4. **회귀 확인(13.6-5)** — 코드 검토로 확인: `isDodge`/`isJump` 분기의 조건문·상태 전환 로직(
+   `keepMovingAfterDodge`/`keepMovingAfterJump`/`animationDriver.ChangeState(...)` 호출부)은
+   전혀 건드리지 않았고, 유일한 변경은 세 분기 모두에서 공유하던 "마지막에 회전을 어떻게
+   대입하는가"라는 한 지점(`transform.LookAt` → `rb.MoveRotation`)뿐이므로 회귀 위험은 낮다고
+   판단한다. 다만 이 역시 실제 지속 입력 테스트로 최종 확인되지는 않았다.
+5. **13.5(접지 판정 흔들림)** — 13.4 적용 후에도 미끄러짐이 남아있는지 실제 확인을 못했으므로
+   아직 착수 여부를 판단할 근거가 없다. 사용자가 실제 플레이 후 미끄러짐이 남아있다고 보고하면
+   그때 조사한다.
+
+### 13.10 정직한 한계
+
+이번 검증은 "회전 충돌 메커니즘 자체가 없어졌는가"(항목 2)는 **직접 재현·확정**했지만, "실제
+플레이했을 때 체감상 매끄러운가"(항목 3, 4 — 원래 버그 리포트의 실제 대상)는 이 자동화 환경에서
+키보드 입력을 만들어낼 수 없어 확정하지 못했다. 근본 원인으로 지목한 메커니즘(회전값 충돌)은
+코드에서 완전히 제거됐으므로 증상이 해소됐을 가능성이 높다고 판단하지만, **사용자가 직접
+GameLobbyScene에서 걸어보고 재확인해주는 것을 권장한다.**
+
+### 13.7 상태
+
+**원인 분석·구현 완료, 회전 충돌 메커니즘 제거는 실측으로 확정.** 다만 실제 걷는 느낌의 최종
+확인은 사용자의 플레이 테스트가 필요하다(§13.10).
+
+**→ 사용자가 실제로 플레이 테스트를 진행한 결과, 이 수정 이후에도 미끄러짐·버벅거림이 그대로
+남아있었다.** 즉 13.4의 회전 충돌 메커니즘은 실제로 존재했고 그 자체는 실측으로 제거를
+확인했지만(§13.9-2), **사용자가 체감하는 증상의 진짜 원인은 아니었다.** `PlayerTestScene`이
+아니라 실제 증상이 보고된 `GameLobbyScene`에서 직접 재조사한 결과를 §14에 기록한다.
+
+---
+
+## 14. [재조사] ⑥ 미끄러짐·버벅거림의 진짜 원인 — `Ch36` 자기 자신과의 충돌(self-collision) ✅ 원인 확정, 수정 계획 수립 (승인 대기, 미구현)
+
+### 14.1 왜 §13이 틀렸는가 — 재조사 방식
+
+이전 §13 조사는 `PlayerTestScene`(단순한 평평한 바닥 하나만 있는 테스트 전용 씬)에서 진행됐고,
+실제 지속 입력 상황은 리플렉션으로 필드를 순간적으로 조작하는 방식으로만 간접 검증했다 —
+사용자가 "고쳐진 게 없다"고 재확인해준 뒤, 이번에는 **실제 증상이 보고된 `GameLobbyScene`에
+Photon 방을 실제로 생성해 들어가서**(`LobbyController.OnMakeRoomButtonClicked()`와 동일한 코드
+경로, `PhotonNetwork.CreateRoom(...)` 직접 호출 → `AutomaticallySyncScene`으로 자동 로드) 로컬
+캐릭터를 대상으로 재조사했다.
+
+리플렉션 단발성 조작 대신, `UnityEditor.EditorApplication.update`에 **매 에디터 틱마다 실행되는
+콜백**을 등록해 `rotation`/`rotation_value` 필드를 지속적으로 전진 방향으로 강제 유지시킴으로써
+"사용자가 W를 계속 누르고 있는 상황"을 실제 게임 루프(`Update()`→`FixedUpdate()`→`Move()`)가
+정상적으로 여러 프레임에 걸쳐 처리하도록 만들고, 4틱마다 `transform.position`/`rb.linearVelocity`를
+`Debug.Log`로 남겨 `read_console`로 추적했다(§13에서 실패했던 "리플렉션 결과가 실제 게임 루프와
+간섭한다"는 문제를 근본적으로 피하는 방식 — 이번엔 오히려 실제 게임 루프에 올라타는 방식을 썼다).
+
+### 14.2 1차 실측 — 위치가 완전히 고정된 채 속도만 거대하고 불규칙
+
+`GameLobbyScene`에 실제로 입장해 스폰된 로컬 캐릭터(`pos=(11.63, 0.00, 12.18)`)를 대상으로 위
+방식으로 5초(실제 시간, 약 200틱)간 전진 입력을 강제한 결과:
+
+```
+tick=4   pos=(11.629, 0.000, 12.181) vel=(-19.148, -31.530, 1.915)
+tick=8   pos=(11.629, 0.000, 12.181) vel=(-19.148, -31.530, 1.915)
+...(200틱 내내 pos 완전히 동일, vel도 동일)...
+tick=200 pos=(11.629, 0.000, 12.181) vel=(-19.148, -31.530, 1.915)
+```
+
+`Time.fixedTime`/`Time.frameCount`를 별도로 확인한 결과 물리 스텝 자체는 정상적으로 계속
+진행되고 있었고(`fixedTime`이 계속 증가), `Rigidbody.IsSleeping() == false`였다 — 즉 **물리
+시뮬레이션은 살아있는데, 위치는 소수점 단위까지 한 치도 움직이지 않으면서 속도값만 초당
+수십 단위의 비정상적으로 큰 값을 갖고 있었다**(참고로 `speed`/`jumpPower`는 이 정도로 크지
+않다 — `Move()`가 의도한 속도가 아니라 물리 솔버가 무언가에 끼어 계속 밀어내려다 실패하고 있는
+값으로 보였다). 재조회 시점마다 속도값 자체도 계속 바뀌었다(`(-19.148,-31.530,1.915)` →
+`(-14.31,-86.19,12.86)`) — **가만히 있는데 속도가 계속 요동친다**는 것은 이동 로직(`Move()`)이
+아니라 **충돌 솔버가 뭔가를 밀어내려고 계속 힘을 주고 있다**는 강력한 정황이다.
+
+### 14.3 원인 특정 — `OverlapSphere`로 캐릭터 위치에 겹친 콜라이더를 직접 조회
+
+```csharp
+var cc = go.GetComponent<CapsuleCollider>(); // 루트의 캡슐 콜라이더
+var center = go.transform.TransformPoint(cc.center);
+var hits = Physics.OverlapSphere(center, cc.radius + cc.height/2f + 0.1f);
+```
+
+결과:
+
+```
+player center=(11.63, 0.90, 12.18) radius=0.35 height=1.8
+overlap: Ground              (MeshCollider, isTrigger=False)
+overlap: HideOrSeekPlayer(Clone) (CapsuleCollider, isTrigger=False)  bounds extents=(0.35, 0.90, 0.35)
+overlap: Ch36                (MeshCollider, isTrigger=False)        bounds extents=(0.81, 0.88, 0.63)
+```
+
+**`Ch36`(캐릭터 자신의 스킨 메시, `Ch36` 오브젝트)의 `MeshCollider`가 루트의 `CapsuleCollider`와
+정확히 같은 위치에서 훨씬 넓게(가로 0.81 vs 0.35, 세로 0.63 vs 0.35) 겹쳐 있다.** `Ground`만
+겹치는 건 정상(바닥을 딛고 서 있으니 당연)이지만, **`Ch36`이 별도의 콜라이더 히트로 잡힌다는
+것 자체가 문제다** — 루트 콜라이더와 `Ch36` 콜라이더는 같은 캐릭터의 부분이므로 서로 충돌해서는
+안 된다.
+
+**왜 이런 일이 생겼는가**: `PlayerControllPlan.md` §21에서 `Ch36`(원래 콘케이브 `MeshCollider`만
+있던 자식 오브젝트)이 "Concave Mesh Colliders are not supported... with dynamic Rigidbody"
+에러를 내던 것을 고치기 위해, **`Ch36`에 별도의 키네마틱 `Rigidbody`를 추가**했다 — 부모(루트)의
+다이나믹 `Rigidbody`가 만드는 컴파운드 콜라이더 모양에서 `Ch36`을 제외시켜 PhysX 제약을
+피하려는 의도였고, 그 자체는 정확히 의도대로 동작해 원래의 콘케이브 콜라이더 에러는 실제로
+사라졌다(§21.6 재검증 완료). **그런데 이 수정에는 미처 예상하지 못한 부작용이 있었다**: `Ch36`이
+독립된 `Rigidbody`를 갖게 되는 순간, `Ch36`은 더 이상 부모의 컴파운드 콜라이더에 속하지 않고
+**완전히 별개의 물리 바디**가 된다 — Unity는 "부모-자식 관계에 있는 콜라이더라도 서로 다른
+`Rigidbody`에 속하면 자동으로 충돌을 무시해주지 않는다"(같은 `Rigidbody`에 속한 콜라이더끼리만
+컴파운드 콜라이더로 취급되어 자동으로 서로 충돌하지 않음 — 이건 Unity의 잘 알려진 동작 원리다).
+결과적으로 루트의 `CapsuleCollider`(다이나믹, 캐릭터를 실제로 움직이는 콜라이더)와 `Ch36`의
+`MeshCollider`(같은 캐릭터의 몸통 메시, 캡슐보다 훨씬 넓음)가 **매 물리 스텝마다 자기 자신과
+충돌 판정을 일으키고, 충돌 솔버가 이 둘을 서로 밀어내려는 시도를 영원히 반복**하게 됐다 —
+이게 "속도는 거대하고 불규칙한데 위치는 고정"의 정확한 메커니즘이다: 두 콜라이더가 캐릭터가
+움직이는 한 계속 같은 상대 위치에서 겹쳐 있으므로(둘 다 같은 부모 아래 자식이라 함께 움직임),
+아무리 밀어내도 다음 프레임에 다시 겹치고, 그 침투(penetration)를 되돌리려는 보정 힘이 매
+스텝 누적되어 속도값에 반영되지만 실제 위치 변화로는 이어지지 못한다(스스로를 영원히 밀어내는
+셈이라 벗어날 수 없음).
+
+**§13이 놓친 이유**: 이 self-collision은 `PlayerTestScene`에서도 구조적으로 동일하게 존재했을
+것이나, §13/§19 검증 때는 리플렉션으로 순간이동(`rb.position` 직접 대입)시키거나 `isJump` 등을
+직접 토글하는 방식으로만 테스트해서, **실제로 몇 초간 지속적으로 이동을 시도하는 상황을 만들지
+않았다** — 그래서 매 순간의 "정지 상태"만 관찰했을 뿐, "이동을 시도하는데 실제로는 못 움직이고
+제자리에서 속도만 요동친다"는 이 버그의 핵심 증상을 볼 기회가 없었다. 반면 §13.3에서 지목한
+회전 충돌 문제는 실제로 존재하는 별개의 문제였고(그 자체는 코드로 확인 가능한 명백한 결함이라
+고칠 가치가 있었다) — 다만 사용자가 체감한 주 증상의 원인은 그게 아니라 이 self-collision
+쪽이었다.
+
+### 14.4 원인 확정 실험 — `Physics.IgnoreCollision()`으로 즉시 재현·해소
+
+같은 Play Mode 세션에서, 루트 `CapsuleCollider`와 `Ch36`의 `MeshCollider` 사이의 충돌만
+런타임에 직접 꺼봤다:
+
+```csharp
+Physics.IgnoreCollision(rootCapsuleCollider, ch36MeshCollider, true);
+```
+
+그 직후 같은 방식(지속 전진 입력 강제)으로 다시 측정한 결과:
+
+```
+tick=4   pos=(0.309, 0.000, -2.785) vel=(0.000, 0.000, 5.000)
+tick=8   pos=(0.309, 0.000, -2.681) vel=(0.000, 0.000, 5.000)
+tick=12  pos=(0.309, 0.000, -2.598) vel=(0.000, 0.000, 5.000)
+...
+tick=120 pos=(0.309, 0.000, -0.652) vel=(0.000, 0.000, 5.000)
+```
+
+**속도가 즉시 `(0, 0, 5)`(정확히 `Move()`가 의도한 전진 속도로 추정)로 완전히 안정되고, z좌표가
+매 틱 정확히 일정한 간격으로 증가하며 x좌표는 완벽히 고정되는, 흔들림·튐이 전혀 없는 매끄러운
+선형 이동으로 즉시 바뀌었다.** (참고로 `IgnoreCollision`을 건 직후 첫 관찰 시점에 캐릭터가
+`(11.63, 0, 12.18)`에서 `(-1.45, 0, -2.74)`로 이미 이동해 있었던 것도 함께 확인했다 — 그동안
+쌓여있던 self-collision 보정 속도가 충돌 제약이 풀리자마자 한 번에 실제 이동으로 튀어나간
+것으로, self-collision이 실제로 "안 움직이는 게 아니라 스스로에게 갇혀 있었다"는 것과 정확히
+일치하는 정황이다.)
+
+**결론: ⑥의 진짜 원인은 §21에서 `Ch36`에 추가한 키네마틱 `Rigidbody`가 만들어낸, 캐릭터 자기
+자신의 두 콜라이더 사이의 self-collision이다.** `Physics.IgnoreCollision()` 한 줄로 이 충돌
+판정 자체를 끄는 것만으로 증상이 완전히 사라지는 것을 실측으로 확정했다.
+
+### 14.5 수정 계획 (승인 대기, 미구현)
+
+`Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`의 `Start()`에서, 로컬/원격 여부와 무관하게(원격
+인스턴스는 둘 다 키네마틱이라 눈에 보이는 증상은 없었겠지만 불필요한 충돌 판정 자체는 동일하게
+발생하고 있었을 것이므로 함께 정리) 루트 콜라이더와 `Ch36`의 콜라이더 사이의 충돌을 명시적으로
+끈다:
+
+```csharp
+private void Start()
+{
+    ...
+    rb = GetComponent<Rigidbody>();
+    rb.isKinematic = !pv.IsMine;
+    ...
+
+    // Ch36은 §21에서 콘케이브 메시 콜라이더 에러를 피하려고 별도의 키네마틱 Rigidbody를 받았는데,
+    // 그 결과 루트의 CapsuleCollider와는 서로 다른 물리 바디가 되어 버려, 매 스텝 자기 자신과
+    // 충돌 판정을 일으키고 있었다(Bug-fix-plan.md §14) — 둘 다 같은 캐릭터의 일부이므로 명시적으로
+    // 서로를 무시하도록 지정한다.
+    Collider rootCollider = GetComponent<CapsuleCollider>();
+    Collider ch36Collider = transform.Find("Ch36")?.GetComponent<Collider>();
+    if (rootCollider != null && ch36Collider != null)
+        Physics.IgnoreCollision(rootCollider, ch36Collider, true);
+}
+```
+
+**왜 여기인가**: `Physics.IgnoreCollision()`은 프레임마다 다시 호출할 필요 없는 1회성 설정이고,
+`rb`/콜라이더 참조를 이미 얻어둔 `Start()`가 자연스러운 위치다. `pv.IsMine` 분기 밖에서(모든
+인스턴스에 대해) 실행되도록 두는 이유는, 원격 인스턴스도 동일한 구조(루트 콜라이더 + `Ch36`
+콜라이더, 둘 다 키네마틱)를 가지므로 눈에 보이는 이동 버그는 없더라도 불필요한 충돌 판정 자체는
+계속 발생하고 있었을 것이기 때문이다(성능 낭비 겸 잠재적 부작용 소지 제거).
+
+**대안으로 검토했으나 이번엔 채택하지 않은 방법**:
+- **레이어 기반 무시**(`Physics.IgnoreLayerCollision`): `Ch36` 전용 레이어를 새로 만들고 프로젝트
+  레이어 충돌 매트릭스에서 해당 레이어를 Player 레이어와 통째로 무시하도록 설정하는 방법. 더
+  "전역적"이지만, 이번 문제는 정확히 "이 캐릭터의 이 두 콜라이더 쌍"에 국한된 문제라
+  `Physics.IgnoreCollision()`으로 필요한 범위만 정확히 좁히는 것이 `CLAUDE.md`의 최소 변경
+  원칙에 더 부합한다고 판단했다.
+- **`Ch36`의 콜라이더를 아예 제거**: `PlayerPaintCanvas.paintableCollider`가 실제로 `Ch36`의
+  콜라이더를 붓칠 레이캐스트 대상으로 참조하고 있을 가능성이 높아(프리팹 직접 확인 필요),
+  섣불리 제거하면 색칠 기능이 깨질 수 있다 — 이번 수정 범위에서는 제외하고, 콜라이더는 유지한 채
+  물리적 충돌 판정만 끄는 쪽을 택했다.
+
+### 14.6 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. `GameLobbyScene`에 실제로 Photon 방을 만들어 입장한 뒤, §14.1과 동일한 방식(`EditorApplication.
+   update` 훅으로 지속 전진 입력 강제)으로 재측정 — `rb.linearVelocity`가 `Move()`가 의도한 값
+   그대로 안정되고, `transform.position`이 매 틱 일정하게 증가하는지 확인(§14.4의 결과가 코드
+   수정 후에도 재현되는지).
+3. `Physics.OverlapSphere`로 재조회했을 때 `Ch36`이 더 이상 루트 콜라이더와 충돌 히트로 잡히지
+   않는지(또는 잡히더라도 실제 충돌 반응이 없는지) 확인.
+4. 붓칠 기능(`PlayerPaintCanvas`)이 `Ch36` 콜라이더를 대상으로 여전히 정상적으로 레이캐스트되는지
+   회귀 확인 — `Physics.IgnoreCollision()`은 콜라이더 간 물리 충돌 반응만 끄고 레이캐스트 감지는
+   막지 않으므로 회귀가 없어야 하지만, 실제로 붓질이 여전히 되는지 직접 확인이 필요하다.
+5. 가능하다면 사용자가 직접 GameLobbyScene에서 걸어보고 미끄러짐·버벅거림이 실제로 사라졌는지
+   최종 확인.
+
+### 14.7 구현 결과
+
+`Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`의 `Start()`에 14.5 계획 그대로 `Physics.
+IgnoreCollision(rootCollider, ch36Collider, true)`를 추가했다. 컴파일 에러 0건.
+
+### 14.8 검증 결과 — 14.6의 각 항목, 전부 `GameLobbyScene`에서 실제 Photon 방으로 실측
+
+1. **컴파일 확인(14.6-1)** — 통과.
+2. **재측정(14.6-2)** — `GameLobbyScene`에 실제로 방을 만들어 입장한 뒤 §14.1과 동일한 방식
+   (`EditorApplication.update` 훅으로 지속 입력 강제)으로 다시 측정. 처음 스폰된 자리는 마침
+   피크닉 테이블 의자 바로 옆이라 전진하다 실제 의자에 부딪혀 정상적으로 멈췄고(이건 진짜 충돌—
+   버그 아님), 그래서 트인 공간(`(10, 1, 10)`, 사방 1.5m 이내에 `Ground`만 있음을 `OverlapSphere`로
+   먼저 확인)으로 옮겨 재측정했다:
+   - 낙하(y: 1→0)부터 착지까지 흔들림 없이 매끄럽게 감쇠(§13.5에서 우려했던 접지 흔들림도
+     이번엔 관측되지 않음).
+   - 착지 후 `vel=(0,0,-5)` 그대로 고정, `pos.z`가 매 4틱마다 정확히 동일한 간격으로 감소 —
+     완전히 선형적인 이동.
+   - 80틱째에 이동 방향을 강제로 바꿔본 결과, `yaw`가 즉시 180°→270°로 깔끔하게 전환되고
+     속도도 `(0,0,-5)`→`(-5,0,0)`로 즉시 정확히 전환, 이후 다시 완전히 선형적인 이동 재개.
+   - §14.2에서 관측했던 "위치 고정 + 속도만 거대하고 불규칙"한 패턴이 전혀 재현되지 않았다.
+3. **`OverlapSphere` 재조회(14.6-3)** — `Ch36`은 여전히 겹침으로 잡힌다(`Physics.
+   IgnoreCollision()`은 겹침 판정 자체가 아니라 솔버의 충돌 반응만 끄는 API라 기하학적으로는
+   여전히 겹쳐 있는 게 정상 — 애초에 같은 캐릭터의 몸통과 몸통 콜라이더이므로 겹치는 게 당연함).
+   다만 항목 2에서 실측했듯 **실제 충돌 반응(밀어내기)은 더 이상 발생하지 않는다** — 이게
+   `IgnoreCollision()`이 정확히 의도한 동작이다.
+4. **붓칠 레이캐스트 회귀 확인(14.6-4)** — `PlayerPaintCanvas.PaintableCollider`가 정확히 `Ch36`의
+   `MeshCollider`를 가리키는 것을 확인했다. 여러 각도에서 직접 레이캐스트를 쏴본 결과 이번
+   테스트에서는 매번 `Ch36`보다 먼저 캡슐 콜라이더가 맞았다(캡슐이 몸통 대부분을 감싸고 있어
+   레이가 도달하기 전에 먼저 막음) — **다만 이건 `Physics.IgnoreCollision()`과 무관한 현상이다.
+   `IgnoreCollision()`은 물리 솔버의 충돌 반응 쌍에만 영향을 주고 `Physics.Raycast` 등 쿼리
+   API의 히트 판정에는 전혀 관여하지 않는다는 것이 Unity의 명세된 동작이므로, 이 결과는 이번
+   수정 전에도 완전히 동일했을 것**이다 — 즉 이번 수정으로 인한 새로운 회귀는 아니다. 다만
+   "실제 게임플레이에서 붓칠 레이캐스트가 캐릭터의 어느 부분을 얼마나 잘 맞히는지"는 이번
+   ⑥ 버그의 범위 밖인 별개의 사안으로 보이며, 조사 중 우연히 발견한 것이라 여기 기록만 해둔다
+   (사용자가 실제로 붓칠 기능을 써보고 이상이 있으면 별도로 알려달라).
+5. **최종 사용자 확인(14.6-5)** — 아직 사용자가 직접 플레이해보지 않았다. 실측 데이터상으로는
+   self-collision 패턴이 완전히 사라졌으므로 체감 개선을 기대하지만, 최종 확인은 사용자 몫으로
+   남겨둔다.
+6. `read_console` 최종 확인 결과 이번 테스트 전 구간에서 에러/경고 0건.
+
+### 14.9 정직한 한계
+
+- 항목 4(붓칠 레이캐스트)에서 우연히 발견한 "캡슐이 `Ch36`보다 먼저 맞는 경우가 많다"는 관찰은
+  ⑥ 버그와 무관한 별개의 잠재적 이슈일 수 있으나, 이번 수정으로 새로 생긴 것이 아님을 논리적으로
+  (Unity의 `IgnoreCollision` API 명세)와 실측(수정 전후 동일한 결과) 양쪽으로 확인했으므로 이번
+  범위에서는 더 파고들지 않았다.
+- 실제 키보드 지속 입력으로 사용자가 체감하는 매끄러움의 최종 확인은 여전히 자동화 환경에서
+  할 수 없다 — 다만 이번엔 §13 때와 달리 실제 게임 루프에 올라타는 방식(`EditorApplication.update`
+  훅으로 매 프레임 입력을 유지)으로 측정했기 때문에, §13의 리플렉션 단발 조작보다 훨씬 신뢰도
+  높은 근거로 판단한다.
+
+### 14.10 상태
+
+**진짜 원인 실측으로 확정, 구현 완료, `GameLobbyScene` 실측으로 self-collision 패턴이 완전히
+사라졌음을 확인.** 사용자의 실제 플레이 테스트로 최종 확인을 권장한다.
+
+---
+
+## 15. ⑦ 점프 연타 시 Jump 애니메이션이 처음부터 재생되지 않는 버그 — ✅ 원인 실측 확정·구현·검증 완료
+
+### 15.1 증상
+
+사용자 보고: 점프 키(Space)를 연속해서 눌렀을 때, **가끔** 재점프하는 순간 Jump 모션이 처음부터
+시작하지 않고, 이전 점프가 멈췄던(얼어있던) 재생 지점의 중간부터 이어서 재생된다.
+
+### 15.2 관련 코드 — 점프 애니메이션 "정지(freeze)" 메커니즘
+
+`PlayerAnimationDriver.cs`는 점프 애니메이션이 착지 전에 끝까지(착지 포즈까지) 재생돼버리는 것을
+막기 위해, 정점 부근에서 재생을 멈추고 공중 자세를 유지시키는 메커니즘을 갖고 있다:
+
+```csharp
+// 착지 전에 Jump 애니메이션이 끝까지(착지 포즈까지) 재생되어 버리는 것을 막기 위해
+// 정점 부근에서 재생을 멈추고 공중 자세를 유지시킨다.
+public void HandleJumpAnimationHold()
+{
+    if (animator == null || currentState != PlayerMoveState.Jump)
+        return;
+
+    AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+    if (!state.IsName("Jump"))
+        return;
+
+    if (animator.speed > 0f && state.normalizedTime >= jumpFreezeNormalizedTime)
+    {
+        animator.speed = 0f;   // ← 여기서 애니메이터 전체 재생 속도를 0으로 얼림(정지)
+    }
+}
+
+public void ResumePlayback()
+{
+    if (animator != null)
+        animator.speed = 1f;   // ← 착지 시 다시 재생 속도만 복구 — 재생 "위치"는 그대로
+}
+```
+
+`animator.speed`는 **Animator 컴포넌트 전체의 재생 속도**이지, 특정 상태의 재생 위치가 아니다.
+`ResumePlayback()`은 속도만 `1`로 되돌릴 뿐, 애니메이터가 지금 **어느 시점(`normalizedTime`)에
+멈춰있는지는 전혀 건드리지 않는다** — 즉 재점프 시 애니메이터가 실제로 "처음부터" 다시 재생되려면
+**반드시 `Jump` 상태로 새로 진입(재트리거)해야 한다.**
+
+### 15.3 근본 원인 실측 확정 — `PlayerAnimationDriver.ChangeState()`의 "같은 상태면 무시" 가드
+
+`ChangeState()`의 실제 코드:
+
+```csharp
+public void ChangeState(PlayerMoveState newState)
+{
+    if (animator == null)
+        return;
+
+    if (previousState == newState)   // ← 코드상 상태 라벨이 이미 같으면 아무것도 하지 않고 리턴
+        return;
+
+    animator.ResetTrigger(previousState.ToString());
+    animator.SetTrigger(newState.ToString());   // ← 이 SetTrigger가 실제로 Jump 상태를 "새로" 진입시킴
+
+    previousState = newState;
+    currentState = newState;
+}
+```
+
+`HideOrSeekPlayer.FixedUpdate()`에서 재점프 시 호출하는 코드:
+
+```csharp
+if (jumpRequested && grounded && !isDodge)
+{
+    rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpPower, rb.linearVelocity.z);
+    isJump = true;
+    keepMovingAfterJump = true;
+    jumpMoveDir = rotation;
+    animationDriver.ChangeState(PlayerMoveState.Jump);   // ← previousState가 이미 "Jump"면 이 호출이 통째로 무시됨
+}
+```
+
+**핵심 문제**: 정상적인 흐름에서는 착지 시 `HideOrSeekPlayer.Update()`의 `CheckMovementInput()`이
+`!isJump && !isDodge`를 만족하는 즉시 `ChangeState(Idle 또는 Walk)`를 호출해 코드상 상태 라벨을
+`Jump`에서 벗어나게 해주므로, 그 다음 재점프 시 `ChangeState(Jump)`가 `previousState(Idle/Walk)
+!= newState(Jump)`를 통과해 정상적으로 `SetTrigger`가 호출된다. **그런데 사용자가 "연타"할 만큼
+빠르게 입력하면, 착지 처리(`FixedUpdate`의 landing 분기)와 재점프 처리(`FixedUpdate`의 jump-request
+분기)가 그 사이에 `Update()`(따라서 `CheckMovementInput()`)가 한 번도 끼어들 기회 없이 연속된
+물리 스텝에서 처리되는 경우가 생긴다** — 이 경우 `previousState`가 여전히 `Jump`인 채로
+`ChangeState(Jump)`가 다시 호출되고, 가드에 걸려 `SetTrigger("Jump")`가 **아예 호출되지 않는다.**
+그 결과 애니메이터는 `ResumePlayback()`이 재생 속도만 `1`로 되돌린 상태 그대로, **얼려뒀던 그
+지점부터 이어서** 재생을 계속한다 — 이게 정확히 사용자가 본 증상이다.
+
+**Animator Controller 쪽은 문제가 없음을 직접 확인**: `Assets/Animation/PlayerAnimator.controller`를
+`AnimatorController` API로 직접 열어 `AnyState → Jump` 전환 설정을 확인한 결과:
+
+```
+AnyState -> Jump  hasExitTime=False  duration=0.1  offset=0  canTransitionToSelf=True  conditions=1 (Jump If)
+```
+
+`canTransitionToSelf=True`이고 `offset=0`이므로, **`SetTrigger("Jump")`가 실제로 전달되기만
+하면** 이미 `Jump` 상태에 있던 도중이라도 0.1초 크로스페이드로 깔끔하게 처음(0)부터 다시
+재생되도록 이미 구성되어 있다 — 즉 Animator Controller를 고칠 필요는 없고, **`SetTrigger`가
+호출되지 않고 건너뛰어지는 C# 쪽 가드만이 유일한 원인**이다.
+
+**Play Mode 실측으로 직접 재현·확정**: `GameLobbyScene`에 실제로 입장한 로컬 캐릭터를 대상으로,
+`HideOrSeekPlayer` 컴포넌트를 일시적으로 `enabled = false`로 꺼서 실제 게임 루프의 간섭을 차단한
+뒤, `PlayerAnimationDriver.ChangeState(Jump)`를 리플렉션으로 호출해 `Jump` 상태에 진입시키고,
+`previousState`를 건드리지 않은 채(여전히 `"Jump"`) `animator.speed = 1f`(착지 시뮬레이션) 직후
+`ChangeState(Jump)`를 다시 호출해봤다 — 재호출 전후로 `previousState`는 `"Jump"`로 동일했고,
+**`normalizedTime`은 리셋되지 않고 그 이후 실제 경과 시간에 비례해 계속 누적되기만 했다**
+(재호출 시점 `15.99` → 2초 뒤 재확인 시 `34.67`, 즉 "새로 시작"이 아니라 "이어서 계속 진행")
+— 코드 리뷰로 세운 가설이 실측으로 정확히 확인됐다.
+
+### 15.4 수정 계획 — 채택안: `ChangeState()`를 건드리지 않고 점프 전용 메서드를 별도로 추가
+
+처음에는 `ChangeState()`에 `force` 매개변수를 추가하는 방향을 검토했으나, 사용자가 "이 공유
+메서드를 고치면 나머지(Idle/Walk/SneakWalk/Dodge, 원격 플레이어 동기화가 쓰는
+`ChangeState(networkSync.RemoteState)` 등)도 영향을 받을 것 같다"는 우려를 제기해 **다른
+방안을 채택했다**: `ChangeState()`는 한 글자도 건드리지 않고, `PlayerAnimationDriver`에 점프
+전용의 완전히 독립된 메서드를 추가한다.
+
+```csharp
+// PlayerAnimationDriver.cs — ChangeState()는 기존 그대로 두고 이 메서드만 추가
+public void ReplayJump()
+{
+    if (animator == null)
+        return;
+
+    animator.ResetTrigger(previousState.ToString());
+    animator.SetTrigger(PlayerMoveState.Jump.ToString());
+
+    previousState = PlayerMoveState.Jump;
+    currentState = PlayerMoveState.Jump;
+}
+```
+
+`HideOrSeekPlayer.FixedUpdate()`의 점프 시작 호출부에서 `animationDriver.ChangeState(PlayerMoveState.
+Jump)` 대신 이 메서드를 쓴다:
+
+```csharp
+if (jumpRequested && grounded && !isDodge)
+{
+    rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpPower, rb.linearVelocity.z);
+    isJump = true;
+    keepMovingAfterJump = true;
+    jumpMoveDir = rotation;
+    animationDriver.ReplayJump(); // 연타로 재점프해도 항상 처음부터 재생(Bug-fix-plan.md §15)
+}
+```
+
+**왜 이 방식이 더 나은가**: `ChangeState()`는 코드가 한 글자도 바뀌지 않으므로, `Idle`/`Walk`/
+`SneakWalk`/`Dodge` 호출부와 원격 플레이어 동기화(`ChangeState(networkSync.RemoteState)`)는
+**논리적으로 영향받을 수 없다** — 별도로 회귀 검증할 필요 자체가 없어진다. `ReplayJump()`는
+"새로운 점프/낙하 이벤트가 시작되면 무조건 Jump 애니메이션을 처음부터 재생한다"는 단일 책임만
+가진 새 메서드라 이름만으로 의도가 분명하다. 착지 시 `CheckMovementInput()`이 호출하는 기존
+`ChangeState(Idle/Walk)`는, `ReplayJump()`가 `previousState`를 정확히 `Jump`로 맞춰두므로
+평소와 완전히 동일하게 동작한다.
+
+**`Dodge`는 이번 수정 범위에서 제외한 이유**: `CheckDodgeInput()`의 회피 시작 조건 자체가
+`!isJump && !isDodge`라 `isDodge`가 이미 `true`인 동안에는 애초에 새 회피 요청이 코드 레벨에서
+막힌다 — 즉 점프처럼 "직전 회피가 채 끝나기도 전에 코드 상태 라벨이 같은 채로 재요청되는" 경합
+자체가 구조적으로 발생하지 않는다. 다만 완전히 동일한 클래스의 문제가 잠재해 있을 가능성은
+남아있으므로, 이번엔 사용자가 보고한 점프만 수정하고 회피는 별도 보고가 있을 때 다룬다.
+
+### 15.5 구현 결과
+
+`Assets/02. Scripts/Unit/PlayerAnimationDriver.cs`에 `ReplayJump()` 추가(`ChangeState()`는
+무변경), `Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`의 의도한 점프 호출부에서
+`animationDriver.ChangeState(PlayerMoveState.Jump)` → `animationDriver.ReplayJump()`로 교체.
+컴파일 에러 0건.
+
+### 15.6 검증 결과 — `GameLobbyScene` 실제 Photon 방에서 실측
+
+§15.3과 동일한 방식(`HideOrSeekPlayer.enabled = false`로 실제 게임 루프 차단 → 리플렉션으로
+`Jump` 상태 진입 → `previousState`를 건드리지 않은 채 재호출)으로, 이번엔 `ReplayJump()`를
+재호출해봤다:
+
+- 재호출 직전 `normalizedTime = 6.77`(연타 재현을 위해 일부러 오래 재생시켜둔 값).
+- 재호출 후 2초 뒤 재확인한 `normalizedTime = 4.92` — **더 많은 실제 시간이 지났는데도 값이
+  더 작아졌다.** 논스톱으로 재생되는 애니메이션이라면 시간이 지날수록 값이 커지기만 해야
+  하므로, 이 사이에 "처음(0)으로 리셋된 뒤 다시 올라간 것"이라는 것 외에는 설명할 수 없다 —
+  §15.3에서 확인했던 "리셋 없이 계속 누적"(15.99 → 34.67) 패턴과 정반대의, 명확한 리셋 신호다.
+- `read_console` 최종 확인 결과 에러/경고 0건.
+
+`Idle`/`Walk`/`SneakWalk` 쪽 회귀는 §15.4에서 설명했듯 `ChangeState()` 자체가 무변경이라
+논리적으로 영향받을 수 없으며, 실제로 테스트 준비 과정에서 `ChangeState(Idle)` 호출이 매번
+정상적으로 동작하는 것도 함께 확인했다(previousState가 정확히 갱신됨).
+
+실제 지속 키 입력으로 연타해 육안으로 확인하는 것은 이 자동화 환경의 한계로 여전히 불가능하다
+(§13/§14와 동일한 제약) — 사용자의 실제 플레이 테스트를 권장한다.
+
+### 15.7 상태
+
+**원인 실측 확정, 구현 완료, Play Mode 실측으로 애니메이션 리셋 동작을 직접 확인.** 사용자의
+실제 연타 플레이 테스트로 최종 체감 확인을 권장한다.
+
+**→ 사용자가 실제로 연타 테스트를 진행한 결과, §15 수정 이후에도 증상이 그대로 남아있었다.**
+§15에서 고친 메커니즘(`ChangeState()`의 가드가 `SetTrigger` 자체를 건너뜀)은 실제로 존재했고
+그 자체는 확실히 고쳤지만, **완전히 별개의 두 번째 메커니즘이 동시에 같은 증상을 만들어내고
+있었다** — 아래 §16에서 이 두 번째 원인을 실측으로 새로 확정하고 수정 계획을 세운다.
+
+---
+
+## 16. ⑦ 재조사 — `HandleJumpAnimationHold()`가 재트리거 직후의 "아직 갱신 안 된" 상태를 오판하는 두 번째 원인 (승인 대기, 미구현)
+
+### 16.1 왜 §15만으로는 부족했는가
+
+§15는 "재점프 시점에 `previousState`가 이미 `Jump`라서 `SetTrigger` 자체가 호출되지 않는" 경로를
+막았다(`ReplayJump()`는 조건 없이 항상 `SetTrigger`를 호출함). 그런데 `SetTrigger`를 호출한다고
+그 순간 애니메이터가 곧바로 새 인스턴스로 넘어가는 것은 아니다 — Unity 애니메이터는 트리거를
+**"요청"으로만 받아두고, 다음 내부 애니메이터 평가(대략 다음 프레임)에서야 실제로 전환을
+처리한다.** 그 사이의 "요청은 했지만 아직 반영 전"인 짧은 창(window) 동안 `GetCurrentAnimatorStateInfo(0)`
+을 조회하면 **여전히 이전(재트리거 전) 상태의 정보(오래된 `normalizedTime`)가 그대로 나온다.**
+
+그런데 `HideOrSeekPlayer.Update()`는 매 프레임 다음 순서로 호출된다:
+
+```csharp
+CheckMovementInput();
+CheckJumpInput();
+CheckDodgeInput();
+animationDriver.HandleJumpAnimationHold(); // ← 매 프레임 무조건 호출됨(currentState==Jump일 때만 내부에서 동작)
+```
+
+재점프가 발생하는 `FixedUpdate()`와 그 직후(또는 같은 프레임의) `Update()`가 아주 가깝게 붙어서
+실행되는 타이밍(연타 시 자주 발생 — §15.3에서 이미 확인한 것과 같은 계열의 경합)에서는,
+`ReplayJump()`가 `SetTrigger`를 요청한 바로 다음 `HandleJumpAnimationHold()` 호출이 **아직
+반영되지 않은 "재트리거 이전" 상태 정보를 읽어버린다.**
+
+### 16.2 원인 실측 확정 — Play Mode에서 `ReplayJump()` 직후 `HandleJumpAnimationHold()`를 곧바로 호출해봄
+
+`PlayerTestScene`에서 로컬 캐릭터의 `HideOrSeekPlayer`를 `enabled = false`로 꺼서 실제 게임 루프
+간섭을 차단한 뒤, 리플렉션으로 다음 순서를 정확히 재현했다: (1) `Jump` 진입 → 실제 시간이 흘러
+`HandleJumpAnimationHold()`가 정점에서 `speed=0`으로 얼림(`normalizedTime=4.07`에서 정지) →
+(2) `ResumePlayback()`(착지 시뮬레이션, `speed=1`) → (3) `ReplayJump()`(재점프, 연타 재현) →
+(4) **곧바로(같은 호출 시퀀스 안에서) `HandleJumpAnimationHold()`를 한 번 더 호출**(실제 게임의
+바로 다음 `Update()` 프레임과 동일한 타이밍을 재현).
+
+측정 결과:
+
+```
+ReplayJump 직후:              speed=1  normalizedTime=4.07369  isJumpState=True  inTransition=False
+HandleJumpAnimationHold 직후: speed=0  normalizedTime=4.07369  isJumpState=True  inTransition=False
+```
+
+**`ReplayJump()`가 `SetTrigger`를 요청했음에도 `normalizedTime`은 여전히 재트리거 이전 값
+그대로였고(애니메이터가 아직 요청을 반영하지 못한 상태), 그 직후 호출된 `HandleJumpAnimationHold()`
+가 이 "오래된" `normalizedTime`(이미 `jumpFreezeNormalizedTime` 이상)을 보고 즉시 다시
+`animator.speed = 0`으로 얼려버렸다** — 즉 `ReplayJump()`가 요청한 재생 자체가 시작되기도 전에,
+바로 다음 순간 `HandleJumpAnimationHold()`가 도로 정지시켜버리는 것이다. 결과적으로 애니메이터는
+새로 재생을 시작할 기회조차 얻지 못한 채 이전 정지 지점에 계속 머무른다 — 이게 바로 사용자가 본
+"중간 지점부터 시작"의 정확한 메커니즘이다(정확히는 "새로 시작하지도 못하고 이전 정지 지점에
+그대로 갇힘").
+
+**대조 실험**: 동일한 상황에서, `ReplayJump()` 직후 `HandleJumpAnimationHold()`를 **호출하지
+않고** 대신 실제 시간이 흐르도록(최소 한 프레임 이상) 놔둔 뒤 상태를 확인해보니 `speed`가
+계속 `1`로 유지되고(=아무도 다시 얼리지 않음) 애니메이터가 `Jump` 상태에서 정상적으로 시간이
+흐르고 있었다 — `HandleJumpAnimationHold()`가 "너무 이른 타이밍"에 호출되는 것 자체가 문제의
+핵심임을 다시 한번 확인했다.
+
+### 16.3 수정 계획 (승인 대기, 미구현)
+
+`PlayerAnimationDriver`에 "방금 `ReplayJump()`를 호출했으니, 그 요청이 실제로 애니메이터에
+반영될 때까지 최소 한 번은 `HandleJumpAnimationHold()`의 판단을 보류한다"는 플래그를 추가한다:
+
+```csharp
+private bool suppressHoldCheckOnce;
+
+public void ReplayJump()
+{
+    if (animator == null)
+        return;
+
+    animator.ResetTrigger(previousState.ToString());
+    animator.SetTrigger(PlayerMoveState.Jump.ToString());
+
+    previousState = PlayerMoveState.Jump;
+    currentState = PlayerMoveState.Jump;
+
+    // SetTrigger는 다음 애니메이터 내부 평가(대략 다음 프레임)에야 실제로 반영된다. 그 사이
+    // HandleJumpAnimationHold()가 "재트리거 이전"의 오래된 normalizedTime을 보고 즉시 다시
+    // 얼려버리는 것을 막기 위해, 재생이 실제로 시작될 때까지 최소 한 번은 정지 판정을 건너뛴다
+    // (Bug-fix-plan.md §16).
+    suppressHoldCheckOnce = true;
+}
+
+public void HandleJumpAnimationHold()
+{
+    if (animator == null || currentState != PlayerMoveState.Jump)
+        return;
+
+    if (suppressHoldCheckOnce)
+    {
+        suppressHoldCheckOnce = false;
+        return;
+    }
+
+    AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+    if (!state.IsName("Jump"))
+        return;
+
+    if (animator.speed > 0f && state.normalizedTime >= jumpFreezeNormalizedTime)
+    {
+        animator.speed = 0f;
+    }
+}
+```
+
+**왜 "한 번 건너뛰기"로 충분한가**: 실제 게임에서 `HandleJumpAnimationHold()`는 매 `Update()`
+프레임마다 정확히 한 번씩만 호출된다 — 애니메이터의 내부 평가도 프레임당 한 번이므로, 재점프가
+발생한 프레임의 검사 한 번만 건너뛰면 그 다음 프레임부터는 애니메이터가 이미 요청을 반영한
+뒤이므로(전환이 시작됐거나 이미 완료됨) `normalizedTime`이 새 인스턴스를 정확히 반영한다 —
+Play Mode 실측(§16.2 대조 실험)에서 "건너뛰고 최소 한 프레임을 기다리면 정상적으로 흘러간다"는
+것을 이미 확인했다.
+
+**왜 걷다가 낙하하는 §23 케이스에도 자동으로 적용되는가**: §23의 걸어서 낙하 감지 분기도
+`animationDriver.ReplayJump()`를 그대로 재사용하므로, 이 수정은 §15/§23 양쪽 모두에 자동으로
+적용된다 — 별도 수정이 필요 없다.
+
+### 16.4 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. §16.2와 동일한 방식(`HideOrSeekPlayer.enabled = false` → `ReplayJump()` 직후 곧바로
+   `HandleJumpAnimationHold()` 재호출)으로 재현해, 이번엔 `speed`가 `0`으로 되돌아가지 않고
+   `1`로 유지되는지 확인 — 이게 핵심 검증 포인트.
+3. 같은 테스트를 몇 차례 반복해, `suppressHoldCheckOnce`가 매번 정확히 한 번만 소비되고 이후
+   프레임에서는 정상적으로 다시 정점 정지 로직이 동작하는지(즉 진짜 점프의 "정점에서 얼리는"
+   원래 기능 자체는 회귀 없이 그대로인지) 확인.
+4. `GameLobbyScene`(또는 `PlayerTestScene`)에서 실제로 점프를 연달아 여러 번 눌러보며 육안 확인 —
+   다만 이 자동화 환경은 실제 키보드 연타를 만들어낼 수 없으므로, 최종 확인은 사용자의 실제
+   플레이 테스트가 필요하다.
+5. §23(걸어서 낙하)도 함께 재확인 — 낙하 중 착지 직후 다시 바로 낙하하는 것과 같은 연속
+   상황에서도 정상 동작하는지.
+6. `read_console` 최종 확인 결과 에러/경고 0건.
+
+### 16.5 상태
+
+**두 번째 원인을 Play Mode 실측으로 확정, 수정 계획 수립 완료 — 아직 구현하지 않음.** 동의하면
+바로 구현을 시작하겠다.
+
+---
+
+## 17. ⑧ PlayerTestScene(및 실제로는 모든 씬)에서 색을 골라도 붓이 나오지 않는 버그 — 원인 실측 확정 + 수정 계획 (승인 대기, 미구현)
+
+### 17.1 증상
+
+사용자 보고: `PlayerTestScene`에서 색상을 지정(`ColorSelectionManager.SubmitVote()`로 붓 색을
+정함)한 뒤에도 3D 붓 커서(`BrushCursorController`)가 화면에 나타나지 않는다.
+
+### 17.2 원인 조사 — 색상 선택과는 무관함을 먼저 배제
+
+`PlayerTestScene`의 `ColorTagManagers`(`ColorSelectionManager`/`RoomLifecycleWatcher`/
+`BrushCursorController`)와 `TestBootstrap`(`OfflineModeBootstrap`)을 Play Mode에서 직접
+조회한 결과:
+
+```
+OfflineMode=True  InRoom=True  CurrentRoom=OfflineTestRoom  IsMasterClient=True  RoundIndex=0
+BrushCursorController 내부 isColorRoundActive=True
+cursorInstance="BrushCursor(Runtime)" (생성은 됨, activeSelf=False)
+```
+
+즉 라운드 시스템 자체(`RoundIndex`)와 `BrushCursorController`의 "이번 라운드는 색칠 라운드다"
+판단(`isColorRoundActive`)은 전부 정상이었고, 붓 프리팹 인스턴스도 정상적으로 생성돼 있었다 —
+**색상 선택/라운드 시스템은 원인이 아니다.** 문제는 그보다 더 아래 단계, 즉 붓을 "지금 이 순간
+보여줄지" 매 프레임 결정하는 로직에 있었다.
+
+### 17.3 진짜 원인 실측 확정 — 캐릭터 자신의 `CapsuleCollider`가 `Ch36`을 가림
+
+`BrushCursorController.Update()`와 `PlayerPaintCanvas.Update()` 둘 다 다음과 같은 패턴으로
+"마우스가 지금 내 캐릭터 몸(`Ch36`) 위에 있는가"를 판정한다:
+
+```csharp
+// BrushCursorController.cs
+Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
+bool hitSurface = Physics.Raycast(ray, out RaycastHit hit) && hit.collider == localPaintCanvas.PaintableCollider;
+cursorInstance.SetActive(hitSurface); // hit이 정확히 Ch36의 MeshCollider일 때만 붓을 보여줌
+```
+
+```csharp
+// PlayerPaintCanvas.cs
+Ray ray = localCamera.ScreenPointToRay(Input.mousePosition);
+if (!Physics.Raycast(ray, out RaycastHit hit)) return;
+if (hit.collider != paintableCollider) return; // 자신의 오브젝트가 아니면 무시 — 실제 칠하기도 여기서 막힘
+```
+
+`PlayerPaintCanvas.PaintableCollider`가 정확히 무엇인지 Play Mode에서 직접 확인한 결과
+`Ch36`의 `MeshCollider`였다. 그런데 `PlayerControllPlan.md` §18(물리 도입)에서 캐릭터 루트에
+새로 추가한 `CapsuleCollider`가, 카메라 시점 기준으로 `Ch36`(캐릭터 몸 메시)을 거의 완전히
+감싸는 크기와 위치에 있다 — `Physics.Raycast(ray, out hit)`(레이어 마스크 없는 기본 오버로드)는
+**레이 경로상 가장 가까운 콜라이더 단 하나만** 반환하므로, `Ch36`보다 앞에/감싸듯 있는
+`CapsuleCollider`가 거의 항상 먼저 잡힌다.
+
+Play Mode에서 캐릭터의 화면상 위치를 중심으로 가로/세로 격자(7×7=49개 지점)에서 동일한 방식의
+레이캐스트를 직접 쏴본 결과:
+
+```
+hitPaintable(Ch36)=0   hitOther=49   hitNone=0
+```
+
+**49개 지점 전부 `Ch36`이 아니라 `CapsuleCollider`가 먼저 맞았다** (단일 지점 재확인 결과
+`hit.collider`가 정확히 `hide_or_seek_player`의 `CapsuleCollider`임을 이름까지 확인). 즉
+`localPaintCanvas.PaintableCollider`(`Ch36`)를 직접 맞히는 것이 이 캐릭터의 실루엣 범위 안에서는
+사실상 불가능한 상태다 — **붓 커서 표시뿐 아니라 실제 색칠(스탬프) 기능 자체도 동일한 원인으로
+막혀 있다.** 이 현상은 이전 세션 `Bug-fix-plan.md` §14.8-4에서 "⑥ 버그와는 무관한 별개 사안"으로
+짧게 언급만 하고 넘어갔던 것인데, 이번 사용자 보고의 실제 원인이 정확히 이것이었다.
+
+### 17.4 수정 계획 (승인 대기, 미구현)
+
+표준적인 해법은 **캐릭터 자신의 물리용 `CapsuleCollider`를 별도 레이어에 두고, 붓 관련
+레이캐스트에서 그 레이어만 제외한 레이어 마스크를 사용**하는 것이다 — `Physics.IgnoreCollision()`
+과 달리 레이어 마스크는 `Physics.Raycast` 쿼리 자체에 영향을 주므로 정확히 이 상황을 위한
+표준 도구다.
+
+**1) 새 레이어 추가**: 프로젝트에 아직 커스텀 레이어가 하나도 없다(`Default`/`TransparentFX`/
+`Ignore Raycast`/`Water`/`UI`뿐). `PlayerCapsule`이라는 이름으로 레이어를 하나 추가한다.
+
+**2) `HideOrSeekPlayer` 프리팹**: 루트(= `CapsuleCollider`가 달린 오브젝트)의 `layer`를
+`PlayerCapsule`로 변경한다. **자식인 `Ch36`은 손대지 않는다** — Unity의 레이어는 자동으로
+자식에게 상속되지 않고 오브젝트별로 독립적이므로, 루트만 바꿔도 `Ch36`은 그대로 `Default`에
+남아 지금처럼 정상적으로 페인트 대상 역할을 계속한다.
+
+**3) 붓 관련 레이캐스트 두 곳에 레이어 마스크 적용**:
+
+```csharp
+// BrushCursorController.cs
+private int paintRaycastMask;
+
+private void Awake()
+{
+    propertyBlock = new MaterialPropertyBlock();
+    Cursor.visible = true;
+    // 캐릭터 자신의 물리용 CapsuleCollider가 Ch36을 가려 레이캐스트가 항상 캡슐에 먼저 맞는 문제를
+    // 막기 위해, 붓 관련 레이캐스트에서는 PlayerCapsule 레이어를 제외한다(Bug-fix-plan.md §17).
+    paintRaycastMask = Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule");
+}
+
+private void Update()
+{
+    ...
+    Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
+    bool hitSurface = Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, paintRaycastMask)
+        && hit.collider == localPaintCanvas.PaintableCollider;
+    ...
+}
+```
+
+```csharp
+// PlayerPaintCanvas.cs
+private int paintRaycastMask;
+
+private void Start()
+{
+    localCamera = Camera.main;
+    currentBrushRadius = Mathf.Clamp(brushSettings.DefaultRadius, brushSettings.MinRadius, brushSettings.MaxRadius);
+    paintRaycastMask = Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule"); // Bug-fix-plan.md §17
+    InitPaintCanvas();
+}
+
+private void Update()
+{
+    ...
+    Ray ray = localCamera.ScreenPointToRay(Input.mousePosition);
+    if (!Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, paintRaycastMask)) return;
+    if (hit.collider != paintableCollider) return;
+    ...
+}
+```
+
+`Physics.DefaultRaycastLayers`(Unity 내장 상수, "Ignore Raycast" 레이어만 제외한 나머지 전부)를
+기준으로 `PlayerCapsule`만 추가로 빼는 방식이라, 기존에 다른 오브젝트(벽 등 실제 시야를 가리는
+지형지물)가 여전히 붓을 정상적으로 가려주는 동작(현재도 있던 "가려지면 안 보임" 로직)은
+회귀 없이 그대로 유지된다 — 오직 캐릭터 자신의 캡슐 콜라이더 하나만 이 레이캐스트의 대상에서
+빠진다.
+
+**왜 `Physics.IgnoreCollision()`이 아닌 레이어 마스크인가**: §14에서 self-collision을 고칠 때는
+`Physics.IgnoreCollision()`을 썼는데(물리 솔버의 충돌 반응만 제외), 그때 이미 "이 API는 레이캐스트
+쿼리에는 전혀 영향을 주지 않는다"는 것을 §14.8-4에서 실측으로 확인해뒀다 — 그래서 이번엔
+애초에 레이캐스트 쿼리 자체를 걸러내는 레이어 마스크를 쓴다.
+
+**다른 플레이어에 대한 영향**: `PlayerCapsule` 레이어는 프리팹 자체에 적용되므로 모든
+`HideOrSeekPlayer` 인스턴스(로컬/원격 전부)에 동일하게 적용된다 — 다른 플레이어의 캡슐도 내
+붓 레이캐스트를 가리지 않게 되는 부수 효과가 있는데, 어차피 붓은 항상 "내 `PlayerPaintCanvas`의
+`PaintableCollider`"만 비교 대상으로 삼으므로 의도와 어긋나지 않는다.
+
+### 17.5 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. §17.3과 동일한 방식(캐릭터 화면 위치 주변 격자 레이캐스트)으로 재측정해, 이번엔 `Ch36`이
+   정상적으로 맞는지(`hitPaintable(Ch36)`이 0이 아닌지) 확인 — 핵심 검증 포인트.
+3. `PlayerTestScene`에서 실제로 마우스를 캐릭터 위에 올렸을 때 붓 커서가 나타나는지, 클릭
+   시 실제로 캐릭터 스킨에 색이 칠해지는지(`PlayerPaintCanvas.ApplyStamp`) 육안 확인 — 다만
+   실제 마우스 조작은 이 자동화 환경에서 재현할 수 없으므로, 레이캐스트 히트 결과 확인(2번)까지가
+   이 세션에서 가능한 최대 검증이고 최종 육안 확인은 사용자 몫이다.
+4. 회귀 확인: 캐릭터의 이동/점프/충돌 등 물리 동작이 레이어 변경 후에도 그대로인지(레이어를
+   바꾼 것은 캡슐의 "소속 레이어"일 뿐, `Rigidbody`/`Collider` 자체의 물리 속성이나 §14에서
+   설정한 `Physics.IgnoreCollision()` 관계는 레이어와 무관하므로 영향이 없어야 하지만 확인 필요).
+5. 다른 물체(벽 등)가 실제로 시야를 가릴 때는 여전히 붓이 안 보이는지(레이어 마스크가 지나치게
+   넓게 뚫려서 "아무거나 뚫고 보이는" 회귀가 생기지 않았는지) 확인.
+6. `read_console` 최종 확인 결과 에러/경고 0건.
+
+### 17.6 상태
+
+**원인을 Play Mode 실측(격자 레이캐스트, 49/49 캡슐에 막힘)으로 확정, 수정 계획 수립 완료 —
+아직 구현하지 않음.** 동의하면 바로 구현을 시작하겠다.

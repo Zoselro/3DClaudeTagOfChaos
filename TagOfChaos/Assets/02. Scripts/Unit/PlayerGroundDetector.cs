@@ -1,48 +1,21 @@
 using UnityEngine;
 
+// 물리 엔진(Rigidbody) 도입 이후: 중력 적분은 더 이상 이 클래스가 하지 않는다(PlayerControllPlan.md §18.3-2).
+// 점프 여부와 무관하게 매 FixedUpdate 호출되는 순수 접지 여부 질의 클래스로 축소됨.
 public class PlayerGroundDetector
 {
     private readonly LayerMask groundLayer;
-    private readonly float groundCheckOffset;
-    private readonly float gravity;
+    private readonly float checkDistance;
 
-    private float yVelocity;
-
-    public float YVelocity => yVelocity;
-
-    public PlayerGroundDetector(LayerMask groundLayer, float groundCheckOffset, float gravity = -9.81f)
+    public PlayerGroundDetector(LayerMask groundLayer, float checkDistance)
     {
         this.groundLayer = groundLayer;
-        this.groundCheckOffset = groundCheckOffset;
-        this.gravity = gravity;
+        this.checkDistance = checkDistance;
     }
 
-    public void StartJump(float jumpPower)
+    public bool IsGrounded(Vector3 position)
     {
-        yVelocity = jumpPower;
-    }
-
-    // 상승 중에는 착지 판정 없이 중력만 누적하고, 하강 중에는 이번 프레임에 떨어질 거리만큼
-    // 스윕 레이캐스트를 쏴서 빠른 낙하 속도에서 얇은 바닥을 뚫고 지나가는 것을 방지한다.
-    public bool Tick(Transform transform, float deltaTime, out float landedHeight)
-    {
-        landedHeight = transform.position.y;
-
-        yVelocity += gravity * deltaTime;
-
-        if (yVelocity >= 0f)
-            return false;
-
-        Vector3 rayOrigin = transform.position + Vector3.up * groundCheckOffset;
-        float rayDist = groundCheckOffset + Mathf.Abs(yVelocity) * deltaTime;
-
-        if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, rayDist, groundLayer))
-        {
-            landedHeight = hit.point.y;
-            yVelocity = 0f;
-            return true;
-        }
-
-        return false;
+        Vector3 rayOrigin = position + Vector3.up * 0.1f;
+        return Physics.Raycast(rayOrigin, Vector3.down, checkDistance + 0.1f, groundLayer);
     }
 }

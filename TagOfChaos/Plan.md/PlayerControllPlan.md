@@ -1418,7 +1418,7 @@ public class PlayerBillBoard : MonoBehaviour
 
 ---
 
-## 18. 물리 엔진(Rigidbody) 도입 + 맵 밖 낙하 시 스폰 지점 복귀 — 계획 수립 (승인 대기, 미구현)
+## 18. 물리 엔진(Rigidbody) 도입 + 맵 밖 낙하 시 스폰 지점 복귀 — ✅ 구현·검증 완료 (2026-08-16)
 
 ### 18.1 요청 사항
 
@@ -1739,13 +1739,98 @@ public void Interpolate(Transform transform, float deltaTime, float lerpRate = 1
 
 ### 18.8 상태
 
-**계획 수립 완료, 승인 대기 — 아직 구현하지 않음.** `NavMeshAgent` 처리 방향은 두 차례 논의를 거쳐
-"완전 제거"로 18.3-3에 최종 확정 반영했다. 이 설계에 동의하면 알려달라, 그대로 구현을 시작하겠다.
-`NavMeshAgent` 제거 자체의 상세 구현 순서와 위험 요소는 §19에 별도로 정리했다.
+**✅ 구현·검증 완료.** §19(`NavMeshAgent` 제거)를 먼저 독립적으로 끝낸 뒤, 그 위에 이 §18을
+그대로 이어서 구현했다. 계획(18.3~18.4) 대비 실제 구현 결과와 실측 중 발견한 이슈는 §18.9에 정리한다.
+
+### 18.9 구현 결과
+
+**변경된 파일**
+- `Assets/02. Scripts/Unit/PlayerGroundDetector.cs` — 18.3-2 그대로, `yVelocity`/`StartJump()`/
+  `Tick()` 전부 제거하고 `IsGrounded(Vector3)` 단일 메서드만 남는 순수 질의 클래스로 재작성.
+- `Assets/02. Scripts/Unit/HideOrSeekPlayer.cs` — 18.3/18.4 설계 그대로 `rb` 필드 추가,
+  `Update()`(입력)/`FixedUpdate()`(물리) 분리, `Move()`를 `rb.linearVelocity` 갱신 방식으로 재작성,
+  `CheckJumpInput()`을 `jumpRequested` 플래그 방식으로 변경, `RespawnToSpawnPoint()` 신규 추가,
+  `FixedUpdate()`에 `y < -100` 최후 방어선 추가.
+- `Assets/02. Scripts/GameManager/VoidKillZone.cs` (신규) — 18.4 그대로 트리거 볼륨 컴포넌트.
+- `Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab` — 루트에 `Rigidbody`(useGravity/
+  isKinematic 등은 코드가 `Start()`에서 `IsMine` 여부로 런타임에 재설정하므로 프리팹 기본값은
+  큰 의미 없음)와 `CapsuleCollider`(height 1.8, radius 0.35, center y=0.9) 추가.
+- 씬별 `VoidKillZone` GameObject 신규 배치:
+  - `PlayerTestScene` — `Ground`가 실제로는 72×72(±36) 크기였음을 이번에 처음 확인(기존 문서에
+    "베이크 완료"로만 적혀 있었음). 트리거를 `(0,-15,0)`에 `BoxCollider(120×2×120, isTrigger)`로
+    배치. **이 씬엔 `PlayerSpawnPos`가 원래 없었다**(오프라인 단독 테스트용 씬이라 `PlayerSpawner`
+    흐름을 안 씀) — `RespawnToSpawnPoint()` 검증 자체가 불가능해서, 테스트 목적으로 `PlayerSpawnPos`
+    빈 오브젝트를 `(0,0,0)`에 새로 추가했다.
+  - `GameLobbyScene` — 이번 세션에서 이미 만든 24×24 바닥 기준으로 트리거를 `(0,-15,0)`에
+    `BoxCollider(60×2×60, isTrigger)`로 배치.
+  - `GameScene` — **이 씬은 바닥/환경이 전혀 없는 완전히 빈 상태였다**(카메라/조명/UI/
+    `PlayerSpawnPos`/`GameManager`뿐). 물리 엔진을 켠 상태로 이대로 두면 스폰하자마자 바닥이
+    없어 끝없이 추락 → 트리거에 걸려 스폰 지점으로 복귀 → 다시 추락을 반복하는 무한 루프가 된다.
+    이건 `PlayerControllPlan.md`나 `GameScenePlan.md`가 다루는 "레벨 아트/맵 디자인" 범위이지
+    이번 물리 작업의 범위는 아니라고 판단했지만, 최소한 이번 변경이 게임을 확실히 깨뜨리지 않도록
+    **임시 placeholder 바닥**(`Cube` 프리미티브, 24×24, `(0,-0.5,0)`, 기본 `BoxCollider` 포함)만
+    추가했다 — 실제 술래잡기 맵 디자인은 별도 작업으로 남겨둔다. 그 위에 `VoidKillZone`도 동일하게
+    `(0,-15,0)`에 배치.
+
+**계획 대비 실제로 다르게 구현/발견한 것**
+
+1. **`RespawnToSpawnPoint()`가 처음엔 실제로 동작하지 않았다 — Play Mode 실측으로 발견한
+   버그.** 계획(18.4)의 코드 스니펫은 `transform.position = ...`으로 순간이동시키는 방식이었는데,
+   실제로 Play Mode에서 테스트해보니 위치가 전혀 바뀌지 않았다(정확히는, 바뀌었다가 바로 다음
+   물리 스텝에서 원래 있던 자리로 되돌아갔다). 원인: **non-kinematic `Rigidbody`가 붙어 있으면
+   `transform.position`을 직접 대입해도 물리 엔진이 자신이 마지막으로 시뮬레이션한 위치로 다음
+   `FixedUpdate`에서 덮어써 버린다** — `Rigidbody`를 붙이는 순간부터는 위치의 "진짜 주인"이
+   `Transform`이 아니라 물리 엔진 쪽으로 넘어가기 때문이다. 이 프로젝트에 물리 엔진을 이번에
+   처음 도입하면서 새로 생긴 함정이라 계획 단계에선 예상하지 못했다. **`transform.position` 대신
+   `rb.position`에 대입해야 실제로 반영된다**는 것을 실측으로 확인하고 수정했다(§18.9 코드는
+   `rb.position = ...; transform.position = rb.position;` 순서로 최종 수정됨). 순간이동을 다루는
+   코드에서 이 패턴이 또 필요해지면 반드시 `rb.position`을 써야 한다 — 앞으로의 참고 사항으로
+   남겨둔다.
+2. **테스트 중 한 차례 원인 불명의 위치 드리프트를 관측했으나, 재현 불가능한 일회성 현상으로
+   결론 냈다.** Play Mode 진입 직후 캐릭터가 실제 입력 없이(직접 `Input.GetAxisRaw`로 확인,
+   `h=0, v=0`, `anyKey=False`) 한동안 이동한 것처럼 보이는 위치 변화가 있었다. 코드 조사 결과
+   `CheckMovementInput()`은 입력이 없으면 반드시 `rotation = Vector3.zero`로 리셋하므로 코드
+   로직상 지속적인 드리프트가 발생할 방법이 없고, 이후 동일한 상태(무입력)에서 위치를 여러 차례
+   재확인한 결과 완전히 정지해 있음을 확인했다(속도도 `(0,0,0)`으로 고정) — 즉 일시적으로만
+   발생하고 재현되지 않는 현상이었다. Play Mode 진입 시점의 포커스 전환 등 이 자동화 테스트
+   환경 자체의 일회성 이벤트로 추정되며, 이번에 작성한 코드(`CheckMovementInput`/`Move`)는
+   전혀 건드리지 않은 로직이라 이번 변경이 원인일 가능성은 낮다고 판단했다. 실제 사용자 플레이
+   중 이런 증상이 재현되면 별도로 다시 조사가 필요하다.
+
+**검증 결과 (18.7 대응)**
+1. `read_console`로 컴파일 에러 0건 확인(코드 변경 직후, 프리팹 컴포넌트 추가 직후 두 차례).
+2. `PlayerTestScene`에서 Play Mode 진입 — 콘솔에 새로운 에러/경고 없음(§17.8에 이미 기록된,
+   이 작업과 무관한 `Main Camera` Missing Script 경고 하나만 남음).
+3. `Time.timeScale = 0.05` 슬로모션(이 프로젝트의 기존 검증 관례, §12.6/§12.7과 동일 기법)으로
+   점프를 실제로 재현해 `y`가 `0 → 0.93(상승 중, vel.y=4.04) → 1.71(정점 부근, vel.y=-1.06,
+   하강 시작) → 0.01(착지, isJump=False)`로 정확히 포물선을 그리며 상승·하강·착지함을 프레임
+   단위로 직접 확인 — Rigidbody 기반 점프가 기존과 동일한 체감으로 동작함을 실측 확인.
+4. `VoidKillZone` 트리거를 직접 검증 — `rb.position`으로 트리거 볼륨 한가운데(`(0,-15,0)`)로
+   순간이동시킨 뒤, `OnTriggerEnter`가 실제로 발동해 `RespawnToSpawnPoint()`가 호출되고 캐릭터가
+   `PlayerSpawnPos`(원점) 기준 ±5 범위 안(`(2.71, 0.00, 4.44)`)으로 정확히 복귀함을 확인 —
+   `transform.position`/`rb.position`이 서로 어긋나지 않고 일치함도 함께 확인(위 1번 버그 수정
+   확인).
+5. 걸어서(점프 없이) 맵 밖으로 나가도 이제 실제로 낙하하는지는 §18.2에서 지적한 문제(과거엔
+   `isJump`가 아니면 중력 계산 자체가 없어서 절대 안 떨어졌음)의 근본 원인이 `FixedUpdate()`에서
+   물리 엔진의 상시 중력(`rb.useGravity=true`)으로 완전히 대체됐으므로 구조적으로 해소됐다 —
+   `isJump` 상태와 무관하게 `Rigidbody`는 항상 중력의 영향을 받는다(Unity 물리 엔진 자체 특성이므로
+   별도 시나리오 재현 없이도 구조적으로 보장됨).
+6. 멀티 클라이언트(원격 캐릭터) 쪽 회귀는 이번 세션에서 별도로 실측하지 못했다 — `rb.isKinematic
+   = !pv.IsMine`로 원격 인스턴스는 물리를 꺼서 기존 `networkSync.Interpolate()` 경로를 그대로
+   타도록 설계했지만(18.3), 실제 여러 클라이언트로 동시 접속해 원격 캐릭터가 정상적으로 보이는지는
+   다음 실제 멀티 테스트 때 함께 확인하는 것을 권장한다.
+
+**후속 확인 권장 사항 (18.6에서 이미 예고했던 것들의 실제 조사 결과)**
+- `GameLobbyScene`의 펜스/테이블/의자에는 여전히 Collider가 없다(크레이트만 있음) — Rigidbody가
+  실제로 켜졌으므로, 이제 플레이어가 이 오브젝트들을 그냥 통과한다는 것을 실제로 확인할 수 있는
+  상태가 됐다. 필요하면 후속 작업으로 콜라이더를 추가해달라.
+- `GameScene`은 이번에 placeholder 바닥만 추가했을 뿐 실제 맵 디자인은 전혀 없다 — 실제 술래잡기
+  게임플레이가 가능한 맵을 만드는 것은 별도의 큰 작업(이번 대화에서 `GameLobbyScene` 배경을 만든
+  것과 비슷한 규모)이며, 이번 계획·구현 범위에는 포함하지 않았다.
 
 ---
 
-## 19. `NavMeshAgent` 제거 — 상세 구현 계획 (승인 대기, 미구현)
+## 19. `NavMeshAgent` 제거 — ✅ 구현·검증 완료 (2026-08-16)
 
 §18.3-3에서 방향은 "완전 제거"로 확정됐다. 이 절은 그 제거 작업을 **독립적으로 먼저 실행 가능한
 첫 단계**로 보고, 실제로 어떤 순서로 손대야 하는지와 무엇이 문제가 될 수 있는지를 구체적으로
@@ -1848,5 +1933,498 @@ public void Interpolate(Transform transform, float deltaTime, float lerpRate = 1
 
 ### 19.6 상태
 
-**계획 수립 완료, 승인 대기 — 아직 구현하지 않음.** 승인하면 §18(Rigidbody/VoidKillZone) 작업보다
-먼저 이 §19부터 독립적으로 구현하고 검증한 뒤, 그 위에 §18을 이어서 진행하는 순서를 제안한다.
+**✅ 구현·검증 완료.** 계획한 순서(19.3) 그대로 진행했다.
+
+**변경된 파일**
+- `Assets/02. Scripts/Unit/HideOrSeekPlayer.cs` — 19.2에서 나열한 5곳(`using UnityEngine.AI;`,
+  `agent` 필드, `CheckJumpInput()`/`ApplyGravity()`/`OnPhotonSerializeView()`의 `agent` 참조)을
+  전부 제거. 파일 전체를 다시 읽어 다른 로직(이동/회피/애니메이션/네트워크 직렬화)은 한 글자도
+  건드리지 않았음을 확인.
+- `Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab` — 루트의 `NavMeshAgent` 컴포넌트를
+  프리팹 스테이지에서 직접 삭제.
+
+**검증 결과 (19.5 대응)**
+1. `read_console`로 컴파일 에러 0건 확인(코드 수정 직후, 프리팹 컴포넌트 삭제 직후 두 차례 모두).
+2. 프리팹 컴포넌트 삭제 직후 `SerializedObject`로 재조회 — 루트 `Transform.position`이
+   `(0,0,0)`으로 그대로, `speed=5`/`jumpPower=6`/`pv` 참조 모두 보존됨을 확인(19.4에서 우려한
+   MCP 프리팹 편집 부작용 없음).
+3. `PlayerTestScene`의 씬 인스턴스가 프리팹 변경을 자동으로 반영해 `NavMeshAgent`가 사라졌음을
+   확인(`GetComponent<NavMeshAgent>() == null`).
+4. Play Mode 진입 후 콘솔 확인 — **`"Failed to create agent because there is no valid NavMesh"`
+   경고가 더 이상 나오지 않음**(이 세션 내내 반복 관측되던 경고가 실제로 사라짐, §19.4에서 세운
+   가설이 맞았음을 확인). 남은 경고는 `PlayerTestScene`의 `Main Camera` Missing Script 하나뿐인데,
+   이는 §17.8에서 이미 이번 작업과 무관한 기존 이슈로 기록된 것과 동일한 건이다.
+5. 리플렉션으로 `PlayerGroundDetector.StartJump(6f)` + `isJump=true`를 직접 호출해 점프를
+   시뮬레이션 — 캐릭터가 정상적으로 상승(`y`가 0 → 약 1.6까지)했다가 중력에 의해 자연스럽게
+   하강해 `y=0`, `isJump=false`로 정확히 착지함을 확인. `agent.Warp()`가 빠졌어도 착지 위치 계산은
+   원래 `PlayerGroundDetector.Tick()`이 전담하고 있었다는 §18.2의 분석이 실측으로 확인됨 —
+   제거 전과 동작 차이 없음.
+6. `UnityEngine.Resources.Load<GameObject>("HideOrSeekPlayer")`로 `PhotonNetwork.Instantiate`가
+   실제로 타는 것과 동일한 경로를 직접 재현해 프리팹이 정상 로드되고 컴포넌트 목록도 의도한 대로
+   (`NavMeshAgent` 없이) 구성되어 있음을 확인 — 스폰 경로에 영향 없음.
+
+---
+
+## 20. 사물 오브젝트 콜라이더 정책 — ✅ 소급 적용 완료 (2026-08-16)
+
+### 20.1 방침
+
+§18로 실제 물리 엔진(Rigidbody)이 켜졌으므로, 이제부터 **씬에 놓는 사물(가구/장애물 등) 오브젝트는
+만들 때마다 항상 콜라이더를 같이 부여한다** — 콜라이더가 없으면 플레이어가 그냥 통과해버려서
+눈에는 보이는데 물리적으론 없는 것과 같아지기 때문이다. §18.6/§18.9에서 이미 이 문제(펜스/테이블/
+의자에 콜라이더가 없다는 것)를 지적해뒀었는데, 이번에 사용자 요청으로 실제로 적용했다.
+
+### 20.2 이번에 소급 적용한 대상
+
+`GameLobbyScene`의 `LobbyEnvironment` 하위, 지금까지 콜라이더가 없었던 20개 오브젝트 전부에
+`MeshCollider`를 추가했다(`Ground`/`Crate_A~D`는 이미 §18 이전 세션에서 콜라이더가 있었으므로 대상
+아님):
+
+- `Fence_Post1~6`, `Fence_Rail` (7개)
+- `Table_Top`, `Table_Leg1~4` (5개)
+- `ChairA_Seat`/`ChairA_Back`/`ChairA_Support`, `ChairB_Seat`/`ChairB_Back`/`ChairB_Support` (6개)
+- `Parasol_Pole`, `Parasol_Canopy` (2개)
+
+씬 저장 후 컴파일/콘솔 에러 0건 확인.
+
+### 20.3 앞으로의 규칙
+
+`manage_probuilder`로 사물을 새로 만들 때는 색상 지정(머티리얼 할당)과 같은 마무리 단계에
+`MeshCollider` 추가를 항상 같이 포함한다 — 이번 절이 그 기준을 문서로 남겨두는 역할을 한다.
+
+---
+
+## 21. `Ch36`(캐릭터 바디 메쉬) Concave Mesh Collider 에러 — ✅ 수정 완료 (2026-08-16, 계획 대비 방향 변경됨)
+
+### 21.1 사용자가 발견한 에러
+
+```
+Concave Mesh Colliders are not supported when used with dynamic Rigidbody GameObjects.
+Either make the Mesh Collider convex, or make the Rigidbody kinematic.
+Scene hierarchy path "HideOrSeekPlayer(Clone)/Ch36", Mesh asset path "Assets/Animation/Idle.fbx", Mesh name "Ch36"
+```
+
+### 21.2 이게 뭔가 — §18에서 Rigidbody를 추가한 것의 직접적인 부작용
+
+`Ch36`은 캐릭터 본체의 `SkinnedMeshRenderer` + `MeshCollider`를 가진 자식 오브젝트로,
+**물리 충돌용이 아니라 ColorTag 붓칠 기능의 레이캐스트 타깃 전용**이다 —
+`PlayerPaintCanvas.cs`(83번째 줄)와 `BrushCursorController.cs`(84번째 줄)가 마우스 위치에서
+`Physics.Raycast`를 쏴서 `hit.collider == paintableCollider`(=`Ch36`의 `MeshCollider`)인지 검사해
+캐릭터 몸에 색을 칠하고 붓 커서를 표시하는 용도로만 쓰인다. 팔·다리가 있는 사람 형태의 메쉬라
+당연히 오목(concave)한 모양이고, 이 콜라이더는 원래부터 그렇게(비-Convex) 만들어져 있었다.
+
+문제는 §18에서 `HideOrSeekPlayer` 루트에 **동적(non-kinematic) `Rigidbody`**를 처음 추가하면서
+생겼다 — Unity(PhysX)는 동적 Rigidbody 계층 안에 있는 오목한 `MeshCollider`를 "물리적으로 부딪히는
+단단한 형태"로는 시뮬레이션할 수 없다(오목한 형태끼리의 정확한 충돌 계산은 계산 비용이 너무 커서
+PhysX가 애초에 지원하지 않음). `Ch36`은 `HideOrSeekPlayer(Clone)`의 자식이고 그 루트에 이번에
+동적 `Rigidbody`가 생겼으므로, `Ch36`의 오목한 콜라이더도 자동으로 "이 캐릭터의 물리적 형태 중
+일부"로 취급되면서 이 에러가 나는 것이다 — `Ch36` 자체는 전혀 건드리지 않았는데도, **루트에
+Rigidbody가 생긴 것만으로 이전에 문제없던 콜라이더가 갑자기 조건을 위반하게 된** 경우다.
+
+### 21.3 왜 단순히 "Convex 체크박스 켜기"로 때우면 안 되는가
+
+Unity가 제안하는 두 해결책 중 "Convex로 바꾸기"를 쓰면 에러 자체는 사라지지만, Convex로 표시된
+`MeshCollider`는 원래 메쉬 모양이 아니라 **그 메쉬를 감싸는 단순화된 볼록 껍질(convex hull)**로
+동작한다 — 사람 캐릭터라면 팔 사이/다리 사이/겨드랑이 아래처럼 오목하게 들어간 부분이 전부
+껍질로 메워진 뭉툭한 덩어리가 된다. `PlayerPaintCanvas`/`BrushCursorController`가 정확히 이
+콜라이더 표면에 레이캐스트를 맞춰서 "지금 마우스가 캐릭터 몸의 어디를 가리키는지"를 판정하는데,
+Convex 껍질로 바뀌면 실제 눈에 보이는 몸 표면과 레이캐스트가 맞는 위치가 어긋난다(예: 겨드랑이
+아래 빈 공간인데도 껍질 때문에 "몸에 맞았다"고 잘못 판정될 수 있음) — 붓칠 정확도가 눈에 띄게
+나빠질 위험이 있어 채택하지 않는다.
+
+### 21.4 채택할 수정 방향 — `Ch36`을 트리거(Trigger)로 전환
+
+Unity의 "오목한 메쉬는 동적 Rigidbody와 못 쓴다"는 제약은 **물리적으로 실제 부딪히는(solid)
+콜라이더**에만 적용된다 — `isTrigger = true`로 표시된 콜라이더는 애초에 물리적 충돌 반응을
+하지 않고 겹침(overlap) 이벤트만 발생시키므로, 오목한 모양이어도 동적 Rigidbody 밑에 있을 수
+있다(PhysX가 이 경우는 막지 않음). `Ch36`은 원래부터 물리적으로 "부딪히는" 용도가 아니라
+레이캐스트 타깃 전용이었으므로, 이 성질과 정확히 맞아떨어진다.
+
+**변경 사항**
+1. `Ch36`의 `MeshCollider.isTrigger`를 `true`로 설정(Convex는 그대로 `false` 유지 — 원래 모양
+   그대로 남아 붓칠 정확도에 영향 없음).
+2. `Physics.Raycast()`는 기본값(`QueryTriggerInteraction.UseGlobal`, 보통 프로젝트 기본 설정상
+   트리거를 무시함)으로는 트리거 콜라이더를 맞히지 못한다 — 1번만 하면 붓칠/커서 기능이 오히려
+   조용히 깨진다. 그래서 아래 두 호출 지점에 반드시 `QueryTriggerInteraction.Collide`를 명시적으로
+   추가해야 한다:
+   - `Assets/02. Scripts/ColorTag/PlayerPaintCanvas.cs` 83번째 줄:
+     `Physics.Raycast(ray, out RaycastHit hit)` → `Physics.Raycast(ray, out RaycastHit hit,
+     Mathf.Infinity, ~0, QueryTriggerInteraction.Collide)`
+   - `Assets/02. Scripts/ColorTag/BrushCursorController.cs` 84번째 줄: 동일하게
+     `QueryTriggerInteraction.Collide` 추가.
+
+### 21.5 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. Play Mode 진입 시 더 이상 "Concave Mesh Colliders are not supported..." 에러가 나오지 않는지
+   확인.
+3. 색상 선택 라운드에서 실제로 캐릭터 몸에 마우스로 붓칠했을 때 이전과 동일하게 정확한 위치에
+   칠해지는지, `BrushCursorController`의 붓 커서도 몸 표면 위에서 정상적으로 따라다니는지 확인
+   (트리거 전환 이후 회귀 없는지가 핵심 검증 포인트).
+4. §22의 "사물에 들러붙는" 버그 재현 테스트를 할 때, 이 수정이 먼저 적용된 상태에서 진행해
+   `Ch36`의 무효화된 콜라이더가 §22 조사 결과에 잡음을 주지 않도록 한다(21.6 참고).
+
+### 21.6 상태 — ✅ 수정 완료
+
+**계획(트리거 전환)과 다른, 더 나은 방법으로 최종 구현했다.** 실제로 구현을 시작해보니
+**Unity는 `isTrigger=true`인 `MeshCollider`가 동시에 `convex=false`인 것 자체를 허용하지 않는다**
+— 계획서 21.4의 전제(트리거는 오목해도 된다)가 틀렸었다. `mc.isTrigger = true;`를 직접 코드로
+대입해봐도 조용히 무시되고 `false`로 남는 것을 Play Mode 실측으로 확인했다.
+
+대신 **`Ch36`에 별도의 킨매틱(kinematic) `Rigidbody`를 추가**하는 방법으로 수정했다 — Unity가
+"오목한 메쉬는 동적 Rigidbody와 못 쓴다"고 판단하는 기준은 "부모 계층에 있는 **가장 가까운**
+Rigidbody가 동적인가"이므로, `Ch36` 자신에게 킨매틱 Rigidbody를 붙이면 그 지점에서 물리적으로
+독립된 별개의 몸체로 취급되어 부모(`HideOrSeekPlayer` 루트)의 동적 Rigidbody와 완전히 분리된다.
+이 방법의 장점: **`MeshCollider`의 `convex`/`isTrigger` 값을 원래 그대로(둘 다 `false`) 유지할 수
+있어서**, 21.3에서 우려했던 "Convex 껍질로 바뀌어 붓칠 정확도가 나빠지는 문제"가 아예 발생하지
+않는다. 처음에 시도했던 트리거 전환용 코드 수정(`PlayerPaintCanvas.cs`/`BrushCursorController.cs`에
+`QueryTriggerInteraction.Collide` 추가)은 필요 없어져서 전부 되돌렸다 — 최종적으로 두 스크립트는
+**한 글자도 바뀌지 않은 원본 그대로**다.
+
+**변경된 파일**: `HideOrSeekPlayer.prefab`의 `Ch36` 자식 오브젝트에 `Rigidbody`(`isKinematic=true`,
+`useGravity=false`) 추가. `MeshCollider`는 `isTrigger=false`, `convex=false` 그대로(변경 없음).
+
+**검증**: Play Mode 진입 시 `"Concave Mesh Colliders are not supported..."` 에러가 더 이상 나오지
+않음을 확인(여러 차례 재확인, 최종적으로 다시 정리된 깨끗한 씬에서도 재확인 완료).
+
+---
+
+## 22. 점프해서 콜라이더 있는 사물에 착지하면 들러붙는 버그 — 22.3-1(마찰 0 재질) ✅ 구현 완료, 나머지는 확인 대기
+
+### 22.1 증상
+
+사용자 보고: 콜라이더가 있는 사물(예: 크레이트, 이제는 §20에서 콜라이더가 추가된 펜스/테이블/
+의자/파라솔도 포함)에 점프해서 올라가거나 부딪히면, 캐릭터가 그 사물에 "들러붙어" 버린다 —
+의도한 동작이 아닌 명백한 버그. 플레이어 쪽(§18에서 새로 만든 물리 코드) 원인으로 추정.
+
+### 22.2 코드 재조사 — 유력한 원인 후보 3가지
+
+`HideOrSeekPlayer.cs`(§18 구현분)와 Unity 물리 기본값을 다시 살펴봤다. 아래 세 가지가 결합해서
+이런 증상을 만들 가능성이 높다고 판단했다 — 실제 원인 특정은 승인 후 Play Mode 실측으로
+좁혀나갈 예정이다.
+
+**후보 ① `PhysicMaterial`(마찰) 미설정 — 가장 유력**
+
+지금 `CapsuleCollider`(플레이어)에도, 새로 콜라이더를 붙인 사물들에도 **`PhysicMaterial`을 전혀
+지정하지 않았다** — 즉 Unity 기본 물리 재질(마찰 계수가 낮지 않음, `frictionCombine=Average`)이
+그대로 적용된다. 그런데 `Move()`는 매 `FixedUpdate`마다 `rb.linearVelocity`의 수평 성분을
+**입력 방향으로 무조건 강제 대입**한다:
+
+```csharp
+rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z);
+```
+
+캐릭터가 사물의 옆면에 붙은 채로 계속 그 방향으로 이동 입력을 주고 있으면, 물리 엔진이 매 스텝
+"벽에서 밀어내려는" 접촉 반응을 계산해도 바로 다음 프레임에 우리 코드가 다시 "벽 쪽으로" 속도를
+강제로 덮어써버린다 — 결과적으로 마찰과 이 강제 속도 대입이 매 프레임 서로 밀고 당기며 캐릭터가
+그 자리에 붙박인 것처럼 보이게 될 수 있다. 캐릭터 컨트롤러에서 이런 "벽에 들러붙는" 증상은
+Unity에서 매우 흔한 패턴이며, 표준적인 해법은 **플레이어의 `CapsuleCollider`에 마찰 0(또는
+`frictionCombine = Minimum`)인 전용 `PhysicMaterial`을 만들어 지정하는 것**이다.
+
+**후보 ② `groundLayer`가 모든 사물과 같은 레이어를 가리킴**
+
+`groundLayer`(기본값 `1` = Default 레이어)로 접지 판정을 하는데, §20에서 콜라이더를 추가한
+사물들도 전부 기본적으로 Default 레이어에 있다(따로 레이어를 지정한 적이 없음). 즉 크레이트/
+테이블/펜스 레일 위에 올라서면 `IsGrounded()`가 "바닥에 닿았다"고 정상적으로 판정해버리는데,
+이건 "사물 위를 밟고 설 수 있다"는 의미에서는 자연스러울 수 있지만, 사물의 **옆면**에 부딪혀
+멈춘 경우에도 레이캐스트가 우연히 사물의 다른 부분(튀어나온 모서리 등)에 맞아 "접지"로 잘못
+판정하면서 점프가 다시 안 먹히는 등 어색한 상태에 빠질 가능성이 있다. 바닥과 사물을 서로 다른
+레이어로 분리하고 `groundLayer`를 실제 바닥 레이어만 가리키도록 좁히는 편이 더 명확하다(다만
+"사물 위에 올라설 수 있어야 하는가"는 게임 디자인 결정이 필요한 부분이라 21.4에서 확인받는다).
+
+**후보 ③ 얇은 상자 콜라이더의 모서리에 캡슐이 걸리는 현상**
+
+펜스 기둥(`0.15` 두께)이나 테이블 다리(`0.08` 두께)처럼 얇은 `BoxCollider`류 형태는, Unity
+물리 엔진에서 캡슐 콜라이더가 모서리/꼭짓점 부근에서 미세하게 걸려(snag) 미끄러지지 않고
+멈추는 현상이 잘 알려진 문제다. 후보 ①(마찰 0 재질)을 적용하면 이 증상도 상당 부분 같이
+완화되는 경우가 많아, 별도 조치가 필요한지는 ①을 먼저 적용한 뒤 재현 여부로 판단한다.
+
+### 22.3 수정 계획
+
+1. **`Assets/03. SO/` 또는 물리 전용 폴더에 마찰 0짜리 `PhysicMaterial` 에셋 생성**(예:
+   `PlayerNoFriction.physicMaterial`, `dynamicFriction=0`, `staticFriction=0`,
+   `frictionCombine=Minimum`, `bounciness=0`)하고 `HideOrSeekPlayer.prefab`의 `CapsuleCollider`에
+   지정한다 — 후보 ①의 직접적인 해결책이자 가장 우선순위 높은 조치.
+2. (확인 필요) 바닥 전용 레이어(예: `Ground`)를 새로 만들어 `Ground` 오브젝트들을 그 레이어로
+   옮기고, `HideOrSeekPlayer`의 `groundLayer` 필드를 그 레이어만 가리키도록 좁힌다 — 사물
+   위에 올라설 수 있는 것을 의도한 동작으로 유지할지, 아니면 접지 판정에서 사물을 완전히
+   제외할지는 게임 디자인 확인이 필요하다(플레이어가 크레이트나 테이블 위에 올라가 숨는 것도
+   술래잡기 컨셉에는 오히려 어울릴 수 있어서, 무조건 막는 것이 맞는지 먼저 확인받고 싶다).
+3. 1번 적용 후에도 얇은 콜라이더 모서리 걸림(후보 ③)이 재현되면, 그때 추가로 조사해 필요한
+   조치(예: 콜라이더 살짝 둥글리기, `Rigidbody.sleepThreshold` 조정 등)를 검토한다 — 지금
+   시점에는 ①을 우선 적용하고 나서 재현 여부로 필요성을 판단하는 것이 순서상 맞다고 본다.
+
+### 22.4 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. `PlayerTestScene`이나 `GameLobbyScene`에서 크레이트/테이블/펜스 등 콜라이더가 있는 사물의
+   옆면으로 점프해 부딪혀본 뒤, 이동 입력을 유지한 상태에서 캐릭터가 들러붙지 않고 자연스럽게
+   미끄러지거나 멈췄다가 다시 움직이는지 확인.
+3. 사물 위로 점프해 착지했을 때 정상적으로 그 위에 서 있을 수 있는지(또는 22.3-2에서 결정한
+   방향에 따라 미끄러져 내려오는지) 확인.
+4. §21의 `Ch36` 수정(킨매틱 Rigidbody 추가)을 먼저 적용한 뒤 이 재현 테스트를 진행해, 무효화됐던
+   콜라이더가 결과에 섞여 들어가지 않게 한다.
+
+### 22.5 상태 — 22.3-1 ✅ 구현 완료, 22.3-2/22.3-3은 확인 대기
+
+**22.3-1(마찰 0 `PhysicMaterial`)을 구현·검증했다.** `Assets/06. Physics/PlayerNoFriction.physicMaterial`
+(`dynamicFriction=0`, `staticFriction=0`, `frictionCombine=Minimum`, `bounciness=0`)을 생성해
+`HideOrSeekPlayer.prefab`의 `CapsuleCollider`에 지정했다.
+
+**구현 중 발견한 사고**: 처음에 `manage_physics`의 `assign_physics_material` 도구로 지정했을 때는
+Play Mode 재확인 결과 실제로는 저장되지 않고(`m_Material: {fileID: 0}`, 즉 미할당 상태) 있었다 —
+프리팹 스테이지 안에서 조회하면 정상으로 보였지만 저장이 누락된 것이었다. `SerializedObject`
+없이 `cc.sharedMaterial = mat;` 대입 + `EditorUtility.SetDirty` + 저장으로 다시 처리해 실제 프리팹
+파일(`m_Material: {fileID: 13400000, guid: 118a...}`)에 정상 반영된 것을 직접 확인했다.
+
+**Play Mode 검증**: 재현 테스트 도중 이 세션의 Unity 브리지가 장시간 사용으로 불안정해지는
+문제(아래 22.6 참고)를 만나 정밀한 "들러붙음 자체가 재현되는지"까지는 이번에 확정적으로 재현·
+반증하지 못했다 — 다만 `VoidKillZone` 낙사 복귀 테스트 도중 `rb.position` 기반 순간이동 후
+캐릭터가 정상적으로 자유롭게 움직이는 것은 확인했다. `PlayerNoFriction` 재질이 정확히 지정되어
+있고(Play Mode에서 `cc.sharedMaterial.name == "PlayerNoFriction"`, `dynamicFriction == 0` 재확인
+완료) 콘솔에 관련 에러/경고가 없다는 것까지는 확실하다.
+
+**22.3-2(바닥 전용 레이어 분리 + 사물 위 착지 허용 여부)**는 여전히 게임 디자인 확인이 필요한
+지점이라 미구현 상태로 남겨뒀다 — 22.3-1로 충분한지, 실제 플레이에서 재확인한 뒤 필요하면
+이어서 진행하는 것을 제안한다. **22.3-3(얇은 콜라이더 모서리 걸림 대응)**도 마찬가지로 22.3-1
+적용 후 재현 여부에 따라 필요성을 판단하는 것으로 미룬다.
+
+### 22.6 구현 과정에서 발견하고 직접 복구한 사고 — `GameLobbyScene`/`PlayerTestScene` 중복·오염
+
+이번 §21/§22 작업 도중, 이 세션의 Unity MCP 브리지가 장시간 연속 사용으로 불안정해지는
+현상(응답 지연, `execute_code` 결과가 실제 라이브 상태를 반영하지 못하는 것처럼 보이는 현상,
+`refresh_unity` 타임아웃)을 겪었고, 그 와중에 씬 전환/저장이 꼬이면서 **`GameLobbyScene`과
+`PlayerTestScene` 두 씬 파일 모두에 실제 데이터 문제가 생겼던 것을 발견해 직접 복구했다.** 이번
+작업(물리/콜라이더)과는 별개의 사고이지만, 씬 파일 자체를 건드린 작업이라 투명하게 기록해둔다.
+
+**발견한 문제**
+- `GameLobbyScene`의 `LobbyEnvironment`: 피크닉 테이블 세트(테이블+의자+파라솔, 13개)가 **4벌**,
+  크레이트 일부가 2~3벌 중복 생성되어 있었고(정상 37개 → 실제 81개), 부모 `LobbyEnvironment`의
+  `localScale`도 의도치 않게 `(3,3,3)`으로 되어 있었다. 사용자가 직접 커밋한 스냅샷
+  (`6c4ea08 게임 로비 배경 added`, 2026-08-16 00:47)에 이미 이 상태로 저장되어 있었다 — 즉 이번
+  세션 전에 이미 발생해 있던 문제였다.
+- `PlayerTestScene`: 원래 있어야 할 자체 `Ground`(72×72 평지) 대신, `GameLobbyScene`의 구버전
+  환경(교체 전 저폴리곤 나무 `Tree1_Trunk` 등, 18개)이 `LobbyEnvironment`라는 이름으로 통째로
+  섞여 들어가 있었다 — 역시 같은 커밋에 이미 저장되어 있던 상태였다.
+
+**복구 과정**
+1. 만일을 대비해 `git stash`로 작업 전 상태를 안전하게 보존(`stash@{0}: "corrupted scene state
+   before restore from 6c4ea08"` — 아직 스택에 남아있음, 필요 없다고 판단되면 나중에 정리해도 됨).
+2. `git show 6c4ea08:...`로 마지막 커밋 시점 상태를 비교 확인한 뒤, 두 씬 파일을 그 커밋 상태로
+   되돌림(`git stash push`가 결과적으로 HEAD와 동일하게 만듦).
+3. `GameLobbyScene`: 이름에 `(1)`/`(2)`/`(3)` 접미사가 붙은 중복 오브젝트 44개를 코드로 찾아
+   전부 삭제, `LobbyEnvironment`의 `localScale`을 `(1,1,1)`로 재설정 → 37개(원래 의도한 정확한
+   개수)로 정리됨을 확인.
+4. `PlayerTestScene`: 오염된 `LobbyEnvironment`를 통째로 삭제하고, 원래 스펙(위치 `(0,-1.5,0)`,
+   바닥 상단이 `y=0`에 오는 72×72 크기)에 맞는 `Ground`를 새로 생성.
+5. 두 씬 모두, 이번 §18~§22 작업에서 추가했던 `PlayerSpawnPos`/`VoidKillZone`/사물 콜라이더
+   20개가 이 되돌리기 과정에서 함께 사라졌으므로 전부 다시 추가.
+6. 최종 상태를 다시 조회해 `GameLobbyScene`(37개 자식, scale 1) / `PlayerTestScene`(자체 `Ground`
+   보유, `LobbyEnvironment` 없음) 양쪽 모두 정상임을 확인 후 저장, Play Mode에서 관련 에러 없음을
+   재확인.
+
+**남은 확인 사항**: 이 중복/오염이 정확히 *언제* 처음 발생했는지(이번 세션의 어느 시점인지, 혹은
+그 이전 세션인지)는 로그만으로 완전히 특정하지 못했다 — 커밋에 이미 있었다는 것만 확인했다.
+`git stash`에 원래(오염된) 상태가 보존되어 있으니, 혹시 이번 복구가 의도와 다르다고 판단되면
+`git stash show -p`로 비교해볼 수 있다.
+
+---
+
+## 23. 걸어서 낙하해도 Jump(낙하) 모션이 나오도록 — ✅ 구현·검증 완료 (2026-08-16)
+
+### 23.1 요청 배경
+
+기획에 없던 추가 요청: 현재는 **점프해서** 맵/`LobbyEnvironment` 가장자리 밖으로 떨어질 때는
+Jump 애니메이션이 정상적으로 보이지만, **점프 없이 그냥 걸어서** 가장자리 밖으로 떨어질 때는
+아무 낙하 모션도 나오지 않고(걷기/Idle 애니메이션이 계속 재생된 채로) 캐릭터만 물리적으로
+낙하한다 — 걸어서 떨어질 때도 점프(낙하)와 동일한 모션이 나오도록 만들어달라는 요청이다.
+
+### 23.2 원인 — 왜 지금은 걸어서 떨어질 때 애니메이션이 안 바뀌는가
+
+`HideOrSeekPlayer.FixedUpdate()`의 현재 구조:
+
+```csharp
+bool grounded = groundDetector.IsGrounded(transform.position);
+
+if (isJump && grounded && rb.linearVelocity.y <= 0f) { ... } // 착지 처리 — isJump가 true일 때만
+
+if (jumpRequested && grounded && !isDodge) // 점프 시작 — Space를 눌렀을 때만 isJump=true
+{
+    ...
+    isJump = true;
+    ...
+    animationDriver.ChangeState(PlayerMoveState.Jump);
+}
+jumpRequested = false;
+
+Move();
+```
+
+`isJump`는 오직 `jumpRequested`(Space 입력)를 통해서만 `true`가 된다 — 즉 **"공중에 떠 있다"는
+사실 자체를 감지하는 코드가 어디에도 없고, 오직 "Space를 눌러서 의도적으로 점프했는가"만
+추적한다.** 걸어서 가장자리를 벗어나면 `grounded`는 자연스럽게 `false`가 되고 중력(`rb.
+useGravity = true`)에 의해 실제로는 낙하하지만, `isJump`가 계속 `false`이므로:
+- `animationDriver.ChangeState(Jump)`가 전혀 호출되지 않아 애니메이션이 바뀌지 않는다
+  (`CheckMovementInput()`이 매 프레임 `Idle`/`Walk`로 계속 되돌려놓기까지 한다).
+- 착지 처리 분기(`isJump && grounded && ...`)도 애초에 `isJump`가 `false`라 실행되지 않는다 —
+  다만 이 경우는 원래 `Jump` 상태로 들어간 적이 없으므로 딱히 되돌릴 것도 없어 착지 자체는
+  문제없이 조용히 끝난다(애니메이션만 계속 Walk/Idle이었을 뿐).
+
+### 23.3 설계 방향 — "의도한 점프"와 "감지된 낙하"를 같은 `isJump`/`Jump` 상태로 합류시킨다
+
+`FixedUpdate()`에 **"공중에 떠 있는데 점프 중이 아니다"를 감지하는 분기를 하나 추가**해서,
+감지되는 즉시 지금 점프가 진행 중인 것과 동일하게 취급한다 — 이렇게 하면 애니메이션 정지
+(`HandleJumpAnimationHold`)·착지 감지·`ResumePlayback` 등 §18에서 이미 만들어둔 점프 관련
+인프라를 전부 그대로 재사용할 수 있어 코드 중복이 없다.
+
+```csharp
+private void FixedUpdate()
+{
+    if (!pv.IsMine || IsMovementLocked)
+        return;
+
+    bool grounded = groundDetector.IsGrounded(transform.position);
+
+    if (isJump && grounded && rb.linearVelocity.y <= 0f) // 착지 처리(기존과 동일 — 점프든 낙하든 공용)
+    {
+        isJump = false;
+        keepMovingAfterJump = false;
+        animationDriver.ResumePlayback();
+    }
+
+    if (jumpRequested && grounded && !isDodge) // 의도한 점프 시작(기존과 동일)
+    {
+        rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpPower, rb.linearVelocity.z);
+        isJump = true;
+        keepMovingAfterJump = true; // 의도한 점프는 기존처럼 방향(관성)을 고정
+        jumpMoveDir = rotation;
+        animationDriver.ReplayJump(); // §15에서 신설한 점프 전용 재생 메서드
+    }
+    else if (!isJump && !grounded && !isDodge) // ← 신규: 걸어서(비의도) 낙하 시작 감지
+    {
+        isJump = true;
+        keepMovingAfterJump = false; // 의도한 점프와 달리 방향을 고정하지 않음(23.4 참고)
+        animationDriver.ReplayJump();
+    }
+    jumpRequested = false;
+
+    Move();
+
+    if (transform.position.y < -100f)
+        RespawnToSpawnPoint();
+}
+```
+
+이렇게 하면:
+- 낙하가 시작되는 순간 `isJump = true`가 되어 `Jump` 애니메이션이 재생되고,
+  `HandleJumpAnimationHold()`가 기존과 동일하게 정점(낙하 중이므로 사실상 거의 즉시)에서
+  자세를 얼려 유지한다.
+- 착지 시 위쪽의 기존 착지 분기(`isJump && grounded && ...`)가 **아무 추가 코드 없이 그대로**
+  처리해준다 — 의도한 점프든 걸어서 낙하든 착지 로직은 완전히 공용.
+- `animationDriver.ReplayJump()`는 §15(`Bug-fix-plan.md`)에서 신설한, 점프 전용으로 항상
+  처음부터 재생을 보장하는 메서드다 — "낙하 도중 다시 짧게 땅에 닿았다가 또 낙하하는" 것과 같은
+  연속 낙하 상황에서도 매번 확실히 처음부터 재생된다. §15를 먼저 구현한 뒤 이 메서드를 그대로
+  가져다 썼다.
+
+### 23.4 설계 결정이 필요한 지점 — 낙하 중 이동 입력을 계속 반영할 것인가
+
+의도한 점프(`keepMovingAfterJump = true`)는 `Move()`에서 `jumpMoveDir`(점프 시작 시점의 방향)로
+방향이 고정되어 공중에서 방향키를 바꿔도 포물선이 바뀌지 않는다(기존 설계, §18). **걸어서
+낙하하는 경우도 똑같이 방향을 고정할지, 아니면 계속 입력에 반응하게(공중 조작 허용) 둘지는
+게임 디자인 선택의 문제**라 이 계획에서는 확정하지 않고 아래처럼 기본값만 제안해둔다:
+
+- **채택(사용자 확정, 2026-08-16): `keepMovingAfterJump = false`로 두어 낙하 중에도 계속 이동
+  입력에 반응**하게 한다 — 플레이어가 "의도적으로 점프 버튼을 누른 것"이 아니라 "실수로/자연스럽게
+  가장자리를 걸어서 벗어난 것"이므로, 공중에서도 방향을 조절해 되돌아오거나 원하는 곳에 착지할
+  여지를 주는 편이 자연스럽다는 제안에 사용자가 동의했다.
+- **대안(채택 안 함)**: 의도한 점프와 완전히 동일하게 방향을 고정(`keepMovingAfterJump = true`,
+  `jumpMoveDir = rotation`)하면 코드가 더 단순해지고 두 경우가 완전히 동일하게 취급되지만,
+  "걷다가 실수로 떨어졌는데 그 순간 방향이 고정돼버려 되돌아오지 못한다"는 체감이 나쁠 수 있다.
+
+### 23.5 잠재적 오탐(false positive) 위험 — 지형 이음매·계단·경사로
+
+`groundDetector.IsGrounded()`는 단순 레이캐스트 1개(`groundCheckOffset = 0.3f` 여유)라, 계단
+사이·ProBuilder로 제작한 바닥의 메시 이음매·경사로 전환 지점 등에서 한두 물리 스텝(각 20ms)만
+`grounded=false`로 잘못 판정될 수 있다(§13.5에서 이미 한 번 언급된 종류의 우려). 지금 설계대로면
+이런 아주 짧은 순간에도 `isJump=true`가 되어 매번 짧게 Jump 애니메이션이 깜빡이는 시각적
+노이즈가 생길 위험이 있다 — 실제 "점프"는 원래 명시적 입력이라 이런 오탐이 없었지만, "감지 기반"
+낙하는 이 위험에 새로 노출된다.
+
+**완화 방안(제안, 필요성은 실측 후 판단)**: 낙하 감지에 짧은 유예 시간("코요테 타임"과 반대
+개념의 "그레이스 타임")을 둬서, `!grounded`가 일정 시간(예: 0.15~0.2초) 이상 연속으로 유지될
+때만 실제로 `isJump=true`를 트리거하도록 타이머를 하나 추가할 수 있다:
+
+```csharp
+private float airborneTimer;
+private const float FallAnimGraceTime = 0.15f;
+...
+if (!grounded && !isJump && !isDodge)
+{
+    airborneTimer += Time.fixedDeltaTime;
+    if (airborneTimer >= FallAnimGraceTime)
+    {
+        isJump = true;
+        keepMovingAfterJump = false;
+        animationDriver.ReplayJump();
+    }
+}
+else
+{
+    airborneTimer = 0f;
+}
+```
+
+이 유예 시간 로직은 처음부터 넣기보다, **§23을 우선 단순하게(유예 없이) 구현한 뒤
+`GameLobbyScene`의 실제 지형(계단·경사·이음매가 있는 ProBuilder 바닥)에서 깜빡임이 실제로
+관측되는지 확인하고, 필요할 때만 추가**하는 순서를 제안한다 — 처음부터 넣으면 정말 필요한
+기능인지 검증 없이 복잡도만 늘어난다.
+
+### 23.6 검증 계획 (구현 시점에 사용)
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. `GameLobbyScene`에서 점프 없이 걸어서 가장자리를 벗어났을 때 Jump(낙하) 애니메이션이 재생되고,
+   착지 시 정상적으로 `Idle`/`Walk`로 복귀하는지 확인.
+3. 기존 "의도한 점프"(Space) 동작이 회귀 없이 그대로인지 확인(방향 고정, 애니메이션 정지/재개
+   타이밍 등).
+4. §23.4에서 확정한 방향(입력 반영 여부)대로 공중 이동이 동작하는지 확인.
+5. §23.5의 지형 이음매·계단 오탐(깜빡임) 여부를 실제 `GameLobbyScene` 지형에서 확인 — 발생하면
+   그레이스 타임 완화안 적용 여부를 다시 논의.
+6. `VoidKillZone`/맵 밖 낙하 후 스폰 복귀(§18)와의 상호작용 확인 — 걸어서 낙하 → Jump 애니메이션
+   → 한계 높이 초과 → `RespawnToSpawnPoint()` 흐름에서 `isJump`/애니메이션 상태가 깨끗하게
+   리셋되는지(현재 `RespawnToSpawnPoint()`가 이미 `isJump = false; animationDriver.
+   ResumePlayback();`을 호출하므로 기존 로직으로 충분해 보이지만 실제 확인 필요).
+
+### 23.6-1 구현 결과
+
+`Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`의 `FixedUpdate()`에 §23.3 코드 그대로
+`else if (!isJump && !grounded && !isDodge)` 분기를 추가했다(§15의 `ReplayJump()` 구현 이후
+진행). 컴파일 에러 0건. 그레이스 타임(§23.5) 완화안은 계획대로 처음엔 넣지 않았다.
+
+### 23.6-2 검증 결과 — `GameLobbyScene` 실제 Photon 방에서 실측
+
+Space를 누르지 않은 채(`jumpRequested`를 전혀 건드리지 않고) 캐릭터를 트인 공간 상공(`y=40`)으로
+순간이동시켜 자유낙하만 시키는 방식으로, `EditorApplication.update` 훅을 등록해 매 틱
+`isJump`/애니메이터 상태/`normalizedTime`을 실측했다:
+
+- **낙하 첫 물리 스텝(tick=1)부터 `isJump=True`로 즉시 전환** — 점프 키 없이도 감지 분기가
+  정상 동작함을 확인.
+- 애니메이터가 `Jump` 상태로 실제 전환되기까지 약 15틱(`AnyState→Jump`의 0.1초 크로스페이드
+  전환 시간에 해당)이 걸린 뒤, `isJumpAnim=True`로 전환되며 `normalizedTime`이 `0.05`부터
+  깨끗하게 매 틱 증가(0.05→0.06→...→0.12) — 튐이나 역행 없이 매끄러운 단일 재생.
+- 착지 후 재조회 결과 `pos.y=0`, `vel=(0,0,0)`, `isJump=False`, `isJumpAnim=False` — 착지 시
+  기존 착지 분기가 그대로 처리해 `Idle`로 정상 복귀함을 확인(§23.3에서 기대한 대로, 추가 코드
+  없이 기존 착지 로직을 그대로 재사용).
+- **공중 조작(§23.4) 확인**: 낙하 도중 옆 방향(`x`) 이동 입력을 계속 유지시킨 결과, `x`좌표가
+  매 틱 꾸준히 증가(수평 속도 `5.0`으로 고정 유지)하면서 동시에 `y`는 중력에 따라 자연스럽게
+  가속 낙하 — `keepMovingAfterJump=false`로 인해 낙하 중에도 이동 입력이 정상적으로 반영됨을
+  확인, 방향이 고정되는 회귀 없음.
+- `read_console` 최종 확인 결과 이번 테스트 전 구간 에러/경고 0건.
+- §23.5의 지형 이음매 오탐(깜빡임) 문제는 이번 테스트(순간이동 후 개활지 낙하)로는 재현 조건이
+  아니라 확인하지 못했다 — `GameLobbyScene`의 실제 계단·경사 지형에서 사용자가 플레이하며
+  깜빡임이 체감되는지 추가 확인이 필요하며, 관측되면 §23.5의 그레이스 타임 완화안을 적용한다.
+
+### 23.7 상태
+
+**구현·검증 완료.** §23.4(공중 이동 입력 반영)는 사용자가 확정한 방향대로 구현했고 Play Mode
+실측으로 정상 동작을 확인했다. §23.5의 그레이스 타임 완화안은 계획대로 미적용 상태로 남겨뒀다 —
+실제 지형에서 깜빡임이 체감되면 그때 추가한다.
