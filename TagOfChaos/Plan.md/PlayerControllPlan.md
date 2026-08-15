@@ -1415,3 +1415,438 @@ public class PlayerBillBoard : MonoBehaviour
   조회해보니 `Camera_Ctrl`은 정상적으로 존재하고 있었고(별도 컴포넌트로 살아있음), 그 옆에 완전히
   분리된 빈 Missing 슬롯이 하나 더 있는 것이었다 — `Nameplate`/`PlayerBillBoard`와는 무관한 그
   씬의 기존 상태였고, 이번 작업 범위 밖이라 손대지 않았다. 추후 정리가 필요하면 알려달라.
+
+---
+
+## 18. 물리 엔진(Rigidbody) 도입 + 맵 밖 낙하 시 스폰 지점 복귀 — 계획 수립 (승인 대기, 미구현)
+
+### 18.1 요청 사항
+
+1. 맵 가장자리에서 점프하면 맵 밖으로 나가버리는데, 나간 뒤 일정 높이만큼 떨어지면 자동으로
+   스폰 지점으로 복귀시킨다.
+2. 지금 플레이어에게 물리 엔진(Rigidbody)이 전혀 적용되어 있지 않은데, 적용되도록 설계한다.
+
+두 요청은 사실 하나의 원인에서 나온다 — 아래 18.2에서 실제 코드를 근거로 확인한다.
+
+### 18.2 현재 구조 조사 — 정확한 버그 원인
+
+`HideOrSeekPlayer.cs`/`PlayerGroundDetector.cs`를 직접 재확인했다. 이 프로젝트는 **Rigidbody가
+전혀 없다** — 이동은 전부 `Move()`가 `transform.position +=`으로 직접 좌표를 갱신하고, "중력"도
+`PlayerGroundDetector`라는 순수 C# 클래스가 `yVelocity`를 수동으로 적분해 흉내만 내는 구조다
+(Unity 물리 엔진 자체는 개입하지 않음, `Rigidbody`/`CapsuleCollider` 등 플레이어 쪽 물리
+컴포넌트가 프리팹에 아예 없음 — `HideOrSeekPlayer.prefab` 컴포넌트 목록에 `Transform`/
+`Animator`/`PhotonView`/`NavMeshAgent`/스크립트들만 있고 `Rigidbody`/`Collider`는 없다).
+
+**낙하 로직이 점프 중에만 동작한다는 것이 핵심 원인이다:**
+
+```csharp
+private void ApplyGravity()
+{
+    if (!isJump)          // ← 점프 중이 아니면 중력 계산 자체를 안 함
+        return;
+    ...
+}
+```
+
+그리고 점프 중 낙하 판정(`PlayerGroundDetector.Tick`)은 **이번 프레임에 떨어질 거리만큼만** 아래로
+레이캐스트를 쏜다:
+
+```csharp
+Vector3 rayOrigin = transform.position + Vector3.up * groundCheckOffset;
+float rayDist = groundCheckOffset + Mathf.Abs(yVelocity) * deltaTime;
+if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, rayDist, groundLayer)) { ... }
+```
+
+맵 가장자리에서 점프해 맵 바깥(바닥이 없는 허공)으로 넘어가면, 이 레이캐스트가 **영원히 아무것도
+맞히지 못한다** — `landed`가 절대 `true`가 되지 않으므로 `isJump`도 절대 `false`로 안 풀리고,
+`yVelocity`는 계속 음의 방향으로 누적되며 캐릭터가 무한히 떨어진다. 게다가 `HandleJumpAnimationHold()`가
+착지 전까지 Jump 애니메이션을 얼려두므로, 화면상으로도 공중에서 얼어붙은 채 끝없이 추락하는
+것처럼 보인다. **점프 없이 그냥 걸어서 가장자리를 넘어가는 경우는 증상이 다르다** —
+`ApplyGravity()` 자체가 `isJump`가 아니면 아예 실행되지 않으므로, 캐릭터는 낙하하지 않고 허공에서
+같은 높이로 계속 걸어 다니게 된다(이것도 버그이지만 사용자가 보고한 "점프로 맵을 벗어남" 증상과는
+다른 결이라 18.3에서 물리 엔진을 도입하면 두 증상 모두 함께 해소된다).
+
+`NavMeshAgent`는 프리팹에 붙어 있지만 실제 경로탐색(`SetDestination`)에는 전혀 쓰이지 않고,
+착지 시 `agent.Warp(...)`로 위치만 재동기화하는 용도로만 쓰인다 — 이동 자체를 담당하지 않는다.
+
+### 18.3 설계 A — Rigidbody 기반 물리 엔진 도입
+
+**핵심 방향**: `HideOrSeekPlayer` 루트에 `Rigidbody` + `CapsuleCollider`를 추가하고, **로컬
+소유(`pv.IsMine`) 캐릭터만 실제 물리 시뮬레이션(중력·충돌)을 받게** 하며, 원격 캐릭터는 지금처럼
+`PlayerNetworkSync.Interpolate()`가 순수하게 위치를 보간하도록 유지한다 — 두 시스템이 같은
+Transform을 동시에 제어하면 충돌하기 때문이다.
+
+```csharp
+private void Start()
+{
+    ...
+    rb = GetComponent<Rigidbody>();
+    rb.isKinematic = !pv.IsMine; // 원격 캐릭터는 물리 비활성 — networkSync가 transform을 직접 보간
+    if (pv.IsMine)
+    {
+        rb.useGravity = true;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // 빠른 낙하/점프 시 얇은 바닥/난간 통과 방지
+        rb.interpolation = RigidbodyInterpolation.Interpolate; // FixedUpdate 사이 시각적 끊김 완화
+        rb.constraints = RigidbodyConstraints.FreezeRotation;  // 회전은 transform.LookAt으로 직접 제어, 물리 회전(넘어짐)은 막음
+    }
+}
+```
+
+**입력은 `Update()`, 물리 적용은 `FixedUpdate()`로 책임 분리** (Unity 관례 — 고정 타임스텝이
+아닌 `Update()`에서 `Rigidbody.velocity`를 건드리면 프레임레이트에 따라 물리 거동이 들쭉날쭉해짐):
+
+```csharp
+private void Update()
+{
+    if (IsMovementLocked) return;
+    if (pv.IsMine)
+    {
+        CheckMovementInput(); // 입력 읽기 + rotation 갱신만, 여기서 좌표를 옮기지 않음
+        CheckJumpInputFlag(); // "점프 버튼을 눌렀다"는 의도만 플래그로 기록
+        CheckDodgeInput();
+        animationDriver.HandleJumpAnimationHold();
+    }
+    else
+    {
+        networkSync.Interpolate(transform, Time.deltaTime);
+        animationDriver.ChangeState(networkSync.RemoteState);
+    }
+}
+
+private void FixedUpdate()
+{
+    if (!pv.IsMine || IsMovementLocked) return;
+
+    isGrounded = groundDetector.IsGrounded(transform.position); // 점프 중 여부와 무관하게 매 스텝 확인(18.2의 버그 근본 수정)
+
+    if (jumpRequested && isGrounded && !isDodge)
+    {
+        rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpPower, rb.linearVelocity.z);
+        isJump = true;
+        ...
+    }
+    jumpRequested = false;
+
+    Move(); // 이제 transform.position += 대신 rb.linearVelocity의 x/z만 갱신(아래 18.3-1)
+}
+```
+
+**18.3-1. `Move()` 재작성** — 수평 속도만 `Rigidbody`에 넘기고, 수직 속도(중력/점프)는 물리 엔진이
+전담하도록 건드리지 않는다:
+
+```csharp
+public void Move()
+{
+    Vector3 dir = /* 기존과 동일한 dodge/jump-관성/일반 분기로 계산된 방향 */;
+    float velocity = /* 기존과 동일한 speed 계산 */;
+
+    Vector3 horizontal = new Vector3(dir.x * velocity, 0f, dir.z * velocity);
+    rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z); // y는 물리 엔진이 채운 값 그대로 보존
+    if (dir != Vector3.zero)
+        transform.LookAt(transform.position + new Vector3(dir.x, 0f, dir.z)); // 회전은 지금처럼 직접 제어 유지
+}
+```
+
+**18.3-2. `PlayerGroundDetector` 역할 축소** — 더 이상 `yVelocity`를 직접 적분하지 않는다(그건
+이제 `Rigidbody`+`Physics.gravity`의 몫). 순수하게 "지금 땅에 붙어 있는가"만 답하는 질의 클래스로
+단순화한다:
+
+```csharp
+public class PlayerGroundDetector
+{
+    private readonly LayerMask groundLayer;
+    private readonly float checkDistance;
+
+    public PlayerGroundDetector(LayerMask groundLayer, float checkDistance)
+    {
+        this.groundLayer = groundLayer;
+        this.checkDistance = checkDistance;
+    }
+
+    public bool IsGrounded(Vector3 position)
+    {
+        return Physics.Raycast(position + Vector3.up * 0.1f, Vector3.down, checkDistance + 0.1f, groundLayer);
+    }
+}
+```
+
+`StartJump()`/`Tick()`/`yVelocity` 필드는 전부 제거된다 — 기존에 이 클래스가 겪던 "짧은 레이캐스트라
+가장자리를 넘어가면 착지 판정 자체가 불가능해지는" 문제(18.2)가 설계상 사라진다: 이제는 점프 중이든
+아니든 매 `FixedUpdate`마다 독립적으로 접지 여부만 물어보고, 실제 낙하/충돌은 Unity 물리 엔진이
+맡으므로 "허공에서 얼어붙은 채 무한 낙하"가 애초에 불가능하다(그냥 계속 떨어질 뿐이고, 18.4의
+낙사 복귀 로직이 이 낙하를 붙잡는다).
+
+**18.3-3. `NavMeshAgent` 완전 제거로 최종 확정** — 두 차례 논의를 거쳐 방향이 확정됐다.
+
+1차로 "영구 비활성화(컴포넌트는 남기고 `updatePosition/updateRotation`만 끔)"를 검토했으나, 그
+방식도 `enabled=true`인 이상 NavMeshAgent가 매 프레임 "지금 NavMesh 위에 유효하게 있는가"를 내부적으로
+계속 검사한다 — 이 프로젝트 콘솔에서 이미 여러 번 관측된 `"Failed to create agent because there is
+no valid NavMesh"` 경고가 정확히 이 검사에서 나온다. NavMesh가 안 구워진 씬(`GameLobbyScene` 등)에서
+계속 경고가 찍힐 여지가 있다.
+
+이어서 "그럼 `agent.enabled = false`로 컴포넌트째 끄면 어떤가"까지 검토했으나, 애초에 **플레이어는
+AI 추격/경로탐색을 전혀 쓰지 않고, 나중에 몬스터를 추가하더라도 `HideOrSeekPlayer`와는 별개의
+클래스로 만들어 그 몬스터 전용 파라미터(속도/반경 등)로 새 `NavMeshAgent`를 붙이게 될 것**이므로,
+지금 플레이어 프리팹에 "나중 재활용"을 이유로 남겨둘 근거 자체가 약하다는 결론에 이르렀다. 따라서
+**`HideOrSeekPlayer`에서 `NavMeshAgent` 필드와 `agent.Warp/updatePosition` 참조를 전부 제거하고,
+`HideOrSeekPlayer.prefab`에서도 컴포넌트 자체를 삭제한다.** 이후 몬스터/AI 유닛이 실제로 필요해지면
+그 전용 클래스에 처음부터 맞는 설정으로 새로 붙이면 된다 — 이 편이 지금 남겨두는 것보다 오히려
+더 간단하고 경고도 없다.
+
+`CheckJumpInput()`/`ApplyGravity()`/`OnPhotonSerializeView()`에 남아 있던 `agent.updatePosition = false/true`,
+`agent.Warp(...)` 호출과 `[SerializeField] private NavMeshAgent agent;` 필드, `using UnityEngine.AI;`
+지시문을 전부 삭제한다.
+
+**18.3-4. 플레이어에 `CapsuleCollider` 필요** — 지금은 플레이어 쪽에 어떤 Collider도 없어서
+바닥 레이캐스트(그것도 점프 중에만) 외에는 세상 무엇과도 물리적으로 부딪히지 않는다. `Rigidbody`가
+의미 있게 동작하려면 캐릭터 몸통 크기의 `CapsuleCollider`(대략 height 1.8~2.0, radius 0.3~0.4,
+center y ≈ 0.9~1.0)를 루트에 추가해야 한다 — 이 프리팹은 §13에서 정식 프리팹으로 승격된
+`HideOrSeekPlayer.prefab` 하나뿐이므로, 여기 한 번만 추가하면 모든 씬(스폰되는 모든 인스턴스)에
+자동 적용된다.
+
+### 18.4 설계 B — 맵 밖으로 떨어지면 스폰 지점으로 복귀
+
+**방식 선택 — 씬에 배치하는 트리거 볼륨(권장) vs 스크립트에 Y 좌표 하드코딩.** 후자(예:
+`if (transform.position.y < -20) Respawn();`를 `HideOrSeekPlayer.cs`에 박아넣는 방식)는 간단하지만
+맵마다 바닥 높이·규모가 다를 수 있는데 그 기준값을 플레이어 스크립트가 알아야 하는 것은 책임
+분리에 어긋난다(`CLAUDE.md`의 OOP 원칙). **맵의 "경계"는 맵(씬)이 정의해야 할 정보이므로, 새
+컴포넌트를 씬에 배치하는 트리거 볼륨 방식을 채택한다** — `Ground`/`VoteIndicator`처럼 이미 씬에
+직접 배치해 쓰는 다른 요소들과도 패턴이 일관된다.
+
+**새 파일: `Assets/02. Scripts/GameManager/VoidKillZone.cs`** — `PlayerSpawner.cs`/
+`RoomExitController.cs`와 같은 "씬 인프라" 스크립트이므로 `GameManager` 도메인에 둔다(`Unit`
+도메인이 아님 — 캐릭터 행동이 아니라 레벨 경계 정의이기 때문).
+
+```csharp
+using UnityEngine;
+
+// 맵 바깥으로 떨어진 로컬 플레이어를 스폰 지점으로 되돌린다.
+// 씬 하단에 이 컴포넌트가 붙은 큰 트리거 콜라이더를 배치해서 사용한다.
+[RequireComponent(typeof(Collider))]
+public class VoidKillZone : MonoBehaviour
+{
+    private void OnTriggerEnter(Collider other)
+    {
+        var player = other.GetComponentInParent<HideOrSeekPlayer>();
+        if (player != null && player.IsMine)
+            player.RespawnToSpawnPoint();
+    }
+}
+```
+
+**`HideOrSeekPlayer`에 추가할 공개 메서드** — `PlayerSpawner.SpawnLocalPlayer()`와 동일한 규칙
+(`"PlayerSpawnPos"` 이름으로 찾고, 겹침 방지용 랜덤 오프셋)으로 위치를 되돌리고, 낙하 중이던
+속도도 함께 0으로 초기화한다(안 그러면 스폰 직후에도 떨어지던 속도가 남아 있어 바닥을 뚫고
+지나갈 수 있음):
+
+```csharp
+public void RespawnToSpawnPoint()
+{
+    GameObject spawnPointObj = GameObject.Find("PlayerSpawnPos");
+    if (spawnPointObj == null) return;
+
+    Vector3 offset = new Vector3(Random.Range(-5f, 5f), 0f, Random.Range(-5f, 5f));
+    rb.linearVelocity = Vector3.zero;
+    transform.position = spawnPointObj.transform.position + offset;
+
+    isJump = false;
+    animationDriver.ResumePlayback();
+}
+```
+
+**씬 배치 방법**: 각 씬(`GameLobbyScene`, `GameScene`, `PlayerTestScene`)의 `PlayerSpawnPos`보다
+한참 아래(예: y = -15 ~ -20)에, 플레이 영역 전체를 넉넉히 덮는 큰 `BoxCollider`(`isTrigger = true`)
++ `VoidKillZone`을 가진 `VoidKillZone` GameObject를 하나씩 배치한다. "일정 높이만큼 떨어지면"이라는
+사용자 요구사항의 "일정 높이"가 바로 이 트리거의 Y 위치이며, 씬마다 지형 규모가 다르면 씬마다
+다르게 조정할 수 있다(코드 수정 없이 씬 편집만으로 대응 가능 — 이게 Y좌표 하드코딩 대신 이
+방식을 택한 이유).
+
+**안전장치(폴백)**: 혹시 어떤 씬에 `VoidKillZone` 배치를 깜빡하더라도 무한히 떨어지는 사고를
+막기 위해, `HideOrSeekPlayer.FixedUpdate()`에 극단적인 최후 방어선을 하나 더 둔다:
+
+```csharp
+if (transform.position.y < -100f) // VoidKillZone을 깜빡 빠뜨렸을 때의 최후 방어선
+    RespawnToSpawnPoint();
+```
+
+**Photon 동기화 관점에서 안전한 이유(실측 확인)** — `PlayerNetworkSync.Interpolate()`를 다시
+확인해보니, 이미 다음과 같은 스냅 로직이 있다:
+
+```csharp
+public void Interpolate(Transform transform, float deltaTime, float lerpRate = 10.0f, float snapDistance = 10.0f)
+{
+    if (snapDistance < (transform.position - RemotePosition).magnitude)
+        transform.position = RemotePosition; // 10유닛 넘게 차이나면 즉시 스냅
+    else
+        transform.position = Vector3.Lerp(...); // 그 이하는 부드럽게 보간
+}
+```
+
+`VoidKillZone`이 스폰 지점보다 15~20유닛 아래에 있으므로, 복귀 시 이동 거리는 항상 `snapDistance
+(10)`를 넘는다 — 즉 **원격 클라이언트 화면에서 캐릭터가 죽었다가 스폰 지점으로 스르륵 미끄러져
+오는 것처럼 보이는 문제가 이미 기존 코드로 방지되어 있다.** 별도의 텔레포트 전용 RPC나 플래그를
+새로 만들 필요가 없다 — 이 부분은 설계상 추가 작업이 필요 없음을 확인한 것이다.
+
+### 18.5 필드/메서드 변경 매핑
+
+| 대상 | 처리 | 비고 |
+|---|---|---|
+| `HideOrSeekPlayer.Rigidbody rb` (신규 필드) | 추가 | `Start()`에서 `GetComponent`, `IsMine` 여부로 `isKinematic` 분기 |
+| `HideOrSeekPlayer.agent` (`NavMeshAgent`) | 완전 제거 | 18.3-3 — 플레이어는 경로탐색 미사용, 몬스터 도입 시 그쪽에 별도로 새로 붙이는 편이 더 간단 |
+| `PlayerGroundDetector.yVelocity/StartJump()/Tick()` | 제거 | 중력 적분은 이제 Unity 물리 엔진이 담당 |
+| `PlayerGroundDetector.IsGrounded(Vector3)` (신규) | 추가 | 점프 여부와 무관하게 매 `FixedUpdate` 호출 — 18.2 버그의 근본 수정 |
+| `HideOrSeekPlayer.ApplyGravity()` | 제거 | 물리 엔진이 대체 |
+| `HideOrSeekPlayer.Move()` | 수정 | `transform.position +=` → `rb.linearVelocity` 수평 성분만 갱신 |
+| `HideOrSeekPlayer.CheckJumpInput()` | 수정 | `groundDetector.StartJump()` → `rb.linearVelocity.y = jumpPower` 직접 대입, 접지 여부(`IsGrounded`)로 게이팅 |
+| `HideOrSeekPlayer.Update()`/`FixedUpdate()` | 분리 | 입력 읽기는 `Update()`, 물리 갱신은 `FixedUpdate()`(신규) |
+| `HideOrSeekPlayer.RespawnToSpawnPoint()` (신규) | 추가 | `VoidKillZone`이 호출, `PlayerSpawner`와 동일한 스폰 규칙 재사용 |
+| `Assets/02. Scripts/GameManager/VoidKillZone.cs` (신규 파일) | 추가 | 씬에 배치하는 트리거 볼륨 |
+| `HideOrSeekPlayer.prefab`의 `Rigidbody`/`CapsuleCollider` (신규 컴포넌트) | 추가 | 18.3-4 |
+| `GameLobbyScene`/`GameScene`/`PlayerTestScene`의 `VoidKillZone` GameObject (신규) | 씬별 추가 | 18.4 |
+
+### 18.6 범위 밖 / 후속 확인 필요 사항
+
+- **각 씬의 `Ground`에 실제 `Collider`가 있는지 재확인 필요.** `GameLobbyScene`은 이번 배경 작업
+  중 `MeshCollider`를 직접 추가해 확인됐지만(`Bug-fix-plan.md`와 무관한 이번 세션 작업), `GameScene`/
+  `PlayerTestScene`의 바닥은 이번 계획 조사 범위에 포함하지 않았다 — Rigidbody가 실제로 착지하려면
+  필수이므로 구현 단계에서 씬별로 반드시 확인해야 한다.
+- **`GameLobbyScene`의 펜스/테이블/의자에는 아직 Collider가 없다**(크레이트에만 있음, 이전 작업
+  기록 참고) — 실제 Rigidbody가 적용되면 플레이어가 이 오브젝트들을 그냥 통과하게 된다. 이번
+  계획 범위 밖이지만, 자연스러운 후속 작업으로 필요하면 알려달라.
+- **회피(Dodge)/점프 관성 이동 중 `transform.LookAt` 회전과 `Rigidbody.MoveRotation`의 관계**는
+  18.3에서 기존 방식(직접 `transform` 회전)을 유지하는 것으로 설계했지만, `RigidbodyConstraints.
+  FreezeRotation`을 켜두면 물리 충돌로 캐릭터가 넘어지는 것은 막히되 `transform.rotation` 직접
+  대입 자체는 여전히 허용된다 — 구현 단계에서 실제로 회전이 매끄럽게 반영되는지 Play Mode로
+  확인이 필요하다.
+- **`GameScene`의 실제 맵 형태(경계/절벽 위치)는 이번 조사에 포함되지 않았다** — `VoidKillZone`
+  배치 위치(Y값, XZ 크기)는 구현 시 그 씬을 직접 열어 확인 후 정한다.
+
+### 18.7 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. `PlayerTestScene`에서 Play Mode 진입 후, 평지에서 걷기/점프/회피가 기존과 동일한 조작감으로
+   동작하는지 확인(수평 속도를 Rigidbody로 옮긴 것이 기존 체감과 달라지지 않았는지).
+3. 맵 가장자리로 이동해 점프해서 밖으로 나가 봤을 때: (a) 더 이상 애니메이션이 얼어붙은 채
+   허공에 멈추지 않고 실제로 계속 낙하하는지, (b) `VoidKillZone` 통과 시 스폰 지점으로 정확히
+   복귀하는지, (c) 복귀 직후 다시 바닥을 뚫고 떨어지지 않는지(속도 초기화 확인) 확인.
+4. 걸어서(점프 없이) 가장자리를 넘어갈 때도 이제는 실제로 떨어지고 `VoidKillZone`에 걸려
+   복귀하는지 확인(18.2에서 지적한 "점프 없이 벗어나면 아예 낙하하지 않던" 기존 버그도 함께
+   해소되는지).
+5. Unity 에디터를 실제 멀티 클라이언트 세션에 참가시켜(`Bug-fix-plan.md` §12와 동일한 방식),
+   한 클라이언트가 낙사 복귀할 때 다른 클라이언트 화면에서 순간이동처럼 보이는지(미끄러지듯
+   보이면 §18.4의 스냅 로직이 예상과 다르게 동작한 것) 확인.
+6. `NavMeshAgent` 제거 후에도 착지/충돌 판정에 회귀가 없는지 재확인.
+
+### 18.8 상태
+
+**계획 수립 완료, 승인 대기 — 아직 구현하지 않음.** `NavMeshAgent` 처리 방향은 두 차례 논의를 거쳐
+"완전 제거"로 18.3-3에 최종 확정 반영했다. 이 설계에 동의하면 알려달라, 그대로 구현을 시작하겠다.
+`NavMeshAgent` 제거 자체의 상세 구현 순서와 위험 요소는 §19에 별도로 정리했다.
+
+---
+
+## 19. `NavMeshAgent` 제거 — 상세 구현 계획 (승인 대기, 미구현)
+
+§18.3-3에서 방향은 "완전 제거"로 확정됐다. 이 절은 그 제거 작업을 **독립적으로 먼저 실행 가능한
+첫 단계**로 보고, 실제로 어떤 순서로 손대야 하는지와 무엇이 문제가 될 수 있는지를 구체적으로
+정리한다. §18의 나머지(Rigidbody 도입, VoidKillZone)는 이 작업 이후에 별도로 진행한다 — 두
+작업을 분리하는 이유는 19.1에서 설명한다.
+
+### 19.1 왜 Rigidbody 작업보다 먼저, 독립적으로 하는가
+
+`NavMeshAgent`는 현재도 실제 이동에 관여하지 않는다(§18.2에서 이미 확인 — 경로탐색 미사용,
+`Warp()`/`updatePosition` 토글만 함). 즉 **`NavMeshAgent`를 지워도 Rigidbody가 아직 없는
+지금 상태(기존 `PlayerGroundDetector` 수동 중력 방식)에서 동작이 전혀 달라지지 않아야 정상이다**
+— 그래서 이 제거 작업은 Rigidbody 도입과 완전히 분리해 **그 자체로 독립적으로 구현하고 검증할 수
+있다.** 먼저 이 작업만 끝내고 "회귀 없음"을 확인한 뒤에, 그 위에 §18의 Rigidbody 작업을 얹는
+순서로 진행하면 문제가 생겼을 때 원인을 훨씬 좁혀서 찾을 수 있다(두 가지를 한 번에 바꾸면 어느
+쪽 때문에 깨졌는지 구분이 어려움).
+
+### 19.2 제거 대상 — 코드에서 실제로 참조하는 모든 지점 (재확인 완료)
+
+`HideOrSeekPlayer.cs`를 다시 정독해 `agent`를 참조하는 지점을 전부 나열했다(이 4곳이 전부다):
+
+| 위치 | 현재 코드 | 처리 |
+|---|---|---|
+| 파일 상단 | `using UnityEngine.AI;` | 삭제 |
+| 필드 선언 (`[Header("Components")]` 아래) | `[SerializeField] private NavMeshAgent agent;` | 삭제 |
+| `CheckJumpInput()` | `if (agent != null) { agent.updatePosition = false; }` | 블록 삭제 |
+| `ApplyGravity()` (착지 처리 부분) | `if (agent != null) { agent.Warp(transform.position); agent.updatePosition = true; }` | 블록 삭제 |
+| `OnPhotonSerializeView()` 수신 분기 | `if (networkSync.RemoteIsJump && agent != null) { agent.updatePosition = false; }` | 블록 삭제 |
+
+프로젝트 전체를 `agent`/`NavMeshAgent` 기준으로 검색해도 `HideOrSeekPlayer.cs` 외에 이 필드를
+참조하는 다른 스크립트는 없다(이전 조사에서 이미 확인됨, `PlayerPaintCanvas`/
+`PlayerColorVoteIndicator`/`PlayerColorDisplay` 등 같은 프리팹의 다른 컴포넌트들은 전부 `pv`만
+참조하고 `agent`는 참조하지 않음) — 따라서 `HideOrSeekPlayer.cs` 한 파일만 고치면 코드 쪽은 끝난다.
+`[RequireComponent(typeof(NavMeshAgent))]` 같은 강제 의존 attribute도 없다(직접 확인 완료) — 즉
+컴포넌트를 지워도 컴파일이 막히는 다른 경로는 없다.
+
+### 19.3 구현 순서
+
+1. **`HideOrSeekPlayer.cs` 코드 수정** — 19.2의 5곳을 전부 제거.
+2. **컴파일 확인** (`read_console`, 에러 0건).
+3. **`HideOrSeekPlayer.prefab`을 프리팹 스테이지로 열어 `NavMeshAgent` 컴포넌트 자체를 삭제**,
+   저장 후 스테이지 닫기 — 코드를 먼저 고쳐서 필드 참조가 없어진 뒤에 컴포넌트를 지우는 순서를
+   지킨다(반대 순서로 해도 Unity가 알아서 참조를 `null`로 정리하긴 하지만, 코드-먼저 순서가 더
+   안전하고 확인하기 쉽다).
+4. **프리팹이 의도치 않게 손상되지 않았는지 재확인** — 19.4에서 설명하는 알려진 위험 때문에,
+   컴포넌트 목록과 `speed`/`jumpPower`/`pv` 등 다른 필드 값이 그대로인지 프리팹을 다시 읽어 확인.
+5. **Play Mode 검증** (19.5).
+6. 이 문서(§19)에 완료 표시 후, §18의 Rigidbody 작업으로 넘어간다.
+
+### 19.4 문제가 될 수 있는 부분
+
+- **MCP 프리팹 편집 도구의 알려진 부작용**: 이 세션과 이전 세션들에서 반복적으로 확인된 사실인데,
+  `script_apply_edits`로 메서드를 지우거나 바꿀 때 바로 위에 있는 `[SerializeField]` 필드가 같이
+  삭제되는 사고가 여러 번 있었다(`Bug-fix-plan.md`에도 기록된 재발 패턴). 이번엔 코드 파일 편집은
+  단순 텍스트 치환(Edit 도구)으로 처리해 그 위험을 피하고, 프리팹 쪽 컴포넌트 삭제도 별도 도구
+  (`manage_prefabs`/`manage_components`)로 명시적으로만 수행해 같은 사고가 재발하지 않도록 한다.
+  프리팹 인스턴스화/편집 도구가 `position`을 초기화해버렸던 사례도 있었으므로(`GameManager.md`
+  §9.11.4), 컴포넌트 삭제 후 루트 Transform의 `position`이 `(0,0,0)`으로 그대로인지도 반드시
+  재확인한다.
+- **`PlayerTestScene`에 이미 구워둔 NavMesh 데이터**: `NavMeshAgent`를 없애도 씬에 베이크된
+  NavMesh 데이터 자체는 자동으로 지워지지 않는다 — 더 이상 아무도 참조하지 않는 죽은 데이터로
+  남지만, 지우지 않아도 동작에는 영향이 없다(용량만 아주 조금 차지). 이번 작업 범위에서는 굳이
+  지우지 않는다 — 필요하면 나중에 별도로 정리.
+- **`"Failed to create agent because there is no valid NavMesh"` 경고가 사라지는지가 검증
+  포인트**: 이 경고는 이번 대화 세션 내내 Play Mode 테스트 때마다 반복적으로 관측됐던 것이다
+  (NavMesh가 없는 씬에서 `NavMeshAgent`가 자기 위치를 유효화하려다 실패하는 경고로 추정). 제거
+  후에는 이 경고가 더 이상 나오지 않아야 정상이며, 반대로 계속 나온다면 어딘가에 `NavMeshAgent`가
+  또 남아있다는 신호이므로 재조사가 필요하다.
+- **점프 중 `agent.updatePosition` 토글이 실제로 아무 기능도 안 하고 있었는지 재확인**: §18.2에서
+  "경로탐색 미사용, `Warp()` 재동기화 용도뿐"이라고 판단했지만, 이건 정적 코드 분석이었다 — 실제로
+  제거 후 Play Mode에서 점프/착지가 제거 전과 **눈으로 봐도 차이 없이 완전히 동일하게** 동작하는지
+  직접 비교해야 이 판단이 맞았음을 확실히 확인할 수 있다(19.5의 핵심 검증 항목).
+- **네트워크(Photon) 쪽 영향은 없음** — `OnPhotonSerializeView`에서 지워지는 `agent.updatePosition
+= false` 줄은 실제 스트림에 실어 보내는 데이터(`position`/`rotation`/`state`/`isJump`)와는 무관한,
+  그 메서드 안에 우연히 같이 있던 로컬 부수 효과일 뿐이다 — 직렬화 포맷이 바뀌는 게 아니므로
+  클라이언트 간 버전 호환성 문제는 없다.
+- **씬에 남아있는 프리팹 인스턴스(비-Resources 사본이 있다면)**: `HideOrSeekPlayer.prefab`은
+  `Assets/04. Prefabs/Resources/`에 있는 단일 정식 프리팹이고, 모든 씬은 `PhotonNetwork.
+  Instantiate("HideOrSeekPlayer", ...)`로 런타임에 이 프리팹을 스폰하는 구조라(§13에서 확정)
+  씬 파일에 미리 배치된 별도 사본이 없다 — 즉 프리팹 하나만 고치면 모든 씬에 자동 반영되고,
+  씬마다 따로 찾아 고칠 필요는 없다. 다만 `PlayerTestScene`처럼 예전에 씬 인스턴스로 남아있던
+  테스트용 오브젝트가 있다면(과거 §13.2에서 지적됐던 것과 비슷한 경우) 그건 프리팹 연결이 아닐
+  수 있으므로 별도 확인이 필요하다.
+
+### 19.5 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. `PlayerTestScene`에서 Play Mode 진입 후 걷기/살금살금 걷기/점프/회피가 제거 전과 체감상 완전히
+   동일한지 확인(이 시점엔 아직 Rigidbody가 없으므로 기존 `PlayerGroundDetector` 수동 중력 그대로
+   동작해야 함 — 즉 "아무것도 안 변한 것처럼 보여야" 성공).
+3. 점프 후 착지 시 캐릭터가 지형 표면에 정확히 붙는지(과거 `agent.Warp`가 하던 재동기화가 빠져도
+   착지 위치 계산 자체는 `PlayerGroundDetector.Tick()`이 이미 전담하고 있었으므로 영향 없어야 함)
+   확인.
+4. 콘솔에서 `"Failed to create agent because there is no valid NavMesh"` 경고가 더 이상 나오지
+   않는지 확인.
+5. 프리팹을 다시 조회해 `NavMeshAgent`가 컴포넌트 목록에서 완전히 사라졌는지, 그리고 `Transform.
+   position`(0,0,0)과 `speed`/`jumpPower`/`pv` 등 다른 필드 값이 그대로 보존됐는지 확인(19.4의
+   MCP 편집 부작용 위험 대비).
+6. 실제 Photon 룸(`GameLobbyScene`/`GameScene`)에서 스폰까지 정상 동작하는지 최종 확인 — 프리팹
+   구조 변경이 `PhotonNetwork.Instantiate("HideOrSeekPlayer", ...)` 스폰 자체에 영향이 없어야 함.
+
+### 19.6 상태
+
+**계획 수립 완료, 승인 대기 — 아직 구현하지 않음.** 승인하면 §18(Rigidbody/VoidKillZone) 작업보다
+먼저 이 §19부터 독립적으로 구현하고 검증한 뒤, 그 위에 §18을 이어서 진행하는 순서를 제안한다.
