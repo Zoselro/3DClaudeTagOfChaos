@@ -26,12 +26,21 @@ public class Camera_Ctrl : MonoBehaviour
     float rotationSmoothTime = 0.08f;
     // (줌 스무딩 필드 m_CurDistance/m_TargetDistance/zoomSmoothTime/zoomVelocity 삭제)
 
-    public void InitCamera(GameObject player)
+public void InitCamera(GameObject player)
     {
         m_Player = player;
+        ResetToDefaultView(); // InitCamera가 Awake든 Start든 언제 호출되든 상관없이 항상 정확히 초기화됨
     }
 
-    void Start()
+void Start()
+    {
+        // m_Player가 이미 연결되어 있다면(InitCamera가 이 시점 이전에 이미 호출된 경우) 정상 초기화.
+        // 아직 연결 전이라면 아무 것도 하지 않고, InitCamera가 나중에 호출될 때 ResetToDefaultView()가
+        // 대신 처리한다 — 두 호출 순서에 더 이상 의존하지 않는다.
+        ResetToDefaultView();
+    }
+
+    private void ResetToDefaultView()
     {
         if (m_Player == null) return;
 

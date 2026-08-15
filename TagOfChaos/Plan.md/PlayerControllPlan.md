@@ -1237,3 +1237,181 @@ public bool IsDodge() { return animationDriver.CurrentState == PlayerMoveState.D
   생겼을 때 참고할 수 있도록 문서에 그대로 남겨둔다(삭제하지 않음).
 - `Dodge_Original.anim`은 향후 다른 타이밍으로 재조정하고 싶을 때를 대비한 백업이므로 계속
   프로젝트에 남겨둔다.
+
+---
+
+## 17. 플레이어 머리 위 닉네임 빌보드 — ✅ 구현·검증 완료 (2026-08-15)
+
+### 17.1 요청 사항
+
+캐릭터 머리 위에 항상 카메라를 향하는 빌보드를 붙이고, 그 빌보드에는 플레이어의 닉네임을
+표시한다. `HideOrSeekPlayer.prefab`(`Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab`)을
+사용하는 모든 인스턴스(로컬/원격 구분 없이) 전부에 적용한다.
+
+### 17.2 기존 자산 조사 — 이미 같은 문제를 풀어본 전례가 있다
+
+프리팹을 직접 열어보니, 이미 정확히 같은 종류의 "머리 위 빌보드"가 하나 존재한다:
+`VoteIndicator`라는 자식 오브젝트(로컬 위치 `(0, 2.2, 0)`, `SpriteRenderer` 부착)로, 색상 투표
+라운드 중 자신이 고른 색을 표시하는 스프라이트다. 이걸 담당하는
+`Assets/02. Scripts/ColorTag/PlayerColorVoteIndicator.cs`의 빌보드 처리 방식:
+
+```csharp
+private void LateUpdate()
+{
+    if (Camera.main != null && indicator != null)
+        indicator.transform.forward = Camera.main.transform.forward;
+}
+```
+
+`transform.forward = Camera.main.transform.forward`(카메라 쪽을 바라보도록 `LookAt`하는 대신,
+카메라와 같은 forward 벡터로 맞추는 방식)를 쓰면 카메라가 위/아래로 기울어도 빌보드 평면이
+항상 뷰 평면과 평행하게 유지되어 세로로 찌그러지지 않는다 — 검증된 방식이므로 닉네임
+빌보드에도 그대로 재사용한다.
+
+**중요한 반면교사**: `PlayerColorVoteIndicator`는 스크립트 자체는 캐릭터 **루트**
+GameObject에 붙어 있고, `[SerializeField] indicator` 필드로 자식 스프라이트를 가리키는
+간접 참조 구조다. 이 구조 때문에 실제로 버그가 났었다(`Bug-fix-plan.md` §10) —
+`LateUpdate()`가 실수로 `this.transform`(캐릭터 루트)을 돌려버려서 캐릭터 전체가 카메라를
+따라 돌아가며 "항상 뒷모습만 보이는" 치명적 버그로 이어졌다. 이번 닉네임 빌보드는 **같은 종류의
+실수가 애초에 불가능하도록**, 스크립트를 루트가 아니라 빌보드 자식 오브젝트 자신에게 직접
+부착해 `this.transform`을 조작하는 구조로 설계한다(17.4 참고) — 간접 참조 필드 자체를 없애
+"어느 transform을 돌려야 하는지 헷갈릴 여지"를 구조적으로 제거한다.
+
+### 17.3 텍스트 표시 방식 — World Space Canvas 대신 3D TextMeshPro
+
+프로젝트에는 이미 TextMeshPro(TMP)가 임포트되어 있다(`GameManager.cs`, `GameLobbyController.cs`가
+`TMPro.TMP_Text`/`TextMeshProUGUI` 사용 중 — `research.md`/기존 코드로 확인). 닉네임 하나만
+띄우는 용도로는 `Canvas`(World Space) + `TextMeshProUGUI` + `EventSystem` 의존성을 새로 얹을
+필요가 없으므로, **UI가 아닌 3D `TextMeshPro` 컴포넌트**(메시 기반, Canvas 불필요)를 자식
+오브젝트에 직접 붙이는 방식을 쓴다. 플레이어 수만큼(최대 4명) 인스턴스가 생기므로, 매 인스턴스마다
+별도 Canvas/EventSystem을 두는 것보다 가볍다.
+
+### 17.4 새 컴포넌트 설계 — `PlayerBillBoard.cs`
+
+`Assets/02. Scripts/Unit/PlayerBillBoard.cs` (신규). `HideOrSeekPlayer`와 같은 `Unit` 도메인.
+
+```csharp
+using Photon.Pun;
+using TMPro;
+using UnityEngine;
+
+// 캐릭터 머리 위 닉네임 빌보드. 이 스크립트 자신이 빌보드 자식 오브젝트에 직접 붙어
+// this.transform을 다루므로, PlayerColorVoteIndicator가 겪었던 "간접 참조 대상을 잘못 회전시키는"
+// 버그(Bug-fix-plan.md §10)가 구조적으로 재발할 수 없다.
+public class PlayerBillBoard : MonoBehaviour
+{
+    [SerializeField] private PhotonView pv; // 부모(캐릭터 루트)의 PhotonView
+    [SerializeField] private TextMeshPro nameText;
+
+    private void Start()
+    {
+        if (pv != null && pv.Owner != null)
+            nameText.text = pv.Owner.NickName;
+    }
+
+    private void LateUpdate()
+    {
+        if (Camera.main != null)
+            transform.forward = Camera.main.transform.forward;
+    }
+}
+```
+
+- `IsMine` 체크를 두지 않는다 — `VoteIndicator`와 마찬가지로 로컬/원격 구분 없이 **모든 클라이언트가
+  자신의 화면에서 모든 캐릭터의 닉네임을 봐야 하는** 기능이므로, 소유권과 무관하게 항상 동작해야
+  맞다(17.2에서 확인한 기존 패턴과 동일한 이유).
+- `pv.Owner.NickName`은 `Bug-fix-plan.md` §12에서 다뤘던 "InRoom이 아직 안 됐을 때 전송이
+  실패하는" 문제와는 다른 영역이다 — 이건 로컬에서 이미 갖고 있는 `PhotonView`의 소유자 정보를
+  **읽기만** 하는 것이고, `PhotonNetwork.Instantiate`가 로컬에서 성공하는 시점에는 그 View의
+  `Owner`도 이미 채워져 있다(닉네임은 룸 입장 전에 `PhotonNetwork.NickName`으로 미리 설정되고
+  Photon이 `Player` 객체 생성 시점에 함께 동기화하는 값이므로, 네트워크 전송 성공 여부와 무관).
+  따라서 §12처럼 별도 대기 로직 없이 `Start()`에서 한 번만 읽어도 안전하다.
+- 닉네임은 게임 중 바뀌지 않으므로(로비 입장 전에만 설정 가능, `LobbyController.TryApplyNickname`)
+  실시간 갱신 콜백은 두지 않는다.
+
+### 17.5 프리팹 변경 — `HideOrSeekPlayer.prefab`
+
+캐릭터 루트(`fileID 4508182218260622245`) 아래에 새 자식 오브젝트 `Nameplate`를 추가한다.
+
+| 항목 | 값 |
+|---|---|
+| 이름 | `Nameplate` |
+| 부모 | `HideOrSeekPlayer`(루트) |
+| Local Position | `(0, 2.5, 0)` — 기존 `VoteIndicator`(`y=2.2`)보다 약간 위에 둬서 투표 라운드 중에도 두 빌보드가 겹치지 않게 함(정확한 값은 Play Mode에서 육안으로 조정, 17.6 참고) |
+| 컴포넌트 | `TextMeshPro`(3D) + `PlayerBillBoard`(신규 스크립트) |
+| `TextMeshPro` 설정 | 정렬 Center/Middle, 폰트 크기·색상은 구현 시 Play Mode로 가독성 확인 후 조정(기본값: 흰색 텍스트 + 검은 Outline로 어떤 배경에서도 잘 보이게) |
+| `PlayerBillBoard.pv` | 루트의 `PhotonView`(`fileID 8262779534870907500`, 기존 `VoteIndicator`가 참조하는 것과 동일한 컴포넌트) 연결 |
+
+`VoteIndicator`와 동일하게 프리팹의 정식 자식으로 등록하므로, `PhotonNetwork.Instantiate`로
+스폰되는 모든 캐릭터 인스턴스(로컬/원격 전부)에 자동으로 포함된다 — 별도의 스폰/초기화 코드
+변경이 필요 없다.
+
+### 17.6 검증 계획
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. `PlayerTestScene`(1인 오프라인 테스트 환경, §12.5)에서 Play Mode 진입 후 닉네임 텍스트가
+   머리 위에 정상 표시되는지, 카메라를 우클릭 드래그로 회전시켜도(§10에서 검증한 방식과 동일)
+   빌보드가 항상 카메라를 향해 평평하게 유지되는지 확인.
+3. 캐릭터가 걷기/점프/회피로 움직이거나 회전해도 닉네임 위치가 머리 위를 정확히 따라가고
+   텍스트 자체는 캐릭터 회전과 무관하게(빌보드이므로) 항상 카메라를 향하는지 확인.
+4. `VoteIndicator`(투표색 스프라이트)와 겹치지 않고 위아래로 적절히 구분되어 보이는지 확인 —
+   겹치면 17.5의 Y 오프셋 값을 조정.
+5. 가능하면 Unity 에디터를 실제 멀티 클라이언트 세션에 참가시켜(`Bug-fix-plan.md` §12에서 쓴
+   방식과 동일) 다른 플레이어의 닉네임도 정확히 보이는지 실사용 조건에서 확인.
+
+### 17.7 상태
+
+**✅ 구현·검증 완료.** 사용자 승인을 받아 그대로 구현했다(요청에 따라 클래스/파일명만
+`PlayerNameplate` 대신 `PlayerBillBoard`로 확정). 상세 결과는 §17.8 참고.
+
+### 17.8 구현 결과
+
+**생성된 파일**
+- `Assets/02. Scripts/Unit/PlayerBillBoard.cs` — 계획(§17.4)과 동일하게 구현.
+
+**변경된 파일**
+- `Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab` — 루트 아래에 `Nameplate` 자식 추가
+  (`RectTransform`/`MeshRenderer`/`MeshFilter`는 `TextMeshPro` 컴포넌트가 자동으로 요구하는
+  구성요소, `TMPro.TextMeshPro` + `PlayerBillBoard` 부착). `PlayerBillBoard.pv`는 루트의
+  `PhotonView`, `nameText`는 같은 오브젝트의 `TextMeshPro`를 정확히 참조하도록 연결됨(직접
+  `SerializedObject`로 설정 후 재조회로 확인).
+
+**계획 대비 조정한 값**
+- `TextMeshPro.fontSize`: 계획(§17.5)에서 "Play Mode로 가독성 확인 후 조정"이라고 명시했던
+  대로, 최초 적용값 `4`는 실제로 캐릭터보다 훨씬 큰 글자(화면 폭을 거의 다 채움, §17.8 첫 번째
+  스크린샷)로 렌더링됨을 확인해 `0.5`로 낮췄다 — `Nameplate`의 `localScale`이 `(1,1,1)`인 상태에서
+  `TextMeshPro`(3D)를 코드로 새로 추가하면(Unity 메뉴의 "3D Text" 생성 시 자동으로 딸려오는
+  `localScale ≈ 0.1` 스케일링이 없으므로) 같은 `fontSize` 값이라도 훨씬 크게 나온다는 것이
+  실측으로 확인된 원인이다. 재조정 후 스크린샷(§17.8 두 번째)에서 머리 위에 적당한 크기로
+  표시됨을 확인했다.
+- `Nameplate` Local Position `(0, 2.5, 0)`은 계획대로 유지 — `VoteIndicator`(`y=2.2`)와 겹치지
+  않고 위쪽에 자연스럽게 위치함을 Play Mode에서 확인했다.
+
+**검증 결과 (§17.6 대응)**
+1. `read_console`로 컴파일 에러/경고 0건 확인(최종 재확인 포함).
+2. `PlayerTestScene`(오프라인 1인 테스트 환경)에서 Play Mode 진입 후 닉네임 텍스트가 머리 위에
+   표시됨을 확인. 이 씬은 `PhotonNetwork.OfflineMode`라 `pv.Owner`가 `null`인데, `PlayerBillBoard.
+   Start()`의 `if (pv != null && pv.Owner != null)` 널 가드 덕분에 예외 없이 기본 텍스트("Player")를
+   유지함을 확인(오프라인 테스트 환경에 대한 방어 로직이 실제로 의도대로 동작).
+3. `Camera_Ctrl.m_RotH`를 리플렉션으로 `0→180`으로 바꿔 카메라를 궤도 회전시킨 뒤 직접 조회 —
+   `nameplate.forward`가 `camera.transform.forward`와 **정확히 일치**(`(0.00, -0.42, -0.91)`로
+   양쪽 동일)함을 확인했고, 동시에 캐릭터 루트의 `eulerAngles`는 `(0,0,0)`으로 전혀 흔들리지
+   않음을 확인 — §17.2에서 우려했던 "루트를 잘못 돌리는" 버그(Bug-fix-plan.md §10)와 같은 실수가
+   이 구현에는 없음을 실측으로 검증했다.
+4. **실제 Photon 룸으로 닉네임 표시까지 검증**: Unity 에디터를 `PhotonNetwork.NickName =
+   "BillboardTester"`로 설정해 새 룸을 만들고 `GameLobbyScene`까지 정상 진입 → 스폰된
+   `HideOrSeekPlayer`의 `pv.Owner.NickName`이 `"BillboardTester"`였고, `Nameplate`의 `TextMeshPro.
+   text`도 정확히 `"BillboardTester"`로 채워짐을 코드 조회와 스크린샷 양쪽으로 확인했다 —
+   §17.4에서 "읽기만 하는 것이라 §12의 InRoom 경쟁과 무관하게 안전하다"고 판단한 근거가 실제
+   룸 입장 조건에서도 맞았음을 확인.
+5. `VoteIndicator`(투표색 스프라이트)와의 겹침 여부는 이번 세션에서 실제 색상 선택 라운드까지
+   진행하지는 않아 육안으로 직접 확인하지 못했다 — `Nameplate`가 `y=2.2`인 `VoteIndicator`보다
+   위(`y=2.5`)에 있으므로 겹치지 않을 것으로 예상되지만, 다음에 색상 투표 UI가 실제로 뜨는
+   상황에서 한 번 더 확인하는 것을 권장한다(경미한 후속 확인 사항).
+
+**부수적으로 발견한, 이번 작업과 무관한 기존 이슈**
+- `PlayerTestScene`의 `Main Camera`에 스크립트 참조가 끊긴(Missing) 컴포넌트가 하나 더 있음을
+  콘솔 경고(`The referenced script (Unknown) on this Behaviour is missing!`)로 발견했다. 직접
+  조회해보니 `Camera_Ctrl`은 정상적으로 존재하고 있었고(별도 컴포넌트로 살아있음), 그 옆에 완전히
+  분리된 빈 Missing 슬롯이 하나 더 있는 것이었다 — `Nameplate`/`PlayerBillBoard`와는 무관한 그
+  씬의 기존 상태였고, 이번 작업 범위 밖이라 손대지 않았다. 추후 정리가 필요하면 알려달라.

@@ -1,9 +1,8 @@
-﻿using Photon.Pun;
+using Photon.Pun;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 public class GameManager : MonoBehaviourPunCallbacks
 {
@@ -12,11 +11,8 @@ public class GameManager : MonoBehaviourPunCallbacks
     const int MAX_CHAT = 50; // 채팅 최대 갯수
 
     [SerializeField] private PhotonView pv;
-    [SerializeField] private Button m_BackBtn; // 룸 나가기 버튼
     [SerializeField] private TMP_InputField InputFdChat; // 채팅 입력 필드
     [SerializeField] private TextMeshProUGUI txtLogMsg;
-    [SerializeField] private ConfirmDialog confirmDialog;
-    [SerializeField] private string leaveConfirmMessage = "로비로 나가시겠습니까?"; // 씬별로 인스펙터에서 다르게 설정
 
     private List<string> m_MsgList = new List<string>();
     private bool bEnter = false;
@@ -24,10 +20,11 @@ public class GameManager : MonoBehaviourPunCallbacks
     private bool is_Conversating; // 채팅 중인지 여부를 나타내는 변수
     public bool Is_Conversating => is_Conversating;
 
+    private HideOrSeekPlayer localPlayer;
+
     private void Awake()
     {
         Inst = this;
-        CreatePlayer();
     }
 
     private void Start()
@@ -35,9 +32,16 @@ public class GameManager : MonoBehaviourPunCallbacks
         Time.timeScale = 1.0f; // 일시정지 풀어주기
         PhotonNetwork.IsMessageQueueRunning = true; // 포톤 메시지 큐를 활성화하여 RPC 호출을 받을 수 있도록 설정
 
-        Debug.Log(PhotonNetwork.IsMessageQueueRunning);
-        if (m_BackBtn != null)
-            m_BackBtn.onClick.AddListener(OnClickBackButtonPressed);
+        // Start()가 실행됐다고 해서 PhotonNetwork.InRoom이 true라는 보장은 없다(Bug-fix-plan.md §12).
+        // 그 상태에서 RPC를 보내면 로컬에서는 아무 에러 없이 지나가지만 실제 전송(RaiseEvent)은
+        // 조용히 실패해 다른 클라이언트에게 전달되지 않는다 — InRoom이 true가 될 때까지 기다린 뒤 보낸다.
+        StartCoroutine(SendConnectedMessageWhenInRoom());
+    }
+
+    private IEnumerator SendConnectedMessageWhenInRoom()
+    {
+        while (!PhotonNetwork.InRoom)
+            yield return null;
 
         // 로그 메시지에 출력할 문자열 생성
         string msg = "\n<color=#33ff33>[" +
@@ -47,7 +51,7 @@ public class GameManager : MonoBehaviourPunCallbacks
         pv.RPC("LogMsg", RpcTarget.AllBuffered, msg, false);
     }
 
-    private void Update()
+private void Update()
     {
         //--- 채팅 구현 텍스트
         if (Input.GetKeyUp(KeyCode.Return))
@@ -58,76 +62,19 @@ public class GameManager : MonoBehaviourPunCallbacks
                 is_Conversating = true;
                 InputFdChat.gameObject.SetActive(true);
                 InputFdChat.ActivateInputField(); // <--- 키보드 커서 입력 상자 쪽으로 가게 만들어 줌
+                SetLocalPlayerMovementLocked(true);
             }
             else
             {
                 InputFdChat.gameObject.SetActive(false);
                 is_Conversating = false;
+                SetLocalPlayerMovementLocked(false);
                 if (!string.IsNullOrEmpty(InputFdChat.text.Trim()))
                 {
                     BroadcastingChat();
                 }
             }
         }
-    }
-
-    // Back 버튼 클릭 시: 곧바로 나가지 않고 확인창부터 띄운다
-    public void OnClickBackButtonPressed()
-    {
-        if (confirmDialog != null)
-            confirmDialog.Show(leaveConfirmMessage, OnClickBackBtn); // "예" → 기존 나가기 로직 그대로
-        else
-            OnClickBackBtn(); // 확인창이 연결 안 돼 있으면 안전하게 기존 동작으로 폴백
-    }
-
-    // --- Back Button 처리 함수 (룸 나가기 버턴)
-    public void OnClickBackBtn()
-    {
-
-        if (m_BackBtn != null) m_BackBtn.interactable = false;
-
-        // 로그 메시지에 출력할 문자열 생성
-        string msg = "\n<color=#ff0000>]" +
-                    PhotonNetwork.LocalPlayer.NickName +
-                    "] 방 나감</color>";
-
-        // 마지막 사람이 방을 떠날 때 룸의 CustomProerties를 초기화 해줘야 한다.
-        if (PhotonNetwork.PlayerList != null && PhotonNetwork.PlayerList.Length <= 1)
-        {
-            Debug.Log("마지막 사람이 방 나감");
-            if (PhotonNetwork.CurrentRoom != null)
-            {
-                PhotonNetwork.CurrentRoom.CustomProperties.Clear();
-                Debug.Log("방의 CustomProperties 초기화 완료!");
-            }
-        }
-        //RPC 함수 호출
-        pv.RPC("LogMsg", RpcTarget.AllBuffered, msg, false);
-
-        // 지금 나가려는 유저를 찾아서 그 유저의
-        // 모든 CustomProperties를 초기화 해 주고 나가는 것이 좋다.
-        // 그렇지 않으면 나갔다 즉시 방 입장시 오류가 발생한다.
-        if (PhotonNetwork.LocalPlayer != null)
-        {
-            PhotonNetwork.LocalPlayer.CustomProperties.Clear();
-            Debug.Log("나가는 유저의 CustomProperties 초기화 완료!");
-        }
-        // 그래야 중계되던 것이 모두 초기화 될 것이다.
-
-        Debug.Log("방 나가기 버튼 클릭!");
-
-        // 현재 룸을 빠져나가며 생성한 모든 네트워크 객체를 삭제
-        PhotonNetwork.LeaveRoom(); // 포톤 방을 빠져나간다.
-        Debug.Log("PhotonNetwork.LeaveRoom() 호출 완료!");
-    }
-
-    // 룸에서 접속 종료 되었을 때 호출되는 콜백 함수
-    // LeaveRoom을 호출 되었을 때 호출되는 콜백 함수
-    public override void OnLeftRoom()
-    {
-        Debug.Log("방 나가기 완료! OnLoeftRoom 콜백함수 호출!");
-        //Time.timeScale = 1.0f; // 일시정지 풀어주기
-        SceneManager.LoadScene("LobbyScene"); // 로비씬으로 이동
     }
 
     // 중계 하기 위함
@@ -176,21 +123,20 @@ public class GameManager : MonoBehaviourPunCallbacks
         InputFdChat.text = "";
     }
 
-    private void CreatePlayer()
+
+// 채팅 입력창이 열려있는 동안 로컬 플레이어의 이동 입력을 잠근다
+    // (research.md §6.3 — is_Conversating과 IsMovementLocked가 서로 연결되지 않았던 문제를 복구)
+    private void SetLocalPlayerMovementLocked(bool locked)
     {
-        Vector3 hPos = Vector3.zero;
-        Vector3 addPos = Vector3.zero;
-
-        GameObject hPosObj = GameObject.Find("PlayerSpawnPos");
-        if (hPosObj != null)
+        if (localPlayer == null)
         {
-            // 10m 이내 랜덤 스폰
-            addPos.x = Random.Range(-5.0f, 5.0f);
-            addPos.z = Random.Range(-5.0f, 5.0f);
-            hPos = hPosObj.transform.position + addPos;
-
-            //Resources에 빼놨던 "HideOrSeekPlayer" 프리팹
-            PhotonNetwork.Instantiate("HideOrSeekPlayer", hPos, Quaternion.identity, 0);
+            foreach (var p in FindObjectsByType<HideOrSeekPlayer>(FindObjectsSortMode.None))
+            {
+                if (p.IsMine) { localPlayer = p; break; }
+            }
         }
+
+        if (localPlayer != null)
+            localPlayer.IsMovementLocked = locked;
     }
 }

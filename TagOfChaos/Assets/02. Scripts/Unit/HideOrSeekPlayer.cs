@@ -40,8 +40,18 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
     // 사망/대화/컷신 등 상위 시스템이 이 프로퍼티만 세팅하면 이동이 잠긴다.
     public bool IsMovementLocked { get; set; }
 
+    // 외부에서 "이 인스턴스가 내 캐릭터인지" 판별할 수단 (GameManager의 채팅 이동잠금이 참조)
+    public bool IsMine => pv != null && pv.IsMine;
+
 private void Awake()
     {
+        // Photon의 네트워크 디스패치(OnPhotonSerializeView)는 Unity의 Awake→Start 순서와 무관하게
+        // 별도 루프(PhotonHandler.Dispatch())에서 호출될 수 있어, 이 오브젝트의 Start()가 아직 실행되기
+        // 전에 원격 데이터 수신이 먼저 들어올 수 있다(Bug-fix-plan.md §12). networkSync는 로컬/원격
+        // 두 경우 모두 OnPhotonSerializeView에서 즉시 쓰이므로, IsMine 여부와 상관없이 Awake에서
+        // 가장 먼저 생성해 그 경쟁을 원천적으로 없앤다.
+        networkSync = new PlayerNetworkSync();
+
         if (!pv.IsMine) return;
 
         Camera_Ctrl camCtrl = Camera.main != null ? Camera.main.GetComponent<Camera_Ctrl>() : null;
@@ -58,7 +68,6 @@ private void Awake()
 
         groundDetector = new PlayerGroundDetector(groundLayer, groundCheckOffset);
         animationDriver = new PlayerAnimationDriver(animator, jumpFreezeNormalizedTime);
-        networkSync = new PlayerNetworkSync();
     }
 
     private void Update()

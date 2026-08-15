@@ -25,17 +25,9 @@ public class LobbyController : MonoBehaviourPunCallbacks
         PhotonNetwork.GameVersion = GameVersion;
     }
 
-    public override void OnEnable()
-    {
-        base.OnEnable();
-        PhotonNetwork.AddCallbackTarget(this);
-    }
 
-    public override void OnDisable()
-    {
-        base.OnDisable();
-        PhotonNetwork.RemoveCallbackTarget(this);
-    }
+
+
 
     private void Start()
     {
@@ -125,10 +117,10 @@ public class LobbyController : MonoBehaviourPunCallbacks
         PhotonNetwork.CreateRoom(roomName, options, TypedLobby.Default);
     }
 
-    public void OnRandomJoinButtonClicked()
+public void OnRandomJoinButtonClicked()
     {
         if (!TryApplyNickname()) return;
-        PhotonNetwork.JoinRandomRoom();
+        PhotonNetwork.JoinRandomRoom(null, 0, MatchmakingMode.RandomMatching, null, null);
     }
 
     public void JoinRoom(string roomName) // RoomListItem에서 호출
@@ -164,9 +156,9 @@ public class LobbyController : MonoBehaviourPunCallbacks
         feedbackText.text = "입장할 수 없는 방입니다."; // 방금 꽉 찼거나 방장이 이미 게임을 시작한 경우 등
     }
 
-    public override void OnJoinedRoom()
+public override void OnJoinedRoom()
     {
         if (PhotonNetwork.CurrentRoom.PlayerCount == 1)
-            PhotonNetwork.LoadLevel("GameLobbyScene"); // 방을 새로 만든 최초 1인만 로드, 나머지는 자동 동기화
+            PhotonNetwork.LoadLevel(SceneNames.GameLobby); // 방을 새로 만든 최초 1인만 로드, 나머지는 자동 동기화
     }
 }

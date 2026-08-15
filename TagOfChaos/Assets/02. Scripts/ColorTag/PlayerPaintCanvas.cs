@@ -62,17 +62,9 @@ private void Start()
         bodyRenderer.material = painted; // .material은 자동으로 인스턴스를 만들어 다른 캐릭터와 공유되지 않음
     }
 
-    public override void OnEnable()
-    {
-        base.OnEnable();
-        PhotonNetwork.AddCallbackTarget(this);
-    }
 
-    public override void OnDisable()
-    {
-        base.OnDisable();
-        PhotonNetwork.RemoveCallbackTarget(this);
-    }
+
+
 
     private void Update()
     {
@@ -109,18 +101,13 @@ private void Start()
             brushSettings.MaxRadius);
     }
 
-    private bool IsColorRoundActive()
+private bool IsColorRoundActive()
     {
-        int roundIndex = GetRoundIndex();
+        int roundIndex = RoomState.GetRoundIndex();
         return roundIndex >= 0 && roundIndex < 4;
     }
 
-    private int GetRoundIndex()
-    {
-        if (!PhotonNetwork.InRoom || PhotonNetwork.CurrentRoom == null) return -1;
-        var props = PhotonNetwork.CurrentRoom.CustomProperties;
-        return props.TryGetValue(NetKeys.RoundIndex, out object ri) ? (int)ri : -1;
-    }
+
 
     private int GetCurrentVoteColorIndex()
     {
@@ -139,9 +126,9 @@ private void Start()
     }
 
     // 라운드가 막 넘어갔는지 감지해서, 방금 끝난 라운드에 칠했던 자리를 확정색으로 재도색
-    private void DetectRoundChange()
+private void DetectRoundChange()
     {
-        int roundIndex = GetRoundIndex();
+        int roundIndex = RoomState.GetRoundIndex();
         if (roundIndex == trackedRoundIndex) return;
 
         int justResolvedRound = trackedRoundIndex; // 재도색 대상은 "방금까지 진행 중이던" 라운드
@@ -208,5 +195,15 @@ private void ApplyStamp(Material stampMaterial, Vector2 uv, float radius, int co
         Graphics.Blit(PaintCanvas, temp);                // 기존 캔버스(+알파 마스크)를 임시 버퍼로 복사
         Graphics.Blit(temp, PaintCanvas, stampMaterial);  // brushStampMaterial=잠금 존중, finalizeStampMaterial=항상 덮어씀
         RenderTexture.ReleaseTemporary(temp);
+    }
+
+
+private void OnDestroy()
+    {
+        if (PaintCanvas != null)
+        {
+            PaintCanvas.Release();
+            PaintCanvas = null;
+        }
     }
 }

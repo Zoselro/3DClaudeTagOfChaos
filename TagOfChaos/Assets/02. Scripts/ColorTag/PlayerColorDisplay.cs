@@ -26,17 +26,9 @@ public class PlayerColorDisplay : MonoBehaviourPunCallbacks
         TryApplyTaggerColor();
     }
 
-    public override void OnEnable()
-    {
-        base.OnEnable();
-        PhotonNetwork.AddCallbackTarget(this);
-    }
 
-    public override void OnDisable()
-    {
-        base.OnDisable();
-        PhotonNetwork.RemoveCallbackTarget(this);
-    }
+
+
 
     public override void OnRoomPropertiesUpdate(Hashtable changedProps)
     {
@@ -44,16 +36,14 @@ public class PlayerColorDisplay : MonoBehaviourPunCallbacks
         TryApplyTaggerColor();
     }
 
-    private void TryApplyTaggerColor()
+private void TryApplyTaggerColor()
     {
         if (hasApplied) return;
         if (paintCanvas == null || paintCanvas.PaintCanvas == null) return; // 아직 캔버스가 생성되기 전
-        if (!PhotonNetwork.InRoom || PhotonNetwork.CurrentRoom == null) return;
+        if (!RoomState.TryGetInt(NetKeys.RoundIndex, out int roundIndex)) return;
+        if (roundIndex != CompleteRoundIndex) return;
 
-        var props = PhotonNetwork.CurrentRoom.CustomProperties;
-        if (!props.TryGetValue(NetKeys.RoundIndex, out object riObj)) return;
-        if ((int)riObj != CompleteRoundIndex) return;
-
+        var props = PhotonNetwork.CurrentRoom.CustomProperties; // TaggerActorNumber/TaggerVariantSet/ColorN은 int[]/object라 RoomState 범용 헬퍼 대상 밖
         if (!props.TryGetValue(NetKeys.TaggerActorNumber, out object taggerObj)) return;
         int taggerActorNumber = (int)taggerObj;
         if (taggerActorNumber < 0 || pv.Owner == null || taggerActorNumber != pv.Owner.ActorNumber) return; // 나는 술래가 아님

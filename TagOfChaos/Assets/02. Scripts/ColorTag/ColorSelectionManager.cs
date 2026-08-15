@@ -12,16 +12,12 @@ public class ColorSelectionManager : MonoBehaviourPunCallbacks
     private const int TotalRounds = 4;
     private System.Random rng = new System.Random();
 
-    private void Update()
+private void Update()
     {
         if (!PhotonNetwork.IsMasterClient) return;
-        if (!PhotonNetwork.InRoom || PhotonNetwork.CurrentRoom == null) return;
-        if (!PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue(NetKeys.RoundIndex, out object riObj)) return;
-
-        int roundIndex = (int)riObj;
+        if (!RoomState.TryGetInt(NetKeys.RoundIndex, out int roundIndex)) return;
         if (roundIndex < 0 || roundIndex >= TotalRounds) return; // 진행 중 아님
-
-        double endTime = (double)PhotonNetwork.CurrentRoom.CustomProperties[NetKeys.RoundEndTime];
+        if (!RoomState.TryGetDouble(NetKeys.RoundEndTime, out double endTime)) return;
         if (PhotonNetwork.Time < endTime) return; // 아직 라운드 진행 중
 
         ResolveRound(roundIndex);

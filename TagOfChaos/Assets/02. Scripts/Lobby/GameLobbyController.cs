@@ -6,22 +6,14 @@ using UnityEngine.UI;
 
 public class GameLobbyController : MonoBehaviourPunCallbacks
 {
+
+
+
+
     [SerializeField] private Transform playerListContent;
     [SerializeField] private PlayerListItem playerListItemPrefab;
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private Button startGameButton;
-
-    public override void OnEnable()
-    {
-        base.OnEnable();
-        PhotonNetwork.AddCallbackTarget(this);
-    }
-
-    public override void OnDisable()
-    {
-        base.OnDisable();
-        PhotonNetwork.RemoveCallbackTarget(this);
-    }
 
     private int lastKnownPlayerCount = -1;
     private bool lastKnownIsMasterClient;
@@ -96,12 +88,12 @@ public class GameLobbyController : MonoBehaviourPunCallbacks
     }
 
     // 방장이 "게임 시작" 버튼을 눌렀을 때 (UI Button.onClick에 연결)
-    public void OnStartGameButtonClicked()
+public void OnStartGameButtonClicked()
     {
         if (!PhotonNetwork.IsMasterClient) return;
         if (PhotonNetwork.CurrentRoom.PlayerCount < PhotonNetwork.CurrentRoom.MaxPlayers) return; // 방어적 재확인
 
         PhotonNetwork.CurrentRoom.IsOpen = false; // 씬 전환 도중 새로 입장하는 걸 방지
-        PhotonNetwork.LoadLevel("GameScene"); // 방장만 호출, 나머지는 AutomaticallySyncScene으로 함께 이동
+        PhotonNetwork.LoadLevel(SceneNames.Game); // 방장만 호출, 나머지는 AutomaticallySyncScene으로 함께 이동
     }
 }

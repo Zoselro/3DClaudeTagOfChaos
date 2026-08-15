@@ -23,16 +23,11 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
         Cursor.visible = true;
     }
 
-    public override void OnEnable()
-    {
-        base.OnEnable();
-        PhotonNetwork.AddCallbackTarget(this);
-    }
 
-    public override void OnDisable()
+
+public override void OnDisable()
     {
         base.OnDisable();
-        PhotonNetwork.RemoveCallbackTarget(this);
         Cursor.visible = true;
     }
 

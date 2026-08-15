@@ -9,17 +9,9 @@ public class RoomLifecycleWatcher : MonoBehaviourPunCallbacks
 
     private LeaveReason leaveReason = LeaveReason.None;
 
-    public override void OnEnable()
-    {
-        base.OnEnable();
-        PhotonNetwork.AddCallbackTarget(this);
-    }
 
-    public override void OnDisable()
-    {
-        base.OnDisable();
-        PhotonNetwork.RemoveCallbackTarget(this);
-    }
+
+
 
     // 술래 퇴장 / 인원 부족 감지 → 즉시 종료 (7.2)
     public override void OnPlayerLeftRoom(Player otherPlayer)
@@ -51,7 +43,7 @@ public class RoomLifecycleWatcher : MonoBehaviourPunCallbacks
     }
 
     // 방은 나가지 않고, 같은 방을 그대로 유지한 채 대기실로 되돌아간다
-    private void ReturnToGameLobby()
+private void ReturnToGameLobby()
     {
         var props = new Hashtable
         {
@@ -60,13 +52,13 @@ public class RoomLifecycleWatcher : MonoBehaviourPunCallbacks
         PhotonNetwork.CurrentRoom.SetCustomProperties(props);
         PhotonNetwork.CurrentRoom.IsOpen = true; // 게임 시작 시 닫아뒀던 걸 다시 연다
 
-        PhotonNetwork.LoadLevel("GameLobbyScene"); // AutomaticallySyncScene으로 전원 함께 이동
+        PhotonNetwork.LoadLevel(SceneNames.GameLobby); // AutomaticallySyncScene으로 전원 함께 이동
     }
 
     // OnLeftRoom은 이제 비정상 종료(7.2)에서만 호출된다
-    public override void OnLeftRoom()
+public override void OnLeftRoom()
     {
-        SceneManager.LoadScene("LobbyScene");
+        SceneManager.LoadScene(SceneNames.Lobby);
     }
 
     private bool IsTagger(Player player)
