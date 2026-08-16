@@ -44,15 +44,22 @@ public class PlayerAnimationDriver
             return;
 
         animator.ResetTrigger(previousState.ToString());
-        animator.SetTrigger(PlayerMoveState.Jump.ToString());
+
+        // SetTrigger 대신 Play()로 즉시 하드컷한다. Any State→Jump 트랜지션은 m_CanTransitionToSelf=1
+        // + m_TransitionDuration=0.1이라, 착지로 얼려뒀던 Jump 포즈가 풀리자마자 SetTrigger로
+        // 재점프하면 즉시 컷되지 않고 "방금 풀린 중간 점프 포즈"와 새 Jump 시작 포즈를 0.1초간
+        // 블렌딩해버려 점프가 중간 Time에서 시작되는 것처럼 보이는 버그가 있었다(Bug-fix-plan.md §18).
+        // Play(stateName, layer, normalizedTime)는 트랜지션 그래프를 우회해 그 프레임에 즉시
+        // normalizedTime=0으로 전환하므로 이 블렌딩 자체가 발생하지 않는다.
+        animator.Play("Jump", 0, 0f);
 
         previousState = PlayerMoveState.Jump;
         currentState = PlayerMoveState.Jump;
 
-        // SetTrigger는 다음 애니메이터 내부 평가(대략 다음 프레임)에야 실제로 반영된다. 그 사이
-        // HandleJumpAnimationHold()가 "재트리거 이전"의 오래된 normalizedTime을 보고 즉시 다시
-        // 얼려버리는 것을 막기 위해, 재생이 실제로 시작될 때까지 최소 한 번은 정지 판정을 건너뛴다
-        // (Bug-fix-plan.md §16).
+        // Play()도 같은 프레임에는 아직 반영되지 않을 수 있어(다음 애니메이터 내부 평가에야 실제로
+        // 반영됨), 그 사이 HandleJumpAnimationHold()가 "재생 전"의 오래된 normalizedTime을 보고
+        // 즉시 다시 얼려버리는 것을 막기 위해, 재생이 실제로 시작될 때까지 최소 한 번은 정지 판정을
+        // 건너뛴다(Bug-fix-plan.md §16).
         suppressHoldCheckOnce = true;
     }
 

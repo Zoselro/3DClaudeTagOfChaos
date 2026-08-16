@@ -23,6 +23,26 @@
 > §18에서 추가한 캐릭터의 `CapsuleCollider`가 페인트 대상 `Ch36`을 레이캐스트에서 가려버리는
 > 것이 원인임을 실측(격자 레이캐스트 49/49 캡슐에 막힘)으로 확정하고, 캡슐을 `PlayerCapsule`
 > 전용 레이어로 분리해 구현·검증까지 완료했다(§17, 2026-08-16).
+>
+> **⑨(2026-08-16 추가)** — "착지 직후 바로 재점프하면 Jump 애니메이션이 중간 Time에서 시작되는
+> 것처럼 보인다"는 사용자 제보를 조사한 결과, §15/§16과는 **다른 세 번째 원인**임을 Play Mode
+> 실측으로 확정했다 — `PlayerAnimator.controller`의 `Any State → Jump` 트랜지션이
+> `m_TransitionDuration: 0.1`(0.1초 크로스페이드) + `m_CanTransitionToSelf: 1`로 설정돼 있어,
+> 착지로 얼어있던 Jump 포즈가 풀리자마자(`ResumePlayback`) 곧바로 재점프(`ReplayJump`)하면
+> `SetTrigger`가 즉시 컷 전환하지 않고 이전 프레임의 "얼렸다 막 풀린 중간 점프 포즈"와 새
+> Jump의 시작 포즈를 0.1초간 블렌딩해버린다. `ReplayJump()`를 `SetTrigger` 대신
+> `Animator.Play("Jump", 0, 0f)`로 즉시 하드컷하도록 구현했고, Play Mode 통합 테스트로 블렌딩
+> 소멸과 §16 정점 정지 기능·다른 상태 크로스페이드 무회귀를 확인한 데 이어 **사용자의 실제
+> 플레이 테스트로도 버그가 해소됐음을 최종 확인했다 — 완전히 종결**(§18, 2026-08-16).
+>
+> **⑩(신규, 2026-08-16 추가)** — 오브젝트(테이블+의자+파라솔) 사이로 점프하면 캐릭터가 완전히
+> 고착돼 이동·구르기가 전혀 안 되는 버그를 사용자가 스크린샷(`Assets/Screenshots/Stuck.png`)과
+> 함께 제보했다. 마침 Unity가 그 고착 상태 그대로 Play Mode에 남아있어 실제 인스턴스를 직접
+> 조사한 결과, 캐릭터 캡슐이 `Parasol_Canopy`/`Table_Top`/`ChairA_Seat` 3개의 non-convex
+> `MeshCollider`와 동시에 겹쳐 있었고 강제 속도를 줘도 전혀 움직이지 않았다. 씬 전체 콜라이더
+> 40개 중 26개가 전부 non-convex `MeshCollider`(테이블/의자/파라솔/상자/울타리 등 소품 전부)라
+> `Crate`/`Fence` 군집도 동일한 구조적 위험이 있다. 소품 `MeshCollider`를 convex로 전환하는
+> 해결 방안까지 수립했으나, **코드/에셋 수정은 아직 적용하지 않았다 — 사용자 승인 대기 중**(§19).
 
 ---
 
@@ -38,6 +58,8 @@
 | ⑥ | GameLobbyScene에서 플레이어가 미끄러지고 걸을 때 버벅거림 | ✅ **진짜 원인 실측 확정·구현·`GameLobbyScene` 실측 검증 완료** | §13의 `rb.MoveRotation()` 수정은 실제로는 증상을 고치지 못함(사용자 재테스트로 반증됨). `GameLobbyScene`에 직접 들어가 재조사한 결과, 진짜 원인은 §21에서 추가한 `Ch36` 전용 키네마틱 `Rigidbody`가 루트 `CapsuleCollider`와 자기 자신을 계속 충돌시키는 self-collision — `Physics.IgnoreCollision()`으로 이 둘의 충돌만 끄니 위치 고정·속도 폭주 현상이 완전히 사라지고 매끄러운 선형 이동·회전으로 바뀌는 것을 `GameLobbyScene` 실제 Photon 방에서 확인(§14) |
 | ⑦ | 점프 키를 연속으로 눌렀을 때, 가끔 재점프 시 Jump 애니메이션이 처음부터 재생되지 않고 이전 점프가 멈췄던 지점(중간)부터 이어서 재생됨 | ✅ **1차(§15)+2차(§16) 원인 모두 구현·검증 완료** | §15: `ChangeState()`의 가드가 `SetTrigger` 자체를 건너뛰던 것 → 점프 전용 `ReplayJump()`로 해결. §16: `ReplayJump()`가 요청한 `SetTrigger`가 애니메이터에 실제 반영되기 전 그 틈에 `HandleJumpAnimationHold()`가 오래된 `normalizedTime`을 보고 즉시 다시 얼려버리던 것 → 재생 요청 직후 한 번은 정지 판정을 건너뛰는 `suppressHoldCheckOnce` 플래그로 해결. Play Mode 실측으로 핵심 경합이 해소되고(재트리거 직후 `speed`가 더 이상 즉시 0으로 안 됨) 정점 정지 기능 자체는 회귀 없이 그대로임을 모두 확인(§16.6) |
 | ⑧ | PlayerTestScene에서 색을 골라도 붓 커서가 나타나지 않음(실제 색칠도 동일 원인으로 막힘) | ✅ **원인 실측 확정·구현·검증 완료** | 라운드/색상 선택 시스템 자체는 정상이었고, 진짜 원인은 §18에서 추가한 캐릭터 루트의 `CapsuleCollider`가 페인트 대상인 `Ch36`(몸 메시)의 `MeshCollider`를 카메라 시점에서 거의 완전히 가리는 것 — 캐릭터 화면 영역 49개 지점 중 49/49가 `CapsuleCollider`에 막혔었다(§17.3). 캡슐을 `PlayerCapsule` 전용 레이어로 분리하고 붓 관련 레이캐스트 두 곳에서 그 레이어만 제외하도록 구현, 재측정 결과 0/49 → 44/49로 개선(나머지 5는 캐릭터 실루엣 밖 정상 케이스), 물리 충돌 회귀 없음도 확인(§17.7) |
+| ⑨ | 착지 직후 바로 재점프하면 Jump 애니메이션이 처음부터 나가지 않고 중간 Time에서 시작되는 것처럼 보임 | ✅ **원인 실측 확정·구현·검증 완료·사용자 실제 플레이 테스트로 최종 확인** | §15/§16과는 다른 세 번째 원인 — `PlayerAnimator.controller`의 `Any State → Jump` 트랜지션이 `m_TransitionDuration: 0.1`(0.1초 크로스페이드) + `m_CanTransitionToSelf: 1`이라, 착지로 얼렸던 Jump 포즈가 풀리자마자 재점프하면 `SetTrigger`가 즉시 컷하지 않고 "풀린 지 얼마 안 된 중간 점프 포즈"와 새 Jump 시작 포즈를 0.1초간 블렌딩한다. `ReplayJump()`의 `SetTrigger`를 `Animator.Play("Jump", 0, 0f)`로 교체해 즉시 하드컷하도록 구현, 실제 메서드를 리플렉션으로 직접 호출하는 Play Mode 통합 테스트로 블렌딩 소멸(재점프 첫 틱에 `normalizedTime=0`, `IsInTransition=False`)과 §16 정점 정지·다른 상태 크로스페이드 무회귀를 모두 확인했다(§18) |
+| ⑩ | 오브젝트 사이(테이블+의자+파라솔)로 점프하면 캐릭터가 완전히 고착돼 이동·구르기가 전혀 안 됨 | 🟡 **원인 실측 확정·해결 방안 수립, 코드/에셋 수정은 승인 대기(미구현)** | 사용자가 겪은 실제 고착 인스턴스를 Unity 라이브 세션에서 직접 조사 — 캐릭터 캡슐이 `Parasol_Canopy`/`Table_Top`/`ChairA_Seat` 3개의 non-convex `MeshCollider`와 동시에 겹쳐 있었고, 실제 게임 조건에서 강제 속도를 줘도 전혀 움직이지 않았다. 1차 원인은 좁은 틈에서 여러 non-convex 메시 콜라이더가 모순된 접촉을 만드는 것(씬 전체 26개 콜라이더가 전부 non-convex), 2차 원인은 `Move()`가 매 프레임 물리 보정을 무조건 덮어써 스스로 빠져나올 수단이 없는 것. `Table/Chair/Parasol` 외 `Crate`/`Fence` 군집도 구조가 같아 동일 위험이 있음을 확인(미재현). 소품 `MeshCollider`를 convex로 전환하는 해결책까지 수립했다(§19) |
 
 ---
 
@@ -2242,3 +2264,374 @@ private void Update()
 **원인 실측 확정, 구현 완료, `PlayerTestScene` 실측으로 레이캐스트가 정상적으로 `Ch36`에
 맞는 것을 확인(0/49 → 44/49), 물리 회귀 없음도 확인.** 사용자의 실제 마우스 조작 테스트로
 최종 확인을 권장한다.
+
+---
+
+## 18. ⑨ 착지 직후 바로 재점프하면 Jump 애니메이션이 중간 Time에서 시작되는 것처럼 보이는 버그 — ✅ 원인 실측 확정·구현·검증 완료 (2026-08-16)
+
+### 18.1 증상 (사용자 제보)
+
+"점프를 하고 나서 바닥에 착지한 순간 바로 점프를 누르게 되면, 바닥에 착지하기 전 모션 Time이
+그대로 적용이 돼서 바로 점프 모션이 나가지 않고 점프 모션의 중간 Time에서 점프 모션이 시작되는
+것 같다."
+
+§15/§16이 다룬 "점프 연타 시 재생 위치가 이전 점프가 멈췄던 지점부터 이어지는" 버그와 증상이
+비슷해 보이지만, 재조사 결과 **완전히 다른 세 번째 메커니즘**이며 §15/§16의 수정으로는 해결되지
+않는다.
+
+### 18.2 코드 재확인 — §15/§16이 이미 고친 부분은 정상이다
+
+`Assets/02. Scripts/Unit/PlayerAnimationDriver.cs`의 현재 상태(§15/§16 반영 완료):
+
+```csharp
+public void ReplayJump()
+{
+    if (animator == null) return;
+    animator.ResetTrigger(previousState.ToString());
+    animator.SetTrigger(PlayerMoveState.Jump.ToString());
+    previousState = PlayerMoveState.Jump;
+    currentState = PlayerMoveState.Jump;
+    suppressHoldCheckOnce = true; // §16: 재트리거 직후 한 번은 HandleJumpAnimationHold()가 오래된
+                                    // normalizedTime을 보고 즉시 다시 얼리는 것을 막음
+}
+```
+
+- §15가 고친 문제(연타 시 `ChangeState()`의 "같은 상태면 무시" 가드 때문에 `SetTrigger` 자체가
+  생략되던 것)는 `ReplayJump()`가 항상 무조건 `SetTrigger`를 호출하므로 재현되지 않는다.
+- §16이 고친 문제(`SetTrigger` 직후 `HandleJumpAnimationHold()`가 아직 반영 안 된 오래된
+  `normalizedTime`을 보고 즉시 다시 얼리던 것)도 `suppressHoldCheckOnce`가 정확히 막고 있다.
+
+즉 **트리거 호출 순서 자체는 이제 문제가 없다.** 그런데도 증상이 남는 이유는, 문제가 C# 로직이
+아니라 **Animator Controller의 트랜지션 설정** 쪽에 있기 때문이다.
+
+### 18.3 원인 — `PlayerAnimator.controller`의 `Any State → Jump` 트랜지션이 0.1초 크로스페이드
+
+`Assets/Animation/PlayerAnimator.controller`를 직접 읽어 확인한 결과, `Idle`/`Walk`/`SneakWalk`/
+`Jump`/`Dodge` 5개 상태 전부 "Any State"에서만 트리거 조건으로 진입하도록 구성돼 있고(상태 간
+직접 연결 없음), `Jump` 진입 트랜지션(`fileID: 7984071356779931880`)의 설정은:
+
+```yaml
+m_TransitionDuration: 0.1   # 0.1초 크로스페이드(블렌딩)
+m_ExitTime: 0.75
+m_HasExitTime: 0            # Exit Time 없이 트리거만으로 즉시 트랜지션 시작(이 자체는 정상)
+m_HasFixedDuration: 1
+m_CanTransitionToSelf: 1    # Jump 상태에서 Jump로 "자기 자신에게" 재트리거하는 것이 허용됨
+```
+
+**`m_CanTransitionToSelf: 1`이고 `m_TransitionDuration: 0.1`이라는 두 조건이 만나면**, 이미
+`Jump` 상태인 도중(또는 그 직후) `SetTrigger("Jump")`를 다시 호출해도 Unity는 새 `Jump` 인스턴스로
+즉시 하드컷하지 않는다 — **기존에 재생 중이던(이 경우 "얼려뒀다가 착지로 막 풀린 중간 지점"의)
+Jump 포즈와, 시간 0부터 새로 시작하는 Jump 포즈를 0.1초에 걸쳐 블렌딩**한다. 이 0.1초 동안
+`GetCurrentAnimatorStateInfo(0)`이 보고하는 "현재 상태"는 여전히 **이전(오래된) Jump 인스턴스**이고,
+그 `normalizedTime`은 착지 시점 부근(예: 0.5 근처)에서 계속 앞으로 흐른다 — 화면에 실제로 그려지는
+포즈는 이 오래된 포즈와 새 포즈가 섞인 것이라, 사용자 눈에는 "새 점프가 중간 Time에서 시작되는
+것처럼" 보인다. §15/§16은 **트리거가 언제/몇 번 불리는가**를 고쳤을 뿐, **트리거가 불린 뒤 Unity가
+그것을 순간 컷으로 처리하는지 블렌딩으로 처리하는지**는 건드리지 않았기 때문에 이 문제가 남아있다.
+
+### 18.4 Play Mode 실측 — Unity Editor에 직접 연결해 재현 확정 (2026-08-16)
+
+Unity가 Play Mode로 열려 있는 `PlayerTestScene`에 접속해, 실제 `HideOrSeekPlayer` 인스턴스의
+`Animator`를 리플렉션으로 가져와 버그 시나리오를 그대로 재현했다:
+
+1. `animator.Play("Jump", 0, 0f)` 후 매 프레임 진행시켜 `normalizedTime`이 0.5를 넘는 지점에서
+   `animator.speed = 0`으로 얼림(`HandleJumpAnimationHold()`와 동일한 조건) → `normalizedTime =
+   0.5013334`에서 정지 확인.
+2. 착지 시뮬레이션(`ResumePlayback()`과 동일하게 `animator.speed = 1`) 직후, 곧바로 재점프
+   시뮬레이션(`ReplayJump()`과 동일하게 `ResetTrigger("Jump")` + `SetTrigger("Jump")`) 호출.
+3. 이후 6프레임(0.02초 간격, 총 0.12초)을 진행시키며 매 틱마다 `IsInTransition`/현재 상태의
+   `normalizedTime`/다음 상태의 `normalizedTime`을 기록:
+
+```
+t=0.02  cur.normalizedTime=0.512    inTransition=True  (transition duration=0.1, progress=0)     nextState.normalizedTime=0
+t=0.04  cur.normalizedTime=0.5227   inTransition=True  (progress=0.2)                             nextState.normalizedTime=0.0107
+t=0.06  cur.normalizedTime=0.5333   inTransition=True  (progress=0.4)                             nextState.normalizedTime=0.0213
+t=0.08  cur.normalizedTime=0.544    inTransition=True  (progress=0.6)                             nextState.normalizedTime=0.032
+t=0.10  cur.normalizedTime=0.5547   inTransition=True  (progress=0.8)                              nextState.normalizedTime=0.0427
+t=0.12  cur.normalizedTime=0.5653   inTransition=True  (progress≈1.0)                              nextState.normalizedTime=0.0533
+t=0.14  cur.normalizedTime=0.064    inTransition=False (트랜지션 종료, 새 Jump 인스턴스로 완전히 전환됨)
+```
+
+§18.3의 가설과 정확히 일치한다 — 재트리거 직후 약 0.1~0.12초(현재 상태 = 여전히 "얼렸다 막 풀린"
+오래된 Jump, `normalizedTime`이 0.51~0.57 부근에서 계속 흐름) 동안 새 Jump(0~0.053)와 블렌딩되고
+있음을 직접 캡처했다. `read_console` 확인 결과 이 테스트로 인한 새 에러/경고는 없음(기존 Missing
+Script 경고만 무관하게 존재, §17.7과 동일).
+
+### 18.5 해결 방안 비교
+
+| 방안 | 내용 | 장점 | 단점 |
+|---|---|---|---|
+| **A. `ReplayJump()`에서 `SetTrigger` 대신 `Animator.Play("Jump", 0, 0f)` 사용 (권장)** | 트랜지션 그래프를 우회해 즉시 하드컷 | `ReplayJump()`가 이미 §15에서 "점프 전용" 메서드로 분리돼 있어 부작용 범위가 정확히 점프로만 국한됨. 코드 수정만으로 해결(에셋 변경 없음). 재점프 반응성도 오히려 더 즉각적으로 느껴질 가능성이 높음(격투/액션 게임에서 흔히 쓰이는 패턴) | 최초 점프(Idle/Walk→Jump)도 크로스페이드 없이 즉시 전환되므로, 기존에 있던 미세한 블렌딩 감각이 사라짐(§18.7에서 사용자 승인 필요한 지점) |
+| B. `PlayerAnimator.controller`의 Jump 진입 트랜지션 `m_TransitionDuration`을 0.1→0으로 변경 | 코드 수정 없이 에셋 값만 변경 | 가장 간단 | Any State→Jump 트랜지션 하나가 모든 진입 경로(Idle/Walk/SneakWalk/Dodge→Jump)에 공유되므로, 방향성 있게 "재점프일 때만" 적용할 수 없음 — A안과 사실상 동일한 효과지만 코드가 아닌 에셋을 건드리는 차이만 있음 |
+| C. `ReplayJump()` 내부에서 "현재 이미 Jump 상태인지" 분기해 그때만 `Play()`, 아니면 `SetTrigger` 유지 | 최초 점프의 블렌딩 감각은 보존, 재점프만 하드컷 | 두 갈래 로직 추가로 복잡도 증가. §18.4 실측에서 재점프 직후 크로스페이드 구간 자체가 "보이면 안 되는" 것이므로, 최초 점프에서 크로스페이드를 남겨둘 실익이 크지 않음(잠깐의 Idle→Jump 블렌딩은 어차피 인지하기 어려움) |
+
+**A안을 권장한다.** §18.4에서 A안(`Animator.Play`)을 사전 검증한 결과, 재트리거 즉시
+`IsInTransition=False`이고 다음 틱에 `normalizedTime`이 곧바로 0으로 리셋됨을 확인했다(아래
+데이터, 동일 세션에서 측정):
+
+```
+After Play(Jump,0,0) (Update 전): normalizedTime=0.5013334 IsInTransition=False
+t=0.02  cur.normalizedTime=0       inTransition=False
+t=0.04  cur.normalizedTime=0.0107  inTransition=False
+t=0.06  cur.normalizedTime=0.0213  inTransition=False
+...
+```
+
+블렌딩 구간 자체가 완전히 사라지고, 정확히 0부터 재생이 시작된다 — §18.1 증상이 해소됨을
+코드 수정 전에 미리 확인한 것이다.
+
+### 18.6 구체적 구현 계획 (승인 후 진행)
+
+1. `Assets/02. Scripts/Unit/PlayerAnimationDriver.cs`의 `ReplayJump()`에서 `animator.SetTrigger
+   (PlayerMoveState.Jump.ToString())` 한 줄을 `animator.Play("Jump", 0, 0f)`로 교체:
+   ```csharp
+   public void ReplayJump()
+   {
+       if (animator == null) return;
+
+       animator.ResetTrigger(previousState.ToString());
+       animator.Play("Jump", 0, 0f); // SetTrigger 대신 즉시 하드컷 — Any State→Jump 트랜지션의
+                                       // 0.1초 크로스페이드(m_CanTransitionToSelf=1)를 우회해 착지
+                                       // 직후 재점프 시 이전 프레임의 잔여 포즈가 섞여 보이는 것을
+                                       // 막는다(Bug-fix-plan.md §18).
+
+       previousState = PlayerMoveState.Jump;
+       currentState = PlayerMoveState.Jump;
+
+       suppressHoldCheckOnce = true; // §16 로직 그대로 유지 — Play() 직후에도 같은 이유로 필요
+   }
+   ```
+2. `ChangeState()`(Idle/Walk/SneakWalk/Dodge용)는 그대로 `SetTrigger` 기반을 유지한다 — 이
+   상태들 사이의 부드러운 블렌딩은 문제가 보고되지 않았고, §18.3의 원인(얼렸다 푸는 특수한
+   재생 이력)은 오직 Jump 상태에서만 발생하기 때문이다.
+3. `PlayerAnimator.controller` 에셋 자체는 수정하지 않는다(B안 채택 안 함) — A안은 코드
+   레벨에서만 우회하므로 다른 상태 전환의 크로스페이드 감각(Idle↔Walk 등)은 그대로 보존된다.
+4. `HideOrSeekPlayer.cs`의 두 `ReplayJump()` 호출부(133-140행의 의도한 점프, 141-148행의 걸어서
+   낙하 시작) 모두 변경 없이 그대로 사용 — `ReplayJump()` 내부만 고치므로 호출부 수정은 불필요.
+
+### 18.7 검증 계획 (구현 후, 사용자 승인 시 진행)
+
+1. §18.4/§18.5와 동일한 리플렉션 기반 Play Mode 스크립트로 수정 후 재측정 — `IsInTransition`이
+   재트리거 직후 즉시 `False`이고 `normalizedTime`이 다음 틱에 0으로 리셋되는지 재확인(이미
+   §18.5에서 사전 확인했지만, 실제 코드 반영 후 동일 결과가 나오는지 한 번 더 확인).
+2. 실제 키보드 조작으로 "착지 즉시 스페이스 연타" 시나리오를 반복 재현해, Jump 애니메이션이
+   매번 시각적으로 도약 시작 포즈부터 재생되는지 육안 확인 — 실제 키보드 입력 재현은 자동화
+   환경의 한계로 수행할 수 없어(§17.8과 동일한 한계) 사용자의 직접 플레이 테스트가 필요하다.
+3. 회귀 확인:
+   - 첫 점프(Idle/Walk→Jump 최초 진입)의 체감이 부자연스럽지 않은지 — 크로스페이드가 사라져
+     더 즉각적으로 느껴질 가능성이 높으나, 사용자가 기존의 부드러운 느낌을 선호했다면 §18.5의
+     B/C안으로 재검토.
+   - `HandleJumpAnimationHold()`의 정점 정지 기능이 `suppressHoldCheckOnce`(§16)와 함께 회귀
+     없이 그대로 동작하는지.
+   - `HideOrSeekPlayer.cs:147`(걸어서 가장자리를 벗어나 낙하가 시작되는 경우)의 `ReplayJump()`
+     호출부도 동일하게 정상 동작하는지.
+   - Idle/Walk/SneakWalk/Dodge 사이의 기존 크로스페이드(0.1초)가 그대로 유지되는지(A안은
+     `ReplayJump()`만 건드리므로 영향 없어야 정상).
+4. `read_console` 최종 확인 결과 에러/경고 0건.
+
+### 18.8 구현 결과 (2026-08-16, 사용자 승인 후 A안대로 진행)
+
+계획(§18.6)대로 진행했다:
+
+1. `Assets/02. Scripts/Unit/PlayerAnimationDriver.cs`의 `ReplayJump()`에서
+   `animator.SetTrigger(PlayerMoveState.Jump.ToString())`를 `animator.Play("Jump", 0, 0f)`로
+   교체했다. `animator.ResetTrigger(previousState.ToString())`와 `suppressHoldCheckOnce = true`는
+   그대로 유지.
+2. `ChangeState()`(Idle/Walk/SneakWalk/Dodge)는 계획대로 손대지 않았다.
+3. `PlayerAnimator.controller` 에셋도 계획대로 수정하지 않았다(B안 채택 안 함).
+
+수정 직후 `refresh_unity`로 재컴파일을 트리거했고(도메인 리로드로 MCP 연결이 잠시 끊겼다가 자동
+재연결됨), `read_console`로 **컴파일 에러 0건**을 확인했다.
+
+### 18.9 검증 결과 — Play Mode 실측 (2026-08-16)
+
+Unity Editor를 Play Mode로 진입시켜 `PlayerTestScene`의 실제 `HideOrSeekPlayer` 인스턴스를
+대상으로, §16.2와 동일한 격리 기법(`HideOrSeekPlayer.enabled = false`로 실제 `Update()`/
+`FixedUpdate()`의 개입을 차단)을 적용한 뒤, **실제 프로덕션 코드**(`PlayerAnimationDriver`의
+공개 메서드 `ReplayJump()`/`HandleJumpAnimationHold()`/`ResumePlayback()`, 수동으로 로직을
+재현한 것이 아니라 리플렉션으로 진짜 메서드를 그대로 호출)로 버그 시나리오를 재현했다:
+
+```
+1차 정지:              normalizedTime=0.5013334  speed=0                         (정상 — 정점에서 얼음)
+재점프 직후(Update 전): normalizedTime=0.5013334  speed=1   IsInTransition=False  (Play()는 트랜지션을 만들지 않음)
+재점프 첫 틱:           normalizedTime=0          IsInTransition=False  speed=1   (★ 블렌딩 없이 정확히 0부터 재생)
+2차 정지:              normalizedTime=0.5013334  speed=0   elapsed=0.94초        (§16 정점 정지 기능 회귀 없음)
+ChangeState(Walk):     IsInTransition=True                                        (Idle/Walk 등 다른 상태 크로스페이드는 그대로 보존)
+```
+
+수정 전(§18.4)에는 재점프 후 0.1~0.12초 동안 `IsInTransition=True`로 옛 포즈(0.51→0.57)와 새
+포즈(0→0.053)가 블렌딩됐던 것과 대조적으로, 수정 후에는 **재점프 첫 틱에 곧바로
+`normalizedTime=0`, `IsInTransition=False`** — 블렌딩 구간 자체가 완전히 사라졌음을 실제
+프로덕션 코드로 확인했다. 동시에:
+- `suppressHoldCheckOnce`(§16)가 정확히 한 번만 소비되고, 두 번째 점프도 정점(0.5013)에서 정상
+  적으로 다시 얼어붙어 정점 정지 기능에 회귀가 없음을 확인.
+- `ChangeState(Walk)` 호출 시 `IsInTransition=True`로 나와, `ReplayJump()`만 하드컷으로 바뀌었을
+  뿐 Idle/Walk/SneakWalk/Dodge 사이의 기존 0.1초 크로스페이드는 그대로 보존됨을 확인.
+- 테스트 전 구간 `read_console` 확인 결과 새로 발생한 에러/예외/경고 0건(기존 "Missing Script"
+  경고 1건만 존재 — §17.7에서 이미 무관하다고 확인된 것과 동일, 이번 변경과 무관).
+
+테스트 종료 후 `player.enabled = true`로 원상복구, Play Mode도 정상 종료했다.
+
+**실제 키보드로 "착지 즉시 스페이스 연타"를 재현하는 육안 확인(§18.7-2)은 이 자동화 환경에서
+실제 입력 장치를 조작할 수 없어 수행하지 못했다** — 다만 애니메이터 상태 데이터 자체(정확히
+`normalizedTime=0`부터 재생 시작, 크로스페이드 구간 소멸)를 실제 코드 경로로 직접 확인했으므로
+시각적으로도 정상 동작할 것으로 판단한다. 사용자의 실제 플레이 테스트를 권장한다.
+
+### 18.10 상태
+
+**원인 실측 확정, 구현 완료, Play Mode에서 실제 프로덕션 코드 경로로 블렌딩 소멸을 확인,
+§16 정점 정지 기능·다른 상태 크로스페이드 회귀 없음도 확인. 컴파일 에러·콘솔 에러/경고
+0건.** 이후 사용자가 실제 키보드로 "착지 직후 바로 재점프"를 반복 재현하는 플레이 테스트를
+진행해, **버그가 실제로 해소됐음을 최종 확인했다(2026-08-16).** ⑨ **완전히 종결.**
+
+---
+
+## 19. ⑩ 오브젝트와 오브젝트 사이에서 점프했을 때 Stuck(완전 고착) 현상 — 원인 실측 확정, 해결 방안 수립 (승인 대기, 미구현)
+
+### 19.1 증상 (사용자 제보 + 스크린샷)
+
+`Assets/Screenshots/Stuck.png` — `GameLobbyScene`에서 파라솔이 달린 테이블+의자 세트(로비 배경,
+커밋 `6c4ea08` "게임 로비 배경 added") 사이로 점프했을 때, 캐릭터가 테이블 상판과 의자 사이에
+뒤틀린 자세로 완전히 끼어버렸다. **이 상태에서는 걷기·구르기(회피) 등 아무 조작도 먹히지
+않는다.** 사용자는 이런 고착이 다른 오브젝트에서도 발생할 수 있다고 지적했다.
+
+### 19.2 실측 — 사용자가 겪은 바로 그 고착 인스턴스를 라이브 세션에서 직접 조사 (2026-08-16)
+
+마침 Unity Editor가 `GameLobbyScene`을 Play Mode로 띄운 채 남아있었고, 사용자가 스크린샷을 찍은
+그 고착 상태가 그대로 보존돼 있어 **합성 재현이 아니라 실제 버그 인스턴스**를 직접 조사할 수
+있었다.
+
+1. 플레이어 위치/속도 확인: `pos=(1.99, 0.35, 1.15) vel=(0,0,0)` — 완전 정지.
+2. 플레이어 캡슐 콜라이더의 월드 바운드로 `Physics.OverlapBox` 조회 결과, **동시에 5개 콜라이더와
+   겹쳐 있었다**: `Parasol_Canopy`, `Table_Top`, `ChairA_Seat`(전부 non-convex `MeshCollider`),
+   자기 자신의 `HideOrSeekPlayer(Clone)` 캡슐, `Ch36`(자기 몸통, §14에서 이미 `IgnoreCollision`
+   처리된 것이라 무관). **즉 서로 다른 방향(위/옆/아래)에서 세 개의 non-convex 메시 콜라이더가
+   동시에 캐릭터를 감싸고 있었다.**
+3. 실제 게임과 동일한 조건(`HideOrSeekPlayer.enabled = true`, 스크립트가 매 `FixedUpdate` 정상
+   작동 중)에서 `rb.linearVelocity`에 강제로 큰 값(`(2,3,0)`)을 여러 차례 주입해봤지만, **여러
+   차례의 실제 시간 경과 후에도 위치가 단 한 번도 변하지 않았다** — 어떤 힘을 줘도 전혀 반응하지
+   않는 완전 고착 상태임을 확인했다. 이는 사용자가 말한 "구르기, 움직임 아무것도 할 수 없다"와
+   정확히 일치한다.
+
+### 19.3 원인 분석
+
+**1차 원인(자산 구조) — non-convex `MeshCollider`로 만들어진 좁은 장애물 소품**
+
+씬 전체의 콜라이더를 전수 조사한 결과, `GameLobbyScene`의 콜라이더 40개 중 **26개가 non-convex
+(`convex=false`) `MeshCollider`**였고, 전부 `LobbyEnvironment`(로비 배경) 아래의 소품이었다:
+`Table_Leg1~4`/`Table_Top`(5), `ChairA_Back/Support/Seat`/`ChairB_Back/Support/Seat`(6),
+`Parasol_Canopy`/`Parasol_Pole`(2), `Crate_A~D`(4), `Fence_Post1~6`/`Fence_Rail`(7), 그리고
+`Ground`(1, 대형 평면 지형). 프로젝트 전체에 **convex `MeshCollider`는 단 하나도 없다.**
+
+Unity/PhysX의 알려진 제약: non-convex(concave) `MeshCollider`는 삼각형 단위로 접촉을 생성하며,
+하나의 일관된 "밀어내는 방향"(separating axis)을 보장하지 못한다. 캐릭터가 단일 non-convex
+콜라이더 위를 걸을 때(예: `Ground`)는 문제없이 동작하지만, **여러 개의 non-convex 콜라이더가
+동시에 캐릭터를 여러 방향에서 감싸는 좁은 틈**(테이블 상판 아래 + 의자 시트 + 파라솔 지붕처럼)에
+끼면, 서로 다르거나 모순되는 접촉 법선이 동시에 생성돼 물리 솔버가 캐릭터를 어느 방향으로도 밀어
+내지 못하는 교착 상태에 빠질 수 있다 — §19.2에서 실제로 이 3중 동시 접촉을 직접 측정했다.
+
+**2차 원인(스크립트) — `Move()`가 매 프레임 물리 보정을 무조건 덮어씀**
+
+`Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`의 `Move()`(238-272행)는 매 `FixedUpdate`마다
+`rb.linearVelocity`의 수평(X/Z) 성분을 **입력값만 근거로 무조건 새로 대입**한다:
+```csharp
+Vector3 horizontal = new Vector3(dir.x * vel, 0f, dir.z * vel);
+rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z);
+```
+입력이 없으면 `dir = rotation = Vector3.zero`이므로 매 스텝 수평 속도가 정확히 `(0, y유지, 0)`
+으로 리셋된다. 물리 솔버가 침투 해소(depenetration)를 위해 그 프레임에 계산했을 수도 있는 보정
+속도가 있더라도, **다음 `FixedUpdate`에서 `Move()`가 즉시 덮어써버려** 캐릭터가 스스로 빠져나올
+여지를 없앤다. 회피(구르기)도 `isDodge && keepMovingAfterDodge` 분기에서 동일한 한 줄
+(`rb.linearVelocity = ...`)로 처리되므로, 구르기를 시도해도 결과는 똑같이 무력화된다 — §19.2의
+실측(스크립트가 살아있는 채로 강제 속도를 줘도 전혀 안 움직임)이 이를 뒷받침한다.
+
+**결론**: 1차 원인(non-convex 소품 콜라이더가 좁은 틈에서 모순된 접촉을 만듦)이 애초에 깊은
+겹침(interpenetration) 상태를 만들고, 2차 원인(`Move()`의 무조건적 속도 덮어쓰기)이 캐릭터가
+거기서 스스로 빠져나올 수단 자체를 없애 **한 번 끼면 영구 고착**되게 만든다.
+
+### 19.4 다른 오브젝트에서도 발생 가능한가 — 그렇다, 구조적 문제
+
+사용자의 지적대로 이 버그는 이번 테이블+의자+파라솔 세트만의 결함이 아니라, **"non-convex
+MeshCollider를 촘촘한 장애물 소품에 그대로 쓰는 패턴" 자체**의 문제다. 같은 씬의 다른 소품군도
+같은 위험을 안고 있다:
+
+| 소품군 | 콜라이더 수 | 위험도 |
+|---|---|---|
+| Table(5) + ChairA/B(6) + Parasol(2) | 13 | **실제 재현됨(이번 버그, §19.2)** |
+| Crate_A~D | 4 | 상자 사이/모서리로 점프하면 동일 현상 가능성 높음 — 구조 동일, 미재현 |
+| Fence_Post1~6 + Fence_Rail | 7 | 기둥과 레일 사이 틈에 끼면 동일 현상 가능성 있음 — 구조 동일, 미재현 |
+| Ground | 1 | 위험 없음 — 대형 평면 지형이라 캐릭터가 항상 위에서만 접촉, 다방향으로 감싸이는 구성이 아님 |
+
+`memory: feedback-prop-colliders`(과거 세션에서 저장된 피드백, "소품에는 콜라이더를 반드시
+추가해야 한다")가 이미 있었는데, 이번 조사로 그 규칙에 **"단, non-convex MeshCollider를 좁은
+틈이 생기는 장애물에 그대로 쓰면 안 되고 convex로 설정하거나 프리미티브 콜라이더를 써야 한다"는
+단서가 빠져 있었음**이 드러났다 — 해당 메모리를 이번에 갱신해뒀다(2026-08-16).
+
+### 19.5 해결 방안
+
+**A안(권장) — 소품 `MeshCollider`를 `convex=true`로 전환**: `LobbyEnvironment` 아래 `Ground`를
+제외한 26개 non-convex `MeshCollider`(`Table_*`, `ChairA/B_*`, `Parasol_*`, `Crate_A~D`,
+`Fence_Post1~6`, `Fence_Rail`) 전부 `convex=true`로 변경한다. 각 부품(다리 1개, 상판 1개, 좌석
+1개 등)이 이미 개별 GameObject/콜라이더로 분리돼 있으므로, convex 전환 시 여러 부품이 하나의 큰
+볼록 덩어리로 뭉쳐 붙는 부작용은 없다(다리 1개의 볼록 껍질은 여전히 다리 모양, 상판 1개의 볼록
+껍질은 여전히 얇은 판 모양). Unity 공식 문서도 Rigidbody와 안정적으로 충돌해야 하는 오브젝트에는
+convex `MeshCollider`(또는 프리미티브)를 쓰도록 권장하며, 대형 정적 지형(`Ground`)에만
+non-convex를 허용하는 것이 표준 패턴이다.
+
+**B안(A안과 병행 권장) — `Parasol_Canopy`(파라솔 지붕)는 아예 충돌 제거**: 머리 위 장식용
+캐노피는 플레이어가 물리적으로 부딪혀야 할 이유가 없다(파라솔 아래로 자유롭게 지나다닐 수 있는
+게 오히려 자연스럽다). `Collider`를 비활성화하거나 제거하면, 이 좁은 구역에서 동시에 접촉하는
+콜라이더 수 자체가 3개→2개로 줄어 유사 상황의 재발 가능성이 한 번 더 낮아진다.
+
+**C안(선택, 코드 레벨 안전망) — 고착 감지 폴백**: A/B안이 근본 원인을 없애지만, 혹시 모를
+재발에 대비해 `HideOrSeekPlayer`에 "이동 입력은 있는데 실제 이동 거리가 일정 시간 이상 거의
+0"인 상태를 감지하면 근처 안전 지점으로 밀어내거나, 기존 `VoidKillZone`/`y<-100` 패턴처럼
+스폰 지점 근처로 되돌리는 안전망을 추가하는 방안. **이건 근본 수정이 아니라 최후의 보험이라
+A/B안만으로 충분하면 굳이 안 넣어도 된다** — 코드 복잡도가 늘어나므로 사용자 판단이 필요하다.
+
+**권장 조합: A안 + B안을 우선 적용하고, C안은 A/B 적용 후 재발 여부를 지켜본 뒤 필요하면
+추가 검토한다.**
+
+### 19.6 구체적 구현 계획 (승인 후 진행)
+
+1. `Assets/Scenes/GameLobbyScene.unity`의 `LobbyEnvironment` 아래 26개 오브젝트의
+   `MeshCollider.convex`를 `true`로 변경:
+   - `Table_Leg1`, `Table_Leg2`, `Table_Leg3`, `Table_Leg4`, `Table_Top`
+   - `ChairA_Back`, `ChairA_Support`, `ChairA_Seat`
+   - `ChairB_Back`, `ChairB_Support`, `ChairB_Seat`
+   - `Parasol_Pole`(캐노피는 2번에서 별도 처리)
+   - `Crate_A`, `Crate_B`, `Crate_C`, `Crate_D`
+   - `Fence_Post1`~`Fence_Post6`, `Fence_Rail`
+2. `Parasol_Canopy`의 `MeshCollider`를 비활성화(`enabled=false`) 또는 컴포넌트 제거.
+3. `Ground`는 그대로 non-convex 유지(변경 안 함) — 대형 평면 지형은 이 문제의 원인이 아니고,
+   convex로 바꾸면 오히려 지형 굴곡이 왜곡될 수 있어 손대지 않는다.
+4. `GameScene.unity` 등 다른 씬에도 같은 로비 배경 프리팹/소품이 배치돼 있는지 확인하고,
+   있다면 동일하게 적용한다.
+5. (C안 채택 시에만) `HideOrSeekPlayer`에 고착 감지 안전망 추가 — A안 적용 후 재발 여부를 먼저
+   지켜본 뒤 결정.
+
+### 19.7 검증 계획 (구현 후)
+
+1. `GameLobbyScene`을 Play Mode로 열어, 이번에 실제로 고착이 발생했던 테이블+의자+파라솔
+   군집으로 캐릭터를 점프시켜 반복 재현을 시도 — 더 이상 고착되지 않고 정상적으로 빠져나오는지
+   확인.
+2. 같은 방식으로 `Crate_A~D` 군집과 `Fence_Post`+`Fence_Rail` 구간에서도 좁은 틈으로 점프해보고
+   고착이 재현되지 않는지 확인(§19.4에서 위험군으로 지목한 나머지 소품).
+3. `read_console` 확인 결과 `MeshCollider` convex hull 관련 경고(정점 255개 초과 등으로 Unity가
+   자동 단순화하는 경우 발생)가 있는지 확인 — 있다면 콜라이더가 원래 형상과 크게 달라지지
+   않았는지 시각적으로 재확인.
+4. `Ground` 위를 정상적으로 걷고 점프하는 기존 동작에 회귀가 없는지 확인(건드리지 않았으므로
+   회귀 없어야 정상).
+5. `Parasol_Canopy` 아래로 자유롭게 통과되는지, 반대로 파라솔 기둥(`Parasol_Pole`)은 여전히
+   막히는지 확인.
+6. 실제 사용자 플레이 테스트로 최종 확인(자동화 환경은 실제 키보드 입력/점프 타이밍을 재현할
+   수 없는 한계가 있음, §17.8/§18.9와 동일).
+
+### 19.8 상태
+
+**원인 실측 확정 — 사용자가 실제로 겪은 바로 그 고착 인스턴스를 Unity Editor 라이브 세션에서
+직접 조사해, 캐릭터 캡슐이 `Parasol_Canopy`/`Table_Top`/`ChairA_Seat` 3개의 non-convex
+`MeshCollider`와 동시에 겹쳐 있고, 실제 게임과 동일한 조건에서 강제 속도 주입으로도 전혀
+움직이지 않는(완전 고착) 상태임을 확인했다. 같은 구조(non-convex `MeshCollider`로 만들어진
+좁은 장애물 소품)를 가진 `Crate`/`Fence` 군집도 동일한 위험이 있음을 확인했다(미재현, 구조적
+위험). 해결 방안(A/B안)까지 수립했으나, **코드/에셋 수정은 아직 적용하지 않았다 — 사용자 승인
+대기 중.**
