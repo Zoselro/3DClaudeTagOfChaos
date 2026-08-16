@@ -2428,3 +2428,246 @@ Space를 누르지 않은 채(`jumpRequested`를 전혀 건드리지 않고) 캐
 **구현·검증 완료.** §23.4(공중 이동 입력 반영)는 사용자가 확정한 방향대로 구현했고 Play Mode
 실측으로 정상 동작을 확인했다. §23.5의 그레이스 타임 완화안은 계획대로 미적용 상태로 남겨뒀다 —
 실제 지형에서 깜빡임이 체감되면 그때 추가한다.
+
+---
+
+## 24. 기획 변경 — 의도한 점프(Space)도 낙하와 동일하게 공중에서 자유로운 방향전환 허용 — ✅ 구현·검증 완료 (2026-08-16)
+
+### 24.1 요청 배경 — 기획 변경
+
+`Bug-fix-plan.md` §19(오브젝트 사이 Stuck 버그)를 조사·논의하던 중, 사용자가 이 버그의 더 근본적인
+배경으로 **현재 점프 기획 자체**를 지목했다: 지금은 방향키를 누르고 Space로 점프하면, **착지하기
+전까지 공중에서 자유롭게 방향을 바꿀 수 없다**(§18에서 설계된 `keepMovingAfterJump` 관성 고정).
+반면 §23.4에서 **"걸어서 실수로 낙하하는 경우"는 이미 공중에서 자유롭게 방향을 바꿀 수 있도록
+구현·확정**해뒀다 — 사용자는 이번에 기획을 바꿔서, **의도한 점프(Space)도 낙하와 똑같이 공중에서
+자유로운 방향전환을 허용**하고 싶다고 요청했다.
+
+이 기획 변경 자체는 §19의 Stuck 버그를 "고치는" 조치가 아니다(§19의 근본 원인은 non-convex 소품
+콜라이더이고, 그 수정은 §19에서 별도로 진행). 다만 **점프 궤적을 공중에서 조절할 수 있게 되면,
+좁은 틈을 향해 날아가고 있다는 걸 눈치챘을 때 사용자가 스스로 피할 여지가 생겨** Stuck류 상황에
+빠질 확률 자체가 줄어드는 부가 효과는 있다 — 이 계획서(§24)에서는 이 조작감 변경 자체를 다루고,
+콜라이더 근본 수정은 `Bug-fix-plan.md` §19를 따로 참고한다.
+
+### 24.2 현재 코드 재확인 — 의도한 점프와 낙하가 정확히 어디서 갈라지는가
+
+`Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`의 현재 상태(§18/§23 반영 완료):
+
+```csharp
+// FixedUpdate()
+if (jumpRequested && grounded && !isDodge) // 의도한 점프
+{
+    rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpPower, rb.linearVelocity.z);
+    isJump = true;
+    keepMovingAfterJump = true;   // ← 방향 고정
+    jumpMoveDir = rotation;       // ← 점프 시작 시점 방향을 얼려서 저장
+    animationDriver.ReplayJump();
+}
+else if (!isJump && !grounded && !isDodge) // 감지된 낙하(§23)
+{
+    isJump = true;
+    keepMovingAfterJump = false;  // ← 방향 고정 안 함(§23.4에서 사용자가 확정)
+    animationDriver.ReplayJump();
+}
+```
+
+```csharp
+// Move()
+if (isDodge && keepMovingAfterDodge) { ... }
+else if (isJump && keepMovingAfterJump) // 의도한 점프일 때만 여기로 옴
+{
+    dir = jumpMoveDir;             // 점프 시작 시점 방향 그대로 사용(입력 무시)
+    vel = baseSpeed;
+    lookDir = new Vector3(jumpMoveDir.x, 0f, jumpMoveDir.z);
+}
+else // 걸어서 낙하(keepMovingAfterJump=false)는 이 분기로 옴 — 일반 이동과 완전히 동일
+{
+    vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 0.3f : baseSpeed;
+    dir = rotation;                // 매 프레임 최신 입력 방향
+    lookDir = new Vector3(rotation.x, 0f, rotation.z);
+}
+```
+
+즉 **두 경우의 유일한 차이가 정확히 `keepMovingAfterJump`의 초기값 한 줄**이다 — 의도한 점프만
+`true`로 세팅해 `jumpMoveDir`에 방향을 얼리고, 낙하는 `false`로 둬서 매 프레임 `rotation`(현재
+입력)을 그대로 따라간다. 이번 기획 변경은 이 한 줄을 통일하는 것으로 정확히 표현된다.
+
+### 24.3 설계 — `keepMovingAfterJump`/`jumpMoveDir` 완전 제거
+
+의도한 점프도 항상 공중 자유 조작을 허용한다면, `keepMovingAfterJump`는 **영원히 `false`만
+갖는 죽은 필드**가 되고, 두 `FixedUpdate` 분기(의도한 점프 vs 감지된 낙하)는 수직 속도 부여
+(`jumpPower`)와 `jumpRequested` 조건 하나만 빼면 완전히 동일해진다. 값만 바꾸는 최소 수정
+(`keepMovingAfterJump = true` → `false`)도 가능하지만, 죽은 필드/분기를 남겨두면 나중에 읽는
+사람이 "이건 왜 항상 false지?"를 다시 추적해야 하므로, **이번엔 필드와 분기 자체를 정리하는
+것을 권장한다**:
+
+```csharp
+// FixedUpdate() — 두 분기를 하나로 통합
+if (isJump && grounded && rb.linearVelocity.y <= 0f)
+{
+    isJump = false;
+    animationDriver.ResumePlayback();
+}
+
+if (jumpRequested && grounded && !isDodge) // 의도한 점프: 수직 속도만 부여
+{
+    rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpPower, rb.linearVelocity.z);
+    isJump = true;
+    animationDriver.ReplayJump();
+}
+else if (!isJump && !grounded && !isDodge) // 감지된 낙하: §23 그대로
+{
+    isJump = true;
+    animationDriver.ReplayJump();
+}
+jumpRequested = false;
+
+Move();
+```
+
+```csharp
+// Move() — Jump 전용 분기 자체를 삭제, 점프/낙하 모두 아래 else로 자연 합류
+if (isDodge && keepMovingAfterDodge)
+{
+    dir = dodgeMoveDir;
+    vel = speed;
+    lookDir = new Vector3(dodgeMoveDir.x, 0f, dodgeMoveDir.z);
+}
+else // 평상시 이동 + 점프/낙하 공중 이동을 모두 겸함
+{
+    vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 0.3f : baseSpeed;
+    dir = rotation;
+    lookDir = new Vector3(rotation.x, 0f, rotation.z);
+}
+```
+
+`keepMovingAfterJump` 필드(24행), `jumpMoveDir` 필드(30행), `RespawnToSpawnPoint()`/착지 분기의
+`keepMovingAfterJump = false;` 대입 두 곳도 함께 제거한다. `keepMovingAfterDodge`/`dodgeMoveDir`
+(회피 관성)는 이번 요청과 무관한 별개 기능이라 손대지 않는다.
+
+### 24.4 확인이 필요한 설계 지점 — 공중에서도 Shift(살금살금 걷기)가 이동 속도를 낮출 것인가
+
+지금은 의도한 점프 중 속도가 `vel = baseSpeed`로 고정(Shift 여부와 무관하게 항상 100%)인데,
+위 설계대로 통합하면 공중에서도 지상과 똑같이 `Input.GetKey(KeyCode.LeftShift)`를 검사해 **Shift를
+누른 채 점프하면 공중 이동 속도도 30%로 느려진다.** 이건 §23.4가 "낙하"에 대해 이미 채택한 것과
+동일한 동작(낙하도 같은 `else` 분기를 타므로 원래도 이랬음)이라 일관성은 있지만, "공중에서
+살금살금 걷기"라는 개념 자체가 다소 어색할 수 있어 사용자 확인이 필요하다:
+
+- **A. 그대로 둔다(권장, §23.4와 완전히 동일한 동작으로 통일)** — 낙하 때 이미 이렇게 동작하고
+  있고 문제로 지적된 적이 없으므로, 점프도 같은 규칙을 따르는 편이 일관되고 코드도 단순하다.
+- **B. 공중에서는 Shift를 무시하고 항상 100% 속도** — 공중 조작 속도만 별도 분기로 유지하려면
+  `isJump` 여부로 분기를 하나 더 나눠야 해서 §24.3의 "완전 통합" 이점(코드 단순화)이 줄어든다.
+
+**이 계획서는 A(그대로 둠)를 기본값으로 제안**하며, 사용자가 B를 원하면 §24.6 구현 시 반영한다.
+
+### 24.5 예상되는 부수 효과
+
+- **캐릭터가 공중에서도 입력 방향을 바라보게 됨**: `lookDir`이 `jumpMoveDir`(고정) 대신
+  `rotation`(실시간 입력)을 따르므로, 점프 중 방향키를 바꾸면 캐릭터가 공중에서도 그 방향으로
+  회전한다 — §23.4의 낙하와 동일한 느낌이 되며, 자연스러운 변화로 판단된다.
+- **포물선이 더 이상 고정되지 않음**: 지금까지는 점프 순간의 방향으로 포물선이 고정돼 예측
+  가능했는데, 앞으로는 플레이어가 공중에서 계속 조작할 수 있어 궤적이 가변적이 된다 — 이는
+  요청의 핵심 목적이므로 의도된 변화다.
+- **Stuck류 상황 회피 여지 증가(§24.1 참고)**: 좁은 틈을 향해 점프하다가 눈치채면 공중에서 피할
+  수 있어, `Bug-fix-plan.md` §19의 문제 발생 빈도를 간접적으로 낮추는 부가 효과가 있다 — 다만
+  §19의 근본 수정(콜라이더 convex 전환)을 대체하지는 않는다.
+- **회피(Dodge) 동작은 무관**: `isDodge && keepMovingAfterDodge` 분기는 그대로 남으므로 구르기
+  관성 동작에는 변화가 없다.
+
+### 24.6 구현 계획 (승인 후 진행)
+
+1. `Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`:
+   - `[SerializeField] private bool keepMovingAfterJump;` 필드 삭제.
+   - `private Vector3 jumpMoveDir;` 필드 삭제.
+   - `FixedUpdate()`의 의도한 점프/낙하 두 분기에서 `keepMovingAfterJump = ...`/`jumpMoveDir =
+     rotation` 대입 줄 삭제(§24.3 코드 그대로).
+   - 착지 처리 분기의 `keepMovingAfterJump = false;` 삭제.
+   - `RespawnToSpawnPoint()`의 `keepMovingAfterJump = false;` 삭제.
+   - `Move()`의 `else if (isJump && keepMovingAfterJump) { ... }` 분기 전체 삭제, 그 내용이 이제
+     `else` 분기로 자연 합류(§24.3 코드 그대로).
+2. §24.4에서 A(권장안)로 확정되면 추가 코드 변경 없음 — B로 확정되면 `Move()`의 `else` 분기
+   안에서 `vel` 계산 시 `isJump`일 때만 Shift를 무시하도록 조건을 하나 추가.
+3. `HideOrSeekPlayer.prefab`의 인스펙터에 남아있는 `keepMovingAfterJump` 직렬화 값은 필드
+   삭제만으로 자동 정리된다(Unity가 프리팹 로드 시 존재하지 않는 필드의 값을 조용히 무시함,
+   별도 조치 불필요).
+
+### 24.7 검증 계획 (구현 후)
+
+§23.6-2와 동일한 방식(Play Mode에서 `EditorApplication.update` 훅으로 매 물리 틱 `isJump`/
+`rb.linearVelocity`/`transform.position`을 실측하는 기법)으로 확인한다:
+
+1. `read_console`로 컴파일 에러 0건 확인.
+2. Space로 의도한 점프를 한 뒤, 공중에서 이동 입력 방향을 도중에 바꿔가며 실제로 궤적(수평
+   속도 방향)이 그때그때 반영되는지 확인 — 기존에는 고정이었던 것이 이제 낙하와 동일하게
+   실시간으로 반영돼야 한다.
+3. 착지 시 기존 착지 분기가 그대로 동작해 `Idle`/`Walk`로 정상 복귀하는지(§23.3에서 이미
+   공용화된 로직이라 회귀 없어야 정상).
+4. §24.4에서 A안으로 확정 시, 점프 중 Shift를 누르면 공중 이동 속도가 낮아지는지(의도된 동작)
+   확인. B안으로 확정 시엔 반대로 Shift와 무관하게 항상 100% 속도인지 확인.
+5. 회피(Dodge)가 기존과 동일하게 방향 고정 관성으로 동작하는지(§24.3에서 손대지 않은 부분 —
+   회귀 없어야 정상).
+6. `HandleJumpAnimationHold()`/`suppressHoldCheckOnce`(`Bug-fix-plan.md` §16/§18) 등 기존 점프
+   애니메이션 로직에 영향이 없는지 — 이번 변경은 수평 이동 로직만 건드리고 애니메이션 트리거
+   호출부(`ReplayJump()` 호출 위치/횟수)는 그대로라 회귀 없어야 정상이지만 확인.
+7. 실제 사용자 플레이 테스트로 조작감(공중 방향전환이 자연스러운지, Shift 반응이 어색하지
+   않은지) 최종 확인.
+
+### 24.8 구현 결과 (2026-08-16, 사용자 승인 후 A안대로 진행)
+
+§24.6 계획 그대로 `Assets/02. Scripts/Unit/HideOrSeekPlayer.cs`를 수정했다:
+
+1. `[SerializeField] private bool keepMovingAfterJump;`, `private Vector3 jumpMoveDir;` 필드
+   삭제.
+2. `FixedUpdate()`의 착지 분기·의도한 점프 분기·감지된 낙하 분기에서 `keepMovingAfterJump`/
+   `jumpMoveDir` 대입 줄을 모두 삭제 — 의도한 점프와 낙하 분기가 이제 "수직 속도를 주느냐
+   (`jumpPower`)"와 "`jumpRequested` 조건이냐"만 다르고 나머지는 동일해졌다.
+3. `RespawnToSpawnPoint()`의 `keepMovingAfterJump = false;` 삭제.
+4. `Move()`의 `else if (isJump && keepMovingAfterJump) { ... }` 분기 전체 삭제 — 점프/낙하 모두
+   기존 "평상시 이동" `else` 분기(`dir = rotation`, `vel`은 Shift 여부로 결정)로 자연 합류시켜,
+   §24.4에서 확정한 A안(공중에서도 Shift가 그대로 적용됨)이 별도 코드 없이 저절로 성립하도록 함.
+
+§24.4는 계획대로 **A안(§23.4의 낙하와 동일하게 그대로 둠)으로 확정** — 별도 분기 추가 없이
+통합만으로 A안이 자동으로 적용됨.
+
+수정 직후 `refresh_unity`로 재컴파일을 트리거했고(도메인 리로드로 MCP 연결이 잠시 끊겼다가
+자동 재연결됨), `read_console`로 **컴파일 에러 0건**을 확인했다.
+
+### 24.9 검증 결과 — Play Mode 실측 (2026-08-16)
+
+`PlayerTestScene`을 로드해 Play Mode로 진입한 뒤, 실제 `HideOrSeekPlayer` 인스턴스를 대상으로
+§18.9/§19와 동일한 격리 기법(`HideOrSeekPlayer.enabled = false`로 실제 `Update()`의 Input 기반
+`CheckMovementInput()`이 주입한 `rotation`을 덮어쓰지 못하게 차단)을 적용해, 리플렉션으로 실제
+프로덕션 코드(`FixedUpdate()`, `Move()`)를 그대로 호출하며 검증했다:
+
+```
+[점프 발사 직후]        isJump=True  vel=(0.00, 6.00, 5.00)   ← rotation=forward로 발사, Y=jumpPower(6), Z=baseSpeed(5)
+[방향을 right로 전환 후] isJump=True  vel=(5.00, 6.00, 0.00)   ← 공중에서 rotation만 바꿨는데 즉시 X축으로 반영, Y(점프 속도)는 그대로 보존
+[다시 forward로 전환 후] isJump=True  vel=(0.00, 6.00, 5.00)   ← 다시 즉시 반영, 왕복 확인
+[착지 시뮬레이션 후]     isJump=False vel=(0.00, -1.00, 5.00)  ← 착지 분기가 정상적으로 isJump를 리셋
+keepMovingAfterJump 필드 존재=False  jumpMoveDir 필드 존재=False  ← 두 필드가 리플렉션으로도 안 잡힘(완전 삭제 확인)
+```
+
+- **핵심 회귀 확인**: 공중에서 `rotation`을 바꾸자마자(추가 프레임 대기 없이) 수평 속도가 새
+  방향으로 즉시 전환되고, 수직 속도(점프 중이던 `y=6`)는 전혀 건드리지 않고 그대로 유지됐다 —
+  기존(§18) 방식이었다면 `jumpMoveDir`에 얼어붙어 두 번째·세 번째 결과 모두 첫 결과와 동일하게
+  `(0, 6, 5)`로 나왔어야 하는데, 실제로는 매번 즉시 갱신됐다.
+- 착지 처리(`isJump=False`, `ResumePlayback()`)는 기존 로직 그대로 정상 동작 — §24.3에서 기대한
+  대로 "착지 분기는 손대지 않았으니 회귀 없음"이 그대로 확인됨.
+- `keepMovingAfterJump`/`jumpMoveDir` 필드가 리플렉션으로도 찾아지지 않아 완전히 제거됐음을
+  런타임으로도 재확인.
+- 테스트 전 구간 `read_console` 확인 결과 새로 발생한 에러/예외/경고 0건(기존 "Missing Script"
+  경고 1건만 존재 — §17.7/§18.9에서 이미 무관하다고 확인된 것과 동일).
+
+테스트 종료 후 `player.enabled = true`로 원상복구, Play Mode도 정상 종료했다.
+
+**§24.4(공중에서 Shift 반응)와 실제 키보드 조작 육안 확인은 이 자동화 환경에서 실제 키를 누를
+수 없어 수행하지 못했다** — 다만 코드 구조상 Move()의 `else` 분기가 지상/공중 구분 없이 완전히
+동일하게 실행되므로(§24.6-4의 코드 자체가 그 분기를 공유), Shift 반응도 지상과 동일하게 나타날
+것으로 판단한다. 사용자의 실제 플레이 테스트를 권장한다.
+
+### 24.10 상태
+
+**구현 완료. Play Mode에서 실제 프로덕션 코드 경로(`FixedUpdate()`/`Move()`)를 리플렉션으로
+직접 호출해 공중 자유 방향전환이 즉시 반영됨을 확인, 착지 처리 회귀 없음도 확인. `keepMovingAfterJump`/
+`jumpMoveDir` 필드가 완전히 제거됐음을 런타임으로 재확인. 컴파일 에러·콘솔 에러/경고 0건.**
+실제 키보드 조작에 의한 최종 조작감 확인(공중 방향전환의 체감, Shift 반응)은 사용자 플레이
+테스트를 권장한다.

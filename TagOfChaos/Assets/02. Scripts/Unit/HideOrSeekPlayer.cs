@@ -21,13 +21,11 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private bool isJump;
     [SerializeField] private bool isDodge;
     [SerializeField] private bool keepMovingAfterDodge;
-    [SerializeField] private bool keepMovingAfterJump;
 
     private Vector3 rotation;
     private Vector3 rotation_value;
     private Vector3 dodgeRotation;
     private Vector3 dodgeMoveDir;
-    private Vector3 jumpMoveDir;
     private float dodgeTimer;
     private bool jumpRequested; // Update()에서 입력만 기록, 실제 점프 적용은 FixedUpdate()에서(PlayerControllPlan.md §18.3)
 
@@ -126,24 +124,21 @@ private void Awake()
         if (isJump && grounded && rb.linearVelocity.y <= 0f) // 상승 중엔 착지 처리하지 않음(막 점프한 순간 오탐 방지)
         {
             isJump = false;
-            keepMovingAfterJump = false;
             animationDriver.ResumePlayback(); // 공중에서 멈춰뒀던 애니메이션 재생 속도 복구
         }
 
+        // 의도한 점프(Space)든 걸어서 벗어난 낙하든, 공중에서는 항상 이동 입력에 자유롭게 반응한다
+        // (PlayerControllPlan.md §24 — 기존에는 의도한 점프만 시작 시점 방향으로 고정됐었으나,
+        // §23.4에서 낙하에 이미 적용한 자유 공중 조작과 동일하게 통일했다).
         if (jumpRequested && grounded && !isDodge)
         {
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, jumpPower, rb.linearVelocity.z);
             isJump = true;
-            keepMovingAfterJump = true; // 의도한 점프는 방향(관성)을 고정
-            jumpMoveDir = rotation;
             animationDriver.ReplayJump(); // 연타로 재점프해도 항상 처음부터 재생(Bug-fix-plan.md §15)
         }
         else if (!isJump && !grounded && !isDodge) // 점프 없이 걸어서 가장자리를 벗어나 낙하가 시작된 경우
         {
-            // 의도한 점프와 달리 방향을 고정하지 않는다 — 실수로 벗어난 것이므로 공중에서도
-            // 계속 이동 입력에 반응해 방향을 조절하거나 되돌아올 여지를 준다(PlayerControllPlan.md §23.4).
             isJump = true;
-            keepMovingAfterJump = false;
             animationDriver.ReplayJump();
         }
         jumpRequested = false;
@@ -247,13 +242,7 @@ private void Awake()
             vel = speed; // CheckDodgeInput에서 이미 2배로 올려둔 speed
             lookDir = new Vector3(dodgeMoveDir.x, 0f, dodgeMoveDir.z);
         }
-        else if (isJump && keepMovingAfterJump) // 점프 도중 키보드 방향을 바꿔도 방향이 바뀌지 않고 포물선을 그리며 이동
-        {
-            dir = jumpMoveDir;
-            vel = baseSpeed;
-            lookDir = new Vector3(jumpMoveDir.x, 0f, jumpMoveDir.z);
-        }
-        else // Shift를 눌렀을 경우 일반 스피드의 30% 속도만큼 감. 아니면 100% 속도 유지
+        else // Shift를 눌렀을 경우 일반 스피드의 30% 속도만큼 감. 아니면 100% 속도 유지 — 점프/낙하 중에도 동일하게 적용(PlayerControllPlan.md §24)
         {
             vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 0.3f : baseSpeed;
             dir = rotation;
@@ -293,7 +282,6 @@ private void Awake()
         transform.position = rb.position;
 
         isJump = false;
-        keepMovingAfterJump = false;
         animationDriver.ResumePlayback();
     }
 
