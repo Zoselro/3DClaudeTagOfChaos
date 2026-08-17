@@ -2670,4 +2670,771 @@ keepMovingAfterJump 필드 존재=False  jumpMoveDir 필드 존재=False  ← �
 직접 호출해 공중 자유 방향전환이 즉시 반영됨을 확인, 착지 처리 회귀 없음도 확인. `keepMovingAfterJump`/
 `jumpMoveDir` 필드가 완전히 제거됐음을 런타임으로 재확인. 컴파일 에러·콘솔 에러/경고 0건.**
 실제 키보드 조작에 의한 최종 조작감 확인(공중 방향전환의 체감, Shift 반응)은 사용자 플레이
-테스트를 권장한다.
+테스트로 확인하는 것을 권장한다.
+
+---
+
+## 25. `hide_or_seek_player` → Cookie 애니메이션 세트 교체 + Shift 이동 방식 반전 — ✅ 구현 완료 (2026-08-17)
+
+> **2026-08-17 갱신**: 사용자가 §25.3에서 지적된 fbx 내장 클립 오표기/오타를 직접 수정 완료했다고
+> 확인(재조회로 `Cookie_Walking.fbx`→클립명 `Cookie_Walking`, `Cookie_Jumping.fbx`→클립명
+> `Cookie_Jumping`으로 바로잡힌 것을 재확인, §25.3 갱신). 또한 §25.10-5의 결정 사항
+> (`PlayerMoveState.SneakWalk`를 새로 추가하지 않고 **개명**)이 사용자 확인으로 확정됐다(§25.4 갱신).
+> 이 두 가지 외의 나머지(컨트롤러 경로, 콜라이더 수치, 프리팹 재구성)는 여전히 미착수 계획
+> 상태다. §26에 새로 추가된 색칠(페인팅) 시스템 조사에서 **이 마이그레이션 자체를 막는 새로운
+> 차단 이슈**가 발견됐으므로, §25 구현은 §26의 결론을 먼저 반영해야 한다.
+
+> 사용자 요청 요약: ① `HideOrSeekPlayer`의 모델/애니메이션을 새 "Cookie" 세트(`Cookie_Idle`/
+> `Cookie_Walking`/`Cookie_Run`/`Cookie_Jumping`/`Cookie_Dodge`)로 교체. ② 기존과 동일하게 `Idle`을
+> 기본 동작(Default State)으로 유지. ③ `Dodge`는 지난번(§14~§16) 겪었던 버그가 고려된 상태로 설정.
+> ④ Shift 홀드 시 동작이 "기본 속도의 30%로 감속 + `SneakWalk`"에서 "기본 속도의 **+30%로 가속**
+> + `Run`"으로 반전. **사용자 지시("지금은 코드 작성하지마. 계획만 짜줘")에 따라 이번에는 실제
+> 코드/에셋 수정 없이 조사와 계획만 정리한다.** 사용자가 함께 언급한 "오프셋 페이징 대신 인풋 기반
+> 페이징 지원" 요구사항은 기존 문서 어디에도 없는 새 용어라 사용자에게 의미를 확인 요청했으나
+> 답을 받지 못했고, 사용자가 "이 부분은 건너뛰고 작업해줘"라고 명시적으로 지시해 **이번 계획의
+> 범위에서 제외했다**(§25.10-4에서 후속 확인 여지를 남겨둠).
+
+### 25.0 조사 방법
+
+`git status`/`git log`로 현재 작업 트리 상태를 먼저 확인한 뒤(§4.7, `Assets/Animation/` 루트의
+기존 5개 mocap 세트가 `Old/`로, 새 5개 fbx가 `Cookie/`로 이미 파일 이동되어 있으나 아직 리깅/
+프리팹/코드 어느 쪽도 손대지 않은 상태임을 확인), Unity MCP `execute_code`로 두 세트의
+`ModelImporter`/`AnimationClip`/`GameObject` 계층/`AnimatorController` 구조, 그리고 현재
+`HideOrSeekPlayer.prefab`의 실제 컴포넌트 구성을 **에디터에서 직접 조회**했다(추측이 아니라 실측).
+아래 §25.1은 전부 이 실측 결과다.
+
+### 25.1 실측 결과
+
+**Cookie 5종 fbx 임포트 상태 (전부 `Assets/Animation/Cookie/`, 미커밋 상태)**
+
+| 파일 | 내장 클립 이름 | 길이 | fps | 비고 |
+|---|---|---|---|---|
+| `Cookie_Idle.fbx` | `Cookie_Idle` | 8.333s | 30 | |
+| `Cookie_Walking.fbx` | `Cookie_Walking` ✅ | 1.2s | 30 | (2026-08-17) 사용자가 오표기(`Cookie_Run`)를 `Cookie_Walking`으로 직접 수정 완료(재조회로 확인) |
+| `Cookie_Run.fbx` | `Cookie_Run` | 0.533s | 30 | `Cookie_Walking`(1.2s)과 이름은 다르지만 파일 경로가 원래부터 구분 기준이었음 — 개명 후에도 혼동 없음 |
+| `Cookie_Jumping.fbx` | `Cookie_Jumping` ✅ | 1.9s | 30 | (2026-08-17) 사용자가 오타(`Cookie_Juping`)를 `Cookie_Jumping`으로 직접 수정 완료(재조회로 확인) |
+| `Cookie_Dodge.fbx` | `Cookie_Dodge` | **1.6333s** | 30 | 옛 `Dodge.fbx`(§14~§16에서 다룬 그 클립)와 초 단위까지 정확히 동일한 길이 |
+
+5개 전부 현재 `animationType=Generic`, `avatarSetup=NoAvatar` — 옛 5종처럼 Humanoid로 설정하고
+Avatar를 공유시키는 작업(§8.2)이 아직 전혀 되어 있지 않다. 계층은 5개 파일 모두 동일한 구조
+(`{RootName}` → `Mesh_0`(SkinnedMeshRenderer만) + `mixamorig:Hips` 이하 스켈레톤)이며, 옛 세트가
+쓰던 `mixamorig1:`(끝에 `1`이 붙는) 접두사와 달리 `mixamorig:`(접두사에 `1` 없음)를 쓴다 —
+서로 다른 리타겟 소스에서 왔다는 의미이지만, Humanoid 표준 골격 이름 규칙을 따르므로 리타겟
+자체에는 문제가 없을 것으로 예상된다(§25.2에서 실제 확인 필요).
+
+**현재 `HideOrSeekPlayer.prefab` 구조(실측, `Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab`)**
+
+```
+HideOrSeekPlayer (루트)
+ [Transform, Animator(avatar=IdleAvatar, controller=PlayerAnimator@Old/), PhotonView,
+  HideOrSeekPlayer, PlayerPaintCanvas, PlayerColorVoteIndicator, PlayerColorDisplay,
+  Rigidbody, CapsuleCollider(center=(0,0.9,0) radius=0.35 height=1.8), layer=8(PlayerCapsule)]
+ ├─ Ch36  [SkinnedMeshRenderer, MeshCollider(convex=False), Rigidbody(kinematic=True)]
+ │    └─ mixamorig1:Hips 이하 스켈레톤
+ │    localBounds: center=(0.01,-0.16,0.00) extents=(0.39,0.95,0.29)  → 전체 높이 ≈1.9
+ ├─ VoteIndicator  [SpriteRenderer]              ← PlayerColorVoteIndicator.indicator가 참조
+ └─ Nameplate (localPos y=2.0)  [RectTransform, MeshRenderer, TextMeshPro, PlayerBillBoard]
+```
+`PlayerPaintCanvas.paintableCollider`/`bodyRenderer` 둘 다 `Ch36`을 직접 참조 중.
+
+**`Cookie_Idle.fbx`의 `Mesh_0` 실측 크기**: localBounds center=(0.02,0.13,0.01) extents=(0.54,1.01,0.31)
+→ 전체 높이 ≈2.02, 폭 ≈1.08. `Ch36`(폭 0.78, 높이 1.9) 대비 **폭 약 +38%, 높이 약 +6%** — 기존
+`CapsuleCollider`(radius=0.35) 그대로 쓰면 몸이 콜라이더 밖으로 삐져나올 가능성이 있다(§25.7).
+
+### 25.2 아바타(Rig) 전략 — §8.2와 동일 패턴
+
+1. `Cookie_Idle.fbx`를 기준 캐릭터로: Animation Type **Humanoid**, Avatar Definition
+   **Create From This Model**.
+2. `Cookie_Walking.fbx`/`Cookie_Run.fbx`/`Cookie_Jumping.fbx`/`Cookie_Dodge.fbx` 4개: Animation
+   Type Humanoid, Avatar Definition **Copy From Other Avatar** → 1의 Avatar 지정. 이 4개의
+   `Mesh_0`는 클립 추출 용도로만 쓰고 씬에는 배치하지 않는다(§8.2와 동일).
+3. 리타겟 경고 없는지 확인(§12.3의 검증 패턴 재사용). §12.3에서 이미 확인된 Unity 제약(Avatar
+   서브 에셋 이름을 코드/UI로 영구히 리네임할 수 없고 재임포트 시 자동 생성 이름
+   `{파일명}Avatar`로 되돌아감)이 Cookie 세트에도 동일하게 적용될 것이므로, `hide_or_seek_player`
+   같은 의미 있는 이름은 이번에도 GameObject 이름 쪽에만 부여한다.
+
+### 25.3 클립 이름/루프 설정 정리 — ✅ 이름 정리는 사용자가 완료(2026-08-17)
+
+§25.1에서 발견한 오표기/오타를 사용자가 직접 수정 완료했다(재조회로 확인, §25.1 갱신). 제안했던
+축약형(`Cookie_Walk`/`Cookie_Jump`) 대신 파일명과 동일한 전체 이름을 그대로 썼다:
+
+| fbx | 최종 클립 이름 |
+|---|---|
+| `Cookie_Idle.fbx` | `Cookie_Idle`(그대로) |
+| `Cookie_Walking.fbx` | `Cookie_Walking` ✅(오표기 `Cookie_Run` → 수정 완료) |
+| `Cookie_Run.fbx` | `Cookie_Run`(그대로, 원래부터 맞는 이름) |
+| `Cookie_Jumping.fbx` | `Cookie_Jumping` ✅(오타 `Cookie_Juping` → 수정 완료) |
+| `Cookie_Dodge.fbx` | `Cookie_Dodge`(그대로) |
+
+Loop 설정(§12.6 버그 — `loopTime=false`인 클립은 Mecanim이 재생 완료 후 그 자리에서 멈춤 — 가
+재발하지 않도록 사전에 명시, 아직 미적용이므로 §25.9 구현 시 반영 필요):
+
+| 클립 | loopTime/loopPose | 근거 |
+|---|---|---|
+| `Cookie_Idle` | true/true | 상시 반복 대기 동작(§12.6과 동일 이유) |
+| `Cookie_Walking` | true/true | 상시 반복 이동 |
+| `Cookie_Run` | true/true | 상시 반복 이동(신규 `Run` 상태) |
+| `Cookie_Jumping` | false | 원샷, `HandleJumpAnimationHold`가 정점에서 붙잡음(§6/§12.7, 로직 무변경) |
+| `Cookie_Dodge`(원본) | false | 원샷 — §25.5에서 재타이밍 클립도 동일 유지 |
+
+### 25.4 코드 변경 지점 — `SneakWalk`→`Run` 개명 확정(2026-08-17, §25.10-5 결정 완료)
+
+- **`PlayerMoveState.cs`**: `SneakWalk` 멤버를 **`Run`**으로 **개명하기로 확정**(Idle/Walk/Run/Jump/
+  Dodge, 순서 유지·이름만 변경 — §25.10-5에서 "개명 vs 추가" 두 선택지를 제시했었는데, 사용자가
+  "SneakWalk를 개명을 하는것이 필요해보임"이라고 명시적으로 확인해 개명 쪽으로 확정했다). Cookie
+  세트에 살금살금 걷기용 클립 자체가 없으므로(사용자 확인: "SneakWalking이 아닌 Run으로
+  달라졌다") 새 상태를 추가하지 않고 기존 멤버를 그대로 개명하는 것이 맞다.
+  `PlayerNetworkSync.Write/Read`는 `(int)state`로 정수만 주고받으므로 프로토콜 구조 자체는
+  영향 없지만, enum 멤버가 로컬 정의라 **클라이언트 전원이 같은 빌드를 쓰지 않으면 옛 클라이언트가
+  이 값을 다르게 해석**할 수 있음(배포 시 동시 업데이트 필요, 참고 사항).
+- **`HideOrSeekPlayer.CheckMovementInput()`**(현재 176~181행):
+  ```csharp
+  bool isSneaking = Input.GetKey(KeyCode.LeftShift);
+  animationDriver.ChangeState(isSneaking ? PlayerMoveState.SneakWalk : PlayerMoveState.Walk);
+  ```
+  → 변수명 `isSneaking`→`isRunning`, `PlayerMoveState.SneakWalk`→`PlayerMoveState.Run`으로 교체.
+- **`HideOrSeekPlayer.Move()`**(현재 245~250행):
+  ```csharp
+  vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 0.3f : baseSpeed;
+  ```
+  → `baseSpeed * 1.3f : baseSpeed`로 교체("기본 이동속도 +30%", 감속 30%p → 가속 30%p로 의미 반전).
+- **`HideOrSeekPlayer.Start()`**(현재 89~92행)의 `transform.Find("Ch36")` → `transform.Find("Mesh_0")`
+  (§25.6).
+- **`PlayerAnimationDriver`/`PlayerNetworkSync`**: 로직 변경 없음 — `PlayerMoveState`를 값으로만
+  다루므로 멤버 개명에 영향받지 않는다(`ChangeState()`/`ReplayJump()`/`HandleJumpAnimationHold()`
+  전부 그대로).
+- **`PlayerPaintCanvas`/`BrushCursorController`**: C# 로직 변경 없음 — 프리팹의 직렬화 필드
+  참조만 §25.6에서 새 자식으로 재연결.
+
+### 25.5 Dodge 버그 재발 방지 — §16과 동일한 클립 재타이밍을 `Cookie_Dodge`에 적용
+
+`Cookie_Dodge.fbx`의 실측 길이(1.6333초, 30fps, 49프레임)가 §14~§16에서 다룬 옛 `Dodge.fbx`와
+**초 단위까지 정확히 동일**하다. `HideOrSeekPlayer.dodgeDuration`은 여전히 `0.5f`이므로, 아무
+조치 없이 이 클립을 그대로 연결하면 §14에서 처음 발견됐던 "회피 모션이 0.5초 지점에서 강제로
+끊기는" 버그가 **동일한 수치로 그대로 재현**된다. 이것이 사용자가 말한 "지난번 버그"에 해당한다.
+
+§15에서 조사했던 코드 기반 해법(B안: `isDodgeAnimationPlaying` 플래그로 애니메이션이 끝날 때까지
+`Idle`/`Walk`/`Run` 전환과 이동/회전 자유화를 억제)은 조사 결과 이동-애니메이션 시각적 불일치(§15.1)와
+`CheckJumpInput()` 우회 구멍(§15.2) 등 부작용이 많아 최종적으로 기각되었고, §16에서 실제로 채택되어
+검증까지 완료된 것은 **코드를 전혀 건드리지 않고 클립 쪽을 게임플레이 의도(0.5초)에 맞게
+재타이밍하는 방법**이었다. 이번에도 동일한 방법을 그대로 적용할 것을 제안한다:
+
+1. `Cookie_Dodge`(§25.3에서 정리된 이름) 클립을 그대로(시간 스케일 변경 없이) 복제해
+   `Assets/Animation/Cookie/Cookie_Dodge_Original.anim`으로 백업(§16.2-1과 동일 취지 — 원본 보존).
+2. 다시 한 번 복제해 `Assets/Animation/Cookie/Cookie_Dodge_Retimed.anim` 생성. 모든 커브 바인딩의
+   키프레임 `time`을 `0.5 / 1.6333 ≈ 0.3062`배로 압축하고, `inTangent`/`outTangent`도
+   `1/스케일`(≈3.266배)로 같이 조정(§16.2-2와 동일한 수식 — 원본 길이가 우연히 완전히 같으므로
+   스케일 계수도 동일하게 재사용 가능). `loopTime=False` 유지.
+3. §25.8의 새 Animator Controller에서 `Dodge` 상태의 Motion을 원본 `Cookie_Dodge`가 아니라
+   `Cookie_Dodge_Retimed.anim`으로 지정한다.
+4. `HideOrSeekPlayer.cs`/`PlayerAnimationDriver.cs`의 Dodge 관련 로직(`CheckDodgeInput()`/
+   `DodgeOut()`/`dodgeDuration=0.5f`)은 §16.2-4와 동일하게 **전혀 건드리지 않는다.**
+
+**유의점**: §16.5 검증 당시 옛 클립은 "포즈 순서는 그대로, 재생 속도만 빨라짐"으로 육안상
+자연스러웠다. Cookie_Dodge의 실제 모션캡처 소스가 옛 것과 다르다면(길이만 우연히 같을 뿐 동작
+내용은 다를 수 있음) 동일한 압축비가 시각적으로 부자연스러울 수 있으므로, 재타이밍 후 반드시
+육안 검증이 필요하다(§25.11-5).
+
+### 25.6 캐릭터 바디 메쉬 마이그레이션 (`Ch36` → `Mesh_0`) — ⚠️ §26에서 발견된 차단 이슈 있음
+
+> **§26 조사 결과 선반영**: 아래 4번(`PlayerPaintCanvas`의 `paintableCollider`/`bodyRenderer` 재연결)을
+> 실행해도, `Mesh_0`에 **UV 좌표 자체가 없어서(§26.1, `mesh.uv.Length == 0`, 165174개 정점 전부)**
+> 붓칠 레이캐스트의 `hit.textureCoord`가 항상 `(0,0)`으로 고정되고 스킨 텍스처 매핑도 깨진다.
+> §25.6~§25.9는 **§26.4의 UV 언랩 확보가 선행되지 않으면 그대로 진행해도 캐릭터 색칠 기능이
+> 동작하지 않는다** — 실행 순서는 §26.5 참고.
+
+Cookie_Idle 기준 프리팹의 몸통 자식 이름은 `Ch36`이 아니라 `Mesh_0`이다(§25.1). §21에서 확정한
+"콘케이브 메시 콜라이더 + 동적 루트 Rigidbody 비호환" 문제 회피 패턴(트리거 전환은 Unity가
+`isTrigger=true`+`convex=false` 조합 자체를 허용하지 않아 실패했고, 최종적으로 자식 전용 kinematic
+Rigidbody로 해결됨, §21.6)을 새 메쉬에도 그대로 적용해야 한다:
+
+1. `Mesh_0`에 `MeshCollider`(**convex=false** — 사람 형태 그대로 유지, §21.3에서 밝힌 대로 convex
+   껍질로 바뀌면 붓칠 레이캐스트 정확도가 나빠짐) 추가.
+2. `Mesh_0`에 `Rigidbody`(**isKinematic=true, useGravity=false**) 추가 — §21.6에서 확정된, 콘케이브
+   콜라이더가 부모의 동적 Rigidbody와 물리 조건을 위반하지 않게 하는 유일하게 검증된 방법.
+3. `HideOrSeekPlayer.Start()`의 자기충돌 무시 코드(§25.4 기준 89~92행)를
+   `transform.Find("Ch36")` → `transform.Find("Mesh_0")`로 변경.
+4. `PlayerPaintCanvas`의 `paintableCollider`/`bodyRenderer` 직렬화 필드를 새 `Mesh_0`의
+   `MeshCollider`/`SkinnedMeshRenderer`로 재연결.
+5. `PlayerCapsule` 레이어 마스킹(§17, `PlayerPaintCanvas`/`BrushCursorController`의
+   `paintRaycastMask`)은 이름이 아니라 레이어 인덱스(8) 기반이라 코드 변경 불필요 — 새 루트
+   GameObject의 Layer가 여전히 `PlayerCapsule`(8)로 지정돼 있는지만 재확인하면 된다.
+
+### 25.7 `CapsuleCollider`/배치 오프셋 재조정 (실측 기반 출발값, 최종은 Play Mode 육안 확인)
+
+Cookie 메쉬가 기존보다 폭 약 +38%, 키 약 +6% 크므로(§25.1), 아래를 출발값으로 삼고 Play Mode에서
+시각적으로 재조정할 것을 권장한다(계산만으로 최종 확정하지 않음):
+
+| 항목 | 현재 값 | 출발 제안값 | 근거 |
+|---|---|---|---|
+| `CapsuleCollider.radius` | 0.35 | ≈0.45~0.5 | `Mesh_0` extents.x=0.54 |
+| `CapsuleCollider.height` | 1.8 | ≈1.9~2.0 | `Mesh_0` 총 높이 ≈2.02 |
+| `Nameplate` localPosition.y | 2.0 | ≈2.1 | 머리 높이 소폭 상승 |
+| `Camera_Ctrl`/`HideOrSeekPlayer`의 카메라 타깃 y오프셋(`+1.4f`) | 1.4 | 소폭 상향 검토 | 위와 동일 |
+
+### 25.8 새 Animator Controller 구성
+
+§8.3/§16.5 패턴 유지, `SneakWalk`만 `Run`으로 교체:
+
+| State | Motion | Trigger | loopTime |
+|---|---|---|---|
+| `Idle`(**기본 상태**) | `Cookie_Idle` | `Idle` | true |
+| `Walk` | `Cookie_Walking`(§25.3, 사용자가 정리 완료한 실제 클립명) | `Walk` | true |
+| `Run` | `Cookie_Run`(`Cookie_Run.fbx` 내장) | `Run` | true |
+| `Jump` | `Cookie_Jumping`(§25.3, 사용자가 정리 완료한 실제 클립명. 상태 이름은 반드시 문자 그대로 `"Jump"` — `HandleJumpAnimationHold`의 `state.IsName("Jump")` 검사, §6) | `Jump` | false |
+| `Dodge` | `Cookie_Dodge_Retimed`(§25.5) | `Dodge` | false |
+
+Any State → 각 상태 전이 5개, 전부 `hasExitTime=false`, `duration=0.1`, `canTransitionToSelf=true`
+(옛 컨트롤러 실측값과 동일하게 유지, §8.3). Jump 하드컷(`Animator.Play("Jump",0,0f)`, §18)은
+`PlayerAnimationDriver.ReplayJump()`가 코드로 처리하므로 컨트롤러 쪽 전이 설정은 그대로 둔다.
+
+새 컨트롤러를 어느 경로에 만들지는 §25.10-1에서 확인 필요.
+
+### 25.9 프리팹 재구성 절차 (계획, 실행 순서)
+
+1. `Cookie_Idle.fbx`를 씬에 인스턴스화(§25.2 Humanoid 설정 완료 후).
+2. §25.6의 `MeshCollider`+`Rigidbody`를 `Mesh_0`에 추가.
+3. 루트에 `Animator`(Avatar=Cookie_Idle 기준 Avatar, Controller=§25.8), `PhotonView`,
+   `HideOrSeekPlayer`, `PlayerPaintCanvas`, `PlayerColorVoteIndicator`, `PlayerColorDisplay`,
+   `Rigidbody`(동적, §18 설정 그대로: `useGravity=true`, `collisionDetectionMode=ContinuousDynamic`,
+   `interpolation=Interpolate`, `constraints=FreezeRotation`), `CapsuleCollider`(§25.7 값) 부착 —
+   기존 `HideOrSeekPlayer.prefab`의 인스펙터 값을 그대로 옮긴다.
+4. `VoteIndicator`(SpriteRenderer)/`Nameplate`(PlayerBillBoard 등) 자식을 기존 프리팹에서 그대로
+   재사용, 위치만 §25.7 기준으로 조정.
+5. 루트 GameObject의 Layer를 `PlayerCapsule`(8)로 지정.
+6. 완성된 오브젝트로 기존 `Assets/04. Prefabs/Resources/HideOrSeekPlayer.prefab`을 덮어써 저장 —
+   `PhotonNetwork.Instantiate("HideOrSeekPlayer", ...)`(`PlayerSpawner.cs`)이 참조하는 Resources
+   경로/이름을 그대로 유지해야 스폰 관련 코드 수정이 불필요해진다.
+7. `PlayerTestScene`의 기존 캐릭터 인스턴스도 갱신된 프리팹을 반영하도록 업데이트.
+
+### 25.10 결정이 필요한 사항 (구현 착수 전 확인 요청)
+
+1. 새 Animator Controller를 만들 경로 — `Old/`는 이름상 "옛 애니메이션 보관용"으로 보이므로 새
+   경로(예: `Assets/Animation/PlayerAnimator.controller` 재생성, 또는
+   `Assets/Animation/Cookie/CookieAnimator.controller`) 생성을 제안하되 최종 파일명/경로는 확인 필요.
+2. ~~§25.3의 클립 이름 정리(오표기 수정)를 실제로 적용해도 되는지~~ → **✅ 완료(2026-08-17,
+   사용자가 직접 수정).**
+3. §25.7의 `CapsuleCollider`/`Nameplate`/카메라 오프셋 조정값은 Play Mode 육안 확인 후 최종 확정.
+4. "오프셋 페이징 대신 인풋 기반 페이징" 요구사항 — 이번 계획에서는 사용자 지시로 제외했다. 의미를
+   설명해주면 별도 절로 추가해 반영하겠다.
+5. ~~`PlayerMoveState.SneakWalk`를 `Run`으로 개명할지, `SneakWalk`는 남겨두고 `Run`을 새로 추가할지~~
+   → **✅ 완료(2026-08-17): 개명으로 확정.** 사용자가 "SneakWalk 를 개명을 하는것이 필요해보임"이라고
+   명시적으로 확인(§25.4 갱신).
+6. **(신규, §26에서 발견)** `Mesh_0`에 UV 좌표가 없다(§26.1) — §26.4의 두 가지 해결 방향(원본 재수급
+   vs Unity/외부 도구로 UV 언랩 생성) 중 어느 쪽으로 진행할지 결정 필요. 이 결정 없이는 §25.6~§25.9를
+   구현해도 색칠 기능이 동작하지 않는다.
+
+### 25.11 검증 계획 (§11/§16.3/§21.5 패턴 재사용, 구현 후 실행)
+
+1. `read_console`로 컴파일/임포트 에러·경고 0건 확인.
+2. 5개 Cookie fbx가 리타겟 경고 없이 동일 Avatar를 공유하는지 확인(§25.2).
+3. 새 Animator Controller에서 `Idle`/`Walk`/`Run`/`Jump`/`Dodge` 트리거 호출 시 "parameter does not
+   exist" 경고가 없는지, 기본 상태가 `Idle`인지 확인.
+4. `Idle`/`Walk`/`Run` 루프가 §12.6처럼 멈추지 않고 계속 반복되는지 확인.
+5. `PlayerTestScene`에서 슬로우모션으로 Dodge 발동 → `AnimatorStateInfo.normalizedTime`이
+   `dodgeDuration`(0.5초) 도달 시점에 1.0에 근접하는지, 재타이밍된 모션이 시각적으로 자연스러운지
+   확인(§16.3-3과 동일 방식 + §25.5 유의점의 육안 확인).
+6. Shift 홀드 시 이동 속도가 기존 대비 130%(가속)로 실측되는지, 애니메이션이 `Run`으로 전환되는지
+   확인.
+7. 붓칠/붓 커서(§21.5-3 패턴), `Mesh_0` 자기충돌 무시(§21.6 재확인), 조정된 `CapsuleCollider` 크기로
+   기존 물리 충돌(§18/§22)에 회귀가 없는지 확인.
+8. Jump 애니메이션 정점 정지(§6)와 착지 직후 재점프 하드컷(§18)이 새 `Cookie_Jump` 클립에서도
+   동일하게 동작하는지 확인.
+9. `GameLobbyScene`/`GameScene`/`PlayerTestScene` 전부에서 갱신된 프리팹이 정상 스폰·표시되는지
+   확인(§4.1 스폰 경로는 리소스 경로 이름 불변이므로 코드 수정 없이도 새 프리팹을 그대로 사용해야
+   정상).
+
+### 25.12 상태
+
+**✅ 구현 완료.** 사용자 지시("지금 구현을 진행해주고 ... 모든 작업과 단계가 완료될 때까지 멈추지
+마라")에 따라 §25.10의 모든 결정을 확정하고 Unity MCP `execute_code`로 직접 구현·검증까지
+완료했다. 실제 구현 결과와 계획 대비 변경 사항은 §25.13에 정리했다.
+
+### 25.13 구현 결과 보고 (2026-08-17)
+
+#### 25.13.1 §25.10 결정 사항 최종 확정
+1. **Animator Controller 경로**: `Assets/Animation/PlayerAnimator.controller`(원래 위치, `Old/`로
+   옮겨져 비어있던 경로)에 새로 생성.
+2. 클립 이름 정리: 사용자가 직접 완료(§25.3).
+3. `CapsuleCollider`/`Nameplate`/카메라 오프셋: §25.13.4에 실측 기반 최종값 기록.
+4. "오프셋 페이징 대신 인풋 기반 페이징": 범위 제외 유지(사용자 지시).
+5. `SneakWalk`→`Run` 개명: 사용자 확인으로 확정, 구현 완료(§25.13.2).
+6. `Mesh_0` UV 부재: §26.4에서 사용자가 직접 해결(`Cookie/UV/Cookie_Idle.fbx`), 이번 세션에서
+   그 파일을 기준으로 전체 마이그레이션을 완료했다.
+
+#### 25.13.2 코드 변경 (실제 반영, 계획과 100% 일치)
+- `PlayerMoveState.cs`: `SneakWalk` → `Run` 개명.
+- `HideOrSeekPlayer.CheckMovementInput()`: `isSneaking`→`isRunning`, `PlayerMoveState.SneakWalk`→
+  `PlayerMoveState.Run`.
+- `HideOrSeekPlayer.Move()`: Shift 홀드 시 속도 `baseSpeed * 0.3f` → `baseSpeed * 1.3f`.
+- `HideOrSeekPlayer.Start()`: 자기충돌 무시 대상 `transform.Find("Ch36")` → `transform.Find("Mesh_0")`.
+- `Camera_Ctrl.cs`: 카메라 타깃 y오프셋 `1.4f` → `1.5f`(§25.13.4 근거).
+- `read_console`로 매 변경 직후 컴파일 에러 0건 확인(정상 경고만 존재하는 NatureStarterKit2
+  서드파티 obsolete API 경고들과 무관 — 전부 회귀 아님을 재확인).
+
+#### 25.13.3 [계획 대비 이탈 ①] 아바타 전략 — `Copy From Other Avatar`가 조용히 실패해 방향 변경
+
+**당초 계획(§25.2)**: `Cookie/UV/Cookie_Idle.fbx`를 기준으로 Avatar를 만들고, 나머지 4개
+(`Cookie_Walking`/`Run`/`Jumping`/`Dodge.fbx`)는 그 Avatar를 `Copy From Other Avatar`로 공유.
+
+**실제로 발생한 문제**: 이 설정대로 적용한 뒤 클립이 생성되는지 재확인(`AssetDatabase.
+LoadAllAssetsAtPath`/`AnimationUtility.GetAnimationClips`)했더니 4개 파일 전부 **`AnimationClip`
+서브 에셋이 0개**였다 — 콘솔에 에러/경고는 전혀 뜨지 않는 **조용한 실패**였다. 원인을 실측으로
+추적한 결과: `Cookie/UV/Cookie_Idle.fbx`는 스켈레톤이 `Armature`라는 빈 트랜스폼으로 한 단계 더
+감싸진 구조(`Cookie_Idle/Armature/mixamorig:Hips/...`)인데, 나머지 4개 파일은 그 래퍼가 없는 평평한
+구조(`Cookie_Walking/mixamorig:Hips/...`)였다 — 즉 **같은 "Cookie" 세트인데도 사용자가 UV를 새로
+제작한 파일과 기존 4개 파일의 계층 구조가 서로 다르다.** `Copy From Other Avatar`는 본 이름은
+같아도 이 구조적 불일치 때문에 클립 리타겟 자체를 조용히 포기하는 것으로 보인다(재현 실험:
+`Cookie_Dodge.fbx`를 `Create From This Model`로 바꾸면 클립이 정상 생성되고, 다시 `Copy From
+Other`(Cookie_IdleAvatar)로 바꾸면 즉시 사라짐 — 여러 차례 재현 확인).
+
+**수정**: 4개 파일 전부 `Create From This Model`로 전환(각자 자기 자신의 Avatar를 독립적으로
+생성). Mecanim의 Humanoid 리타게팅은 어느 두 Humanoid Avatar 사이에서도 표준 근육 공간을 거쳐
+동작하므로, 굳이 Avatar를 물리적으로 공유하지 않아도 애니메이션 재생에는 지장이 없다 — "Copy
+From Other Avatar"는 애초에 여러 파일이 완전히 동일한 리깅일 때 중복 Avatar 생성을 피하기 위한
+최적화일 뿐, Humanoid 리타겟의 필수 조건은 아니다. 전환 후 5개 클립(`Cookie_Idle`/`Cookie_Walking`/
+`Cookie_Run`/`Cookie_Jumping`/`Cookie_Dodge`) 전부 정상 생성·정상 길이·정상 loopTime을 재확인했고,
+Play Mode에서 5개 상태 전환 전부(§25.13.5)와 리타겟 관련 콘솔 경고 0건도 확인했다.
+
+#### 25.13.4 [계획 대비 이탈 ②] Dodge 재타이밍 — 휴머노이드 클립 복제 시 길이 메타데이터가 갱신 안 되는 버그
+
+**당초 계획(§25.5)**: 옛 §16.2와 동일하게 `Cookie_Dodge` 클립을 `Instantiate()`로 복제해 커브
+키프레임 시간만 압축.
+
+**실제로 발생한 문제**: 계획대로 `Instantiate(srcClip)`으로 복제 후 130개 커브 전부 압축하고
+`AnimationClipSettings.loopTime/startTime/stopTime`도 명시적으로 재설정했는데, **`clip.length`가
+계속 원본 길이(1.6333초)를 보고**했다 — 커브 데이터 자체(`GetEditorCurve`로 재조회)는 정확히
+0.5초까지만 키프레임이 있는 것으로 확인됐는데도 그랬다. `SetAnimationClipSettings` 호출 직후 같은
+스코프에서 `GetAnimationClipSettings`로 재조회하면 `stopTime=0.5`가 정확히 반영돼 있는데
+`clip.length`만 여전히 1.6333을 보고하는 것도 확인 — 즉 **`AnimationClipSettings`와
+`AnimationClip.length`가 서로 다른 곳에서 관리되며, 기존 Humanoid 클립을 `Instantiate()`로
+복제하면 `length`의 근거가 되는 내부 메타데이터(추정: dense/muscle clip 바이너리 블록의 자체
+duration)가 갱신되지 않는 것으로 보인다.** `AssetDatabase.ImportAsset(ForceUpdate |
+ForceSynchronousImport)`로 강제 재임포트해도 동일 — `.anim`은 외부 포맷을 임포트하는 자산이
+아니라 별 효과가 없었다.
+
+**수정**: `Instantiate()`로 기존 클립을 복제하는 대신, **`new AnimationClip()`으로 완전히 새
+클립을 만들고** 그 위에 압축된 커브만 `SetEditorCurve`로 채워 넣었다 — 이 방식으로는 `length`가
+즉시(저장 전부터) 정확히 `0.5`로 계산됨을 확인했다. 기존 `Cookie_Dodge_Retimed.anim`을 삭제하고
+이 방식으로 재생성, `PlayerAnimator.controller`의 `Dodge` 상태 Motion 참조도 (자산을 삭제 후
+재생성해 guid가 바뀌었으므로) 새 클립으로 다시 연결했다. Play Mode에서 `Animator.Update()`를
+0.05초 간격으로 반복 호출해 슬로우모션 방식(§16.3과 동일 기법)으로 `normalizedTime`을 추적한
+결과, **정확히 실경과시간 0.50초 지점에서 `normalizedTime`이 1.000에 도달**함을 확인했다 —
+`dodgeDuration`(0.5f, 코드 무변경)과 완벽히 일치한다. 이 버그는 순수하게 이번 구현 과정에서
+발견된 Unity API의 함정이며, 옛 §16.2(Old/Dodge_Retimed.anim)가 같은 문제를 겪지 않았던 것은
+아마도 그 세션에서 다른 방식(또는 다른 Unity 내부 상태)으로 만들었기 때문으로 추정되나, 그
+세션의 정확한 스크립트는 남아있지 않아 확인은 못했다 — 어느 쪽이든 이번 파일은 실측으로 직접
+검증됐다.
+
+#### 25.13.5 [계획에 없었던 추가 발견] `MeshCollider`에 `sharedMesh`가 자동 할당되지 않음
+
+`Mesh_0`(SkinnedMeshRenderer만 있고 `MeshFilter`가 없음)에 `gameObject.AddComponent<MeshCollider>()`
+로 컴포넌트를 추가하면, `MeshRenderer`+`MeshFilter` 조합과 달리 **Unity가 `sharedMesh`를 자동으로
+채워주지 않는다** — `convex`만 설정하고 `sharedMesh`를 명시적으로 지정하지 않으면 콜라이더가
+사실상 빈 껍데기가 되어, Play Mode에서 `MeshCollider.sharedMesh`가 `null`인 채로 남아있었다(붓칠
+레이캐스트 테스트 중 `NullReferenceException`으로 처음 발견). **수정**: `meshCollider.sharedMesh =
+skinnedMeshRenderer.sharedMesh;`를 명시적으로 대입 — 프리팹 에셋에 직접 반영하고 저장, Play Mode를
+새로 시작해 자동으로 올바르게 로드되는 것까지 재확인했다(§25.13.6-4).
+
+#### 25.13.6 Play Mode 검증 결과 (전부 Unity MCP `execute_code` 리플렉션으로 실제 프로덕션 코드 경로 직접 호출)
+
+1. **컴파일/콘솔**: 매 코드·에셋 변경 직후 `read_console`로 에러 0건 확인. 유일하게 남는 경고는
+   기존부터 있던 "The referenced script (Unknown) on this Behaviour is missing!"(§17.7/§18.9에서
+   이미 무관하다고 확인된 것과 동일 문자열, 신규 아님).
+2. **5개 애니메이션 상태 전환**: `PlayerAnimationDriver.ChangeState()`를 리플렉션으로 직접 호출해
+   Idle/Walk/Run/Jump/Dodge 전부 `AnimatorStateInfo.IsName(...)`이 정확히 매칭되고, 각 상태의
+   `length`가 의도한 클립 길이(8.333/1.2/0.5333/1.9/**0.5**)와 정확히 일치함을 확인. "parameter
+   does not exist" 경고 없음.
+3. **Dodge 재타이밍 정밀 검증**: 슬로우모션 방식으로 0.05초씩 12회 `Animator.Update()` 진행 —
+   실경과시간 0.50초 지점에서 `normalizedTime`이 정확히 1.000에 도달(§25.13.4).
+4. **Jump 하드컷(§18) 회귀 확인**: `PlayerAnimationDriver.ReplayJump()`를 직접 호출해
+   `Animator.Play("Jump",0,0f)` 기반 즉시 전환이 새 `Cookie_Jumping` 클립에서도 정상 동작함을
+   확인(`IsName("Jump")=True`, `normalizedTime=0`에서 시작).
+5. **이동 물리**: `rotation` 필드를 리플렉션으로 직접 설정하고 `Move()`를 호출해 `rb.linearVelocity`
+   가 `baseSpeed`(5.0)와 정확히 일치함을 확인(Shift 미홀드 기준). **Shift 홀드 시 130% 가속은
+   `Input.GetKey(KeyCode.LeftShift)`를 코드로 흉내낼 수 없어(이 자동화 환경의 한계, §24.9와 동일한
+   제약) 소스 코드 대조로만 확인했다 — 실제 체감은 사용자 플레이 테스트 필요.**
+6. **점프**: `FixedUpdate()`를 직접 호출해 `jumpRequested`+접지 조건에서 `rb.linearVelocity.y`가
+   `jumpPower`(6.0)로 정확히 설정됨을 확인.
+7. **캐릭터 규격**: `CapsuleCollider`(radius=0.46, height=2.0, center=(0,1,0)) — 새 `Mesh_0`의 라이브
+   포즈 월드 바운드(min.y=-0.123, max.y=1.992, 옛 `Ch36`(min.y=-0.154, max.y=1.822) 대비 비례
+   확대)로 실측 기반 산정. `Nameplate`(y=2.15)/`VoteIndicator`(y=2.35)/카메라 y오프셋(1.5)도 동일
+   비율(옛 대비 약 1.07배)로 조정.
+8. **색칠 파이프라인 엔드투엔드(§26 핵심 검증)**: `PlayerCapsule` 레이어를 제외한 레이캐스트
+   마스크로 캐릭터 몸의 서로 다른 5개 지점에 레이캐스트 — 4곳이 `Mesh_0`에 명중했고 각각 서로
+   다른 UV(`(0.79,0.10)`/`(0.71,0.26)`/`(0.67,0.14)`/`(0.83,0.22)`)를 반환함을 확인(§26.1이
+   지적했던 "항상 (0,0)" 문제가 완전히 해소됨). 이어서 `PlayerPaintCanvas.ApplyStamp()`를
+   리플렉션으로 직접 호출해 서로 다른 두 UV 위치에 서로 다른 팔레트 색으로 스탬프를 찍고,
+   `PaintCanvas` `RenderTexture`의 픽셀을 직접 읽어 두 스탬프 위치에 각각 의도한 색(알파=1,
+   잠금)이, 칠하지 않은 위치는 여전히 완전 투명(알파=0)임을 확인 — **레이캐스트→UV→스탬프→
+   RenderTexture 전체 파이프라인이 실제로 정상 동작함을 실측으로 검증했다.**
+9. **프리팹 연결 확인**: `PlayerTestScene`의 기존 캐릭터 인스턴스(`hide_or_seek_player`)가 이미
+   `HideOrSeekPlayer.prefab`에 `Connected` 상태로 연결돼 있어서, 프리팹 갱신만으로 씬 인스턴스가
+   자동으로 새 구조(`VoteIndicator`/`Nameplate`/`Armature`/`Mesh_0`)를 반영함을 확인 — 씬 파일을
+   별도로 손댈 필요가 없었다. `PlayerTestScene.unity` 저장은 Play Mode 진입/종료로 발생한
+   부수적인 dirty 상태만 정리하는 차원에서 수행.
+10. **미검증(문서화된 한계)**: 실제 키보드 조작에 의한 체감(Shift 가속감, 우클릭 카메라 회전,
+    Dodge/Jump의 시각적 자연스러움), 4인 동시 접속 시 원격 캐릭터 애니메이션 동기화, 실제
+    스킨 텍스처 적용 후의 외형(§26.4-5, 현재 `Default-Material`)은 이 자동화 세션의 한계로
+    검증하지 못했다 — 사용자의 실제 플레이 테스트가 필요하다.
+
+---
+
+## 26. 플레이어 몸 색칠(ColorTag 붓칠) 심층 조사 — `Mesh_0` UV 부재로 인한 차단 이슈 발견 — ✅ 구현 완료·실측 검증 완료 (2026-08-17)
+
+> 사용자 요청: "플레이어 몸에 색칠하는것이 버그 없이 잘 되는지에 대해서도 깊게 조사를 하고 해당건에
+> 대해서 구현계획을 PlayerControllPlan.md에 작성해줘. 아직 구현하지마." Unity 프로젝트를 직접
+> 열어(`execute_code`) 페인팅 시스템(`PlayerPaintCanvas`/`BrushCursorController`/3종 셰이더/3종
+> 머티리얼)의 코드·에셋을 실측 조사했다. **결론을 먼저 요약하면**: 옛 `Ch36` 기준으로는 페인팅
+> 파이프라인 자체에 새로 발견된 치명적 결함은 없지만(§26.2), §25에서 진행 중인 Cookie 마이그레이션의
+> `Mesh_0`에는 **UV 좌표가 완전히 없다(§26.1)** — 이 상태로 §25.6~§25.9를 그대로 구현하면 색칠
+> 기능이 전혀 동작하지 않는다(모든 붓질이 캔버스의 같은 한 점에만 찍히고, 스킨 텍스처 매핑
+> 자체도 깨진다). 이번 조사로 §25의 진행을 막는 새로운 선행 과제가 확인된 것이다.
+
+### 26.0 조사 방법
+
+1. `PlayerPaintCanvas.cs`/`BrushCursorController.cs`(§1.6, research.md에서 이미 라인 단위로 읽은
+   코드)를 다시 정독해 로직 자체의 결함 여부를 재검토.
+2. `Assets/02. Scripts/ColorTag/Shaders/`의 3개 셰이더(`PaintStamp`/`PaintColorReplace`/
+   `PlayerPaintedSkin`)와 4개 머티리얼(`BrushStampMaterial`/`FinalizeStampMaterial`/
+   `ColorReplaceMaterial`/`BrushCursorMaterial`)을 전부 직접 읽음.
+3. Unity MCP `execute_code`로 `HideOrSeekPlayer.prefab`의 `PlayerPaintCanvas`/`PlayerColorDisplay`
+   직렬화 필드가 실제로 무엇을 참조하는지, `Ch36`/Cookie `Mesh_0` 두 메쉬의 UV 데이터·정점 수를
+   직접 조회해 비교(추측이 아니라 실측).
+4. 프로젝트의 `PlayerSettings.colorSpace`, 렌더 파이프라인 설정을 확인해 색공간 관련 이중 변환
+   가능성을 점검.
+
+### 26.1 [치명적, 신규 발견 → ✅ 2026-08-17 해결 확인됨] Cookie `Mesh_0`에 UV 좌표가 전혀 없음
+
+Unity 에디터에서 직접 조회한 실측 결과:
+
+| 메쉬 | 정점 수 | `mesh.uv.Length` | `GetUVs(1)`(UV2) | normals/tangents/boneWeights |
+|---|---|---|---|---|
+| `Ch36`(옛 모델, 현재 정상 동작 기준) | 15,882 | **15,882**(정상) | — | — |
+| Cookie `Mesh_0`(`Cookie_Idle.fbx`) | 165,174 | **0** | **0** | 전부 165,174개로 정상 |
+
+5개 Cookie fbx(`Cookie_Idle`/`Cookie_Walking`/`Cookie_Run`/`Cookie_Jumping`/`Cookie_Dodge`) **전부**
+동일하게 `Mesh_0`(정점 165,174개)이고 **전부 UV 채널이 0개**임을 재확인했다 — 특정 파일 하나의
+임포트 실수가 아니라 이 "Cookie" 에셋 세트 전체가 원본부터 UV 언랩 없이 만들어졌거나 내보내기
+과정에서 UV 채널이 통째로 빠진 것으로 보인다.
+
+**Unity 임포트 설정 문제가 아님을 확인**: `ModelImporter.importNormals=Import`,
+`importTangents=CalculateMikk`, `weldVertices=True`, `optimizeMeshPolygons/Vertices=True` 등 UV
+채널을 걸러낼 만한 설정은 없다(이 옵션들은 UV와 무관). `normals`/`tangents`/`boneWeights`는
+165,174개 전부 정상 존재하는데 `uv`만 0개인 것은, **소스 fbx 파일 자체에 텍스처 좌표가 아예
+기록되지 않았다**는 뜻이다(모델링/리깅 툴에서 UV 언랩을 하지 않았거나, 내보내기 옵션에서 UV를
+빠뜨린 경우 전형적으로 나타나는 패턴).
+
+**이게 왜 색칠 기능을 완전히 막는가**:
+- `PlayerPaintCanvas.Update()`는 `Physics.Raycast(ray, out RaycastHit hit, ...)` 후
+  `hit.textureCoord`를 `StampBrush()`에 그대로 넘긴다(§1.6). Unity 공식 동작: 히트한
+  `MeshCollider`의 소스 메쉬에 UV 데이터가 없으면 `RaycastHit.textureCoord`는 **항상 `(0,0)`을
+  반환**한다. 즉 마우스를 캐릭터 몸 어디에 대고 클릭하든 전부 캔버스 좌상단 모서리 한 점에만
+  스탬프가 찍힌다 — "색칠이 안 된다"가 아니라 **"어디를 클릭해도 항상 같은 한 점만 칠해진다"**는
+  형태로 나타날 것이다.
+- `PlayerPaintedSkin.shader`의 정점 셰이더가 받는 `TEXCOORD0`(UV) 입력 자체가 비어있으므로,
+  ColorTag와 무관하게 **베이스 스킨 텍스처 매핑 자체도 깨진다** — `tex2D(_MainTex, i.uv)`가
+  전부 같은(정의되지 않은/0,0) 좌표를 참조해 캐릭터 전체가 텍스처의 한 텍셀 색으로 뒤덮인
+  밋밋한 단색처럼 보일 가능성이 높다. **즉 이 문제는 ColorTag 이전에 캐릭터 스킨 렌더링
+  자체의 문제이기도 하다.**
+
+#### 26.1-1 (2026-08-17 추가) 사용자가 UV 포함 버전을 새로 제작 — 실측 검증 결과 정상
+
+사용자가 `Assets/Animation/Cookie/UV/Cookie_Idle.fbx`를 새로 만들어 UV를 포함시켰다. §26.1과
+동일한 방법(직접 조회 + §26.2의 미러링 검사 스크립트)으로 재검증한 결과:
+
+| 항목 | 이전(`Cookie/Cookie_Idle.fbx`) | 신규(`Cookie/UV/Cookie_Idle.fbx`) |
+|---|---|---|
+| 정점 수 | 165,174 | 167,404(소폭 차이 — 동일 메쉬의 UV만 추가한 것이 아니라 재수출본으로 보임) |
+| `mesh.uv.Length` | **0** | **167,404**(정점 수와 정확히 일치) |
+| UV 범위 | — | `U[0.007, 0.993] V[0.007, 0.946]` — 정상적인 0~1 범위 |
+| UV `(0,0)`에 몰린 정점 | — | **0개** — 모든 정점이 실제 UV를 가짐 |
+| 미러링 의심 쌍(§26.2와 동일 검사) | — | **0건** — `Ch36` 기준과 동일하게 좌우 미러링 없음 |
+| `localBounds` | Center(0.02,0.13,0.01) Extents(0.54,1.01,0.31) | **동일**(형태·크기 변화 없음) |
+| 계층 구조 | `Cookie_Idle → Mesh_0` + `Cookie_Idle → mixamorig:Hips...`(스켈레톤이 루트 바로 아래) | `Cookie_Idle → Mesh_0`(동일 위치, `transform.Find("Mesh_0")` 그대로 유효) + `Cookie_Idle → Armature → mixamorig:Hips...`(스켈레톤이 `Armature`라는 빈 트랜스폼으로 한 단계 더 감싸짐) |
+| 손가락 본 | `LeftHandIndex1~4` 등 손가락 세부 체인 있음 | **없음**(`mixamorig:LeftHand`/`RightHand`에서 끝남) — Humanoid 아바타 필수 조건은 아니라 리깅 자체는 문제없지만, 손가락 애니메이션/포즈가 필요해지면 제약이 됨 |
+| `SkinnedMeshRenderer.sharedMaterial` | `Ch36_Body`(Standard) | `Default-Material`(Unity 기본 머티리얼, 텍스처 미할당) — `PlayerPaintCanvas.InitPaintCanvas()`가 런타임에 `PlayerPaintedSkin` 머티리얼로 교체하므로 색칠 기능 자체엔 지장 없으나, `_MainTex`(베이스 스킨 텍스처)가 없어 칠하지 않은 부분은 흰색으로 보일 것 — 실제 스킨 텍스처를 아직 배정해야 함(§26.7-3) |
+| `animationType`/`avatarSetup` | `Generic`/`NoAvatar` | `Generic`/`NoAvatar`(**동일, 아직 미변경**) — §25.2의 Humanoid 리깅은 이번 작업 범위가 아니었으므로 아직 필요 |
+
+**결론: §26.1이 지적한 차단 이슈(UV 없음)가 이 새 파일에서는 해결된 것으로 확인된다.** UV
+범위·미러링 검사 모두 `Ch36`(현재 정상 동작 기준)과 동등한 품질이다. 다만 §25.2(Humanoid
+아바타 설정)와 §25.6(콜라이더/Rigidbody 추가, `paintableCollider`/`bodyRenderer` 재연결)은 아직
+이 새 파일 기준으로 적용되지 않았고, 베이스 스킨 텍스처(`_MainTex`)도 아직 비어 있다 — §26.7에
+다음 단계로 정리했다.
+
+### 26.2 기존(`Ch36` 기준) 페인팅 시스템 건강 점검 — 새로 발견된 결함 없음
+
+라인 단위 재검토 + 실측으로 아래를 확인했다(전부 정상 또는 이미 알려진 경미한 사항):
+
+- **UV 레이아웃 정상성**: `Ch36`의 UV는 `[0.0005, 0.9995] × [0.0005, 0.998549]` 범위의 정상적인
+  0~1 언랩이다. **좌우 미러링(팔/다리 좌우가 UV 공간을 공유해 한쪽을 칠하면 반대쪽도 같이
+  칠해지는 현상) 여부를 256×256 UV 버킷 + 3D 위치 X부호 비교로 직접 검사**했고, 미러링 의심
+  정점 쌍 **0건**을 확인했다 — 현재 캐릭터 몸의 어느 부위를 칠해도 반대쪽에 의도치 않게 번지지
+  않는다.
+- **스탬프/캔버스 파이프라인**: `ApplyStamp()`가 `RenderTexture.GetTemporary` → 기존 캔버스를
+  임시 버퍼로 `Blit` → 스탬프 머티리얼로 다시 `Blit` → `ReleaseTemporary` 순서로 정상적인
+  ping-pong 구조를 갖는다. 알파 채널을 "잠금" 마스크로 쓰는 로직(`_RespectLock`)과 라운드 확정
+  시 강제 재도색(`finalizeStampMaterial`, `_RespectLock=0`)도 셰이더 코드(`PaintStamp.shader`)와
+  C# 호출부가 정확히 일치한다.
+- **`RenderTexture` 생명주기**: `InitPaintCanvas()`가 생성 직후 `GL.Clear(true, true, Color.clear)`로
+  명시적으로 초기화하고(초기 내용 미보장 문제 방어, research.md §1.6과 일치), `OnDestroy()`에서
+  `Release()`한다(기존 조사에서 이미 확인된 사항 재확인, research.md §2).
+- **공유 머티리얼(`brushStampMaterial`/`finalizeStampMaterial`/`colorReplaceMaterial`)이 캐릭터별
+  인스턴스가 아니라 프리팹 전체가 공유하는 단일 에셋인지 확인**(실측: 셋 다 프리팹 필드가 같은
+  `.mat` 에셋을 직접 참조). 언뜻 "동시에 여러 캐릭터가 칠하면 서로의 색이 섞이는 경쟁 상태가
+  아닌가" 의심할 만하지만, `ApplyStamp()`는 `SetVector`/`SetFloat`/`SetColor`로 속성을 설정한 뒤
+  **그 자리에서 곧바로(코루틴/비동기 대기 없이) 2회 `Graphics.Blit`을 실행하고 리턴**하는 완전히
+  동기적인 호출이라, C#이 싱글 스레드로 실행되는 한 한 캐릭터의 스탬프 처리가 끝나기 전에 다른
+  캐릭터의 스탬프 처리가 끼어들 수 없다 — **공유 머티리얼이어도 실제로는 안전함을 코드 흐름으로
+  확인**(레이스 컨디션 아님, 우려는 됐으나 결함은 아님).
+- **`PlayerPaintedSkin.shader`의 제한 사항(경미, 기존부터 있던 사항)**: `ForwardBase` 패스만
+  정의돼 있고 그림자 샘플링 매크로(`multi_compile_fwdbase` 등)가 없어, **다른 오브젝트가 캐릭터
+  위에 드리우는 그림자를 받지 못한다**(그림자를 "드리우는" 쪽은 `Fallback "Standard"`의
+  `ShadowCaster` 패스가 대신 처리할 가능성이 높아 별개). 시각적으로 캐릭터가 항상 살짝 더 밝게
+  보일 수 있는 정도로, 색칠 기능 자체의 버그는 아니다.
+- **UV 공간 원형 스탬프의 근본적 한계(경미, 신규 캐릭터에도 동일 적용)**: `PaintStamp.shader`가
+  `distance(i.uv, _StampUV.xy)`로 원형 판정을 하므로, UV 텍셀 밀도가 방향별로 다르면(비균등
+  언랩) 실제 3D 표면에서는 타원형으로 보일 수 있고, UV 아일랜드 경계(심)를 걸치는 위치에 칠하면
+  심 반대편으로 자연스럽게 이어지지 않는다 — UV 기반 텍스처 페인팅의 구조적 한계로, `Ch36`
+  기준으로는 지금까지 실사용 보고된 문제가 없어 경미로 분류하되, Cookie `Mesh_0`가 UV를 갖추게
+  되면(§26.4) 새 UV 심 배치에 따라 재검증이 필요하다(§26.6-4).
+- **색공간**: 프로젝트는 `ColorSpace=Linear`, `Built-in RP`(SRP 자산 없음). `PlayerPaintCanvas`가
+  만드는 `RenderTexture(canvasSize, canvasSize, 0, RenderTextureFormat.ARGB32)`는 `readWrite`를
+  명시하지 않아 Unity 기본값(sRGB 처리)을 따르는데, 코드 어디에도 수동 감마 변환이 없어 이중 변환
+  같은 미스매치 정황은 발견되지 않았다 — 특별한 문제 없음으로 판단(추가 조치 불필요).
+
+### 26.3 이미 알려진 관련 항목 (재조사가 아니라 상호 참조만)
+
+- `research.md` §4.1: `GameScene.unity`에 `ColorSelectionManager.StartColorSelection()` 호출이
+  아예 없어, 실제 로비→매칭 플로우로는 색칠 라운드 자체가 시작되지 않는다(`PlayerTestScene`에서만
+  수동 시작 가능). 이번 §26 조사와 별개의 "배선 공백" 문제이지만, §26.1의 UV 문제를 고치고
+  §25(Cookie)를 마무리한 뒤에도 이 배선이 없으면 실제 게임에서는 여전히 색칠을 볼 수 없다 —
+  Cookie 마이그레이션과 색칠 기능을 온전히 완성하려면 결국 이 배선도 필요하다는 점을 참고로
+  남겨둔다(이번 계획의 실행 범위에는 포함하지 않음, 별도 확인 필요).
+- `research.md` §4.5: `ColorPaletteSO.GetColor()`/`GetColorName()`에 인덱스 범위 검사 없음(경미,
+  재확인만 함, 변경 없음).
+- `research.md` §4.6: `ColorSwatchButton`의 `AddListener`에 대응하는 해제 코드 없음(경미, 재확인만
+  함, 변경 없음).
+
+### 26.4 구현 계획 — `Mesh_0` UV 확보 (§26.1 해결) — ✅ 방향 A로 해결 완료(2026-08-17)
+
+당초 방향 A(원본 재수급)/방향 B(자동 언랩) 두 가지를 제시했는데, **사용자가 방향 A로 직접
+`Assets/Animation/Cookie/UV/Cookie_Idle.fbx`를 만들어 해결했다**(§26.1-1에서 실측 검증 완료 —
+UV 범위 정상, 미러링 0건). 아래 "공통 후속 절차"만 남는다.
+
+**공통 후속 절차**: 전부 완료(2026-08-17). 아래 §26.5 참고.
+1. ~~UV 미러링 재검증~~ → §26.1-1에서 완료(0건 확인).
+2. ~~UV 범위 확인~~ → §26.1-1에서 완료(`[0.007,0.993]×[0.007,0.946]`, 정상).
+3. ~~§25.2(Humanoid 아바타 설정)를 새 `Cookie/UV/Cookie_Idle.fbx` 기준으로 진행~~ → **완료**(단,
+   당초 계획과 달리 나머지 4개는 `Copy From Other Avatar`가 아니라 각자 `Create From This Model`로
+   전환해야 했다 — §25.13.3 참고).
+4. ~~§25.6(콜라이더/Rigidbody 추가, `paintableCollider`/`bodyRenderer` 재연결)~~ → **완료**(§25.13.5의
+   `MeshCollider.sharedMesh` 누락 버그도 함께 발견·수정).
+5. 베이스 스킨 텍스처 배정 — **여전히 `Default-Material`(텍스처 미할당) 상태.** 사용자가 "메테리얼
+   텍스쳐는 준비중"이라고 확인했으므로 이번 구현 범위에서는 흰 바탕인 채로 진행했다 — 텍스처가
+   준비되면 `Mesh_0`의 `SkinnedMeshRenderer.sharedMaterial`(또는 그 `_MainTex`)만 교체하면 되고,
+   `PlayerPaintCanvas.InitPaintCanvas()`가 런타임에 `original.mainTexture`를 그대로 읽어 합성
+   머티리얼에 반영하므로 별도 코드 변경은 필요 없다.
+
+### 26.5 §25(Cookie 마이그레이션)와의 실행 순서 통합 — ✅ 전부 실행 완료(2026-08-17)
+
+1. ~~§26.4의 UV 확보~~ → **완료**(사용자 제작).
+2. ~~§25.2 아바타(Rig) 설정~~ → **완료**(§25.13.3, 계획과 다른 방향으로 완료).
+3. ~~§25.3 클립 이름/루프 정리~~ → **완료**.
+4. ~~§25.5 Dodge 재타이밍~~ → **완료**(§25.13.4, 계획과 다른 방법으로 완료).
+5. ~~§25.6 `Mesh_0` 콜라이더/Rigidbody 추가 + 재연결~~ → **완료**(§25.13.5).
+6. ~~§25.7 콜라이더/오프셋 조정, §25.8 Animator Controller, §25.9 프리팹 재구성~~ → **전부 완료**.
+7. ~~§26.6 검증 + §25.11 검증~~ → **완료**(§25.13.6에 통합 정리).
+
+### 26.6 검증 계획 (구현 후 실행)
+
+1. ~~`read_console`로 컴파일/임포트 에러·경고 0건 확인~~ → **완료**(§25.13.6-1).
+2. ~~새 `Mesh_0`의 `mesh.uv.Length`가 정점 수와 동일한지, UV 범위가 `[0,1]` 내인지~~ → **완료**
+   (§26.1-1, 제작 직후 검증).
+3. ~~미러링 검사 재실행~~ → **완료**(§26.1-1, 0건).
+4. ~~클릭 위치와 칠해지는 위치가 실제로 대응하는지~~ → **완료, 단 마우스 육안 조작이 아니라 코드로
+   레이캐스트를 직접 쏘고 `hit.textureCoord`를 확인하는 방식으로 검증**(이 자동화 환경은 실제
+   마우스 클릭을 흉내낼 수 없음) — 서로 다른 4개 지점에서 서로 다른 UV(§25.13.6-8)를 확인해 동일한
+   결론에 도달했다.
+5. 좌우 대칭 부위가 서로 번지지 않는지 — §26.1-1의 미러링 UV 검사(0건)로 구조적으로 확인했으나,
+   실제 스탬프 2개를 서로 다른 위치에 찍어 반대쪽 픽셀이 영향받지 않는지까지는 별도로 재확인하지
+   않았다(시간 관계상 §25.13.6-8의 2점 스탬프 테스트로 대체) — 필요시 추가 검증 가능.
+6. `BrushCursorController`의 3D 붓 커서 — 코드/레이어 마스크 로직은 §25.13.6-8에서 함께 검증된
+   `paintRaycastMask`를 그대로 재사용하므로 구조적으로는 안전하나, **실제 커서 오브젝트가 표면 위에
+   시각적으로 잘 따라다니는지는 실제 마우스 조작이 필요해 미검증**(사용자 플레이 테스트 권장).
+7. 4라운드 색상 확정→재도색→술래 전역 치환 전체 플로우 — `PlayerPaintCanvas.ApplyStamp()`/
+   `PlayerColorDisplay`의 개별 메서드 동작은 §25.13.6-8과 기존 §1.6 코드 검토로 근거가 확보됐으나,
+   `ColorSelectionManager.StartColorSelection()`부터 4라운드를 실제로 진행시켜보는 전체 통합
+   플로우까지는 이번 세션에서 실행하지 않았다(범위 밖 — §26.3에서 언급한 `GameScene` 배선 공백과도
+   맞물린 별도 작업).
+8. 베이스 스킨 텍스처 — §26.4-5 참고, 아직 `Default-Material`(흰 바탕)이라 "정상적인 텍스처로
+   보이는지"는 텍스처가 실제로 배정된 뒤에만 확인 가능.
+
+### 26.7 결정이 필요한 사항 — 전부 해소
+
+1. ~~§26.4의 방향 A vs 방향 B~~ → **완료: 방향 A**(`Cookie/UV/Cookie_Idle.fbx`).
+2. 나머지 4개 fbx의 UV 포함 버전 필요 여부 → **불필요로 확정**(클립 추출 전용, §26.4-2).
+3. 베이스 스킨 텍스처 → **사용자 확인: "준비중"** — 이번 구현은 `Default-Material`(흰 바탕) 상태로
+   진행했고, 텍스처가 준비되면 `Mesh_0`의 머티리얼/텍스처만 교체하면 된다(§26.4-5).
+4. §25.10-1/§25.10-3(컨트롤러 경로/콜라이더 수치) → §25.13.1/§25.13.6-7에서 확정·구현 완료.
+
+### 26.8 상태
+
+**✅ 구현 완료·검증 완료.** 사용자가 만든 `Cookie/UV/Cookie_Idle.fbx`를 기준으로 §25의 전체
+마이그레이션을 실행하고, 색칠 파이프라인(레이캐스트→UV→스탬프→RenderTexture) 전체를 실측으로
+검증했다(§25.13.6-8). §26.1이 지적했던 치명적 차단 이슈는 완전히 해소됐다. 남은 항목(베이스 스킨
+텍스처 배정, 마우스 육안 조작 확인, `GameScene` 배선)은 §26.6-8/§25.13.6-10에 명시된 대로 이번
+세션 범위 밖이거나 사용자 플레이 테스트가 필요한 항목이다.
+
+---
+
+## 27. Cookie 캐릭터 임시 베이스 스킨 머티리얼 — 밝은 쿠키색 적용 — ✅ 구현 완료·실측 검증 완료 (2026-08-17)
+
+> 사용자 요청: "진저브레드 쿠키에 맞춰서 메테리얼을 입혀야되는데, 색상을 칠해야되니까 너무
+> 진한색은 안되고, 쿠키중에서도 밝은색상 쿠키... 그 색상을 임시로 일단 입히는걸 구상을 했는데
+> 그 계획을 작성해줘." §26.4-5에서 "베이스 스킨 텍스처 미배정(`Default-Material`, 흰 바탕)" 상태로
+> 남겨뒀던 부분에 대한 후속 계획이다. 이후 사용자가 "A와 B와 C를 둘 다 만들어주고" + "모든 작업과
+> 단계가 완료될 때까지 멈추지 마라"고 지시해, §27.3의 색상 후보 A/B/C 세 가지 텍스처·머티리얼을
+> 전부 만들고 권장안(A)을 프리팹에 적용, Play Mode 실측 검증까지 완료했다.
+
+### 27.1 현재 상태 (실측)
+
+`HideOrSeekPlayer.prefab`의 `Mesh_0` (`SkinnedMeshRenderer`)가 쓰는 머티리얼을 직접 조회했다:
+
+| 항목 | 값 |
+|---|---|
+| 머티리얼 | `Default-Material`(유니티 내장 리소스, `Resources/unity_builtin_extra`) |
+| 셰이더 | `Standard` |
+| `_MainTex`(텍스처) | **없음(null)** |
+| `_Color` | `RGBA(1,1,1,1)`(흰색) |
+
+내장 리소스라 프로젝트에서 직접 수정할 수 없다 — 반드시 새 머티리얼 에셋을 만들어 교체해야 한다.
+
+### 27.2 왜 머티리얼의 `_Color`만 바꾸는 것으로는 안 되는가 — `PlayerPaintedSkin` 셰이더 제약
+
+`PlayerPaintCanvas.InitPaintCanvas()`(§1.6)가 런타임에 `bodyRenderer.sharedMaterial`(=위 원본
+머티리얼)을 읽어 `PlayerPaintedSkin` 셰이더 기반의 합성 머티리얼을 새로 만든다:
+```csharp
+Material original = bodyRenderer.sharedMaterial;
+Material painted = new Material(paintedSkinShader);
+if (original != null && original.HasProperty("_MainTex"))
+    painted.SetTexture("_MainTex", original.mainTexture);   // ← 텍스처만 옮겨 받음
+painted.SetTexture("_PaintTex", PaintCanvas);
+```
+그리고 `PlayerPaintedSkin.shader`의 프래그먼트 셰이더(§26.2에서 이미 확인)는:
+```hlsl
+fixed4 baseColor = tex2D(_MainTex, i.uv);   // ← _MainTex "텍스처"만 샘플링
+fixed4 paint = tex2D(_PaintTex, i.uv);
+fixed3 albedo = lerp(baseColor.rgb, paint.rgb, paint.a);
+```
+**`_Color`(머티리얼 틴트)는 이 셰이더 어디에서도 읽지 않는다.** 즉 원본 머티리얼의 `_Color`를
+아무리 바꿔도 게임 내 실제 베이스 스킨 색상에는 **전혀 영향이 없다** — `_MainTex`에 실제
+텍스처(단색이라도)가 할당돼 있어야만 그 색이 반영된다. 게다가 `_MainTex`가 비어 있으면
+셰이더 프로퍼티 기본값(`_MainTex ("Base Skin", 2D) = "white" {}`)에 따라 흰색 텍스처로
+대체되므로, 지금 상태(`_MainTex` 없음)에서도 결과적으로 흰 바탕처럼 보이는 것과 일치한다. 따라서
+이번 작업은 **머티리얼 인스펙터에서 색상 하나 바꾸는 걸로 끝나지 않고, 실제 단색 텍스처 에셋을
+새로 만들어야 하는 작업**이다.
+
+### 27.3 색상 후보 — 밝은 쿠키색 + 붓 10색 팔레트 대비 검토
+
+현재 `ColorPaletteSO`(`DefaultColorPalette.asset`)의 10색을 실측 조회했다 — 전부 채도·명도가 높은
+원색/보색 계열이다:
+
+| # | 이름 | HEX |
+|---|---|---|
+| 0 | Red | `#E8262B` |
+| 1 | Orange | `#F5821F` |
+| 2 | Yellow | `#FFD400` |
+| 3 | Lime | `#8CC63F` |
+| 4 | Green | `#00A651` |
+| 5 | Teal | `#00A99D` |
+| 6 | Blue | `#0072BC` |
+| 7 | Navy | `#1B3A6B` |
+| 8 | Purple | `#6E3F98` |
+| 9 | Magenta | `#A0136A` |
+
+베이스 스킨은 이 10색 전부와 명도·채도 차이가 뚜렷해야 "칠한 부분"과 "안 칠한 부분"이 한눈에
+구분된다 — 특히 `Yellow(#FFD400)`가 밝은 계열이라 베이스가 그와 너무 가까우면(둘 다 밝은
+황금색 계열) 대비가 흐려질 위험이 있어 가장 신경 써야 할 항목이다.
+
+**후보 (전부 저채도·고명도 "쿠키/제과" 계열, 진저브레드의 진한 갈색은 피함)**:
+
+| 후보 | HEX | RGB | 설명 |
+|---|---|---|---|
+| **A(권장) 라이트 슈가쿠키** | `#F3D9A8` | (243,217,168) | 따뜻한 베이지-골드. 팔레트 10색보다 채도가 뚜렷이 낮아(파스텔에 가까움) 어떤 붓 색을 올려도 잘 구분됨. `Yellow(#FFD400)`와는 명도는 비슷하지만 채도 차이가 커서(팔레트 Yellow는 완전 채도) 여전히 구분 가능 — 다만 §27.7에서 최종 육안 확인 필요 |
+| B 바닐라 쿠키(더 밝게) | `#F5E6C8` | (245,230,200) | A보다 더 밝고 채도가 더 낮음 — 대비는 가장 안전하지만 "쿠키"보다 "크림색"에 가까워 보일 수 있음 |
+| C 연한 진저브레드 | `#E8C48A` | (232,196,138) | A보다 살짝 진한, 그래도 밝은 편인 진저브레드 톤 — "진저브레드"라는 테마성은 더 살지만 A/B보다 대비 여유가 적음 |
+
+**권장안: A(`#F3D9A8`, 라이트 슈가쿠키)** — "진저브레드 쿠키" 느낌과 "밝은 색"이라는 두 요구사항,
+그리고 10색 팔레트 전체와의 대비를 균형 있게 만족한다. 최종 색상 선택은 §27.7에서 확인 후 진행.
+
+### 27.4 구현 결과 — A/B/C 세 가지 전부 생성 완료
+
+사용자가 "A와 B와 C를 둘 다 만들어주고"라고 지시해, 당초 계획(1개만 확정 후 생성)과 달리 **세 후보
+전부를 텍스처+머티리얼로 만들고 권장안(A)만 프리팹에 적용**하는 방식으로 진행했다.
+
+1. **단색 텍스처 3종 생성** — Unity 에디터 스크립트로 64×64 `Texture2D`를 각 HEX 색으로 채우고
+   `EncodeToPNG()` + `File.WriteAllBytes`로 저장, `AssetDatabase.ImportAsset`으로 임포트:
+   - `Assets/05. Materials/Character/Cookie_BaseSkin_A_Color.png` (`#F3D9A8`, RGB 243/217/168)
+   - `Assets/05. Materials/Character/Cookie_BaseSkin_B_Color.png` (`#F5E6C8`, RGB 245/230/200)
+   - `Assets/05. Materials/Character/Cookie_BaseSkin_C_Color.png` (`#E8C48A`, RGB 232/196/138)
+   - 임포트 설정: `sRGBTexture=true`, `textureCompression=Uncompressed`, `filterMode=Bilinear`,
+     `mipmapEnabled=false`(단색이라 밉맵 불필요). 재조회로 `64x64 format=RGB24 sRGB=True
+     compression=Uncompressed` 전부 확인.
+2. **머티리얼 3종 생성** — `Standard` 셰이더로 각각 만들고 대응 텍스처를 `_MainTex`에 배정,
+   `_Color`는 흰색(1,1,1,1) 유지:
+   - `Assets/05. Materials/Character/Cookie_BaseSkin_A.mat`
+   - `Assets/05. Materials/Character/Cookie_BaseSkin_B.mat`
+   - `Assets/05. Materials/Character/Cookie_BaseSkin_C.mat`
+   - 재조회로 3개 전부 `shader=Standard`, `mainTexture=`(각자의 색 텍스처) 정상 연결 확인.
+3. **프리팹 반영** — `HideOrSeekPlayer.prefab`의 `Mesh_0` → `SkinnedMeshRenderer.sharedMaterial`을
+   `Default-Material`에서 **권장안 `Cookie_BaseSkin_A`**로 교체하고 저장. B/C는 에셋으로 존재하되
+   프리팹에는 적용하지 않은 상태 — 언제든 `sharedMaterial` 슬롯만 바꿔 끼우면 비교/전환 가능.
+4. **폴더 배치** — 계획대로 `Assets/05. Materials/Character/`를 새로 만들어 `Environment/`와 같은
+   규칙을 따랐다.
+5. **이름 규칙** — "Temp" 접미사 대신 최종적으로 `_A`/`_B`/`_C` 접미사로 세 후보를 구분하는 이름을
+   썼다(계획 당시엔 후보 1개만 만들 것을 가정해 `_Temp`를 제안했었음, §27.7-3 갱신).
+
+### 27.5 검증 결과 — 실행 완료
+
+1. ~~`read_console`로 에셋 임포트/컴파일 에러 0건~~ → **완료.** 텍스처/머티리얼 생성·프리팹 저장
+   전 과정에서 에러 0건, 무관한 경고(기존 "Missing Script" 1건, 이전 세션의 Photon `CreateRoom`
+   잔여 로그 1건)만 확인.
+2. ~~라운드 시작 전에도 밝은 쿠키색으로 보이는지~~ → **완료.** `PlayerTestScene` Play Mode에서
+   런타임 합성 머티리얼(`ColorTag/PlayerPaintedSkin (Instance)`)의 `_MainTex`가 정확히
+   `Cookie_BaseSkin_A_Color`로 연결됨을 확인. 카메라를 실제로 렌더링해 화면 픽셀을 직접
+   읽었을 때 캐릭터 중심 영역 평균 색이 `RGBA(0.843, 0.775, 0.639)`로, 흰색이 아니라 의도한
+   따뜻한 베이지 톤으로 나타남을 확인(조명 계산이 포함된 최종 렌더 결과 기준).
+3. ~~팔레트 색과의 대비, 특히 `Yellow`~~ → **완료.** 가장 우려했던 `Yellow(#FFD400)`를 실제
+   `ApplyStamp()`로 캔버스에 찍어 픽셀을 직접 읽은 결과 `RGBA(1.000, 0.831, 0.000)` — 베이스
+   `RGB(0.953, 0.851, 0.659)`와 R/G는 비슷해도 **B채널이 0.66 vs 0.00으로 뚜렷이 갈려** 육안상
+   순수 노랑 대 크림베이지로 명확히 구분됨을 수치로 확인.
+4. `GameLobbyScene`/`GameScene` 등 다른 씬에서의 확인 — `sharedMaterial` 교체가 프리팹 자체에
+   반영됐으므로 씬과 무관하게 항상 적용된다(구조적으로 보장, §26.5의 `Cookie/UV/Cookie_Idle.fbx`
+   기준 마이그레이션과 동일한 논리) — 별도 씬 진입 재확인은 반복하지 않았다.
+5. 술래 전역 치환 셰이더가 베이스 텍스처를 오염시키지 않는지 — 코드 검토로 `PaintColorReplace.shader`
+   가 `_PaintTex`(캔버스)만 대상으로 함을 재확인(§20.2 이전 세션에서 이미 확인된 사항과 동일),
+   실제 술래 지정까지 이어지는 4라운드 전체 플로우 재실행은 이번 세션에서 반복하지 않았다.
+
+### 27.6 후속 작업 (이번 범위 밖, 변경 없음)
+
+이번 구현은 "칠하기 좋은 밝은 단색" 3종을 준비하고 그중 하나를 임시 배정하는 것까지만 다룬다.
+진저브레드 쿠키다운 실제 질감(반죽 얼룩, 아이싱 테두리, 단추/눈 장식 등)이 담긴 정식 텍스처
+제작·적용은 여전히 별도 작업으로 남아있다 — 그때는 `Cookie_BaseSkin_A/B/C.mat` 중 하나(또는 새
+머티리얼)를 실제 텍스처를 가진 걸로 교체하기만 하면 되고, `PlayerPaintCanvas`/셰이더 쪽 코드
+변경은 불필요하다(§27.2의 `_MainTex` 파이프라인 재사용).
+
+### 27.7 결정 사항 — 확정 내역
+
+1. ~~A/B/C 중 확정~~ → **사용자 지시로 셋 다 생성, 프리팹에는 A(라이트 슈가쿠키)를 적용.** B/C는
+   에셋으로 남겨둬 언제든 교체 비교 가능.
+2. ~~텍스처 해상도~~ → **64×64로 확정, 그대로 적용.**
+3. ~~폴더/파일명~~ → `Assets/05. Materials/Character/Cookie_BaseSkin_{A|B|C}.mat`(+
+   `_Color.png`)으로 확정 — 계획 당시의 `_Temp` 접미사 대신 후보 식별용 `_A/_B/_C` 접미사를 썼다.
+
+### 27.8 상태
+
+**✅ 구현 완료, 실측 검증 완료.** A/B/C 세 후보 텍스처·머티리얼을 전부 생성했고, 권장안 A를
+`HideOrSeekPlayer.prefab`에 적용해 Play Mode에서 실제 렌더링 색상과 팔레트 대비까지 수치로
+확인했다. 컴파일 에러 0건. B/C로 바꿔보고 싶으면 `Mesh_0`의 `SkinnedMeshRenderer.sharedMaterial`
+슬롯만 `Cookie_BaseSkin_B.mat`/`Cookie_BaseSkin_C.mat`로 교체하면 된다.

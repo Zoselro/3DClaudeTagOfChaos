@@ -1,4 +1,4 @@
-Library: E:\3DClaudeTagOfChaos\TagOfChaos\Temp\BurstOutput\Data\Plugins\x86_64\lib_burst_generated
+Library: F:\3DClaudeTagOfChaos\TagOfChaos\Temp\BurstOutput\Data\Plugins\x86_64\lib_burst_generated
 --platform=Windows
 --minimum-os-version=
 --backend=burst-llvm-19
@@ -10,11 +10,11 @@ Library: E:\3DClaudeTagOfChaos\TagOfChaos\Temp\BurstOutput\Data\Plugins\x86_64\l
 --target-framework=NetFramework
 --linker-options=PdbAltPath="TagOfChaos_Data/Plugins/x86_64/lib_burst_generated.pdb"
 --generate-link-xml=Temp\burst.link.xml
---temp-folder=E:\3DClaudeTagOfChaos\TagOfChaos\Temp\Burst
+--temp-folder=F:\3DClaudeTagOfChaos\TagOfChaos\Temp\Burst
 --debug=Full
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.0.58f2/Editor/Data/PlaybackEngines/WindowsStandaloneSupport
---decode-folder=E:\3DClaudeTagOfChaos\TagOfChaos\Library\Burst
---output=E:\3DClaudeTagOfChaos\TagOfChaos\Temp\BurstOutput\Data\Plugins\x86_64\lib_burst_generated
+--decode-folder=F:\3DClaudeTagOfChaos\TagOfChaos\Library\Burst
+--output=F:\3DClaudeTagOfChaos\TagOfChaos\Temp\BurstOutput\Data\Plugins\x86_64\lib_burst_generated
 --pdb-search-paths=Temp/ManagedSymbols/
 
 --method=UnityEngine.Rendering.GPUResidentDrawerBurst, Unity.RenderPipelines.GPUDriven.Runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null::ClassifyMaterials(Unity.Collections.NativeArray`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]&, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Collections.NativeParallelHashMap`2+ReadOnly[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[UnityEngine.Rendering.BatchMaterialID, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]&, Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Collections.NativeList`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]&, Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Collections.NativeList`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]&, Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Collections.NativeList`1[[UnityEngine.Rendering.GPUDrivenPackedMaterialData, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]&, Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null)--f259e9421b556600f769263137cdc7bc
@@ -107,11 +107,11 @@ Library: E:\3DClaudeTagOfChaos\TagOfChaos\Temp\BurstOutput\Data\Plugins\x86_64\l
 --target-framework=NetFramework
 --linker-options=PdbAltPath="TagOfChaos_Data/Plugins/x86_64/lib_burst_generated.pdb"
 --generate-link-xml=Temp\burst.link.xml
---temp-folder=E:\3DClaudeTagOfChaos\TagOfChaos\Temp\Burst
+--temp-folder=F:\3DClaudeTagOfChaos\TagOfChaos\Temp\Burst
 --debug=Full
 --key-folder=C:/Program Files/Unity/Hub/Editor/6000.0.58f2/Editor/Data/PlaybackEngines/WindowsStandaloneSupport
---decode-folder=E:\3DClaudeTagOfChaos\TagOfChaos\Library\Burst
---output=E:\3DClaudeTagOfChaos\TagOfChaos\Temp\BurstOutput\Data\Plugins\x86_64\lib_burst_generated
+--decode-folder=F:\3DClaudeTagOfChaos\TagOfChaos\Library\Burst
+--output=F:\3DClaudeTagOfChaos\TagOfChaos\Temp\BurstOutput\Data\Plugins\x86_64\lib_burst_generated
 --pdb-search-paths=Temp/ManagedSymbols/
 
 --method=UnityEngine.Rendering.GPUResidentDrawerBurst, Unity.RenderPipelines.GPUDriven.Runtime, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null::ClassifyMaterials(Unity.Collections.NativeArray`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]&, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Collections.NativeParallelHashMap`2+ReadOnly[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[UnityEngine.Rendering.BatchMaterialID, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]&, Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Collections.NativeList`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]&, Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Collections.NativeList`1[[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]&, Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null|Unity.Collections.NativeList`1[[UnityEngine.Rendering.GPUDrivenPackedMaterialData, UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]&, Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null)--f259e9421b556600f769263137cdc7bc

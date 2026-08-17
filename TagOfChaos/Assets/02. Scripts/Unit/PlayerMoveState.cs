@@ -2,7 +2,7 @@ public enum PlayerMoveState
 {
     Idle,
     Walk,
-    SneakWalk,
+    Run,
     Jump,
     Dodge
 }

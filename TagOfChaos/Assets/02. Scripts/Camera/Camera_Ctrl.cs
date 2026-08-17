@@ -45,7 +45,7 @@ void Start()
         if (m_Player == null) return;
 
         m_TargetPos = m_Player.transform.position;
-        m_TargetPos.y += 1.4f;
+        m_TargetPos.y += 1.5f; // Cookie 캐릭터 키가 옛 모델 대비 약 7% 커져 비례 조정(PlayerControllPlan.md §25.7)
 
         m_RotH = m_DefaultRotH;
         m_RotV = m_DefaultRotV;
@@ -63,7 +63,7 @@ void Start()
         if (m_Player == null) return;
 
         m_TargetPos = m_Player.transform.position;
-        m_TargetPos.y += 1.4f;
+        m_TargetPos.y += 1.5f; // Cookie 캐릭터 키가 옛 모델 대비 약 7% 커져 비례 조정(PlayerControllPlan.md §25.7)
 
         if (Input.GetMouseButton(1)) // 우클릭 드래그로 시점 회전은 그대로 유지
         {

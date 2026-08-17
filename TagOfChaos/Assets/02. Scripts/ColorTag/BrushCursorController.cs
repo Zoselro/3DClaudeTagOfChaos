@@ -94,7 +94,10 @@ public override void OnDisable()
 
         if (!hitSurface) return;
 
-        cursorInstance.transform.SetPositionAndRotation(hit.point, Quaternion.FromToRotation(Vector3.up, hit.normal));
+        // 콜라이더가 이제 실시간 포즈를 반영하지만(§20.6), 모델 두께에 따라 표면에 딱 붙어
+        // 파고든 것처럼 보일 수 있어 법선 방향으로 살짝 띄운다(Bug-fix-plan.md §20.7).
+        Vector3 cursorPos = hit.point + hit.normal * brushSettings.CursorSurfaceOffset;
+        cursorInstance.transform.SetPositionAndRotation(cursorPos, Quaternion.FromToRotation(Vector3.up, hit.normal));
 
         float scale = localPaintCanvas.CurrentBrushRadius / brushSettings.DefaultRadius * brushSettings.CursorWorldScale;
         cursorInstance.transform.localScale = Vector3.one * scale;

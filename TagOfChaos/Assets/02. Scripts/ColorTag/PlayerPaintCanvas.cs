@@ -31,6 +31,21 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     private int trackedRoundIndex = -1;
     private int paintRaycastMask;
 
+    // Mesh_0의 MeshCollider는 스킨 애니메이션을 따라가지 않고 임포트 시점 바인드 포즈에 고정돼
+    // 있어, 실제 화면에 보이는 포즈와 레이캐스트 대상 표면이 크게 어긋나는 문제가 있었다 —
+    // 상체가 안 칠해지고 붓 커서가 몸속으로 파고들어 보이던 원인(Bug-fix-plan.md §20). 로컬
+    // 플레이어가 색상 라운드를 진행 중일 때만 매 프레임 현재 포즈를 구워 콜라이더에 반영한다.
+    private MeshCollider paintableMeshCollider;
+    private SkinnedMeshRenderer skinnedBodyRenderer;
+    private Mesh bakedColliderMesh;
+
+    // BakeMesh(정점 16만개대) + MeshCollider 재계산(cook)이 프레임당 약 6ms 이상 들어(Play Mode
+    // 실측: 매 프레임 갱신 시 257fps -> 15fps로 급락) 매 프레임 수행하면 안 된다 — 3프레임에 1번만
+    // 갱신해 비용을 1/3로 줄인다. 붓칠은 마우스를 천천히 움직이며 하는 조작이라 2프레임(약 0.03~0.05초)
+    // 지연은 체감상 무시할 수준이다(Bug-fix-plan.md §20.6-4/§20.8-6).
+    private const int ColliderRefreshInterval = 3;
+    private int colliderRefreshCounter;
+
 private void Start()
     {
         localCamera = Camera.main;
@@ -40,6 +55,14 @@ private void Start()
         // (Bug-fix-plan.md §17).
         paintRaycastMask = Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule");
         InitPaintCanvas();
+
+        paintableMeshCollider = paintableCollider as MeshCollider;
+        skinnedBodyRenderer = bodyRenderer as SkinnedMeshRenderer;
+        if (paintableMeshCollider != null && skinnedBodyRenderer != null)
+        {
+            bakedColliderMesh = new Mesh();
+            bakedColliderMesh.name = $"BakedColliderMesh_{gameObject.name}_{pv.ViewID}";
+        }
     }
 
     // 인스턴스 전용 RenderTexture를 만들고, 캐릭터 렌더러에 원본 스킨 + 페인트를 합성하는 머티리얼을 입힌다
@@ -78,6 +101,14 @@ private void Start()
         if (!pv.IsMine) return;
         if (!IsColorRoundActive()) return;
 
+        // 붓칠 레이캐스트보다 먼저 — 이번 프레임(또는 최근 몇 프레임 내) 포즈를 콜라이더에 반영(§20)
+        colliderRefreshCounter++;
+        if (colliderRefreshCounter >= ColliderRefreshInterval)
+        {
+            colliderRefreshCounter = 0;
+            RefreshColliderMesh();
+        }
+
         HandleBrushSizeInput();
 
         if (!Input.GetMouseButton(0)) return;
@@ -92,6 +123,36 @@ private void Start()
         if (voteColor < 0) return; // 아직 붓에 담긴 색이 없으면 칠하지 않음
 
         StampBrush(hit.textureCoord, voteColor);
+    }
+
+    // 현재 애니메이션 포즈를 구워 MeshCollider에 반영(Bug-fix-plan.md §20.6 A안).
+    // 같은 Mesh 객체의 내용만 갱신해서 재대입하면 PhysX가 변경을 인식하지 못하는 경우가 있어,
+    // sharedMesh를 매번 null로 비웠다가 다시 대입해 강제로 재계산(cook)시킨다 — Play Mode
+    // 실측으로 이렇게 해야 실제로 반영됨을 확인했다(§20.6-5/§20.8-3).
+    //
+    // BakeMesh(mesh, useScale:false)의 결과 정점은 렌더러 자신의 Transform.localScale(Cookie
+    // 캐릭터의 경우 100배 — 블렌더 재수출 과정에서 생긴 보정용 스케일, §25.1)이 적용되지 않은
+    // "축소된" 좌표계다. MeshCollider는 자신이 속한 GameObject의 Transform(이 100배 스케일 포함)을
+    // 그대로 다시 적용하므로, 아무 보정 없이 그대로 대입하면 스케일이 이중으로 적용돼 콜라이더가
+    // 실제 몸보다 약 100배 커져버린다(Play Mode 실측으로 확인). 그래서 굽고 난 뒤 localScale의
+    // 역수를 미리 곱해 상쇄해둔다 — GameObject Transform이 다시 곱해지면 정확히 1배로 돌아온다.
+    private void RefreshColliderMesh()
+    {
+        if (paintableMeshCollider == null || skinnedBodyRenderer == null) return;
+
+        skinnedBodyRenderer.BakeMesh(bakedColliderMesh, false);
+
+        Vector3 localScale = skinnedBodyRenderer.transform.localScale;
+        Vector3[] verts = bakedColliderMesh.vertices;
+        for (int i = 0; i < verts.Length; i++)
+        {
+            verts[i] = new Vector3(verts[i].x / localScale.x, verts[i].y / localScale.y, verts[i].z / localScale.z);
+        }
+        bakedColliderMesh.vertices = verts;
+        bakedColliderMesh.RecalculateBounds();
+
+        paintableMeshCollider.sharedMesh = null;
+        paintableMeshCollider.sharedMesh = bakedColliderMesh;
     }
 
     // 마우스 휠로 붓 크기를 min~max 범위 내에서 조절
@@ -209,6 +270,12 @@ private void OnDestroy()
         {
             PaintCanvas.Release();
             PaintCanvas = null;
+        }
+
+        if (bakedColliderMesh != null)
+        {
+            Destroy(bakedColliderMesh);
+            bakedColliderMesh = null;
         }
     }
 }

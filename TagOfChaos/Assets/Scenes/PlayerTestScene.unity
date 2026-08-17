@@ -294,7 +294,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 8556bfacb23eaff4f8d5372df15e3f78, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -360,19 +360,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!134 &785024899
-PhysicsMaterial:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: 
-  serializedVersion: 2
-  m_DynamicFriction: 0.6
-  m_StaticFriction: 0.6
-  m_Bounciness: 0
-  m_FrictionCombine: 0
-  m_BounceCombine: 0
 --- !u!1 &872399229
 GameObject:
   m_ObjectHideFlags: 0
@@ -1325,11 +1312,15 @@ PrefabInstance:
     - target: {fileID: 4978923710082251601, guid: cccfc236a33ad40479d03c3e11a6467c, type: 3}
       propertyPath: m_Material
       value: 
-      objectReference: {fileID: 785024899}
+      objectReference: {fileID: 0}
     - target: {fileID: 8262779534870907500, guid: cccfc236a33ad40479d03c3e11a6467c, type: 3}
       propertyPath: sceneViewId
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 9080992935516163813, guid: cccfc236a33ad40479d03c3e11a6467c, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: a8e0827426930614b81f7af2d630a730, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

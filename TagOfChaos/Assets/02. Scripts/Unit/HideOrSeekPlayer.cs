@@ -81,15 +81,16 @@ private void Awake()
             rb.constraints = RigidbodyConstraints.FreezeRotation;  // 회전은 transform.LookAt으로 직접 제어, 물리 충돌로 인한 회전(넘어짐)은 막음
         }
 
-        // Ch36(캐릭터 몸통 메시)은 콘케이브 메시 콜라이더 에러를 피하려고 별도의 키네마틱 Rigidbody를
-        // 갖고 있는데(§21), 그 결과 루트의 CapsuleCollider와는 서로 다른 물리 바디가 되어버려 매
-        // 물리 스텝마다 자기 자신과 충돌 판정을 일으키고 있었다 — 위치는 고정된 채 속도만 거대하고
-        // 불규칙해지는 원인이었다(Bug-fix-plan.md §14). 같은 캐릭터의 일부이므로 명시적으로 서로의
-        // 충돌을 무시한다(로컬/원격 모두 동일한 구조라 IsMine 여부와 무관하게 적용).
+        // Mesh_0(캐릭터 몸통 메시, 옛 Ch36에서 Cookie 마이그레이션으로 개명됨, PlayerControllPlan.md §25/§26)은
+        // 콘케이브 메시 콜라이더 에러를 피하려고 별도의 키네마틱 Rigidbody를 갖고 있는데(§21), 그 결과
+        // 루트의 CapsuleCollider와는 서로 다른 물리 바디가 되어버려 매 물리 스텝마다 자기 자신과 충돌
+        // 판정을 일으키고 있었다 — 위치는 고정된 채 속도만 거대하고 불규칙해지는 원인이었다
+        // (Bug-fix-plan.md §14). 같은 캐릭터의 일부이므로 명시적으로 서로의 충돌을 무시한다(로컬/원격
+        // 모두 동일한 구조라 IsMine 여부와 무관하게 적용).
         Collider rootCollider = GetComponent<CapsuleCollider>();
-        Collider ch36Collider = transform.Find("Ch36")?.GetComponent<Collider>();
-        if (rootCollider != null && ch36Collider != null)
-            Physics.IgnoreCollision(rootCollider, ch36Collider, true);
+        Collider bodyMeshCollider = transform.Find("Mesh_0")?.GetComponent<Collider>();
+        if (rootCollider != null && bodyMeshCollider != null)
+            Physics.IgnoreCollision(rootCollider, bodyMeshCollider, true);
     }
 
     private void Update()
@@ -175,8 +176,8 @@ private void Awake()
 
             if (!isJump && !isDodge) // 점프와 회피 중이 아닐 때만 이동 애니메이션 상태 변경
             {
-                bool isSneaking = Input.GetKey(KeyCode.LeftShift);
-                animationDriver.ChangeState(isSneaking ? PlayerMoveState.SneakWalk : PlayerMoveState.Walk);
+                bool isRunning = Input.GetKey(KeyCode.LeftShift);
+                animationDriver.ChangeState(isRunning ? PlayerMoveState.Run : PlayerMoveState.Walk);
             }
         }
         else
@@ -242,9 +243,9 @@ private void Awake()
             vel = speed; // CheckDodgeInput에서 이미 2배로 올려둔 speed
             lookDir = new Vector3(dodgeMoveDir.x, 0f, dodgeMoveDir.z);
         }
-        else // Shift를 눌렀을 경우 일반 스피드의 30% 속도만큼 감. 아니면 100% 속도 유지 — 점프/낙하 중에도 동일하게 적용(PlayerControllPlan.md §24)
+        else // Shift를 눌렀을 경우 기본 속도의 +30%(질주). 아니면 100% 속도 유지 — 점프/낙하 중에도 동일하게 적용(PlayerControllPlan.md §24/§25)
         {
-            vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 0.3f : baseSpeed;
+            vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 1.3f : baseSpeed;
             dir = rotation;
             lookDir = new Vector3(rotation.x, 0f, rotation.z);
         }
