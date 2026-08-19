@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 983ffc70a1dba8f43a11e587062e8867
+guid: 04bfefe45a059c3449f7798325d0bf9d
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -34,8 +34,8 @@ ModelImporter:
       name: Idle
       takeName: Scene
       internalID: -623603649343465320
-      firstFrame: 1
-      lastFrame: 96
+      firstFrame: 2
+      lastFrame: 49
       wrapMode: 0
       orientationOffsetY: 0
       level: 0

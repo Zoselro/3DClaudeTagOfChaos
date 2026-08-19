@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: c1ee8d02a0727c84eb456e57ea0ad781
+guid: a0d4d218f875902429c7ec4246eb0aa6
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
@@ -34,8 +34,8 @@ ModelImporter:
       name: TentacleDash
       takeName: Scene
       internalID: -623603649343465320
-      firstFrame: 1
-      lastFrame: 36
+      firstFrame: 2
+      lastFrame: 61
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
