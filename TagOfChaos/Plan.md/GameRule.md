@@ -1,6 +1,37 @@
-# GameRule.md — 숨바꼭질(쿠키) + 술래잡기(괴물) 본게임 설계 (v3, 2026-08-18)
+# GameRule.md — 숨바꼭질(쿠키) + 술래잡기(괴물) 본게임 설계 (v3.3, 2026-08-19)
 
-> **v3 대비 변경 요약**(이번 개정 사유, 사용자 확인):
+> **v3.3 대비 변경 요약**(이번 개정 사유, 2026-08-19 사용자 지시 + 실제 코드베이스/에셋 파일
+> 직접 확인 결과 반영):
+> 1. **쿠키 스킨(색상 A/B/C) 선택을 `GameLobbyScene` 진입 시점으로 확정.**
+>    `Assets/05. Materials/Character/Cookie_BaseSkin_{A,B,C}.mat`(+각 `_Color.png`)가 이미
+>    3벌 모두 확보돼 있었으나(`research.md` §4.6에서 "B/C 미배선"으로 지적됐던 바로 그 에셋)
+>    선택 UI·네트워크 동기화가 없었다 — 신규 §1.5로 설계를 채운다.
+> 2. **색칠 판정 방식(§3) 재검토 — "붓이 몸에 닿아야 칠해지는" 현재 방식을 Ray(레이) 발사
+>    방식으로 바꾸는 논의를 시작한다.** 사용자 우려: "붓 자체도 어떻게 보면 닿아야 되는거기
+>    때문에 나중에 버그가 생길 요지가 있다." 이 우려는 이 프로젝트의 실제 커밋 이력과 정확히
+>    맞아떨어진다(`16c662b`의 "상체 색칠 안됨 및 붓 커서가 몸안에 파고드는 현상 수정" 커밋,
+>    `PlayerPaintCanvas.cs` 내부의 `Bug-fix-plan.md §17/§20` 주석 다수) — §3.7 신규.
+> 3. **괴물 3D 모델·애니메이션 4종(`Monster_T_Pose`/`Idle`/`Walk`/`TentacleDash`/`GrabKill`)이
+>    실제로 확보·임포트돼 있음을 파일로 직접 확인.** `Assets/Animation/Monster/Monster_Rigged*.fbx`
+>    5개 + `Assets/Animation/MonsterAnimator.controller`(Idle/Walk/TentacleDash/GrapKill 4개
+>    트리거 파라미터, `Monster_Rigged.fbx.meta`의 `animationType: 2`로 Generic 리그 확인)를
+>    직접 열어봤다 — §10.3/§10.4/§11.1 갱신, §14.1의 "최우선 미확보" 항목 다수 해소.
+> 4. **신규 스킬 `TentacleDash` 설계.** 쿨타임 15초, 사거리 20m 돌진기 — §4.3 신규.
+> 5. **`GrabKill` 자동 처형 메커니즘을 §4.2("타격 2회: 균열→파괴")의 대체안으로 제안.**
+>    "Player가 범위 안에 들어오면 자동으로 발동"이라는 이번 지시는 v3.2가 열어뒀던 §12-1
+>    (타격 트리거 방식)을 "자동 근접"으로 확정하는 동시에, 수동 `MonsterStrikeAttack` 타격
+>    골격 자체를 대체하는지 새로 묻는다 — §4.4 신규, 관계는 §4.4 말미의 열린 질문 참고.
+> 6. **가마솥(`Cauldron`) 3D 모델 확보 확인.** `TagOfChaos/리소스/솥단지.glb`(Unity `Assets/`
+>    바깥의 임포트 대기 스테이징 폴더 — `괴물.glb`가 `Monster_Rigged.fbx`로 임포트되기 전
+>    같은 폴더에 있었던 것과 동일한 성격)에서 확인됨, 아직 `Assets/`로 임포트되지 않은 상태다.
+>    §2.1/§10.3 갱신.
+>
+> **이번에도 실제 스크립트/에셋 배선 작업은 진행하지 않는다** — 설계 문서 갱신까지만
+> 수행한다(v3와 동일한 원칙 유지, 사용자 확인 전 착수 금지).
+
+---
+
+> **v3 대비 변경 요약**(2026-08-18, 이전 개정 사유 — 참고용으로 보존):
 > 1. **마녀(Witch) 캐릭터 → 괴물(Monster)로 전면 교체.** 마녀 프리팹은 제거하고, 신규 괴물
 >    3D 모델로 대체한다. 참고 이미지("괴물 T-pose.png")는 최초 조사 시점엔 프로젝트에 없었으나,
 >    **같은 날 사용자가 다시 반입해 `Assets/Screenshots/괴물 T-pose.png` +
@@ -59,7 +90,7 @@
 ## 1. 전체 게임 플로우 (v3.2 갱신)
 
 ```
-GameLobbyScene (대기실 — 문 4개 + 가마솥)
+GameLobbyScene (대기실 — 문 4개 + 가마솥, 입장 즉시 스킨 선택 가능(§1.5))
   ├─ 아무 쿠키나 가마솥에 들어감 → 선착순 괴물 확정(§2.1)
   │    └─ 예외: MonsterSelectTimeout(예: 30초) 안에 아무도 안 들어가면 마스터가 랜덤 1인 배정
   ├─ 연출(보글보글→짜잔) + 괴물 프리팹 교체(§2.2)
@@ -76,6 +107,131 @@ GameScene (쿠키만 입장)
         ├─ 괴물 전원 퇴장 시 5초 경고 후 GameLobbyScene 복귀(§7)
         └─ 승리 판정(§8) — 전원 파괴→괴물 승, 10분 생존→쿠키 승, 결과 화면(§8.2) 표시
 ```
+
+---
+
+## 1.5 쿠키 스킨(색상 A/B/C) 선택 — `GameLobbyScene` 진입 시 (신규, v3.3)
+
+사용자 지시: "쿠키(Player)는 처음에 GameLobbyScene으로 입장할 때, 색상 A, 색상 B, 색상 C 중에서
+선택해서 고르는 걸 시작으로 하는 방향으로 가는 걸 원해." 이 세 가지 스킨은 이미 프로젝트에
+존재한다 — `research.md` §4.6이 지적했던 "에셋만 있고 미배선" 상태의 바로 그 머티리얼이다:
+
+```
+Assets/05. Materials/Character/Cookie_BaseSkin_A.mat (+ Cookie_BaseSkin_A_Color.png)
+Assets/05. Materials/Character/Cookie_BaseSkin_B.mat (+ Cookie_BaseSkin_B_Color.png)
+Assets/05. Materials/Character/Cookie_BaseSkin_C.mat (+ Cookie_BaseSkin_C_Color.png)
+```
+세 `.mat` 모두 Unity 기본 Standard 셰이더(`m_Shader: {fileID: 46, ...}`)를 쓰고 `_MainTex`
+프로퍼티로 컬러 텍스처를 물고 있음을 직접 열어 확인했다 — 이는 정확히
+`PlayerPaintCanvas.InitPaintCanvas()`가 이미 읽고 있는 바로 그 프로퍼티다(아래 실제 코드):
+
+```csharp
+// PlayerPaintCanvas.cs — InitPaintCanvas() 중 실제 코드, 변경 없이 그대로 재사용 가능
+Material original = bodyRenderer.sharedMaterial;
+Material painted = new Material(paintedSkinShader);
+if (original != null && original.HasProperty("_MainTex"))
+    painted.SetTexture("_MainTex", original.mainTexture);
+painted.SetTexture("_PaintTex", PaintCanvas);
+```
+즉 **스폰 시점에 `bodyRenderer.sharedMaterial`을 A/B/C 중 선택된 것으로 미리 바꿔두기만 하면**,
+`PlayerPaintCanvas.cs`는 한 줄도 수정할 필요 없이 스킨별 베이스 컬러를 자동으로 페인트 합성
+머티리얼에 반영한다.
+
+### 1.5.1 동기화 설계 — 소유권 원칙 그대로 재사용
+
+스킨 선택은 "그 캐릭터 소유자만 자기 값을 쓰고, 다른 모두가 소유권과 무관하게 그 값을 읽어
+표시한다"는 이 프로젝트의 기존 패턴(`VoteColorIndex`/`PlayerColorVoteIndicator`,
+`RegisteredSlotCount` 등)과 완전히 같은 성격이다.
+
+```csharp
+// NetKeys.cs — 신규 추가 (v3.3)
+public const string SkinIndex = "SkinIndex"; // Player CustomProperty, int 0=A/1=B/2=C, 기본값 0(A)
+```
+
+```csharp
+// Assets/02. Scripts/Lobby/PlayerSkinSelector.cs (신규) — GameLobbyScene의 스킨 선택 UI에 부착
+using ExitGames.Client.Photon;
+using Photon.Pun;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class PlayerSkinSelector : MonoBehaviour
+{
+    [SerializeField] private Button skinAButton;
+    [SerializeField] private Button skinBButton;
+    [SerializeField] private Button skinCButton;
+
+    private void Awake()
+    {
+        skinAButton.onClick.AddListener(() => SelectSkin(0));
+        skinBButton.onClick.AddListener(() => SelectSkin(1));
+        skinCButton.onClick.AddListener(() => SelectSkin(2));
+    }
+
+    // 대기실에서 언제든 다시 눌러 바꿀 수 있다 — 강제 선택이 아니며, 한 번도 안 누르면 기본값(A)로 스폰된다.
+    private void SelectSkin(int index)
+    {
+        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.SkinIndex, index } });
+    }
+}
+```
+
+```csharp
+// Assets/02. Scripts/Unit/PlayerSkinApplier.cs (신규) — HideOrSeekPlayer.prefab에 부착.
+// bodyRenderer는 PlayerPaintCanvas.bodyRenderer와 인스펙터에서 동일한 SkinnedMeshRenderer를 연결한다.
+//
+// Awake()에서 적용하는 이유: Unity는 같은 프레임 안에서 "씬(또는 Instantiate)에 있는 모든
+// 컴포넌트의 Awake가 전부 끝난 뒤에야 비로소 아무 컴포넌트의 Start가 시작된다"를 보장한다 —
+// HideOrSeekPlayer.Awake()가 networkSync를 IsMine 여부와 무관하게 최우선 생성하는 것과 정확히
+// 같은 근거(research.md §5.7). 여기서 sharedMaterial을 미리 바꿔두면, 나중에 실행되는
+// PlayerPaintCanvas.Start()의 InitPaintCanvas()가 "bodyRenderer.sharedMaterial의 _MainTex를
+// 읽어 합성 머티리얼을 만드는" 시점에는 이미 올바른 스킨이 반영돼 있다.
+using ExitGames.Client.Photon;
+using Photon.Pun;
+using Photon.Realtime;
+using UnityEngine;
+
+public class PlayerSkinApplier : MonoBehaviourPunCallbacks
+{
+    [SerializeField] private PhotonView pv;
+    [SerializeField] private Renderer bodyRenderer; // PlayerPaintCanvas.bodyRenderer와 동일한 렌더러
+    [SerializeField] private Material[] skins; // 인덱스 0=A/1=B/2=C — Cookie_BaseSkin_A/B/C 연결
+
+    private void Awake()
+    {
+        ApplySkin();
+    }
+
+    // 다른 클라이언트 관점에서 이 캐릭터가 스폰된 시점에 소유자의 SkinIndex가 아직 서버에
+    // 반영되기 전이었을 가능성에 대한 방어 — GameManager.md류 기존 문서가 여러 번 지적해온
+    // "네트워크 프로퍼티 도착 순서가 스폰 순서를 보장하지 않는다"는 이 프로젝트의 반복되는
+    // 전제와 동일 계열이다. 값이 늦게 도착하면 이 콜백이 재적용한다.
+    public override void OnPlayerPropertiesUpdate(Player targetPlayer, Hashtable changedProps)
+    {
+        if (targetPlayer != pv.Owner) return;
+        if (!changedProps.ContainsKey(NetKeys.SkinIndex)) return;
+        ApplySkin();
+    }
+
+    private void ApplySkin()
+    {
+        if (bodyRenderer == null || skins == null || skins.Length == 0 || pv.Owner == null) return;
+
+        int index = pv.Owner.CustomProperties.TryGetValue(NetKeys.SkinIndex, out object v) ? (int)v : 0;
+        index = Mathf.Clamp(index, 0, skins.Length - 1);
+        bodyRenderer.sharedMaterial = skins[index];
+    }
+}
+```
+
+### 1.5.2 UI 배치
+
+`GameLobbyScene`은 이미 `PlayerSpawnPos`/`VoidKillZone`이 배치돼 있어 대기실에서도 캐릭터가
+실제로 스폰돼 돌아다닐 수 있는 씬이다(`research.md` §3 씬 배선 표) — 즉 스킨을 고르면 대기실
+안에서 바로 자기 캐릭터에 반영된 모습을 눈으로 확인할 수 있다. `PlayerSkinSelector`가 부착된
+`SkinSelectPanel.prefab`(§10.2 D 신규)을 `GameLobbyUICanvas`에 상시 노출 형태로 배치하고,
+"게임 시작" 버튼과는 독립적으로 언제든 눌러 바꿀 수 있게 한다(강제 진행형 팝업이 아님 — 정원이
+찰 때까지 대기하는 동안 자연스럽게 고르는 것을 전제로 함).
 
 ---
 
@@ -143,6 +299,15 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
 > 1명이다. `MonsterActorNumbers`를 처음부터 배열로 설계해둔 것은 §7의 이탈 처리 시나리오가
 > 다중 괴물을 전제하기 때문이며, 나중에 인원수가 늘어나도 배열 길이만 늘리면
 > §2.2(리빌)/§4.2(타격)/§7(이탈 처리)/§8(승리 판정) 전부 그대로 동작한다.
+
+> 📌 **가마솥 3D 모델 확보 확인(v3.3)**: `TagOfChaos/리소스/솥단지.glb`에서 실제 파일을 확인했다.
+> 이 `리소스/` 폴더는 Unity `Assets/` 바깥에 있는 임포트 대기 스테이징 폴더로, 몬스터 모델도
+> 같은 폴더의 `괴물.glb`로 있다가 `Assets/Animation/Monster/Monster_Rigged.fbx` 계열로 이미
+> 임포트 완료된 전례가 있다(§10.3, §11.1). `솥단지.glb`는 아직 `Assets/`로 임포트되지 않은
+> 상태이므로, `Cauldron.prefab`(§10.2 C)에 실제로 붙이려면 먼저 Unity 프로젝트 안(예:
+> `Assets/Animation/Cauldron/` 또는 `Assets/04. Prefabs/` 하위 적절한 위치)으로 임포트하는
+> 작업이 선행돼야 한다 — 이 임포트 자체는 §14.3과 같은 성격의 "결정 사항이 아니라 구현 작업"
+> 이라 사용자 확인 없이 진행 가능하다.
 
 ### 2.2~2.4 (명칭만 교체, 로직은 v2와 동일)
 
@@ -301,6 +466,115 @@ private void ApplyForcedColorIfAssignedToMe()
 }
 ```
 
+### 3.7 색칠 판정 방식 재검토 — "닿아야 함" → Ray 발사 방식 전환 논의 (신규, v3.3, 열린 논의)
+
+사용자 지시: "색칠하는 것을 생각해보니 Ray를 쏘는 방식으로 하는 건 어떨지에 대한 논의가
+필요해 보여. 붓 자체도 어떻게 보면 닿아야 되는 거기 때문에 나중에 버그가 생길 요지가 있어
+보여." 아래는 이 우려를 실제 코드와 대조해 근거를 확인하고, 구체적인 대안을 제시하는 절이다
+— **아직 확정된 변경이 아니라 §12에 열린 질문으로 등록된 논의**다.
+
+#### 3.7.1 현재 방식이 정확히 무엇에 "닿아야" 하는지 (실제 코드 근거)
+
+`PlayerPaintCanvas.cs`의 붓칠 판정은 이미 레이캐스트를 쓰고 있다 — 문제는 레이 자체가 아니라
+**레이가 맞아야 하는 대상**이다. 실제 코드:
+
+```csharp
+// PlayerPaintCanvas.cs Update() 중 실제 코드
+Ray ray = localCamera.ScreenPointToRay(Input.mousePosition);
+if (!Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, paintRaycastMask)) return;
+if (hit.collider != paintableCollider) return; // 자신의 오브젝트가 아니면 무시
+```
+
+`paintableCollider`는 고정된 콜라이더가 아니라 **매 3프레임마다 그 순간의 애니메이션 포즈를
+구워(bake) 새로 만드는 `MeshCollider`**다 — `RefreshColliderMesh()`의 실제 코드와 주석:
+
+```csharp
+// PlayerPaintCanvas.cs RefreshColliderMesh() 중 실제 코드 + 주석(원문 그대로)
+// BakeMesh(정점 16만개대) + MeshCollider 재계산(cook)이 프레임당 약 6ms 이상 들어(Play Mode
+// 실측: 매 프레임 갱신 시 257fps -> 15fps로 급락) 매 프레임 수행하면 안 된다
+skinnedBodyRenderer.BakeMesh(bakedColliderMesh, false);
+...
+paintableMeshCollider.sharedMesh = null;
+paintableMeshCollider.sharedMesh = bakedColliderMesh; // 강제 재계산(cook) 트리거
+```
+
+즉 사용자가 말한 "붓이 닿아야 함"은 곧 **"매 3프레임 다시 구워진, 그 순간의 실시간 포즈를
+반영한 스킨 메시 콜라이더에 정확히 맞아야 함"**이라는 뜻이다. 이 부분은 이미 실제로 여러 번
+버그를 일으킨 이력이 있다 — `git log`에 남은 커밋 `16c662b`("상체 색칠 안됨 및 붓 커서가
+몸안에 파고드는 현상 수정")가 정확히 이 메커니즘 때문에 생긴 버그의 수정 커밋이고, 코드
+안에도 `Bug-fix-plan.md §17/§20.6/§20.7/§20.8` 등 같은 영역을 반복 수정한 주석이 다수 남아
+있다. 사용자의 우려는 추측이 아니라 **이 프로젝트에서 이미 실증된 버그 패턴**이다.
+
+#### 3.7.2 대안 A(권장) — 실시간 베이크 콜라이더를 정적 프록시 콜라이더로 교체
+
+핵심 아이디어: 붓칠 판정 대상을 "매 프레임 바뀌는 실제 스킨 메시"가 아니라 **한 번만 만들고
+다시는 갱신하지 않는 고정(static) 콜라이더**로 바꾼다. 레이는 지금처럼 화면 좌표에서 그대로
+쏘되(`ScreenPointToRay` 자체는 유지), 맞히는 대상만 바뀐다.
+
+```csharp
+// PlayerPaintCanvas.cs — 대안 A 적용 시 삭제 대상 필드/메서드
+// paintableMeshCollider, skinnedBodyRenderer, bakedColliderMesh, colliderRefreshCounter,
+// ColliderRefreshInterval, RefreshColliderMesh() 전체 삭제
+
+// Start()에서 이제 이 초기화 블록 자체가 불필요해짐:
+// paintableMeshCollider = paintableCollider as MeshCollider;
+// skinnedBodyRenderer = bodyRenderer as SkinnedMeshRenderer;
+// if (paintableMeshCollider != null && skinnedBodyRenderer != null) { ... }
+
+// Update()에서 RefreshColliderMesh() 호출 줄만 제거 — 나머지 레이캐스트 로직은 완전히 동일:
+private void Update()
+{
+    DetectRoundChange();
+    if (!pv.IsMine) return;
+    if (!IsColorRoundActive()) return;
+
+    HandleBrushSizeInput(); // colliderRefreshCounter 증가/RefreshColliderMesh() 호출 삭제
+
+    if (!Input.GetMouseButton(0)) return;
+    ...
+    if (!Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, paintRaycastMask)) return;
+    if (hit.collider != paintableCollider) return; // 이제 "고정된" 프록시라 애니메이션 포즈와 무관하게 항상 유효
+    ...
+}
+```
+
+`paintableCollider` 인스펙터 연결 대상을 실제 스킨 메시가 아니라, 캐릭터 몸통을 대략 감싸는
+저폴리 "페인트 전용 쉘" 메시(또는 단순 캡슐)로 바꾼다. `hit.textureCoord`가 그대로 UV를
+반환하므로, 이 프록시 메시의 UV를 임포트 시점에 미리 실제 스킨 UV와 맞춰두기만 하면 런타임
+코드는 오히려 더 단순해진다. `BrushCursorController`(붓 커서 3D 표시)도 `PlayerPaintCanvas.
+PaintableCollider`를 그대로 참조하므로 별도 수정 없이 함께 적용된다.
+
+**트레이드오프**: 팔을 들거나 웅크리는 등 포즈가 크게 바뀐 순간에는 화면상 보이는 몸과 프록시
+콜라이더의 위치가 살짝 어긋날 수 있다(고정된 중립 포즈 기준이므로). 다만 이 미니게임은 색을
+정밀하게 특정 부위에 맞춰 칠하는 정밀 게임이 아니라 "몸에 색을 채워 넣는" 성격이라, 약간의
+오차는 체감상 문제가 되지 않을 가능성이 높다 — 실제 채택 여부는 플레이테스트로 확인 필요.
+
+> ⚠️ 이 변경은 §4.2/§4.1이 이미 갖고 있는 `Physics.IgnoreCollision(rootCollider, bodyMeshCollider,
+> true)`(캐릭터 자기 충돌 무시, Bug-fix-plan §14) 물리 버그와는 **무관하다** — 그쪽은
+> `Rigidbody`끼리의 충돌 문제이고, 여기서 다루는 것은 순수히 "붓 레이가 맞혀야 하는 대상"의
+> 문제다. 이 변경으로 IgnoreCollision 관련 코드를 함께 정리할 필요는 없다.
+
+#### 3.7.3 대안 B(부차적, A와 독립적으로 결정 가능) — "드래그로 문지르기"에서 "조준 후 발사"로 입력 모델 자체를 변경
+
+현재는 `Input.GetMouseButton(0)`(누르고 있는 동안 매 프레임)로 마우스를 드래그하며 문지르는
+"붓" 입력이다. "Ray를 쏜다"는 표현을 문자 그대로 받아들이면, 클릭 1회 = 레이 1발 발사(스프레이
+건/총 방식)로 입력 모델 자체를 바꾸는 방향도 가능하다:
+
+```csharp
+// PlayerPaintCanvas.cs — 대안 B 적용 시 입력 조건만 교체(대안 A와 조합 가능, 독립적 선택)
+if (!Input.GetMouseButtonDown(0)) return; // GetMouseButton → GetMouseButtonDown으로 교체
+```
+이 변경은 "화면에 자기 몸을 문질러야 하는" 3인칭 자기 채색 UX를 유지한 채 판정 빈도만
+줄이는 것이라, 3.7.1의 버그 원인(실시간 베이크 콜라이더)과는 독립적인 별개의 UX 결정이다 —
+대안 A 없이 B만 적용해도 버그 자체는 해결되지 않는다.
+
+#### 3.7.4 권장 및 다음 단계
+
+**권장**: 대안 A(정적 프록시 콜라이더)를 채택해 사용자가 지적한 버그 요인을 구조적으로
+제거하고, 대안 B(클릭 1회 = 1발)는 UX 취향 문제로 별도 결정한다. 실제 착수 전 사용자 확인이
+필요한 이유는 "프록시 메시를 누가·어떻게 만드는지"(§14.1 신규 항목)가 정해져야 하기 때문이다
+— §12/§14에 열린 질문으로 등록해둔다.
+
 ---
 
 ## 4. 그랩 / 캐리(쿠키 상호작용) + 괴물 타격(균열→파괴, v3.2 재설계)
@@ -442,6 +716,216 @@ public class PlayerCrackDisplay : MonoBehaviourPunCallbacks
 > `hitCount` 증가 자체에 영향을 주지 않는다), §12의 "촉수/손 중 무엇을 쓸지"가 아직 확정 안
 > 돼도 넷코드·상태 설계 자체는 이미 완결돼 있다 — 남은 결정은 순수하게 "타격 판정 원점이
 > 어디인지"와 "애니메이션이 무엇인지"에만 영향을 준다.
+
+### 4.3 `TentacleDash` — 괴물 신규 이동 스킬 (신규, v3.3)
+
+사용자 지시: "TentacleDash는 신규 스킬인데, 쿨타임 15초짜리 스킬이며, 이 스킬을 쓰면 20m로
+이동하는 스킬이야." `Assets/Animation/MonsterAnimator.controller`를 직접 열어 확인한 결과
+`TentacleDash`가 이미 트리거 파라미터+상태로 등록돼 있다(§11.1) — 애니메이션 배선 자체는
+끝나 있고, 이동 로직만 새로 설계하면 된다.
+
+**설계 근거**: 이 프로젝트에는 이미 "고정 거리를 순간적으로 이동하는 스킬"의 전례가 있다 —
+`HideOrSeekPlayer`의 회피(Dodge, `CheckDodgeInput()`/`DodgeOut()`)다. 다만 회피는 "지속시간
+동안 가속 이동"이고 `TentacleDash`는 "고정 거리(20m) 이동"이라는 차이가 있어, 벽을 뚫고
+지나가지 않도록 사전에 사거리를 검사하는 가드가 추가로 필요하다:
+
+```csharp
+// Assets/02. Scripts/Monster/MonsterMoveState.cs (신규) — PlayerMoveState와 동일한 계약(Animator
+// 파라미터명과 정확히 일치해야 함, research.md §2.4). MonsterAnimator.controller를 직접 열어
+// 확인한 실제 파라미터 4개를 그대로 반영했다 — 마지막 항목은 "GrapKill"(오타, b 누락)로 이미
+// 등록돼 있어 그대로 맞춰야 동작한다(§11.1 신규 발견, 이름 정정은 별도 작업으로 분리 권장).
+public enum MonsterMoveState
+{
+    Idle,
+    Walk,
+    TentacleDash,
+    GrapKill,
+}
+```
+
+```csharp
+// Assets/02. Scripts/Monster/MonsterTentacleDash.cs (신규) — 순수 C# 클래스(Unity 생명주기 없음),
+// Unit/ 도메인의 PlayerGroundDetector/PlayerAnimationDriver와 동일한 "조정자(MonoBehaviour)가
+// 소유하는 협력 클래스" 스타일을 그대로 따른다(research.md §2.4).
+using UnityEngine;
+
+public class MonsterTentacleDash
+{
+    private const float DashDistance = 20f;   // 사용자 지정값
+    private const float DashDuration = 0.25f; // 20m를 0.25초에 주파 = 80m/s — 밸런스 값, §12 열린 질문
+    private const float CooldownDuration = 15f; // 사용자 지정값
+    private const float DashRadius = 0.4f;    // SphereCast 반경(캐릭터 대략 두께), §12 열린 질문
+
+    private float cooldownTimer;
+    private bool isDashing;
+    private float dashTimer;
+    private Vector3 dashDirection;
+    private float actualDashDistance;
+
+    public bool IsDashing => isDashing;
+    public float CooldownRemaining01 => Mathf.Clamp01(cooldownTimer / CooldownDuration); // 쿨다운 게이지 UI용
+
+    public bool TryStartDash(Vector3 forward, Vector3 origin, LayerMask obstructionMask)
+    {
+        if (isDashing || cooldownTimer > 0f) return false;
+
+        dashDirection = forward;
+        actualDashDistance = DashDistance;
+
+        // 벽 등 장애물을 뚫고 지나가지 않도록 시작 시점에 사거리를 미리 클램프한다 —
+        // HideOrSeekPlayer가 ContinuousDynamic 충돌 감지로 "빠른 이동이 얇은 지형을 뚫는 문제"를
+        // 막는 것과 같은 목적이지만, 이쪽은 순간 이동에 가까운 거리라 물리 스텝에 맡기지 않고
+        // SphereCast로 사전 검사한다.
+        if (Physics.SphereCast(origin, DashRadius, forward, out RaycastHit hit, DashDistance, obstructionMask))
+            actualDashDistance = Mathf.Max(0f, hit.distance - DashRadius);
+
+        isDashing = true;
+        dashTimer = DashDuration;
+        cooldownTimer = CooldownDuration;
+        return true;
+    }
+
+    // 매 FixedUpdate 호출 — 이번 스텝에 이동해야 할 변위(delta)만 반환. 실제 위치 갱신은 호출부 책임
+    // (HideOrSeekPlayer.Move()가 rb.linearVelocity만 계산하고 실제 적용은 물리 엔진에 맡기는 것과 같은 역할 분담).
+    public Vector3 TickDash(float deltaTime)
+    {
+        if (!isDashing) return Vector3.zero;
+
+        float step = (actualDashDistance / DashDuration) * deltaTime;
+        dashTimer -= deltaTime;
+        if (dashTimer <= 0f) isDashing = false;
+
+        return dashDirection * step;
+    }
+
+    public void TickCooldown(float deltaTime)
+    {
+        if (cooldownTimer > 0f) cooldownTimer = Mathf.Max(0f, cooldownTimer - deltaTime);
+    }
+}
+```
+
+```csharp
+// Assets/02. Scripts/Monster/MonsterController.cs — §6.2 골격에 TentacleDash 통합(v3.3 추가분)
+[SerializeField] private LayerMask obstructionMask;
+private readonly MonsterTentacleDash tentacleDash = new MonsterTentacleDash();
+private MonsterMoveState currentState = MonsterMoveState.Idle;
+
+private void Update()
+{
+    if (!pv.IsMine) return;
+    // ...§6.2의 기존 마우스 시점 회전 처리...
+
+    tentacleDash.TickCooldown(Time.deltaTime);
+
+    // 입력 키는 §12 열린 질문 — 임시로 좌Shift 가정(쿠키의 Shift=질주와 겹치지 않도록 재검토 필요)
+    if (Input.GetKeyDown(KeyCode.LeftShift) && tentacleDash.TryStartDash(transform.forward, transform.position, obstructionMask))
+        ChangeState(MonsterMoveState.TentacleDash);
+}
+
+private void FixedUpdate()
+{
+    if (!pv.IsMine) return;
+
+    if (tentacleDash.IsDashing)
+        transform.position += tentacleDash.TickDash(Time.deltaTime);
+    // else: §6.2 기존 걷기 이동
+}
+```
+
+**네트워크 동기화**: `Unit/`이 `PlayerNetworkSync`(위치/회전/상태를 `IPunObservable`로 송수신)를
+쓰는 것과 정확히 같은 구조를 괴물에도 병렬로 둔다 — Player와 Monster 도메인이 서로 참조하지
+않는 이 프로젝트의 기존 컨벤션(research.md §5.1)을 그대로 지킨다:
+
+```csharp
+// Assets/02. Scripts/Monster/MonsterNetworkSync.cs (신규) — PlayerNetworkSync.cs와 완전히 동일한
+// 구조(Write/Read/Interpolate), 타입만 MonsterMoveState로 교체. 코드 중복이지만, 두 도메인을
+// 서로 참조하게 만들지 않기 위한 의도적 선택 — Unit/과 ColorTag/가 이미 이 원칙을 지켜왔다.
+```
+
+> 📌 대시가 원격 클라이언트에는 `PlayerNetworkSync.Interpolate()`와 동일한 거리 기반 스냅
+> 로직(기본 `snapDistance=10`)으로 보이는데, 20m 대시는 스냅 거리보다 커서 **원격에서는 순간
+> 이동(스냅)처럼 보인다** — 부드러운 보간이 아니라 즉시 전환이라 오히려 "촉수로 확 당겨진"
+> 연출 의도와 자연스럽게 맞아떨어질 가능성이 높지만, 최종 느낌은 실제 확인이 필요하다(§12).
+
+### 4.4 `GrabKill` — 근접 자동 처형 (신규, v3.3, §4.2와의 관계는 열린 질문)
+
+사용자 지시: "Monster_GrabKill은 Player가 범위 안에 들어오면 자동으로 발동되는 애니메이션이야.
+이거로 인해서 플레이어가 이 애니메이션에 맞춰서 촉수에 잡히면 쿠키가 파괴되는 연출을 할 거야."
+
+이 지시는 §12-1(타격을 언제 시도하는지)을 **"자동 근접"**으로 확정한다. 판정 원점이 이제
+"괴물이 손/촉수를 휘두르는 판정"이 아니라 **"괴물의 몸 자체에 붙은 트리거 범위"**이므로, 이
+프로젝트에 이미 있는 가장 단순한 트리거 패턴을 그대로 재사용할 수 있다 — `VoidKillZone`
+(맵 밖으로 떨어지면 `OnTriggerEnter`로 감지해 리스폰시키는 컴포넌트, research.md §2.3)과
+완전히 동일한 골격이다:
+
+```csharp
+// Assets/02. Scripts/Monster/MonsterGrabKillTrigger.cs (신규) — Monster 프리팹에 부착.
+// VoidKillZone.cs(research.md §2.3)의 "OnTriggerEnter로 HideOrSeekPlayer를 찾아낸다" 패턴을 그대로 재사용.
+using Photon.Pun;
+using UnityEngine;
+
+[RequireComponent(typeof(Collider))]
+public class MonsterGrabKillTrigger : MonoBehaviour
+{
+    [SerializeField] private PhotonView monsterPv;
+    [SerializeField] private MonsterController monsterController; // GrapKill 애니메이션 트리거용
+
+    private bool onCooldown; // 동일 대상 중복 트리거 방지 — 재사용 가능 시점은 §12 열린 질문
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (!monsterPv.IsMine) return; // 판정 시도는 괴물 소유 클라이언트만 — §4.2가 이미 세운 관례와 동일
+        if (onCooldown) return;
+
+        var cookie = other.GetComponentInParent<HideOrSeekPlayer>();
+        if (cookie == null) return;
+
+        onCooldown = true;
+        monsterController.PlayGrabKill(); // MonsterNetworkSync를 통해 전원에게 GrapKill 애니메이션 전파
+
+        cookie.GetComponent<PhotonView>().RPC("RequestGrabKill", RpcTarget.All);
+    }
+
+    public void ResetTrigger() => onCooldown = false; // 애니메이션 종료 시점 등 재사용 조건은 §12
+}
+```
+
+```csharp
+// HideOrSeekPlayer.cs — §4.2의 RequestHit(타격 2회: 균열→파괴)을 대체하는 안(v3.3, 채택 여부는 아래 열린 질문)
+[PunRPC]
+private void RequestGrabKill()
+{
+    if (!pv.IsMine || hitCount >= 2) return; // 본인 클라이언트만 자기 상태 확정 — 기존 원칙 그대로 유지
+
+    hitCount = 2; // 균열 단계 없이 곧바로 파괴 상태로 — §4.2의 "1회=균열, 2회=파괴" 2단계와의 관계는 아래 참고
+    PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.HitCount, hitCount } });
+
+    IsMovementLocked = true;
+    animationDriver.ChangeState(PlayerMoveState.Broken); // 기존 §9 Broken 상태·§6.3 관전 전환·§8 승리 판정 그대로 재사용
+}
+```
+
+> 📌 **`PlayerCrackDisplay`(§4.2)와의 관계**: `hitCount`를 그대로 재사용하므로, 파괴 시각
+> 효과(`PlayerCrackDisplay.ApplyHitVisual(2)`, 렌더러 끄고 파편 VFX 재생)도 코드 변경 없이
+> 그대로 작동한다 — 바뀌는 것은 "어떻게 `hitCount`가 2에 도달하는지"뿐이다.
+
+**⚠️ §4.2와의 관계 — 반드시 확정이 필요한 열린 질문(신규, 최우선)**: 이번 지시는 `GrabKill`이
+"자동 근접 처형"이라는 것만 명확히 했을 뿐, 기존 §4.2의 "손/촉수로 1회 타격 → 균열(hitCount=1),
+2회 타격 → 파괴(hitCount=2)"라는 수동 2단계 공격 설계를 완전히 대체하는지, 아니면 그 설계 위에
+얹히는 것인지는 명시되지 않았다. 두 가지 해석이 모두 가능하다:
+
+- **(A) `GrabKill` 단독 — 기본값으로 채택**: 괴물에게는 별도의 수동 공격 입력이 아예 없고,
+  근접 트리거만으로 즉시 처형된다. §4.2의 `MonsterStrikeAttack.cs`(손/촉수 수동 타격 골격)와
+  "균열(1회 피격)" 개념 자체가 통째로 불필요해진다 — 위 코드(`RequestGrabKill`이 `hitCount`를
+  곧바로 2로 세팅)는 이 해석을 기본값으로 잠정 채택한 것이다.
+- **(B) `GrabKill`은 마무리 일격**: 손/촉수로 먼저 1회 타격해 균열(hitCount=1) 상태를 만들고,
+  균열 상태의 쿠키가 `GrabKill` 트리거 범위에 들어오면 자동으로 마무리(파괴)된다. 이 경우
+  `MonsterStrikeAttack.cs`는 그대로 남고, `RequestGrabKill`은 `hitCount==1`일 때만 2로 올리는
+  조건이 추가돼야 한다.
+
+이 결정에 따라 §10.1의 `Monster/MonsterStrikeAttack.cs` 존치 여부, §10.4의 "촉수/손 타격 스윙
+애니메이션" 필요 여부(§14.1)가 함께 갈린다 — §12/§14에 최우선 열린 질문으로 등록했다.
 
 ---
 
@@ -835,7 +1319,12 @@ public static class NetKeys
     // Player CustomProperties
     public const string HitCount = "HitCount"; // int(0~2) — §4.2 신규(v3.2). 0=정상, 1=균열, 2=파괴. v3의 IsCaught를 대체
     public const string RegisteredSlotCount = "RegisteredSlotCount"; // int — §3.2
+    public const string SkinIndex = "SkinIndex"; // int(0~2, A/B/C) — §1.5 신규(v3.3)
 }
+
+// Monster/MonsterMoveState.cs — §4.3에서 이미 정의(재게재). MonsterAnimator.controller의 실제
+// 트리거 파라미터 4개와 정확히 일치해야 하는 계약(research.md §2.4와 동일한 성격).
+public enum MonsterMoveState { Idle, Walk, TentacleDash, GrapKill }
 
 public static class NetEventCodes
 {
@@ -874,10 +1363,18 @@ public static class NetEventCodes
 | `Grab/PlayerGrabController.cs` | 쿠키↔쿠키 그랩 시작/해제(그랩버 측) | §4.1 |
 | `Unit/PlayerAnimationDriver.cs`(수정) | `SetCarryLayerWeight()` 추가 | §4.1, §11.2 |
 | `Unit/HideOrSeekPlayer.cs`(수정) | `OnGrabbedByOwner`/`OnReleased`/`hitCount`/`RequestHit` | §4.1, §4.2 |
-| `Monster/MonsterStrikeAttack.cs` | 괴물의 촉수/손 타격 판정(신규, 세부 미확정) | §4.2 |
+| `Monster/MonsterStrikeAttack.cs` | 괴물의 촉수/손 타격 판정 — **존치 여부가 §4.4의 (A)/(B) 결정에 달림** | §4.2, §4.4 |
 | `ColorTag/PlayerCrackDisplay.cs` | 균열/파괴 시각 효과, 소유권 무관 표시(신규, v3.2) | §4.2 |
 | `Monster/MonsterFirstPersonCamera.cs` | 괴물 1인칭 카메라(신규, v3.2 확정) | §6.2 |
-| `Monster/MonsterController.cs` | 괴물 전용 이동+시점 회전 컨트롤러(신규, v3.2 — `HideOrSeekPlayer` 재사용 불가 이유는 §6.2) | §6.2 |
+| `Monster/MonsterController.cs` | 괴물 전용 이동+시점 회전 컨트롤러(신규, v3.2 — `HideOrSeekPlayer` 재사용 불가 이유는 §6.2), v3.3에서 `TentacleDash` 통합 | §6.2, §4.3 |
+| `Monster/MonsterMoveState.cs` | 괴물 애니메이션 상태 enum(신규, v3.3) | §4.3, §9 |
+| `Monster/MonsterTentacleDash.cs` | 쿨타임 15초·사거리 20m 돌진 스킬 순수 로직(신규, v3.3) | §4.3 |
+| `Monster/MonsterNetworkSync.cs` | 괴물 위치/회전/상태 네트워크 동기화, `PlayerNetworkSync`와 병렬 구조(신규, v3.3) | §4.3 |
+| `Monster/MonsterGrabKillTrigger.cs` | 근접 자동 처형 트리거, `VoidKillZone`과 동일 골격(신규, v3.3) | §4.4 |
+| `Unit/HideOrSeekPlayer.cs`(수정) | `RequestGrabKill` RPC 추가(v3.3) | §4.4 |
+| `Lobby/PlayerSkinSelector.cs` | `GameLobbyScene` 스킨(A/B/C) 선택 UI(신규, v3.3) | §1.5 |
+| `Unit/PlayerSkinApplier.cs` | 소유자의 `SkinIndex`를 읽어 `bodyRenderer.sharedMaterial` 적용(신규, v3.3) | §1.5 |
+| `ColorTag/PlayerPaintCanvas.cs`(수정, 논의 중) | 붓칠 판정 대상을 실시간 베이크 콜라이더→정적 프록시로 교체(v3.3, §12 확정 후 착수) | §3.7 |
 | `Monster/SpectatorController.cs`(트리거를 `hitCount>=2`로 재설계) | 파괴된 쿠키 시점 순환 | §6.3 |
 | `Monster/RoomLifecycleWatcher.cs`(재작성) | 다중 괴물 이탈 감지+5초 경고 | §7.1 |
 | `Monster/MonsterDepartureBanner.cs` | 이탈 경고 배너 로컬 표시 | §7.1 |
@@ -922,6 +1419,7 @@ public static class NetEventCodes
 | `Resources/UI/Scene/ResultScreen/ResultScreen.prefab` | **신규** | 승패 배너+남은 쿠키 패널+플레이어 목록 루트 | §8.2 |
 | `Resources/UI/Scene/ResultScreen/PlayerResultRow.prefab` | **신규** | 결과 화면 플레이어 목록 행(이름+상태) | §8.2 |
 | `Resources/UI/Popup/MonsterDepartureBanner/MonsterDepartureBanner.prefab` | **신규** | "괴물이 나갔습니다" 경고 배너 | §7.1 |
+| `Resources/UI/Scene/SkinSelectPanel/SkinSelectPanel.prefab` | **신규** | `GameLobbyScene` 상시 노출, 스킨 A/B/C 버튼 3개 | §1.5 |
 | `ConfirmDialog`/`GameLobbyPanel`/`LobbyPanel`/`PlayerListItem`/`RoomListItem` | 기존재, 변경 없음 | — | (기존) |
 | `ColorSelectionPanel.prefab`(기존) | **폐기 대상** | `ColorSlotPanel`로 대체됨 | §0, §3 |
 
@@ -929,8 +1427,8 @@ public static class NetEventCodes
 
 | 항목 | 상태 | 근거 |
 |---|---|---|
-| 괴물 캐릭터 메시(촉수/손 포함) | **신규 — 참고 이미지는 확보됨**(`Assets/Screenshots/괴물 T-pose.png`, 삐에로 풍, 손 2+촉수 2+다리 2의 6지 구조). **실제 3D 모델(메시/텍스처/리그) 자체는 여전히 미확보**(§14.1 최우선). **신규 요구**: 1인칭 카메라가 붙을 눈(`eyeSocket`) 위치가 필요한데, 구체형 머리라 T-pose 이미지만으로는 눈 위치가 불분명함(§12) | §2.2, §4.2, §6.2 |
-| 가마솥 3D 모델 | **신규** — 제작 또는 에셋스토어 구매 | §2.1 |
+| 괴물 캐릭터 메시(촉수/손 포함) | **확보(v3.3)** — `Assets/Animation/Monster/Monster_Rigged.fbx`(T-pose 기본 리그)를 직접 열어 확인. `animationType: 2`(Generic)로 이미 임포트돼 있어 §11.1의 "Humanoid 리타겟 불가 → Generic 전환" 방향이 이미 실제로 채택된 상태임을 확인했다. **여전히 미확정**: 1인칭 카메라가 붙을 눈(`eyeSocket`) 위치가 리그 안에 실제로 지정돼 있는지는 리그 구조를 직접 열어봐야 확인 가능(§12) | §2.2, §4.2, §6.2, §11.1 |
+| 가마솥 3D 모델 | **확보(v3.3), 임포트 대기** — `TagOfChaos/리소스/솥단지.glb`(Unity `Assets/` 바깥, 임포트 전) | §2.1 |
 | 문(4개) 모델 | **신규**(선택) | §1 |
 | ~~마녀 지팡이 + 1인칭 손 모델~~ | **폐기** | 구 §6.2 |
 | ~~던질 수 있는 소품 모델~~ | **폐기** | §5 |
@@ -942,9 +1440,11 @@ public static class NetEventCodes
 | `Cookie_Carrying.fbx` | **확보** — Humanoid+공용 아바타 전환 필요 | §11.2 |
 | `Cookie_Hanging_Idle.fbx` | **확보** — 통합 보류(사용자 지정) | §11.3 |
 | `PlayerAnimator.controller`(기존) 수정 — `Carry` 레이어(Avatar Mask) + `Held`/`Broken` 트리거 추가 | **수정 필요** | §4.1, §9 |
-| 괴물 이동(Idle/Walk) 애니메이션 세트 | **신규, 미확보** | §12 |
-| 괴물 촉수 또는 손 타격(스윙) 모션 | **신규, 미확보** — 촉수/손 중 무엇을 만들지부터 §12/§14.2 결정 필요 | §4.2 |
-| 괴물 파괴(shatter) 연출 — 애니메이션 필요 여부 | **미정** — `PlayerCrackDisplay`는 현재 "렌더러 끄고 VFX만 재생"으로 최소 설계돼 있어 별도 애니메이션 클립이 필수는 아니지만, 더 자연스러운 연출을 원하면 "산산조각" 포즈/파티클 타이밍이 맞물린 전용 클립이 필요할 수 있음 | §4.2, §12 |
+| 괴물 이동(Idle/Walk) 애니메이션 세트 | **확보(v3.3)** — `Monster_Rigged_Idle.fbx`/`Monster_Rigged_Walk.fbx`, `MonsterAnimator.controller`에 `Idle`/`Walk` 트리거로 이미 배선 확인 | §12(해소) |
+| `TentacleDash` 돌진 애니메이션 | **확보(v3.3)** — `Monster_Rigged_TentacleDash.fbx`, 컨트롤러에 `TentacleDash` 트리거로 배선 확인 | §4.3 |
+| `GrabKill` 처형 애니메이션 | **확보(v3.3)** — `Monster_Rigged_GrabKill.fbx`, 컨트롤러에 `GrapKill`(오타, b 누락) 트리거로 배선 확인(§11.1) — 촉수/손 중 무엇을 쓸지의 결정은 이 클립 자체로 이미 답이 났다(사용자 설명상 촉수) | §4.4 |
+| 괴물 촉수 또는 손 타격(스윙) 모션(§4.2 수동 타격용, `GrabKill`과 별개) | **§4.4의 (A)/(B) 결정에 따라 필요 여부가 갈림** — (A) 채택 시 불필요, (B) 채택 시 별도로 필요 | §4.2, §4.4 |
+| 괴물 파괴(shatter) 연출 — 애니메이션 필요 여부 | **부분 해소(v3.3)** — `GrabKill` 애니메이션이 "촉수에 잡혀 파괴되는" 연출 자체를 담당하므로, `PlayerCrackDisplay.PlayBreakEffect()`(렌더러 끄고 VFX 재생)는 `GrabKill` 애니메이션 재생 이후(또는 특정 타이밍)에 맞춰 호출되는 보조 연출로 역할이 재정의된다. 정확한 타이밍(애니메이션 이벤트 vs 고정 지연)은 §12 열린 질문 | §4.2, §4.4, §12 |
 | `Cookie_StandUp.fbx` — 괴물 리빌용 재사용 여부 | **재사용 불투명** — 괴물이 촉수 2개를 포함한 6지 구조로 확인돼, 표준 Humanoid 리타겟 전제가 성립하지 않는다. Generic 리그 전환 또는 다리만 신규 제작 중 택일 필요(§11.1) | §11.1 |
 
 ### 10.5 셰이더 / 머티리얼
@@ -1019,6 +1519,22 @@ v2 조사 결과(변경 없음): 클립 이름 `Cookie_StandUp`, 94프레임 1�
 
 어느 쪽이든 실제 3D 모델 파일(메시+리그, §14.1 최우선 미확보)이 나와야 최종 결정이 가능하다.
 
+> 📌 **(v3.3 추가) 실제 확보 결과 — 위 두 방향 중 Generic 리그 전환이 이미 채택돼 있음을 확인**:
+> `Assets/Animation/Monster/` 아래 `Monster_Rigged.fbx`(T-pose 기본 리그)와
+> `Monster_Rigged_Idle.fbx`/`_Walk.fbx`/`_TentacleDash.fbx`/`_GrabKill.fbx` 4개 애니메이션
+> 클립을 직접 확인했다. `Monster_Rigged.fbx.meta`에 `animationType: 2`(Generic)로 명시돼
+> 있어, 위에서 논의한 "Generic 리그 전환" 방향이 이미 실제로 적용된 상태다 — `Cookie_StandUp.fbx`
+> 재사용 여부 논의 자체는 무효화된다(괴물은 처음부터 독립된 Generic 리그로 제작됨).
+>
+> `Assets/Animation/MonsterAnimator.controller`(신규, `PlayerAnimator.controller`와 완전히
+> 분리된 별도 파일)를 직접 열어 트리거 파라미터를 확인한 결과 `Idle`/`Walk`/`TentacleDash`
+> 3개는 의도한 이름 그대로지만, 네 번째는 **`GrapKill`(오타, "b" 누락)**로 등록돼 있다.
+> `PlayerMoveState`가 `Animator.SetTrigger(newState.ToString())`으로 enum 이름과 Animator
+> 파라미터 이름을 직접 매칭시키는 이 프로젝트의 계약(research.md §2.4)을 그대로 따르려면,
+> `MonsterMoveState` enum도 `GrapKill`이라는 오타를 그대로 반영해야 실제로 트리거가 걸린다
+> (§4.3의 `MonsterMoveState` 정의에 이미 반영해뒀다). 이름을 바로잡으려면 Animator Controller
+> 파라미터 이름 자체를 고치는 별도 작업이 필요하다 — §12/§14에 등록.
+
 ### 11.2 `Cookie_Carrying.fbx` + `Cookie_Walking.fbx` 조합 — 변경 없음(§4.1 전용, 괴물과 무관)
 
 `Cookie_Carrying.fbx`를 Humanoid+`Cookie_Idle` 공용 아바타로 임포트하고, Animator에 상반신
@@ -1046,8 +1562,34 @@ v2 조사 결과(변경 없음): 클립 이름 `Cookie_StandUp`, 94프레임 1�
   또는 다리만 별도 제작 중 어느 쪽을 택할지는 실제 3D 모델(메시+리그) 확보 후 결정.
 - 근접 "포획" 판정 방식(구 질문) → **포획 개념 자체가 폐기**되어 무효화, 아래 1~2·5~6번으로
   대체.
+- **(v3.3) 타격 판정을 언제 시도하는지(구 1번)** → **"자동 근접"으로 확정**(사용자 지시,
+  `GrabKill`이 범위 진입 시 자동 발동, §4.4).
+- **(v3.3) 괴물 이동(Idle/Walk) 애니메이션 세트 공백(구 9번)** → **확보 확인**(§10.4, §11.1).
+- **(v3.3) 촉수/손 중 무엇으로 때리는지(구 2번, `GrabKill` 한정)** → `GrabKill` 자체는 촉수
+  사용으로 확인(§4.4 사용자 설명). 다만 §4.4의 (A)/(B) 결정에 따라 "손으로 하는 별도 1차
+  타격"이 여전히 필요할 수도 있어 완전히 해소된 것은 아님(아래 신규 1번 참고).
+- **(v3.3) 괴물이 쿠키와 같은 아바타를 쓸 수 있는지(구 별도 질문)** → **완전히 해소**. Generic
+  리그로 이미 확보·임포트돼 있음을 파일로 직접 확인(§11.1 v3.3 추가 기록).
 
 **남아있는 것 + 신규**:
+
+0. **(v3.3, 최우선, 신규) `GrabKill`이 §4.2의 "타격 2회(균열→파괴)" 설계를 완전히 대체하는지,
+   아니면 그 위에 얹히는 마무리 일격인지** — §4.4의 (A)/(B) 두 해석 중 확정 필요. 이 결정이
+   `MonsterStrikeAttack.cs` 존치 여부, "촉수/손 스윙 애니메이션" 추가 확보 필요 여부, 균열
+   단계 존속 여부를 모두 좌우한다.
+0-1. **(v3.3, 신규) 색칠 판정 방식을 §3.7의 대안 A(정적 프록시 콜라이더)로 실제로 바꿀지** —
+   바꾼다면 프록시 메시(캐릭터를 대략 감싸는 저폴리 쉘 또는 캡슐)를 누가 준비하는지도 함께
+   결정 필요(§14.1 신규).
+0-2. **(v3.3, 신규) `GrabKill` 트리거 범위(콜라이더 크기)와 재사용 대기시간** —
+   `MonsterGrabKillTrigger.onCooldown`을 언제 다시 `false`로 되돌리는지(애니메이션 종료 시점
+   vs 고정 지연) 미정.
+0-3. **(v3.3, 신규) `GrabKill` 발동 중 쿠키가 회피/이동으로 벗어날 수 있는지** — "자동 발동"이
+   피할 수 없는 확정 처형인지, 아니면 애니메이션 시작~적중 사이에 벗어날 여지를 둘지.
+0-4. **(v3.3, 신규) `TentacleDash`의 입력 키** — 임시로 좌Shift를 가정했으나(§4.3), 쿠키의
+   Shift(질주)와 같은 키를 쓰는 게 자연스러운지 별도 확인 필요(플레이어 캐릭터가 다르므로
+   키가 겹쳐도 충돌은 없지만, 사용자 의도 확인 차원).
+0-5. **(v3.3, 신규) `MonsterAnimator.controller`의 `GrapKill` 오타를 `GrabKill`로 정정할지** —
+   정정 시 코드(`MonsterMoveState`)와 Animator 파라미터 이름을 함께 바꾸는 작업이 필요(§11.1).
 1. **타격 판정을 언제 시도하는지** — 괴물이 근접하면 자동으로 판정하는지, 특정 입력(키/클릭)이
    필요한지, 애니메이션 이벤트(예: 팔을 휘두르는 모션의 특정 프레임)에 맞춰 판정하는지.
 2. 괴물이 **촉수/손 중 무엇으로 때리는지** — 하나만 쓰는지, 전방은 손·후방은 촉수처럼 상황별로
@@ -1091,6 +1633,15 @@ v2 조사 결과(변경 없음): 클립 이름 `Cookie_StandUp`, 94프레임 1�
    나오지 않으면 §2.2 리빌 연출·§4.2 타격 모션·§6.2 눈 위치·§11.1 재검토 전부 착수가 막힌다**는
    점이 계속되는 병목이다.
 
+7. **(v3.3 추가) §1.5(스킨 A/B/C 선택)는 위 순서와 독립적으로 가장 먼저 착수 가능** — 필요한
+   에셋(`Cookie_BaseSkin_A/B/C.mat`)이 이미 전부 확보돼 있고, `PlayerPaintCanvas.cs`를 전혀
+   건드리지 않는 순수 추가 기능이라 다른 항목의 진행 상태와 무관하게 병렬로 진행할 수 있다.
+8. **(v3.3 추가) 괴물 3D 모델·애니메이션 4종이 이미 확보돼 §14.1의 최우선 병목 상당수가
+   풀렸으므로, 3번 항목(타격/균열/파괴+1인칭 카메라+승리 판정) 착수의 우선순위가 크게
+   올라간다** — 다만 §4.4의 (A)/(B) 결정(§12-0)이 선행돼야 `MonsterStrikeAttack.cs` 존치
+   여부가 확정되고, §3.7(색칠 판정 방식)의 채택 여부(§12-0-1)도 §2번(자유 색칠) 착수 전에
+   확정하는 편이 재작업을 줄인다.
+
 ---
 
 ## 14. 사용자 제공 필요 항목 (핸드오프 체크리스트, v3.2 갱신)
@@ -1104,11 +1655,14 @@ v2 조사 결과(변경 없음): 클립 이름 `Cookie_StandUp`, 94프레임 1�
 | 우선순위 | 항목 | 현재 상태 / 필요 이유 | 근거 |
 |---|---|---|---|
 | ✅ 완료 | ~~괴물 T-pose 참고 이미지~~ | **확보 완료.** `Assets/Screenshots/괴물 T-pose.png` + `리소스/괴물 T-pose.png` — 삐에로 풍 몬스터, 손 2+촉수 2+다리 2의 6지 구조(§4.2) | §0, §4.2 |
-| 🔴 최우선 | 괴물 3D 모델(메시/텍스처/리그, 촉수+손 포함, **눈/카메라 부착 위치 포함**) | **여전히 미확보.** T-pose 이미지는 컨셉 참고용 렌더일 뿐, 실제 게임에 넣을 3D 모델은 별도 제작이 필요하다. 1인칭 확정(§6.2)으로 눈 위치까지 함께 결정돼야 함 | §10.3, §11.1, §6.2 |
-| 🔴 최우선 | 괴물 이동(Idle/Walk) 애니메이션 세트 | **미확보** | §10.4, §12-9 |
-| 🔴 최우선 | 괴물 촉수 또는 손 타격(스윙) 애니메이션 | **미확보.** 어느 쪽을 쓸지부터 §14.2 결정이 선행돼야 함 | §10.4, §4.2, §12-2 |
-| 🟠 (신규, 사실상 필수) | 파괴(shatter) 파편 VFX + 파괴 SFX | **미확보.** 사용자가 명시적으로 요구한 핵심 연출("두 번 타격 시 부숴지는 연출") | §10.6, §10.7, §4.2 |
-| 🟡 | 가마솥 3D 모델 | 미확보(원 요청에서 "만들거나 찾을 예정") | §10.3, §2.1 |
+| ✅ 완료(v3.3) | ~~괴물 3D 모델(메시/텍스처/리그)~~ | **확보·임포트 완료.** `Assets/Animation/Monster/Monster_Rigged.fbx`, Generic 리그(§11.1). 눈/카메라 부착 위치(`eyeSocket`)만 리그 내 실제 지정 여부 재확인 필요(§12) | §10.3, §11.1, §6.2 |
+| ✅ 완료(v3.3) | ~~괴물 이동(Idle/Walk) 애니메이션 세트~~ | **확보 완료.** `Monster_Rigged_Idle.fbx`/`_Walk.fbx`, 컨트롤러 배선 확인 | §10.4 |
+| ✅ 완료(v3.3) | ~~괴물 처형 애니메이션(`GrabKill`)~~ | **확보 완료.** `Monster_Rigged_GrabKill.fbx` — 촉수로 잡아 파괴하는 연출(§4.4) | §10.4, §4.4 |
+| ✅ 완료(v3.3) | ~~신규 스킬 애니메이션(`TentacleDash`)~~ | **확보 완료.** `Monster_Rigged_TentacleDash.fbx` — 쿨타임 15초·사거리 20m 돌진(§4.3) | §10.4, §4.3 |
+| ✅ 완료(v3.3) | ~~가마솥 3D 모델~~ | **확보(임포트 대기).** `TagOfChaos/리소스/솥단지.glb`, `Assets/`로 임포트하는 작업만 남음(§2.1, §14.3) | §10.3, §2.1 |
+| 🔴 최우선(v3.3 신규) | §3.7 대안 A용 "페인트 전용 정적 프록시 메시"(캐릭터를 대략 감싸는 저폴리 쉘 또는 캡슐) | **미확보 — 색칠 방식을 Ray 발사형으로 바꾸기로 결정될 경우에만 필요**(§0-1) | §3.7, §10.5 |
+| 🟠 (조건부, §4.4 결정에 달림) | 괴물 촉수 또는 손 타격(스윙) 애니메이션(`GrabKill`과 별개, §4.2 수동 1차 타격용) | (A) 채택 시 불필요, (B) 채택 시 미확보 상태로 남음 | §10.4, §4.2, §4.4 |
+| 🟠 (신규, 사실상 필수) | 파괴(shatter) 파편 VFX + 파괴 SFX | **미확보.** 사용자가 명시적으로 요구한 핵심 연출("촉수에 잡혀 부숴지는 연출") — 이제 `GrabKill` 애니메이션과 타이밍을 맞춰야 함(§4.4) | §10.6, §10.7, §4.2, §4.4 |
 | 🟡 (선택) | 문 4개 모델 | 미확보, 동일 프리팹 4회 배치로 대체 가능 | §10.3, §1 |
 | 🟢 | 가마솥 보글보글/짜잔 파티클 | 미확보 | §10.6, §2.2 |
 | 🟢 (선택) | 타격 임팩트 이펙트 + 타격 SFX(1회 피격용) | 미확보, 필요 여부부터 미정 | §10.6, §10.7, §4.2 |
@@ -1129,6 +1683,12 @@ v2 조사 결과(변경 없음): 클립 이름 `Cookie_StandUp`, 94프레임 1�
 | 괴물 이동 방식(물리 기반 vs 단순 Transform) | 미정 — `MonsterController` 골격은 단순 이동으로 임시 작성 | §12-7 |
 | 가마솥 무입장 타임아웃 | 30초(가정값) | §2.1, §12-8 |
 | 색 슬롯 등록 임계값(`MinStrokesToRegister`) | 15스탬프(가정값, 이번 개정과 무관) | §3.2, §12-11 |
+| **(v3.3, 최우선) `GrabKill`이 §4.2의 타격 2회(균열→파괴) 설계를 완전히 대체하는지, 마무리 일격으로 공존하는지** | 미정 — 코드는 (A) 완전 대체를 잠정 기본값으로 작성해둠 | §4.4, §12-0 |
+| **(v3.3) 색칠 판정을 §3.7 대안 A(정적 프록시 콜라이더)로 바꿀지** | 미정 — 논의 중, 권장안만 제시 | §3.7, §12-0-1 |
+| (v3.3) `GrabKill` 트리거 콜라이더 크기·재사용 대기시간 | 미정 | §4.4, §12-0-2 |
+| (v3.3) `GrabKill` 발동 중 회피/이탈 가능 여부 | 미정 — 임시로 "회피 불가(확정 처형)" 가정 | §4.4, §12-0-3 |
+| (v3.3) `TentacleDash` 입력 키 | 임시로 좌Shift 가정 | §4.3, §12-0-4 |
+| (v3.3) `MonsterAnimator.controller`의 `GrapKill` 오타 정정 여부 | 미정 — 정정 안 해도 동작에는 지장 없음(코드에서 오타 그대로 맞춰씀) | §11.1, §12-0-5 |
 
 ### 14.3 사용자가 안 줘도 되는 것
 
@@ -1142,3 +1702,7 @@ v2 조사 결과(변경 없음): 클립 이름 `Cookie_StandUp`, 94프레임 1�
   결정 사항이 아님
 - 신규 레이어(`Cookie`/`Monster`) 신설 및 프리팹 배정(§10.9, §12-13)
 - §10.1에 정리된 스크립트/컴포넌트 구현 전체(단, 착수 시점은 §14.1의 최우선 에셋 확보 이후)
+- (v3.3 신규) `TagOfChaos/리소스/솥단지.glb`를 `Assets/`로 임포트하는 작업 자체(§2.1) — 파일은
+  이미 확보돼 있으므로 가져오는 작업만 필요
+- (v3.3 신규) `Cookie_BaseSkin_A/B/C.mat`을 `PlayerSkinApplier.skins` 배열에 연결하는 작업(§1.5)
+  — 세 머티리얼 모두 이미 존재하며 결정 사항이 아님
