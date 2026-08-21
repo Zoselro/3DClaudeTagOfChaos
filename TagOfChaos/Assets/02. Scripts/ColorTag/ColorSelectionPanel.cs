@@ -1,55 +1,43 @@
-using ExitGames.Client.Photon;
 using Photon.Pun;
 using TMPro;
 using UnityEngine;
 
-// 팔레트 패널 UI 총괄: 라운드/남은시간 표시 + 이미 확정된 색 스와치 잠금 (6.1)
+// 색 슬롯 패널 UI 총괄: 남은 시간 표시 + 등록된 색 슬롯 수 표시(최대 4개). 구 ColorSelectionPanel
+// (4라운드 색상 미니게임 전용)을 자유 색칠 방식으로 재작성했다(GameRule.md §3, ColorSlotPanel로
+// 명칭 대체될 예정이지만 클래스 자체는 최소 변경 원칙으로 유지).
 public class ColorSelectionPanel : MonoBehaviourPunCallbacks
 {
-[SerializeField] private TextMeshProUGUI roundLabel;
     [SerializeField] private TextMeshProUGUI timeLabel;
-    [SerializeField] private ColorSwatchButton[] swatches; // 인덱스 = 팔레트 색상 인덱스(0~9)
+    [SerializeField] private TextMeshProUGUI slotCountLabel;
+
+    private PlayerPaintCanvas localPaintCanvas;
 
     private void Update()
     {
-        if (!RoomState.TryGetInt(NetKeys.RoundIndex, out int roundIndex)) return;
+        bool isPaintPhaseActive = RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double endTime) && PhotonNetwork.Time < endTime;
+        gameObject.SetActive(isPaintPhaseActive);
+        if (!isPaintPhaseActive) return;
 
-        bool isColorRound = roundIndex >= 0 && roundIndex < 4;
-
-        gameObject.SetActive(isColorRound);
-        if (!isColorRound) return;
-
-        if (roundLabel != null)
-            roundLabel.text = $"{roundIndex + 1} / 4";
-
-        if (timeLabel != null && RoomState.TryGetDouble(NetKeys.RoundEndTime, out double endTime))
+        if (timeLabel != null)
         {
             double remaining = System.Math.Max(0, endTime - PhotonNetwork.Time);
             timeLabel.text = Mathf.CeilToInt((float)remaining).ToString();
         }
 
-        UpdateSwatchLocks(roundIndex);
+        if (localPaintCanvas == null || !localPaintCanvas.IsMine)
+            localPaintCanvas = FindLocalPaintCanvas();
+
+        if (localPaintCanvas != null && slotCountLabel != null)
+            slotCountLabel.text = $"{localPaintCanvas.RegisteredColorSlots.Count} / 4";
     }
 
-    // Color0..Color(roundIndex-1)에 해당하는 스와치를 잠금 (3.3 중복 금지 규칙)
-private void UpdateSwatchLocks(int roundIndex)
+    private PlayerPaintCanvas FindLocalPaintCanvas()
     {
-        if (swatches == null) return;
-
-        bool[] usedColors = new bool[swatches.Length];
-        for (int i = 0; i < roundIndex; i++)
+        var all = FindObjectsByType<PlayerPaintCanvas>(FindObjectsSortMode.None);
+        foreach (var canvas in all)
         {
-            if (RoomState.TryGetInt(NetKeys.ColorPrefix + i, out int used))
-            {
-                if (used >= 0 && used < usedColors.Length)
-                    usedColors[used] = true;
-            }
+            if (canvas.IsMine) return canvas;
         }
-
-        for (int i = 0; i < swatches.Length; i++)
-        {
-            if (swatches[i] != null)
-                swatches[i].SetLocked(usedColors[i]);
-        }
+        return null;
     }
 }

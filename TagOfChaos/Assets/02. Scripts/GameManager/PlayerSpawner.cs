@@ -25,9 +25,24 @@ public class PlayerSpawner : MonoBehaviour
         while (!PhotonNetwork.InRoom)
             yield return null;
 
+        if (IsAlreadyMonster()) yield break; // 이미 괴물로 확정된 플레이어는 이 씬에서 쿠키를 스폰하지 않음
+
         SpawnLocalPlayer();
     }
 
+// GameRule.md §2.2/§6.4 — 이미 괴물로 확정된(MonsterActorNumbers에 ActorNumber가 포함된) 플레이어는
+    // 이 씬에서 쿠키를 스폰하지 않는다 — MonsterJoinController가 따로 MonsterPlayer를 스폰한다(GameScene).
+    // 아직 가마솥에 들어가기 전(GameLobbyScene 초기)에는 이 플래그가 없으므로 정상적으로 쿠키가 스폰된다.
+    private bool IsAlreadyMonster()
+    {
+        if (OfflineModeBootstrap.SpawnAsMonster) return true; // PlayerTestScene 개발용 몬스터 플레이테스트 토글
+
+        if (PhotonNetwork.LocalPlayer == null) return false;
+        if (!RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters)) return false;
+        return System.Array.IndexOf(monsters, PhotonNetwork.LocalPlayer.ActorNumber) >= 0;
+    }
+
+    
 private void SpawnLocalPlayer()
     {
         GameObject spawnPointObj = GameObject.Find(SpawnPointName);

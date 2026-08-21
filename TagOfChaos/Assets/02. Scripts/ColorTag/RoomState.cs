@@ -26,4 +26,14 @@ public static class RoomState
     }
 
     public static int GetRoundIndex() => TryGetInt(NetKeys.RoundIndex, out int value) ? value : -1;
+
+    public static bool TryGetIntArray(string key, out int[] value)
+    {
+        value = null;
+        if (!IsInRoom()) return false;
+        if (!PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue(key, out object raw)) return false;
+        value = (int[])raw;
+        return true;
+    }
+
 }

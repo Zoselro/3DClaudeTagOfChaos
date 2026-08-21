@@ -1,3 +1,4 @@
+using ExitGames.Client.Photon;
 using Photon.Pun;
 using UnityEngine;
 
@@ -40,6 +41,64 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
 
     // 외부에서 "이 인스턴스가 내 캐릭터인지" 판별할 수단 (GameManager의 채팅 이동잠금이 참조)
     public bool IsMine => pv != null && pv.IsMine;
+
+    // GrabKill로 파괴됐는지 여부(0=정상, 2=파괴) — GameRule.md §4.4, (A) 확정으로 1(균열)은 도달 불가능
+    private int hitCount;
+
+    public void SetCarryLayerWeight(float weight) => animationDriver.SetCarryLayerWeight(weight);
+
+    private int carrierViewId = -1;
+
+    [PunRPC]
+    private void OnGrabbedByOwner(int newCarrierViewId)
+    {
+        if (!pv.IsMine) return;
+        carrierViewId = newCarrierViewId;
+        IsMovementLocked = true;
+        animationDriver.ChangeState(PlayerMoveState.Held);
+    }
+
+    [PunRPC]
+    private void OnReleased(bool withThrow)
+    {
+        if (!pv.IsMine) return;
+        carrierViewId = -1;
+        IsMovementLocked = false;
+        animationDriver.ChangeState(PlayerMoveState.Idle);
+    }
+
+    // 그랍당한 동안 매 FixedUpdate마다 그랩버의 carrySocket 위치를 따라간다 — 소유권 이전
+    // 없이 자기 자신의 PhotonView를 그대로 유지한 채 로컬로만 추적하는 GameRule.md §4.1 설계.
+    private bool TryFollowCarrier()
+    {
+        if (carrierViewId < 0) return false;
+
+        PhotonView carrierPv = PhotonView.Find(carrierViewId);
+        if (carrierPv == null) return false;
+
+        var grabController = carrierPv.GetComponent<PlayerGrabController>();
+        if (grabController == null || grabController.CarrySocket == null) return false;
+
+        rb.position = grabController.CarrySocket.position;
+        transform.position = rb.position;
+        return true;
+    }
+
+    
+[PunRPC]
+    private void RequestGrabKill()
+    {
+        if (!pv.IsMine || hitCount >= 2) return; // 본인 클라이언트만 자기 상태 확정(소유권 원칙)
+
+        hitCount = 2;
+        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.HitCount, hitCount } });
+
+        IsMovementLocked = true;
+        animationDriver.ChangeState(PlayerMoveState.Broken);
+        GetComponent<SpectatorController>()?.EnterSpectatorMode();
+
+    }
+
 
 private void Awake()
     {
@@ -115,7 +174,9 @@ private void Awake()
     // Rigidbody 조작은 물리 스텝(FixedUpdate)에서만 수행한다(Unity 관례) — 입력은 Update()에서 이미 읽어뒀다.
     private void FixedUpdate()
     {
-        if (!pv.IsMine || IsMovementLocked)
+        if (!pv.IsMine) return;
+        if (TryFollowCarrier()) return; // 그랩당한 동안은 일반 이동 로직 대신 캐리 위치만 추적
+        if (IsMovementLocked)
             return;
 
         bool grounded = groundDetector.IsGrounded(transform.position);

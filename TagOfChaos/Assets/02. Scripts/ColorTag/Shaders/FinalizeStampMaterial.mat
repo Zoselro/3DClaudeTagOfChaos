@@ -30,9 +30,9 @@ Material:
     m_Ints: []
     m_Floats:
     - _RespectLock: 0
-    - _StampRadius: 0.02
+    - _StampRadius: 0.018
     m_Colors:
-    - _StampColor: {r: 1, g: 0.8314, b: 0, a: 1}
-    - _StampUV: {r: 0.21066125, g: 0.044812046, b: 0, a: 0}
+    - _StampColor: {r: 0.9098, g: 0.149, b: 0.1686, a: 1}
+    - _StampUV: {r: 0.7646413, g: 0.054104235, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

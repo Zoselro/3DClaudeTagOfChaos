@@ -1,10 +1,10 @@
-using ExitGames.Client.Photon;
 using Photon.Pun;
 using UnityEngine;
 
-// 색상 라운드 중 로컬 플레이어의 마우스 위치를 3D 붓 모델(Brush.fbx 기반 프리팹)로 표시한다.
-// OS 하드웨어 커서는 캐릭터 표면 위에 있을 때만 숨기고, 스와치 UI 등을 조작할 때는 그대로 보여준다
-// (GameScenePlan.md 12장 — 원래는 2D 커서 텍스처 교체 방식이었으나 3D 모델로 대체됨).
+// 색칠 페이즈 중 로컬 플레이어의 마우스 위치를 3D 붓 모델로 표시한다. OS 하드웨어 커서는
+// 캐릭터 표면 위에 있을 때만 숨기고, 스와치 UI 등을 조작할 때는 그대로 보여준다.
+// (GameRule.md §3 자유 색칠 재작성 — 활성 여부를 RoundIndex 대신 PaintPhaseEndTime 기반으로
+// 매 프레임 판정한다.)
 public class BrushCursorController : MonoBehaviourPunCallbacks
 {
     [SerializeField] private BrushSettingsSO brushSettings;
@@ -15,46 +15,21 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
     private MaterialPropertyBlock propertyBlock;
     private PlayerPaintCanvas localPaintCanvas;
     private Camera targetCamera;
-    private bool isColorRoundActive;
     private int paintRaycastMask;
 
     private void Awake()
     {
         propertyBlock = new MaterialPropertyBlock();
         Cursor.visible = true;
-        // 캐릭터 자신의 물리용 CapsuleCollider가 붓칠 대상인 Ch36을 가려 레이캐스트가 항상 캡슐에
-        // 먼저 맞는 문제를 막기 위해, 붓 관련 레이캐스트에서는 PlayerCapsule 레이어를 제외한다
-        // (Bug-fix-plan.md §17).
+        // 캐릭터 자신의 물리용 CapsuleCollider가 붓칠 대상인 몸통 메시를 가려 레이캐스트가 항상
+        // 캡슐에 먼저 맞는 문제를 막기 위해, 붓 관련 레이캐스트에서는 PlayerCapsule 레이어를 제외한다.
         paintRaycastMask = Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule");
     }
 
-
-
-public override void OnDisable()
+    public override void OnDisable()
     {
         base.OnDisable();
         Cursor.visible = true;
-    }
-
-    public override void OnRoomPropertiesUpdate(Hashtable changedProps)
-    {
-        if (!changedProps.ContainsKey(NetKeys.RoundIndex)) return;
-        ApplyCursorForRound((int)changedProps[NetKeys.RoundIndex]);
-    }
-
-    private void ApplyCursorForRound(int roundIndex)
-    {
-        isColorRoundActive = roundIndex >= 0 && roundIndex < 4;
-
-        if (isColorRoundActive)
-        {
-            EnsureCursorInstance();
-        }
-        else
-        {
-            if (cursorInstance != null) cursorInstance.SetActive(false);
-            Cursor.visible = true;
-        }
     }
 
     private void EnsureCursorInstance()
@@ -70,7 +45,15 @@ public override void OnDisable()
 
     private void Update()
     {
-        if (!isColorRoundActive || cursorInstance == null) return;
+        if (!IsPaintPhaseActive())
+        {
+            if (cursorInstance != null) cursorInstance.SetActive(false);
+            Cursor.visible = true;
+            return;
+        }
+
+        EnsureCursorInstance();
+        if (cursorInstance == null) return;
 
         if (localPaintCanvas == null || !localPaintCanvas.IsMine)
             localPaintCanvas = FindLocalPaintCanvas();
@@ -94,8 +77,8 @@ public override void OnDisable()
 
         if (!hitSurface) return;
 
-        // 콜라이더가 이제 실시간 포즈를 반영하지만(§20.6), 모델 두께에 따라 표면에 딱 붙어
-        // 파고든 것처럼 보일 수 있어 법선 방향으로 살짝 띄운다(Bug-fix-plan.md §20.7).
+        // 콜라이더가 실시간 포즈를 반영하지만, 모델 두께에 따라 표면에 딱 붙어 파고든 것처럼
+        // 보일 수 있어 법선 방향으로 살짝 띄운다.
         Vector3 cursorPos = hit.point + hit.normal * brushSettings.CursorSurfaceOffset;
         cursorInstance.transform.SetPositionAndRotation(cursorPos, Quaternion.FromToRotation(Vector3.up, hit.normal));
 
@@ -103,6 +86,11 @@ public override void OnDisable()
         cursorInstance.transform.localScale = Vector3.one * scale;
 
         UpdateColor();
+    }
+
+    private bool IsPaintPhaseActive()
+    {
+        return RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double endTime) && PhotonNetwork.Time < endTime;
     }
 
     // 씬에 하나뿐인 매니저이므로, 로컬 플레이어가 스폰된 후에도 계속 참조를 찾을 수 있도록 매번 재탐색
@@ -119,13 +107,12 @@ public override void OnDisable()
     private void UpdateColor()
     {
         if (cursorRenderer == null || palette == null) return;
-        if (!PhotonNetwork.LocalPlayer.CustomProperties.TryGetValue(NetKeys.VoteColorIndex, out object v)) return;
 
-        int voteColor = (int)v;
-        if (voteColor < 0) return;
+        int brushColor = localPaintCanvas.CurrentBrushColorIndex;
+        if (brushColor < 0) return;
 
         cursorRenderer.GetPropertyBlock(propertyBlock);
-        propertyBlock.SetColor("_Color", palette.GetColor(voteColor));
+        propertyBlock.SetColor("_Color", palette.GetColor(brushColor));
         cursorRenderer.SetPropertyBlock(propertyBlock);
     }
 }

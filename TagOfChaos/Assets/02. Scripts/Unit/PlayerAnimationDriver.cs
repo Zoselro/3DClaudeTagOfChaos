@@ -86,7 +86,20 @@ public class PlayerAnimationDriver
         }
     }
 
-    public void ResumePlayback()
+    private int carryLayerIndex = -1;
+
+    // Carry Avatar Mask 레이어 가중치 제어(GameRule.md §4.1) — PlayerAnimator.controller에
+    // \"Carry\" 레이어가 아직 없으면 GetLayerIndex가 -1을 반환해 조용히 무시된다.
+    public void SetCarryLayerWeight(float weight)
+    {
+        if (animator == null) return;
+        if (carryLayerIndex < 0) carryLayerIndex = animator.GetLayerIndex("Carry");
+        if (carryLayerIndex < 0) return;
+        animator.SetLayerWeight(carryLayerIndex, weight);
+    }
+
+    
+public void ResumePlayback()
     {
         if (animator != null)
             animator.speed = 1f;
