@@ -1,10 +1,25 @@
-# 조사 보고서: TagOfChaos 프로젝트 전체 심층 분석 (2026-08-29, 커밋 `403f4b6` 기준)
+# 조사 보고서: TagOfChaos 프로젝트 전체 심층 분석 (2026-09-25, 커밋 `b134164` 기준)
 
-> 이 문서는 커밋 `11f0a9d`(2026-08-21) 기준으로 작성된 이전 버전을 **전면 대체**한다. 이전 버전은
+> **개정 이력**: 이 문서는 커밋 `c82f4b6`(2026-08-29, `403f4b6` 기준 작성) 버전을 **전면 대체**한다.
+> `c82f4b6..b134164` 구간(`git show --stat b134164` 직접 확인)은 **`Assets/02. Scripts/`의 `.cs`
+> 파일을 단 한 줄도 건드리지 않았다** — 따라서 아래 §1~§2(네트워크 구조·도메인별 동작)와 §7(11개
+> 관점 체크리스트)의 코드 차원 서술은 이전 버전 그대로 유효하며, 라인 단위로 재검증했다. 변경된
+> 것은 전부 **에셋(프리팹·애니메이션·폰트)** 이며, 그중 하나가 새로운 구조적 발견이다:
+> - **신규 `PlayerMonster.prefab`(`Assets/04. Prefabs/Resources/`)** — 커밋 `b134164`("몬스터
+>   애니메이션 수정")이 추가한, 새로 리깅된 `Monster_Rigged_kihong.fbx` 위에 `PhotonView`/
+>   `MonsterController`/`MonsterGrabKillTrigger`를 직접 얹은 **미완성·미배선 프리팹**이다. 기존에
+>   실제로 스폰되는 `MonsterPlayer.prefab`과 이름만 뒤집힌 별개 자산이며, 코드 어디에서도 문자열
+>   `"PlayerMonster"`를 참조하지 않는다(`grep` 재확인, `MonsterTestSpawner`/`MonsterJoinController`
+>   둘 다 여전히 `"MonsterPlayer"`). §3.1과 §6.1(신규)에 상세 기술.
+> - `MonsterAnimator.controller`는 노드 좌표 1곳만 바뀌었다(`git show` diff 2줄, 로직 변화 없음) —
+>   §2.7/§6.4(구 §6.13)의 `GrapKill` 오타·`Held`/`Broken` 상태 부재는 **그대로 재현됨**.
+>
+> 아래는 이전 버전의 전체 내용(§0~§5, §7~§10)에 위 발견을 반영해 갱신한 것이다. 이전 리비전
+> (2026-08-29)이 정리한 히스토리는 다음과 같다: 커밋 `11f0a9d`(2026-08-21) 기준 버전은
 > "`Assets/02. Scripts` 아래 33개 `.cs`, 코드 아키텍처 변화 없음, ColorTag 미니게임은 씬 배선만
 > 누락"이라고 결론지었으나, 그 직후 커밋 `d0fdf2a`→`403f4b6` 구간에서 **`GameRule.md` v3.7이
 > 설계했던 새 게임 룰(쿠키 자유 색칠 + 괴물 술래잡기)이 실제 코드·프리팹·씬 배선까지 대부분
-> 구현됐다.** `git diff --stat 11f0a9d..HEAD` 기준 125개 파일 변경(+13,445/−7,150), 그중:
+> 구현됐다.** `git diff --stat 11f0a9d..403f4b6` 기준 125개 파일 변경(+13,445/−7,150), 그중:
 >
 > - **구 시스템 완전 삭제**: `ColorSelectionManager` / `ColorVoteTally` / `TaggerColorAssigner` /
 >   `PlayerColorDisplay` / `PlayerColorVoteIndicator` / 구 `ColorTag/RoomLifecycleWatcher` (6개 `.cs`)
@@ -343,6 +358,18 @@ GameScene        전원 함께 입장. 괴물로 확정된 플레이어는 쿠�
   + `SphereCollider`(trigger, GrabKill) + `SkinnedMeshRenderer`. `eyeSocket`/`grabKillTrigger`/
   `animator`/`monsterPv`/`monsterController` 직렬화 참조 전부 연결됨. **모든 오브젝트 layer 0**
   (Monster 레이어 10 미사용).
+- **`PlayerMonster.prefab`(신규, `b134164`)**: `MonsterPlayer.prefab`과 **무관한 별개 자산**.
+  `Monster_Rigged_kihong.fbx`(신규 리깅 모델)의 `PrefabInstance` 위에 `Animator`(`m_Controller:
+  {fileID: 0}` — **컨트롤러 미할당**), `Rigidbody`, `CapsuleCollider`(`radius 0.1 / height 0.35` —
+  모델 스케일과 안 맞는 기본값으로 보임), `PhotonView`, `MonsterController`(`pv: {fileID: 0}` —
+  **미배선**, `eyeSocket: {fileID: 0}` — 미배선, `obstructionMask: Nothing`), `MonsterGrabKillTrigger`,
+  `SphereCollider`(trigger)를 얹은 상태. `MonsterController.Awake()`(`Assets/02. Scripts/Monster/
+  MonsterController.cs:32`)가 `if (!pv.IsMine) return;`로 시작하므로, **`pv`가 null인 채로
+  `PhotonNetwork.Instantiate`되면 모든 클라이언트에서 즉시 `NullReferenceException`**이 난다.
+  코드에서 이 프리팹 이름(`"PlayerMonster"`)을 참조하는 곳이 없어 **현재는 스폰되지 않는 죽은
+  자산**이지만, `Assets/04. Prefabs/Resources/`(Photon `Resources.Load` 대상 폴더)에 있어 누군가
+  `MonsterJoinController`/`MonsterTestSpawner`의 프리팹 이름 상수를 실수로 `"PlayerMonster"`로
+  바꾸면 즉시 크래시로 이어지는 **매설된 위험 자산**이다. §6.1(신규)에서 우선순위 상세.
 - **`Brush.fbx` / `BrushCursor.prefab`**: 3D 붓 커서.
 
 **Animator Controller**:
@@ -491,6 +518,29 @@ Animator 상태명을 `GrabKill`로 정정하면 이 감지가 조용히 깨진�
 `PlayerGrabController.cookieLayer` / `PlayerPaintCanvas.paintRaycastMask` 등이 레이어에
 의존하는데 캐릭터 계층의 레이어가 혼재. 모델/프리팹 구조 변경 시 함께 갱신해야 하는 취약점.
 
+### 6.15 [신규, 경미~잠재적 높음] 미배선·미완성 `PlayerMonster.prefab`이 `Resources/`에 방치됨
+커밋 `b134164`("몬스터 애니메이션 수정")이 새 리깅 모델(`Monster_Rigged_kihong.fbx`) 위에
+`PhotonView`/`MonsterController`/`MonsterGrabKillTrigger`를 얹어 `Assets/04. Prefabs/Resources/
+PlayerMonster.prefab`을 만들었다(§3 참고). 지금은 어떤 스크립트도 `"PlayerMonster"` 문자열을
+참조하지 않으므로 **런타임에 영향이 없다** — 하지만:
+- `Animator.m_Controller`가 비어 있고, `MonsterController.pv`/`eyeSocket`이 인스펙터에서
+  연결되지 않은 채(`{fileID: 0}`) 저장돼 있다. `MonsterController.Awake()`의 첫 줄이
+  `if (!pv.IsMine) return;`이라, 이 프리팹이 그대로 `PhotonNetwork.Instantiate`되면 **모든
+  클라이언트에서 즉시 `NullReferenceException`**이 난다(pv가 null이므로 `.IsMine` 접근 자체가
+  예외).
+- `CapsuleCollider`(반경 0.1 / 높이 0.35)가 기존 `MonsterPlayer.prefab`의 캡슐(비교 대상 없이도
+  현저히 작음)과 스케일이 맞지 않아 보인다 — 새 모델의 실제 크기에 맞춰 재설정이 안 된 상태로
+  추정.
+- **기존 `MonsterPlayer.prefab`과 이름만 뒤집힌 별개 자산**이라, 두 프리팹 중 어느 쪽이 "진짜"인지
+  나중에 합류하는 작업자가 혼동할 여지가 크다(§7.3/§7.11에서 다시 언급).
+
+**조치**: (a) 이 프리팹이 `MonsterPlayer.prefab`을 새 모델로 교체하기 위한 작업 중 산출물이라면,
+완성 전까지 `Resources/` 밖(예: `Assets/04. Prefabs/WIP/`)으로 옮겨 실수로 로드되는 것을 막거나,
+(b) 완성해서 `MonsterPlayer.prefab`을 대체할 계획이라면 `pv`/`eyeSocket`/`Animator.controller`/
+콜라이더 크기를 마저 채우고 `MonsterJoinController.MonsterPrefabName`/`MonsterTestSpawner.
+MonsterPrefabName`을 이 프리팹 이름으로 갈아끼운 뒤 **기존 `MonsterPlayer.prefab`을 삭제**해
+"몬스터 프리팹이 2개"인 상태를 없애는 것이 바람직하다.
+
 ---
 
 ## 7. 아키텍처 체크리스트 (11개 관점)
@@ -510,9 +560,16 @@ CustomProperties/RaiseEvent로만 소통. `MonsterController→MonsterGrabKillTr
 5곳(`BrushCursorController`/`ColorSwatchButton`/`PaintToolButton`/`ColorSelectionPanel` + `GameManager`)
 — 런타임 스폰 캐릭터라 인스펙터 연결 불가라는 정당한 이유.
 
-### 7.3 Prefab과 Script 역할 혼재 — **경미**
+### 7.3 Prefab과 Script 역할 혼재 — **경미~신규 주의**
 `HideOrSeekPlayer.prefab`이 `Unit`(7)과 `ColorTag`(2) 두 도메인 컴포넌트를 물리적으로 함께
 갖는다(코드 레벨에선 두 도메인이 서로 참조하지 않음). 관전자/변형 프리팹이 필요해지면 걸림돌
+이 될 수 있다(기존 지적). **신규**: `PlayerMonster.prefab`(§3, §6.15)은 반대 방향의 혼재
+사례다 — 협업 프리팹(`HideOrSeekPlayer`처럼 빈 GameObject에 컴포넌트를 조립하는 방식)이 아니라,
+**임포트된 원본 리깅 모델(`Monster_Rigged_kihong.fbx`) 위에 직접 게임플레이 스크립트를 얹은
+`PrefabInstance`**다. 아트 파이프라인 산출물(모델)과 게임플레이 조립체(프리팹)의 경계가 이번
+건에서는 흐려졌다 — 모델이 갱신될 때마다(리깅 재작업 등) 그 위에 얹힌 스크립트 배선까지 함께
+사라질 위험이 일반 프리팹보다 크다(`PrefabInstance`가 원본 FBX를 `m_SourcePrefab`으로 직접
+가리키므로, FBX 재임포트 시 계층 구조가 바뀌면 덧붙인 컴포넌트의 참조가 깨질 수 있음).
 가능. `transform.Find("Mesh_0")`(HideOrSeekPlayer), `GameObject.Find("PlayerSpawnPos"/"MonsterSpawnPos")`
 (`PlayerSpawner`/`MonsterJoinController`/`MonsterTestSpawner`/`HideOrSeekPlayer.RespawnToSpawnPoint`)
 등 문자열 탐색이 씬 구조와 암묵 계약.
@@ -571,17 +628,24 @@ CustomProperties/RaiseEvent로만 소통. `MonsterController→MonsterGrabKillTr
   `ColorSelectionPanel` 4곳에 거의 동일 복붙(각 5줄) — `RoomState` 같은 헬퍼로 통합 여지.
 - `PlayerBillBoard.LateUpdate`의 "카메라 forward 정렬"(3줄).
 - `ChangeState()` 패턴이 `PlayerAnimationDriver`와 `MonsterController`에 각각 존재(타입만 다름).
+- **신규**: `MonsterPlayer.prefab` ↔ `PlayerMonster.prefab`(§3, §6.15) — "몬스터 캐릭터"라는
+  같은 개념을 가리키는 프리팹이 이름만 뒤집힌 채 2개 존재. 코드 중복은 아니지만(후자는 스크립트를
+  거의 재사용 — `MonsterController`/`MonsterGrabKillTrigger` 그대로) **자산 중복**이며, 어느 쪽이
+  최신인지 이름만으로는 구분이 안 된다는 점에서 §11의 "중복 로직" 문제와 같은 계열의 유지보수
+  리스크다.
 
 ---
 
 ## 8. 종합 결론 및 다음 단계 (우선순위순)
 
 이전 4차례 조사(`16c662b`→`1280dac`→`d0fdf2a`→`11f0a9d`) 동안 "코드 아키텍처는 사실상 변화
-없음, 남은 건 배선 공백"이었으나, **이번 구간(`11f0a9d`→`403f4b6`)에서 `GameRule.md`가 설계했던
-새 게임 룰 전체가 실제 코드·프리팹·씬으로 옮겨졌다.** 이전 보고서의 최우선 항목(§4.1 ColorTag
+없음, 남은 건 배선 공백"이었으나, `11f0a9d`→`403f4b6` 구간에서 `GameRule.md`가 설계했던
+새 게임 룰 전체가 실제 코드·프리팹·씬으로 옮겨졌다. 이전 보고서의 최우선 항목(§4.1 ColorTag
 시작 트리거 부재, §4.3 `GameEndTime` 미기록, §4.2 `ResetAllVotes`, §4.11 몬스터 미배선)은
-전부 해소되거나 폐기된 시스템의 것이 됐다. 대신 새 구현에서 **"돌아가지만 아직 안 이어진"
-지점들**이 드러났다.
+전부 해소되거나 폐기된 시스템의 것이 됐다. **이번 구간(`403f4b6`→`b134164`)은 `.cs` 변경이
+0건**이라 §1~§7의 코드 차원 결론은 그대로 유지되며, 유일한 신규 항목은 아직 배선되지 않은
+`PlayerMonster.prefab`(§6.15) 하나뿐이다. 아래 우선순위 목록은 이전 버전 그대로이되 §6.15를
+반영해 갱신했다.
 
 1. **[최우선] 괴물 카메라 배선** (§6.1) — `MonsterFirstPersonCamera`를 `GameScene`·
    `PlayerTestScene` Main Camera에 부착 + 괴물일 때 `Camera_Ctrl` 비활성화 스위칭. 이게 없으면
@@ -608,12 +672,23 @@ CustomProperties/RaiseEvent로만 소통. `MonsterController→MonsterGrabKillTr
 8. **[선택, 지속] `ColorPaletteSO` 범위 검사, UI 리스너 해제, `RoomExitController.pv` 코드화**
    (§6.9~6.11).
 
+9. **[신규, 자산 정리]** `PlayerMonster.prefab` 처리 방침 확정 (§6.15) — WIP 폴더로 격리하거나,
+   `MonsterPlayer.prefab`을 대체할 목적이면 배선(`pv`/`eyeSocket`/`Animator.controller`/콜라이더)을
+   마저 채우고 스폰 프리팹 이름 상수 2곳(`MonsterJoinController`/`MonsterTestSpawner`)을 갈아끼운
+   뒤 구 프리팹을 삭제. 지금 상태로 방치하면 "몬스터 프리팹 2개, 이름 반전" 상태가 지속돼 다음
+   작업자가 혼동하거나(§7.3/§7.11) 프리팹 이름 문자열을 실수로 바꿔 즉시 크래시를 유발할 수 있다.
+
 **전체적으로**: 프로젝트는 이제 "설계 문서"에서 "동작하는 수직 슬라이스"로 넘어왔다. 도메인
 분리(7.1), Scene 의존 관리(7.4), Singleton 절제(7.5), Photon 콜백 구독(7.8), Ownership/RPC
 구조(7.10) 다섯 관점은 새 코드 3만 줄이 추가된 뒤에도 구조적 문제가 없다. 남은 일은 대부분
 **아키텍처 결함이 아니라 "마지막 배선 한두 개"(§6.1, §6.2)와 "세션 간 상태 정리"(§6.5)** 이고,
-그다음이 비주얼·밸런스다. 다음 조사는 §6.1/§6.5가 해결된 뒤 실제 4인 Play Mode 세션을 1회
-완주해보고 그 시점의 런타임 동작을 기준으로 §7 체크리스트를 재검증하는 것이 유효하다.
+그다음이 비주얼·밸런스다. `403f4b6→b134164` 구간은 코드에 손을 대지 않고 아트 에셋(신규 몬스터
+리깅·애니메이션)만 추가했는데, 그 산출물인 `PlayerMonster.prefab`이 미완성 상태로 `Resources/`에
+들어간 것(§6.15)이 유일한 신규 리스크다 — 아직 코드가 참조하지 않아 당장 동작에 영향은 없지만,
+방치 기간이 길어질수록 "어느 프리팹이 진짜인가"라는 혼동과 실수 크래시 위험이 누적된다. 다음
+조사는 §6.1/§6.5가 해결된 뒤 실제 4인 Play Mode 세션을 1회 완주해보고 그 시점의 런타임 동작을
+기준으로 §7 체크리스트를 재검증하는 것이 유효하며, 그 전에 §6.15(`PlayerMonster.prefab` 처리
+방침)도 함께 정리하는 것을 권장한다.
 
 ---
 
@@ -643,4 +718,5 @@ CustomProperties/RaiseEvent로만 소통. `MonsterController→MonsterGrabKillTr
 | `architecture-review.md` | 구버전 | 2026-08-15 스냅샷. 이 문서(research.md)가 대체 |
 | `architecture-review-plan.md` | ✅ 완료 | 위 리뷰 5개 항목 수정(`SceneNames`/`RoomState`/`PlayerSpawner`/`RoomExitController` 신규) |
 | `GameRule.md` | **v3.7, 부분 구현 완료** | 현재 게임 룰의 정본. §0~§14 + 개정 이력. 이 조사와 대조 시 §4 표 참고 |
-| `research.md` | **이 문서** | 전체 동작 + 아키텍처 체크리스트 |
+| `research.md` | **이 문서 (2026-09-25, `b134164` 기준)** | 전체 동작 + 아키텍처 체크리스트 |
+| `Plan.md`(파일, 이 폴더 최상단) | **신규** | 이 조사(§6/§8)의 발견사항을 실행 순서로 정리한 조치 계획 |
