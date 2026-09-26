@@ -28,6 +28,9 @@ public static class NetKeys
     // 승패(GameRule.md §8)
     public const string GameResult = "GameResult";
 
+    // 상호작용 문(GameLobbyScene.md §14) — Hashtable { 문 ID(string): 상태(byte, InteractableDoor.DoorState) }
+    public const string DoorStates = "DoorStates";
+
     // Player CustomProperties (GameRule.md §4.4 — hitCount는 0 또는 2만 실제로 쓰임, v3.6)
     public const string HitCount = "HitCount";
     public const string RegisteredSlotCount = "RegisteredSlotCount"; // GameRule.md §3.2
@@ -68,6 +71,7 @@ public static class NetKeys
         new Scope(GameEndTime, Target.Room, Lifetime.Round),
         new Scope(MonsterDepartedAt, Target.Room, Lifetime.Round),
         new Scope(GameResult, Target.Room, Lifetime.Round),
+        new Scope(DoorStates, Target.Room, Lifetime.Round),
         new Scope(HitCount, Target.Player, Lifetime.Round),
         new Scope(RegisteredSlotCount, Target.Player, Lifetime.Round),
         new Scope(SkinIndex, Target.Player, Lifetime.Session),

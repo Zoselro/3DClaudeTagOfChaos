@@ -60,6 +60,7 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     public CharacterRole Role => CharacterRole.Monster;
     public PhotonView View => pv;
     public bool IsSpectatable => true;
+    public bool CanInteract => !IsGrabKilling && !IsTentacleDashing; // 처형·돌진 연출 중에는 상호작용 불가
 
     public override void OnEnable()
     {

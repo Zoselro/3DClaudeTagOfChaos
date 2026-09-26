@@ -598,3 +598,56 @@ CLAUDE.md 폴더 규칙(Scripts → `02. Scripts/{도메인}`, SO → `03. SO/{�
 - 문 모양이 바뀐다(사각 문 + 아치 장식판). 다른 디자인을 원하면 B1 전에 알려줘야 한다.
 - Blender 원본(.blend)을 수정한다 — B0 백업으로 되돌릴 수 있다. FBX·프리팹은 git으로 되돌릴 수 있다(단, 과자집 에셋 폴더도 아직 커밋되지 않은 상태라 **작업 전 상태를 보존하려면 커밋을 먼저 하는 것을 권장**).
 - 문 클립·컨트롤러 삭제 — 문 외에는 참조하는 곳이 없음을 삭제 전에 다시 확인한다.
+
+---
+
+## 14. 문·사물 상호작용(E 키) + 양방향 문 적용 (2026-09-27, 코드 완료 / Unity 검증 대기)
+
+### 14.1 사용자 요구·결정
+
+| 항목 | 결정 |
+|---|---|
+| 문 개폐 방식 | 다가가면 자동으로 여닫던 §12 방식을 없애고 **상호작용 키(E)** 로 여닫는다(토글, 자동으로 닫히지 않음) |
+| 안내 문구 | 상호작용할 수 있는 사물에 다가가면 **화면 하단 가운데**에 `Press the 'E'`, 멀어지면 사라짐 |
+| 쓸 수 있는 캐릭터 | **파괴되지 않은 쿠키와 괴물**. 문 외의 사물도 나중에 같은 구조로 추가 |
+| 키 충돌 | 쿠키 그랩/놓기 키를 **E → F** 로 옮기고 E는 상호작용 전용 |
+| 여는 방향 | 누른 캐릭터의 반대쪽: 밖에서 누르면 안쪽 90°, 안에서 누르면 바깥쪽 75° |
+
+### 14.2 과자집 모델 변경 (Blender, §13.3 적용 결과)
+
+- 문짝: 사각 1.47 × 2.15 × 0.15 m(경첩 쪽 모서리 둥글게, 반지름 7.5 cm), 벽 두께 가운데, 경첩 = 문설주에서 8.5 cm 안쪽. 원점 = 경첩 축.
+- 잘라낸 아치 윗부분은 고정 장식판 `DoorTransom_{Side}` + 충돌체 `COL_DoorTransom_{Side}`.
+- 문 장식(소용돌이·손잡이·띠)은 새 문 크기에 맞춰 옮김. 경첩 쪽 띠 장식은 두께 0.8 cm로 얇게.
+- 실내 쪽 문틀 z-fighting 수정: 문틀 안쪽 면이 벽 안쪽 면과 같은 평면이었음 → 문틀을 실내로 3 cm 내밀고 개구부 면을 0.5 cm 줄임.
+- 회전 검사(1° 간격): 안쪽 0~90° 겹침 0. **바깥쪽은 소용돌이 장식(7.9 cm 돌출)이 76°부터 경첩 쪽 문틀에 닿아 75°로 제한**(사용자 결정). 문 충돌체는 양쪽 90°까지 겹침 0.
+- FBX 재내보내기(`wch_export.py`) → Unity Verify ALL OK(renderers 153, convexColliders 46).
+
+### 14.3 구조
+
+| 클래스 | 위치 | 역할 |
+|---|---|---|
+| `IInteractable`, `InteractableRegistry` | `02. Scripts/Interaction/IInteractable.cs` | 사물 공통 계약(기준점·범위·`CanInteract`·`Interact`)과 등록 목록. 물리 쿼리 없이 거리만 비교 |
+| `CharacterInteractor` | `02. Scripts/Interaction/` | 게임 시작 때 1개 자동 생성(DontDestroyOnLoad). 0.1초마다 내 캐릭터(`CharacterRegistry`, `View.IsMine`) 주변 가장 가까운 사물을 찾아 문구 표시, E 입력 전달. 채팅 입력 중에는 무시 |
+| `InteractionPromptUI` | `02. Scripts/Interaction/` + 프리팹 `Resources/UI/Scene/InteractionPromptUI/` | 하단 가운데 문구. 레이캐스트는 막지 않음 |
+| `InteractionPromptBuilder` | `Editor/Interaction/` | 프리팹이 없으면 자동 생성. 메뉴 `Tools/TagOfChaos/Build Interaction Prompt` |
+| `IGameCharacter.CanInteract` | 쿠키: `!IsMovementLocked`(파괴·들림·채팅), 괴물: 처형·돌진 중이 아닐 때 | 캐릭터 자격 |
+| `InteractableDoor` | `02. Scripts/Environment/` (`AutoDoor`를 GUID 유지한 채 교체) | 문 토글, 방향 결정, 네트워크 동기화 |
+| 입력 | `PlayerInput.InteractPressed`, `InputBindingsSO.interactKey = E`, `grabKey = F` | |
+
+### 14.4 네트워크 (research.md G5-1 원칙)
+
+- 상태: Room Prop `NetKeys.DoorStates` = Hashtable { 문 ID(오브젝트 이름): byte 0 닫힘 / 1 안쪽 열림 / 2 바깥 열림 }. Round 수명(판이 끝나면 모두 닫힘).
+- 변경: 누른 클라이언트 → `NetEventCodes.DoorStateRequest(6)`로 방장에게 요청 → 방장이 Props를 씀 → 모든 클라이언트가 `OnRoomPropertiesUpdate`에서 Animator 반영. 방장 자신은 바로 쓴다. 방 밖(오프라인 테스트)에서는 로컬로만 바꾼다.
+- 방장은 서버 응답 전 보낸 값을 따로 기억해 두 문을 연달아 바꿔도 앞 변경을 덮어쓰지 않는다.
+- 늦게 들어온 사람·씬 로드: Props를 읽어 애니메이션 없이 끝 자세로 맞춘다.
+- 문짝 충돌체는 도는 0.6초 동안만 끄고, 다 돌면 되살려 열린 문짝도 막는다.
+
+### 14.5 Unity 반영 순서 (사용자 실행)
+
+| # | 작업 | 상태 |
+|---|---|---|
+| U1 | 컴파일 에러 0 확인 | 대기 |
+| U2 | `Tools/TagOfChaos/Build Interaction Prompt` 프리팹 생성 확인(자동 생성됨) | 대기 |
+| U3 | `Tools/TagOfChaos/Build Witch Cookie House` → 문 클립 16개·컨트롤러·`InteractableDoor` 적용, Verify ALL OK | 대기 |
+| U4 | EditMode 테스트(`NetKeys.Scopes`에 `DoorStates` 등록 확인) | 대기 |
+| U5 | Play: 문 앞에서 문구 표시/사라짐, E로 안·밖 열기·닫기, 그랩이 F로 동작, 파괴된 쿠키는 문구 없음, 2인 이상에서 문 상태 동기화 | 대기 |

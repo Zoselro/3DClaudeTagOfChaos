@@ -17,7 +17,8 @@ MonoBehaviour:
   runKey: 304
   jumpKey: 32
   dodgeKey: 306
-  grabKey: 101
+  grabKey: 102
+  interactKey: 101
   tentacleDashKey: 304
   spectateNextKey: 32
   chatSubmitKey: 13

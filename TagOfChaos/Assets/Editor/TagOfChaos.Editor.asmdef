@@ -1,7 +1,11 @@
 {
     "name": "TagOfChaos.Editor",
     "references": [
-        "TagOfChaos.Scripts"
+        "TagOfChaos.Scripts",
+        "Unity.TextMeshPro",
+        "Unity.ugui",
+        "PhotonUnityNetworking",
+        "PhotonRealtime"
     ],
     "includePlatforms": [
         "Editor"

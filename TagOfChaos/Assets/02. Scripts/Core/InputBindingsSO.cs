@@ -14,7 +14,11 @@ public class InputBindingsSO : ScriptableObject
     [SerializeField] private KeyCode runKey = KeyCode.LeftShift;
     [SerializeField] private KeyCode jumpKey = KeyCode.Space;
     [SerializeField] private KeyCode dodgeKey = KeyCode.LeftControl;
-    [SerializeField] private KeyCode grabKey = KeyCode.E;
+    [SerializeField] private KeyCode grabKey = KeyCode.F;
+
+    [Header("Cookie / Monster")]
+    [Tooltip("문 등 상호작용 사물(IInteractable) 사용 키. 파괴되지 않은 쿠키와 괴물이 쓴다.")]
+    [SerializeField] private KeyCode interactKey = KeyCode.E;
 
     [Header("Monster")]
     [SerializeField] private KeyCode tentacleDashKey = KeyCode.LeftShift;
@@ -36,6 +40,7 @@ public class InputBindingsSO : ScriptableObject
     public KeyCode JumpKey => jumpKey;
     public KeyCode DodgeKey => dodgeKey;
     public KeyCode GrabKey => grabKey;
+    public KeyCode InteractKey => interactKey;
     public KeyCode TentacleDashKey => tentacleDashKey;
     public KeyCode SpectateNextKey => spectateNextKey;
     public KeyCode ChatSubmitKey => chatSubmitKey;

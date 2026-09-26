@@ -42,6 +42,7 @@ public static class PlayerInput
     public static bool JumpPressed => Input.GetKeyDown(Bindings.JumpKey);
     public static bool DodgePressed => Input.GetKeyDown(Bindings.DodgeKey);
     public static bool GrabPressed => Input.GetKeyDown(Bindings.GrabKey);
+    public static bool InteractPressed => Input.GetKeyDown(Bindings.InteractKey);
     public static bool TentacleDashPressed => Input.GetKeyDown(Bindings.TentacleDashKey);
     public static bool SpectateNextPressed => Input.GetKeyDown(Bindings.SpectateNextKey);
     public static bool ChatSubmitReleased => Input.GetKeyUp(Bindings.ChatSubmitKey);

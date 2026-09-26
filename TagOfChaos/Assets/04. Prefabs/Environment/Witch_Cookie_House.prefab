@@ -946,6 +946,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   openParameter: IsOpen
+  outwardParameter: OpenOutward
+  inwardOpenAngle: -90
   leafCollider: {fileID: 0}
   zoneWidth: 2.2
   zoneDepth: 2.5
@@ -1019,6 +1021,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   openParameter: IsOpen
+  outwardParameter: OpenOutward
+  inwardOpenAngle: -90
   leafCollider: {fileID: 0}
   zoneWidth: 2.2
   zoneDepth: 2.5
@@ -1092,6 +1096,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   openParameter: IsOpen
+  outwardParameter: OpenOutward
+  inwardOpenAngle: -90
   leafCollider: {fileID: 0}
   zoneWidth: 2.2
   zoneDepth: 2.5
@@ -1165,6 +1171,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   openParameter: IsOpen
+  outwardParameter: OpenOutward
+  inwardOpenAngle: -90
   leafCollider: {fileID: 0}
   zoneWidth: 2.2
   zoneDepth: 2.5

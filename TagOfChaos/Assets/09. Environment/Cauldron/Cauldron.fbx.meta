@@ -3,9 +3,69 @@ guid: 9ade0a07cb2045048ba8411d9377c24c
 ModelImporter:
   serializedVersion: 22200
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Charcoal
+    second: {fileID: 2100000, guid: c4d1b6ada38f93f42a0b60a9b98f487a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Ember
+    second: {fileID: 2100000, guid: 9d0e940d35067e94dba146659ec74668, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_FlamePurple
+    second: {fileID: 2100000, guid: 5ebe2f12e842a8b48a97da73fac7843a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_FlameTeal
+    second: {fileID: 2100000, guid: e5eaed09d61ae8e459e7bfaaa9af43b0, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Iron
+    second: {fileID: 2100000, guid: c0e212dc5a81ecd40a5addd0e76064b1, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_IronTrim
+    second: {fileID: 2100000, guid: 8c1ee0bc53901ec40a9e1b78dd872a65, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Liquid
+    second: {fileID: 2100000, guid: b7f4e70694f23234caf1a9936867b989, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_LiquidFoam
+    second: {fileID: 2100000, guid: 69d114192e59cec448d994becd4aa8ba, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Rune
+    second: {fileID: 2100000, guid: c3877f1d8903472448ff220d42fca5cc, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Smoke
+    second: {fileID: 2100000, guid: 657ad469ac29cab4782e81f8fe856c10, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Wood
+    second: {fileID: 2100000, guid: f0a022a8d3965c04892615439e520da7, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_WoodEnd
+    second: {fileID: 2100000, guid: 2244d71b55439a940b08001a8503eb96, type: 2}
   materials:
-    materialImportMode: 2
+    materialImportMode: 1
     materialName: 0
     materialSearch: 1
     materialLocation: 1
@@ -41,8 +101,8 @@ ModelImporter:
     importPhysicalCameras: 1
     importVisibility: 1
     importBlendShapes: 1
-    importCameras: 1
-    importLights: 1
+    importCameras: 0
+    importLights: 0
     nodeNameCollisionStrategy: 1
     fileIdsGeneration: 2
     swapUVChannels: 0
@@ -76,7 +136,7 @@ ModelImporter:
     blendShapeNormalImportMode: 1
     normalSmoothingSource: 0
   referencedClips: []
-  importAnimation: 1
+  importAnimation: 0
   humanDescription:
     serializedVersion: 3
     human: []

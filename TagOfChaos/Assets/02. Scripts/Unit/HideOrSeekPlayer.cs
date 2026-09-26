@@ -63,6 +63,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     public CharacterRole Role => CharacterRole.Cookie;
     public PhotonView View => pv;
     public bool IsSpectatable => pv != null && pv.Owner != null && !RoomState.IsBroken(pv.Owner);
+    public bool CanInteract => !IsMovementLocked; // 파괴·들림·채팅 잠금 중에는 상호작용 불가
     public float CameraTargetHeight => Camera_Ctrl.CookieTargetHeight;
     public float CameraDistance => -1f; // Camera_Ctrl 인스펙터 기본 거리
 

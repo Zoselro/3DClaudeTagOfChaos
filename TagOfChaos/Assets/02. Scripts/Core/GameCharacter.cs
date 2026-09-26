@@ -27,6 +27,9 @@ public interface IGameCharacter : ICameraFollowTarget
 
     // 관전 대상이 될 수 있는 상태인지(예: 파괴된 쿠키는 false).
     bool IsSpectatable { get; }
+
+    // 지금 상호작용 키로 사물(IInteractable)을 쓸 수 있는지(예: 파괴·들림·채팅 중인 쿠키, 처형 중인 괴물은 false).
+    bool CanInteract { get; }
 }
 
 // 현재 씬에 활성화된 캐릭터 목록. 캐릭터가 OnEnable/OnDisable에서 스스로 등록·해제한다 —

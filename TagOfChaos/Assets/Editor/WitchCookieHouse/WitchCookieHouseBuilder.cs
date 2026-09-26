@@ -23,9 +23,12 @@ public static class WitchCookieHouseBuilder
     private const int ClipFrames = 18;
     private const float ClipLength = ClipFrames / SampleRate;
 
-    // Unity 좌표계에서 모든 문은 localEulerAngles.y = -90 일 때 집 안쪽으로 열린다.
+    // Unity 좌표계에서 모든 문은 localEulerAngles.y = -90 일 때 집 안쪽으로, +75 일 때 바깥쪽으로 열린다.
+    // 바깥쪽은 문짝 바깥 면 소용돌이 장식이 경첩 쪽 문틀에 닿는 76° 직전까지만 연다(Blender에서 1° 간격 검사).
     private const float DoorOpenAngle = -90f;
-    public const string DoorIsOpenParam = AutoDoor.DefaultOpenParameter; // 런타임 문 개폐(AutoDoor)와 같은 파라미터
+    private const float DoorOpenOutwardAngle = 75f;
+    public const string DoorIsOpenParam = InteractableDoor.DefaultOpenParameter; // 런타임 문 개폐(InteractableDoor)와 같은 파라미터
+    public const string DoorOutwardParam = InteractableDoor.DefaultOutwardParameter;
 
     private const string SmokeRootName = "Chimney_Smoke";
     private const string SmokePuffPrefix = "Chimney_Smoke_Puff_";
@@ -80,7 +83,9 @@ public static class WitchCookieHouseBuilder
                 }
                 AnimationClip open = WriteDoorClip($"Door_{side}_Open", 0f, DoorOpenAngle, easeOut: true);
                 AnimationClip close = WriteDoorClip($"Door_{side}_Close", DoorOpenAngle, 0f, easeOut: false);
-                AnimatorController controller = WriteDoorController($"Door_{side}", open, close);
+                AnimationClip openOut = WriteDoorClip($"Door_{side}_OpenOut", 0f, DoorOpenOutwardAngle, easeOut: true);
+                AnimationClip closeOut = WriteDoorClip($"Door_{side}_CloseOut", DoorOpenOutwardAngle, 0f, easeOut: false);
+                AnimatorController controller = WriteDoorController($"Door_{side}", open, close, openOut, closeOut);
 
                 var animator = door.gameObject.AddComponent<Animator>();
                 animator.runtimeAnimatorController = controller;
@@ -91,8 +96,8 @@ public static class WitchCookieHouseBuilder
                 body.isKinematic = true; // 애니메이션으로 움직이는 콜라이더
                 body.useGravity = false;
 
-                // 캐릭터가 다가가면 열고 떠나면 닫는다(Plan.md/GameLobbyScene.md §12). 프리팹을 다시 만들어도 유지되도록 빌더가 붙인다.
-                door.gameObject.AddComponent<AutoDoor>();
+                // 쿠키·괴물이 상호작용 키로 여닫는다(GameLobbyScene.md §14). 프리팹을 다시 만들어도 유지되도록 빌더가 붙인다.
+                door.gameObject.AddComponent<InteractableDoor>();
             }
 
             Transform smoke = FindDeep(instance.transform, SmokeRootName);
@@ -216,27 +221,49 @@ public static class WitchCookieHouseBuilder
 
     // ---------------- controllers ----------------
 
-    // Closed(기본, 모션 없음) -> Open -> Close, IsOpen 파라미터로 제어
-    private static AnimatorController WriteDoorController(string name, AnimationClip open, AnimationClip close)
+    // Closed(기본, 모션 없음) -> Open/OpenOut -> Close/CloseOut.
+    // IsOpen으로 여닫고, OpenOutward로 여는 방향을 고른다(InteractableDoor는 열 때만 방향을 정한다).
+    // 상태 이름은 InteractableDoor가 입장 시 끝 자세로 바로 맞출 때(Animator.Play) 그대로 쓴다.
+    private static AnimatorController WriteDoorController(string name, AnimationClip open, AnimationClip close,
+        AnimationClip openOut, AnimationClip closeOut)
     {
         AnimatorController controller = RecreateController(name);
         controller.AddParameter(DoorIsOpenParam, AnimatorControllerParameterType.Bool);
+        controller.AddParameter(DoorOutwardParam, AnimatorControllerParameterType.Bool);
 
         AnimatorStateMachine sm = controller.layers[0].stateMachine;
-        AnimatorState closed = sm.AddState("Closed");
-        closed.writeDefaultValues = false;
-        AnimatorState opening = sm.AddState("Open");
-        opening.motion = open;
-        opening.writeDefaultValues = false;
-        AnimatorState closing = sm.AddState("Close");
-        closing.motion = close;
-        closing.writeDefaultValues = false;
+        AnimatorState closed = AddDoorState(sm, InteractableDoor.ClosedStateName, null);
+        AnimatorState opening = AddDoorState(sm, InteractableDoor.OpenStateName, open);
+        AnimatorState closing = AddDoorState(sm, "Close", close);
+        AnimatorState openingOut = AddDoorState(sm, InteractableDoor.OpenOutwardStateName, openOut);
+        AnimatorState closingOut = AddDoorState(sm, "CloseOut", closeOut);
         sm.defaultState = closed;
 
-        AddBoolTransition(closed, opening, true);
-        AddBoolTransition(closing, opening, true);
+        foreach (AnimatorState from in new[] { closed, closing, closingOut })
+        {
+            AddOpenTransition(from, opening, outward: false);
+            AddOpenTransition(from, openingOut, outward: true);
+        }
         AddBoolTransition(opening, closing, false);
+        AddBoolTransition(openingOut, closingOut, false);
         return controller;
+    }
+
+    private static AnimatorState AddDoorState(AnimatorStateMachine sm, string name, Motion motion)
+    {
+        AnimatorState state = sm.AddState(name);
+        state.motion = motion;
+        state.writeDefaultValues = false;
+        return state;
+    }
+
+    private static void AddOpenTransition(AnimatorState from, AnimatorState to, bool outward)
+    {
+        AnimatorStateTransition t = from.AddTransition(to);
+        t.hasExitTime = false;
+        t.duration = 0f;
+        t.AddCondition(AnimatorConditionMode.If, 0f, DoorIsOpenParam);
+        t.AddCondition(outward ? AnimatorConditionMode.If : AnimatorConditionMode.IfNot, 0f, DoorOutwardParam);
     }
 
     private static AnimatorController WriteLoopController(string name, AnimationClip clip)
@@ -312,32 +339,45 @@ public static class WitchCookieHouseBuilder
             var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, preview);
             Transform root = go.transform;
 
-            // 1) 문 회전: 경첩 고정 + 안쪽으로 열림 + 콜라이더 동반 회전
+            // 1) 문 회전: 경첩 고정 + 안쪽(Open)/바깥쪽(OpenOut)으로 열림 + 콜라이더 동반 회전
             foreach (string side in Sides)
             {
                 Transform door = FindDeep(root, $"Door_{side}");
-                var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>($"{AnimFolder}/Door_{side}_Open.anim");
                 var col = FindDeep(root, $"COL_Door_{side}");
-                if (door == null || clip == null || col == null) { Debug.LogError($"{LogTag} VERIFY Door_{side}: missing door/clip/collider"); errors++; continue; }
+                if (door == null || col == null) { Debug.LogError($"{LogTag} VERIFY Door_{side}: missing door/collider"); errors++; continue; }
 
-                Vector3 hinge = door.position;
-                Vector3 restEuler = door.localRotation.eulerAngles;
-                float before = Flat(door.GetComponent<Renderer>().bounds.center - root.position).magnitude;
-                Vector3 colLocal = col.GetComponent<MeshCollider>().sharedMesh.bounds.center;
-                Vector3 colBefore = col.TransformPoint(colLocal);
-                clip.SampleAnimation(door.gameObject, clip.length);
-                float after = Flat(door.GetComponent<Renderer>().bounds.center - root.position).magnitude;
-                Vector3 colAfter = col.TransformPoint(colLocal);
                 var doorAnimator = door.GetComponent<Animator>();
-                bool autoDoor = door.GetComponent<AutoDoor>() != null;
+                bool interactable = door.GetComponent<InteractableDoor>() != null;
                 bool physicsUpdate = doorAnimator != null && doorAnimator.updateMode == AnimatorUpdateMode.Fixed;
-                bool ok = restEuler.sqrMagnitude < 1e-4f && (door.position - hinge).sqrMagnitude < 1e-6f && after < before - 0.3f && (colAfter - colBefore).sqrMagnitude > 0.1f
-                          && autoDoor && physicsUpdate;
-                Debug.Log($"{LogTag} VERIFY Door_{side} restRot={restEuler} openY={door.localEulerAngles.y:F1} " +
-                          $"hinge={hinge} centerDist {before:F2}->{after:F2} (inward={after < before}) colliderMoved={(colAfter - colBefore).magnitude:F2} " +
-                          $"clip={clip.length * clip.frameRate:F0}f autoDoor={autoDoor} fixedUpdate={physicsUpdate} {(ok ? "OK" : "FAIL")}");
-                if (!ok) errors++;
-                clip.SampleAnimation(door.gameObject, 0f);
+                bool outwardParam = false;
+                var controller = doorAnimator != null ? doorAnimator.runtimeAnimatorController as AnimatorController : null;
+                if (controller != null)
+                    foreach (AnimatorControllerParameter p in controller.parameters)
+                        if (p.name == DoorOutwardParam) outwardParam = true;
+
+                foreach (bool outward in new[] { false, true })
+                {
+                    string clipName = outward ? $"Door_{side}_OpenOut" : $"Door_{side}_Open";
+                    var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>($"{AnimFolder}/{clipName}.anim");
+                    if (clip == null) { Debug.LogError($"{LogTag} VERIFY {clipName}: missing clip"); errors++; continue; }
+
+                    Vector3 hinge = door.position;
+                    Vector3 restEuler = door.localRotation.eulerAngles;
+                    float before = Flat(door.GetComponent<Renderer>().bounds.center - root.position).magnitude;
+                    Vector3 colLocal = col.GetComponent<MeshCollider>().sharedMesh.bounds.center;
+                    Vector3 colBefore = col.TransformPoint(colLocal);
+                    clip.SampleAnimation(door.gameObject, clip.length);
+                    float after = Flat(door.GetComponent<Renderer>().bounds.center - root.position).magnitude;
+                    Vector3 colAfter = col.TransformPoint(colLocal);
+                    bool rightWay = outward ? after > before + 0.3f : after < before - 0.3f;
+                    bool ok = restEuler.sqrMagnitude < 1e-4f && (door.position - hinge).sqrMagnitude < 1e-6f && rightWay && (colAfter - colBefore).sqrMagnitude > 0.1f
+                              && interactable && physicsUpdate && outwardParam;
+                    Debug.Log($"{LogTag} VERIFY {clipName} restRot={restEuler} openY={door.localEulerAngles.y:F1} " +
+                              $"hinge={hinge} centerDist {before:F2}->{after:F2} ({(outward ? "outward" : "inward")}={rightWay}) colliderMoved={(colAfter - colBefore).magnitude:F2} " +
+                              $"clip={clip.length * clip.frameRate:F0}f interactableDoor={interactable} fixedUpdate={physicsUpdate} outwardParam={outwardParam} {(ok ? "OK" : "FAIL")}");
+                    if (!ok) errors++;
+                    clip.SampleAnimation(door.gameObject, 0f);
+                }
             }
 
             // 2) 연기 루프 이음새: t=끝에서 i번째 덩어리 == t=0에서 i+1번째 덩어리
