@@ -16,7 +16,7 @@ public class PlayerSkinApplier : MonoBehaviourPunCallbacks
 {
     [SerializeField] private PhotonView pv;
     [SerializeField] private Renderer bodyRenderer;
-    [SerializeField] private Material[] skins; // 인덱스 0=A/1=B/2=C
+    [SerializeField] private SkinCatalogSO catalog; // 대기실 선택 버튼(PlayerSkinSelector)과 같은 스킨 목록(research.md §12 E4)
 
     private void Awake()
     {
@@ -34,10 +34,16 @@ public class PlayerSkinApplier : MonoBehaviourPunCallbacks
 
     private void ApplySkin()
     {
-        if (bodyRenderer == null || skins == null || skins.Length == 0 || pv.Owner == null) return;
+        if (bodyRenderer == null || catalog == null || catalog.Count == 0 || pv.Owner == null) return;
 
-        int index = pv.Owner.CustomProperties.TryGetValue(NetKeys.SkinIndex, out object v) ? (int)v : 0;
-        index = Mathf.Clamp(index, 0, skins.Length - 1);
-        bodyRenderer.sharedMaterial = skins[index];
+        int index = RoomState.TryGetPlayerInt(pv.Owner, NetKeys.SkinIndex, out int v) ? v : 0;
+        Material skin = catalog.GetMaterial(index);
+        if (skin == null) return;
+
+        // PlayerPaintCanvas가 이미 페인트 합성 머티리얼을 입혔다면 기본 텍스처만 바꾼다 — 통째로 교체하면 칠한 색이 사라진다.
+        var paintCanvas = GetComponent<PlayerPaintCanvas>();
+        if (paintCanvas != null && paintCanvas.TrySetBaseSkin(skin)) return;
+
+        bodyRenderer.sharedMaterial = skin;
     }
 }

@@ -13,8 +13,7 @@ public class GameRuleController : MonoBehaviourPunCallbacks
     {
         if (!PhotonNetwork.IsMasterClient) return;
         if (!RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters)) return;
-        if (!RoomState.TryGetInt(NetKeys.MonsterJoined, out _)) return;
-        if (RoomState.TryGetInt(NetKeys.GameResult, out _)) return; // 이미 판정됨
+        if (GamePhaseState.Current != GamePhase.Hunt) return; // 괴물 합류 전이거나 이미 판정됨
 
         if (AllCookiesBroken(monsters))
         {
@@ -30,11 +29,12 @@ public class GameRuleController : MonoBehaviourPunCallbacks
 
     private bool AllCookiesBroken(int[] monsters)
     {
+        // 방에 남은 쿠키가 한 명도 없어도 true(괴물 승)가 된다 — 쿠키 전원이 나가면 더 이상 술래잡기가
+        // 성립하지 않으므로 괴물 승리로 끝내는 것을 의도된 규칙으로 명시한다(research.md §8.15).
         foreach (Player p in PhotonNetwork.PlayerList)
         {
             if (monsters.Contains(p.ActorNumber)) continue;
-            int hitCount = p.CustomProperties.TryGetValue(NetKeys.HitCount, out object v) ? (int)v : 0;
-            if (hitCount < 2) return false;
+            if (!RoomState.IsBroken(p)) return false;
         }
         return true;
     }

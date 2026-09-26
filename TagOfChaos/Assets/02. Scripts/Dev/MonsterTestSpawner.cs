@@ -6,7 +6,7 @@ using UnityEngine;
 // PlayerSpawner 대신 이 스크립트가 MonsterPlayer를 스폰해 몬스터를 직접 플레이테스트할 수 있게 한다.
 public class MonsterTestSpawner : MonoBehaviour
 {
-    private const string SpawnPointName = "MonsterSpawnPos";
+    private const string SpawnPointName = SceneSpawnPoints.Monster;
     private const string MonsterPrefabName = "MonsterPlayer";
 
     private void Start()
@@ -24,7 +24,7 @@ public class MonsterTestSpawner : MonoBehaviour
         GameObject spawnPointObj = GameObject.Find(SpawnPointName);
         if (spawnPointObj == null)
         {
-            Debug.LogWarning($"MonsterTestSpawner: \"{SpawnPointName}\" 오브젝트를 씬에서 찾을 수 없어 몬스터를 스폰하지 못했습니다.");
+            Debug.LogWarning($"[MonsterTestSpawner] Spawn point \"{SpawnPointName}\" not found in scene. Monster was not spawned.");
             yield break;
         }
 

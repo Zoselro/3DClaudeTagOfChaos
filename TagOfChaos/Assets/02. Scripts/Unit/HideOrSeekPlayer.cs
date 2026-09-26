@@ -2,7 +2,10 @@ using ExitGames.Client.Photon;
 using Photon.Pun;
 using UnityEngine;
 
-public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
+// 쿠키 캐릭터 조정자. 이동·점프·회피 물리와 동기화를 맡고, 입력(PlayerInput)·접지(PlayerGroundDetector)·
+// 애니메이션(PlayerAnimationDriver)·캐리 추종(PlayerCarryFollower)은 협력 객체에 맡긴다.
+// 캐릭터 공통 계약(IGameCharacter·IRespawnable)으로 관전·카메라·낙하 복귀가 종류와 무관하게 동작한다.
+public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IRespawnable, IGameCharacter
 {
     [Header("Options")]
     [SerializeField] private float speed;
@@ -16,7 +19,6 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
     [SerializeField] private PhotonView pv;
 
     private float baseSpeed;
-    private float h, v; // 이동 입력 값 저장용 변수
 
     [Header("States")]
     [SerializeField] private bool isJump;
@@ -35,79 +37,109 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable
     private PlayerGroundDetector groundDetector;
     private PlayerAnimationDriver animationDriver;
     private PlayerNetworkSync networkSync;
+    private PlayerGrabController grabController;
+    private PlayerCarryFollower carryFollower;
 
-    // 사망/대화/컷신 등 상위 시스템이 이 프로퍼티만 세팅하면 이동이 잠긴다.
-    public bool IsMovementLocked { get; set; }
+    // 다른 클래스가 이 캐릭터에 보내는 RPC 이름 — 메서드 이름을 바꾸면 컴파일 단계에서 함께 바뀐다(research.md §12 E3).
+    public const string RpcOnGrabbedByOwner = nameof(OnGrabbedByOwner);
+    public const string RpcOnReleased = nameof(OnReleased);
+    public const string RpcRequestGrabKill = nameof(RequestGrabKill);
+
+    // 사망/대화/컷신 등 상위 시스템이 이 프로퍼티만 세팅하면 이동이 잠긴다. 파괴·들림 상태는 외부 설정과
+    // 별개로 항상 잠겨 있어야 하므로 계산값으로 합친다 — 예전에는 채팅창을 닫을 때 GameManager가 false를
+    // 대입해 파괴된 쿠키의 잠금까지 풀 수 있었다.
+    private bool externalMovementLock;
+    public bool IsMovementLocked
+    {
+        get => externalMovementLock || IsBroken || (carryFollower != null && carryFollower.IsCarried);
+        set => externalMovementLock = value;
+    }
 
     // 외부에서 "이 인스턴스가 내 캐릭터인지" 판별할 수단 (GameManager의 채팅 이동잠금이 참조)
     public bool IsMine => pv != null && pv.IsMine;
+    public bool IsLocallyControlled => IsMine;
+
+    // IGameCharacter — 관전·카메라가 캐릭터 종류를 몰라도 되도록 하는 공통 계약(research.md §12 E1).
+    public CharacterRole Role => CharacterRole.Cookie;
+    public PhotonView View => pv;
+    public bool IsSpectatable => pv != null && pv.Owner != null && !RoomState.IsBroken(pv.Owner);
+    public float CameraTargetHeight => Camera_Ctrl.CookieTargetHeight;
+    public float CameraDistance => -1f; // Camera_Ctrl 인스펙터 기본 거리
 
     // GrabKill로 파괴됐는지 여부(0=정상, 2=파괴) — GameRule.md §4.4, (A) 확정으로 1(균열)은 도달 불가능
     private int hitCount;
 
-    public void SetCarryLayerWeight(float weight) => animationDriver.SetCarryLayerWeight(weight);
+    public bool IsBroken => hitCount >= 2;
 
-    private int carrierViewId = -1;
+    public void SetCarryLayerWeight(float weight) => animationDriver.SetCarryLayerWeight(weight);
 
     [PunRPC]
     private void OnGrabbedByOwner(int newCarrierViewId)
     {
-        if (!pv.IsMine) return;
-        carrierViewId = newCarrierViewId;
-        IsMovementLocked = true;
-        animationDriver.ChangeState(PlayerMoveState.Held);
+        if (!pv.IsMine || IsBroken) return;
+        if (carryFollower.TryAttach(newCarrierViewId)) animationDriver.ChangeState(PlayerMoveState.Held);
     }
 
     [PunRPC]
     private void OnReleased(bool withThrow)
     {
         if (!pv.IsMine) return;
-        carrierViewId = -1;
-        IsMovementLocked = false;
-        animationDriver.ChangeState(PlayerMoveState.Idle);
+        ReleaseFromCarrierLocally();
     }
 
-    // 그랍당한 동안 매 FixedUpdate마다 그랩버의 carrySocket 위치를 따라간다 — 소유권 이전
-    // 없이 자기 자신의 PhotonView를 그대로 유지한 채 로컬로만 추적하는 GameRule.md §4.1 설계.
+    // 파괴 상태면 키네마틱·잠금을 그대로 유지하고, 아니면 물리와 Idle 애니메이션을 되돌린다.
+    private void ReleaseFromCarrierLocally()
+    {
+        if (carryFollower.Detach(restorePhysics: !IsBroken) && !IsBroken)
+            animationDriver.ChangeState(PlayerMoveState.Idle);
+    }
+
+    // 들린 동안 매 FixedUpdate마다 드는 쪽 CarrySocket을 따라간다. 드는 쪽이 방을 나갔거나 파괴돼 사라졌으면
+    // 공중에 고정된 채 남지 않도록 스스로 내려온다.
     private bool TryFollowCarrier()
     {
-        if (carrierViewId < 0) return false;
-
-        PhotonView carrierPv = PhotonView.Find(carrierViewId);
-        if (carrierPv == null) return false;
-
-        var grabController = carrierPv.GetComponent<PlayerGrabController>();
-        if (grabController == null || grabController.CarrySocket == null) return false;
-
-        rb.position = grabController.CarrySocket.position;
-        transform.position = rb.position;
-        return true;
+        if (!carryFollower.IsCarried) return false;
+        if (carryFollower.TryFollow()) return true;
+        ReleaseFromCarrierLocally();
+        return false;
     }
 
-    
-[PunRPC]
+    [PunRPC]
     private void RequestGrabKill()
     {
-        if (!pv.IsMine || hitCount >= 2) return; // 본인 클라이언트만 자기 상태 확정(소유권 원칙)
+        if (!pv.IsMine || IsBroken) return; // 본인 클라이언트만 자기 상태 확정(소유권 원칙)
 
         hitCount = 2;
         PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.HitCount, hitCount } });
 
-        IsMovementLocked = true;
-        animationDriver.ChangeState(PlayerMoveState.Broken);
-        GetComponent<SpectatorController>()?.EnterSpectatorMode();
+        // 들고 있던 쿠키는 내려놓고, 들려 있었다면 캐리 관계를 끊는다.
+        if (grabController != null) grabController.Release();
+        ReleaseFromCarrierLocally();
 
+        animationDriver.ChangeState(PlayerMoveState.Broken);
+
+        // 파괴된 몸은 CookieLifeStatePresenter가 모든 클라이언트에서 렌더러·콜라이더를 끄고 비충돌 레이어로 옮긴다. 콜라이더가 꺼진 채
+        // 중력을 받으면 바닥을 뚫고 떨어지므로 물리도 멈춘다(research.md §8.11).
+        rb.linearVelocity = Vector3.zero;
+        rb.isKinematic = true;
+
+        GetComponent<SpectatorController>()?.EnterSpectatorMode();
     }
 
-
-private void Awake()
+    private void Awake()
     {
         // Photon의 네트워크 디스패치(OnPhotonSerializeView)는 Unity의 Awake→Start 순서와 무관하게
         // 별도 루프(PhotonHandler.Dispatch())에서 호출될 수 있어, 이 오브젝트의 Start()가 아직 실행되기
-        // 전에 원격 데이터 수신이 먼저 들어올 수 있다(Bug-fix-plan.md §12). networkSync는 로컬/원격
-        // 두 경우 모두 OnPhotonSerializeView에서 즉시 쓰이므로, IsMine 여부와 상관없이 Awake에서
-        // 가장 먼저 생성해 그 경쟁을 원천적으로 없앤다.
+        // 전에 송수신이 먼저 일어날 수 있다(Bug-fix-plan.md §12). OnPhotonSerializeView가 쓰는 협력 객체
+        // (networkSync, animationDriver)와 Rigidbody 참조는 IsMine 여부와 상관없이 Awake에서 가장 먼저
+        // 만든다 — animationDriver가 Start에 남아 있어 실제 빌드에서 NRE가 났다(Bug-fix-plan.md §24.6 ⑰-C).
         networkSync = new PlayerNetworkSync();
+        animator = GetComponent<Animator>();
+        animationDriver = new PlayerAnimationDriver(animator, jumpFreezeNormalizedTime);
+        groundDetector = new PlayerGroundDetector(groundLayer, groundCheckOffset);
+        rb = GetComponent<Rigidbody>();
+        grabController = GetComponent<PlayerGrabController>();
+        carryFollower = new PlayerCarryFollower(gameObject, rb);
 
         if (!pv.IsMine) return;
 
@@ -119,18 +151,13 @@ private void Awake()
     private void Start()
     {
         baseSpeed = speed;
-        animator = GetComponent<Animator>();
         if (animator != null)
             animator.applyRootMotion = false; // 이동은 전부 Move()가 Rigidbody 속도를 직접 갱신하므로, 클립에 내장된 루트 모션이 겹쳐 적용되면 안 됨
-
-        groundDetector = new PlayerGroundDetector(groundLayer, groundCheckOffset);
-        animationDriver = new PlayerAnimationDriver(animator, jumpFreezeNormalizedTime);
 
         // 물리 엔진(Rigidbody) 도입(PlayerControllPlan.md §18.3) — 로컬 소유 캐릭터만 실제 물리
         // 시뮬레이션을 받는다. 원격 캐릭터는 지금처럼 networkSync가 transform을 직접 보간하므로,
         // Rigidbody가 동시에 중력/충돌로 같은 transform을 건드리면 두 시스템이 충돌한다 — 그래서
         // 원격 인스턴스는 isKinematic으로 물리를 꺼둔다.
-        rb = GetComponent<Rigidbody>();
         rb.isKinematic = !pv.IsMine;
         if (pv.IsMine)
         {
@@ -147,9 +174,25 @@ private void Awake()
         // (Bug-fix-plan.md §14). 같은 캐릭터의 일부이므로 명시적으로 서로의 충돌을 무시한다(로컬/원격
         // 모두 동일한 구조라 IsMine 여부와 무관하게 적용).
         Collider rootCollider = GetComponent<CapsuleCollider>();
-        Collider bodyMeshCollider = transform.Find("Mesh_0")?.GetComponent<Collider>();
+        Collider bodyMeshCollider = transform.Find(BodyMeshName)?.GetComponent<Collider>();
         if (rootCollider != null && bodyMeshCollider != null)
             Physics.IgnoreCollision(rootCollider, bodyMeshCollider, true);
+        else
+            Debug.LogError($"[HideOrSeekPlayer] '{BodyMeshName}' collider or root CapsuleCollider is missing on {name}.");
+    }
+
+    private const string BodyMeshName = "Mesh_0";
+
+    public override void OnEnable()
+    {
+        base.OnEnable();
+        CharacterRegistry.Register(this);
+    }
+
+    public override void OnDisable()
+    {
+        base.OnDisable();
+        CharacterRegistry.Unregister(this);
     }
 
     private void Update()
@@ -168,6 +211,7 @@ private void Awake()
         {
             networkSync.Interpolate(transform, Time.deltaTime);
             animationDriver.ChangeState(networkSync.RemoteState);
+            animationDriver.SetCarryLayerWeight(networkSync.RemoteIsCarrying ? 1f : 0f);
         }
     }
 
@@ -207,25 +251,13 @@ private void Awake()
 
         Move();
 
-        if (transform.position.y < -100f) // VoidKillZone 배치를 놓쳤을 때의 최후 방어선(PlayerControllPlan.md §18.4)
-            RespawnToSpawnPoint();
+        // 낙하 최후 방어선은 괴물과 공용인 FallGuard 컴포넌트로 옮겼다(Bug-fix-plan.md §30.4).
     }
 
     private void CheckMovementInput()
     {
-        h = Input.GetAxisRaw("Horizontal");
-        v = Input.GetAxisRaw("Vertical");
-
-        Transform cam = Camera.main.transform;
-        Vector3 forward = cam.forward;
-        Vector3 right = cam.right;
-
-        forward.y = 0f;
-        right.y = 0f;
-        forward.Normalize();
-        right.Normalize();
-
-        Vector3 moveDir = (forward * v + right * h).normalized;
+        Camera cam = Camera.main;
+        Vector3 moveDir = PlayerInput.CameraRelativeMove(cam != null ? cam.transform : null);
 
         if (moveDir != Vector3.zero)
         {
@@ -237,7 +269,7 @@ private void Awake()
 
             if (!isJump && !isDodge) // 점프와 회피 중이 아닐 때만 이동 애니메이션 상태 변경
             {
-                bool isRunning = Input.GetKey(KeyCode.LeftShift);
+                bool isRunning = PlayerInput.RunHeld;
                 animationDriver.ChangeState(isRunning ? PlayerMoveState.Run : PlayerMoveState.Walk);
             }
         }
@@ -253,7 +285,7 @@ private void Awake()
 
     private void CheckJumpInput()
     {
-        if (Input.GetKeyDown(KeyCode.Space) && !isJump && !isDodge)
+        if (PlayerInput.JumpPressed && !isJump && !isDodge)
         {
             jumpRequested = true;
         }
@@ -261,7 +293,7 @@ private void Awake()
 
     private void CheckDodgeInput()
     {
-        if (Input.GetKeyDown(KeyCode.LeftControl) && rotation != Vector3.zero && !isJump && !isDodge)
+        if (PlayerInput.DodgePressed && rotation != Vector3.zero && !isJump && !isDodge)
         {
             dodgeMoveDir = rotation;
             dodgeRotation = rotation;
@@ -306,7 +338,7 @@ private void Awake()
         }
         else // Shift를 눌렀을 경우 기본 속도의 +30%(질주). 아니면 100% 속도 유지 — 점프/낙하 중에도 동일하게 적용(PlayerControllPlan.md §24/§25)
         {
-            vel = Input.GetKey(KeyCode.LeftShift) ? baseSpeed * 1.3f : baseSpeed;
+            vel = PlayerInput.RunHeld ? baseSpeed * 1.3f : baseSpeed;
             dir = rotation;
             lookDir = new Vector3(rotation.x, 0f, rotation.z);
         }
@@ -322,25 +354,18 @@ private void Awake()
         rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z); // y는 물리 엔진(중력/점프)이 채운 값 그대로 보존
     }
 
-    // 현재 회피 중인지 확인하는 메서드
-    public bool IsDodge()
-    {
-        return animationDriver.CurrentState == PlayerMoveState.Dodge;
-    }
 
-    // 맵 밖으로 떨어졌을 때 VoidKillZone(또는 FixedUpdate의 최후 방어선)이 호출한다(PlayerControllPlan.md §18.4).
+    // 맵 밖으로 떨어졌을 때 VoidKillZone 또는 FallGuard가 호출한다(PlayerControllPlan.md §18.4, IRespawnable).
     public void RespawnToSpawnPoint()
     {
-        GameObject spawnPointObj = GameObject.Find("PlayerSpawnPos");
-        if (spawnPointObj == null)
+        if (!SceneSpawnPoints.TryFindClearPosition(SceneSpawnPoints.Cookie, GameSettings.Current.CookieSpawnRange, out Vector3 respawnPos))
             return;
 
-        Vector3 offset = new Vector3(Random.Range(-5f, 5f), 0f, Random.Range(-5f, 5f));
         rb.linearVelocity = Vector3.zero; // 낙하 속도가 남아있으면 스폰 직후 바닥을 뚫고 지나갈 수 있음
         // Non-kinematic Rigidbody에서는 transform.position을 직접 대입해도 다음 물리 스텝에서
         // Rigidbody가 자신이 마지막으로 시뮬레이션한 위치로 되돌려버린다 — 반드시 rb.position으로
         // 물리 엔진에도 같이 알려줘야 실제로 순간이동이 반영된다(Play Mode 실측으로 확인된 문제).
-        rb.position = spawnPointObj.transform.position + offset;
+        rb.position = respawnPos;
         transform.position = rb.position;
 
         isJump = false;
@@ -354,7 +379,7 @@ private void Awake()
 
         if (stream.IsWriting) // 로컬 플레이어의 상태 정보 송신
         {
-            networkSync.Write(stream, transform, animationDriver.CurrentState, isJump);
+            networkSync.Write(stream, transform, animationDriver.CurrentState, grabController != null && grabController.IsCarrying);
         }
         else // 원격 플레이어의 상태 정보 수신
         {

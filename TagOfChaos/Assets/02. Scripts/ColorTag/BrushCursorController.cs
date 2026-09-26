@@ -3,8 +3,7 @@ using UnityEngine;
 
 // 색칠 페이즈 중 로컬 플레이어의 마우스 위치를 3D 붓 모델로 표시한다. OS 하드웨어 커서는
 // 캐릭터 표면 위에 있을 때만 숨기고, 스와치 UI 등을 조작할 때는 그대로 보여준다.
-// (GameRule.md §3 자유 색칠 재작성 — 활성 여부를 RoundIndex 대신 PaintPhaseEndTime 기반으로
-// 매 프레임 판정한다.)
+// (GameRule.md §3 자유 색칠 재작성 — 활성 여부를 PaintPhaseEndTime 기반으로 매 프레임 판정한다.)
 public class BrushCursorController : MonoBehaviourPunCallbacks
 {
     [SerializeField] private BrushSettingsSO brushSettings;
@@ -13,23 +12,24 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
     private GameObject cursorInstance;
     private Renderer cursorRenderer;
     private MaterialPropertyBlock propertyBlock;
-    private PlayerPaintCanvas localPaintCanvas;
     private Camera targetCamera;
-    private int paintRaycastMask;
 
     private void Awake()
     {
         propertyBlock = new MaterialPropertyBlock();
         Cursor.visible = true;
-        // 캐릭터 자신의 물리용 CapsuleCollider가 붓칠 대상인 몸통 메시를 가려 레이캐스트가 항상
-        // 캡슐에 먼저 맞는 문제를 막기 위해, 붓 관련 레이캐스트에서는 PlayerCapsule 레이어를 제외한다.
-        paintRaycastMask = Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule");
     }
 
     public override void OnDisable()
     {
         base.OnDisable();
         Cursor.visible = true;
+    }
+
+    // 런타임에 만든 붓 커서 인스턴스를 함께 정리한다(research.md §8.19).
+    private void OnDestroy()
+    {
+        if (cursorInstance != null) Destroy(cursorInstance);
     }
 
     private void EnsureCursorInstance()
@@ -55,9 +55,7 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
         EnsureCursorInstance();
         if (cursorInstance == null) return;
 
-        if (localPaintCanvas == null || !localPaintCanvas.IsMine)
-            localPaintCanvas = FindLocalPaintCanvas();
-
+        PlayerPaintCanvas localPaintCanvas = PlayerPaintCanvas.Local;
         if (localPaintCanvas == null)
         {
             cursorInstance.SetActive(false);
@@ -68,9 +66,12 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
         if (targetCamera == null) targetCamera = Camera.main;
         if (targetCamera == null) return;
 
-        Ray ray = targetCamera.ScreenPointToRay(Input.mousePosition);
-        bool hitSurface = Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, paintRaycastMask)
-            && hit.collider == localPaintCanvas.PaintableCollider;
+        Ray ray = targetCamera.ScreenPointToRay(PlayerInput.PointerPosition);
+        // PlayerPaintCanvas.Update()와 동일하게 내 몸 콜라이더 하나만 검사 — 루트 캡슐 등 다른
+        // 콜라이더가 앞을 가려도 커서가 사라지지 않는다(Bug-fix-plan.md §23.2.2).
+        Collider paintable = localPaintCanvas.PaintableCollider;
+        RaycastHit hit = default;
+        bool hitSurface = paintable != null && paintable.Raycast(ray, out hit, PlayerPaintCanvas.MaxPaintRayDistance);
 
         cursorInstance.SetActive(hitSurface);
         Cursor.visible = !hitSurface; // 캐릭터 표면 위가 아니면(스와치 클릭 등) OS 커서를 그대로 둔다
@@ -85,26 +86,12 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
         float scale = localPaintCanvas.CurrentBrushRadius / brushSettings.DefaultRadius * brushSettings.CursorWorldScale;
         cursorInstance.transform.localScale = Vector3.one * scale;
 
-        UpdateColor();
+        UpdateColor(localPaintCanvas);
     }
 
-    private bool IsPaintPhaseActive()
-    {
-        return RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double endTime) && PhotonNetwork.Time < endTime;
-    }
+    private static bool IsPaintPhaseActive() => GamePhaseState.IsPaintActive;
 
-    // 씬에 하나뿐인 매니저이므로, 로컬 플레이어가 스폰된 후에도 계속 참조를 찾을 수 있도록 매번 재탐색
-    private PlayerPaintCanvas FindLocalPaintCanvas()
-    {
-        var all = FindObjectsByType<PlayerPaintCanvas>(FindObjectsSortMode.None);
-        foreach (var canvas in all)
-        {
-            if (canvas.IsMine) return canvas;
-        }
-        return null;
-    }
-
-    private void UpdateColor()
+    private void UpdateColor(PlayerPaintCanvas localPaintCanvas)
     {
         if (cursorRenderer == null || palette == null) return;
 

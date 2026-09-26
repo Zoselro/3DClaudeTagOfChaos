@@ -7,10 +7,13 @@ using UnityEngine.UI;
 // GameManager.cs에서 분리됨(architecture-review.md §1.1 — GameManager는 채팅 전용으로 축소).
 public class RoomExitController : MonoBehaviourPunCallbacks
 {
+
     [SerializeField] private PhotonView pv; // "LogMsg" RPC 브로드캐스트용 — GameManager와 같은 오브젝트의 PhotonView를 연결
     [SerializeField] private Button m_BackBtn;
     [SerializeField] private ConfirmDialog confirmDialog;
-    [SerializeField] private string leaveConfirmMessage = "로비로 나가시겠습니까?"; // 씬별로 인스펙터에서 다르게 설정
+    // 표시 문구는 씬별로 인스펙터에서 설정한다(코드에 한글을 넣지 않는 프로젝트 규칙). {0} = 닉네임.
+    [SerializeField] private string leaveConfirmMessage = "Leave to the lobby?";
+    [SerializeField] private string leaveLogFormat = "\n<color=#ff0000>[{0}] left the room</color>";
 
     private void Start()
     {
@@ -31,34 +34,26 @@ public class RoomExitController : MonoBehaviourPunCallbacks
     {
         if (m_BackBtn != null) m_BackBtn.interactable = false;
 
-        string msg = "\n<color=#ff0000>]" + PhotonNetwork.LocalPlayer.NickName + "] 방 나감</color>";
+        // 방 CustomProperties는 마지막 사람이 나가면 방과 함께 사라지므로 따로 지우지 않는다(예전의
+        // CurrentRoom.CustomProperties.Clear()는 로컬 사본만 지워 아무 효과가 없었다, research.md §8.12).
+        pv.RPC(GameManager.RpcLogMsg, RpcTarget.All, string.Format(leaveLogFormat, PhotonNetwork.LocalPlayer.NickName), false);
 
-        if (PhotonNetwork.PlayerList != null && PhotonNetwork.PlayerList.Length <= 1)
-        {
-            Debug.Log("마지막 사람이 방 나감");
-            if (PhotonNetwork.CurrentRoom != null)
-            {
-                PhotonNetwork.CurrentRoom.CustomProperties.Clear();
-                Debug.Log("방의 CustomProperties 초기화 완료!");
-            }
-        }
+        // LocalPlayer의 CustomProperties는 다음에 들어가는 방으로 그대로 전송되므로, 판 단위 키(파괴 여부·
+        // 슬롯 수)만 로컬에서 지운다. SkinIndex는 다음 방에서도 유지한다.
+        foreach (string key in NetKeys.RoundPlayerKeys)
+            PhotonNetwork.LocalPlayer.CustomProperties.Remove(key);
 
-        pv.RPC("LogMsg", RpcTarget.AllBuffered, msg, false);
-
-        if (PhotonNetwork.LocalPlayer != null)
-        {
-            PhotonNetwork.LocalPlayer.CustomProperties.Clear();
-            Debug.Log("나가는 유저의 CustomProperties 초기화 완료!");
-        }
-
-        Debug.Log("방 나가기 버튼 클릭!");
+        Debug.Log("[RoomExit] Leaving room.");
         PhotonNetwork.LeaveRoom();
-        Debug.Log("PhotonNetwork.LeaveRoom() 호출 완료!");
     }
 
     public override void OnLeftRoom()
     {
-        Debug.Log("방 나가기 완료! OnLeftRoom 콜백함수 호출!");
+        // 괴물 대기(MonsterLobbyWaitController)나 GameScene 도착 전 이탈 등으로 바뀐 전역 네트워크 설정을 되돌린다.
+        PhotonNetwork.IsMessageQueueRunning = true;
+        PhotonNetwork.KeepAliveInBackground = NetworkDefaults.KeepAliveInBackgroundSeconds;
+
+        Debug.Log("[RoomExit] Left room. Loading lobby scene.");
         SceneManager.LoadScene(SceneNames.Lobby);
     }
 }

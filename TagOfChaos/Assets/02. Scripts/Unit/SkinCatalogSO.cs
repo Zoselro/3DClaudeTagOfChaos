@@ -1,0 +1,24 @@
+using UnityEngine;
+
+// 쿠키 스킨 목록(research.md §12 E4). 스킨 적용(PlayerSkinApplier)과 대기실 선택 버튼(PlayerSkinSelector)이
+// 같은 목록을 쓴다 — 예전에는 머티리얼 배열은 프리팹에, 버튼 3개(A/B/C)는 씬 코드에 따로 있어 개수가 암묵적으로
+// 맞아야 했다. 스킨을 추가하려면 이 에셋에 항목만 더하면 된다. 인덱스는 Player Props의 SkinIndex로 동기화된다.
+[CreateAssetMenu(menuName = "TagOfChaos/SkinCatalog", fileName = "SkinCatalog")]
+public class SkinCatalogSO : ScriptableObject
+{
+    [System.Serializable]
+    public struct SkinEntry
+    {
+        public string label;      // 선택 버튼에 표시할 이름
+        public Material material;
+    }
+
+    [SerializeField] private SkinEntry[] skins = new SkinEntry[0];
+
+    public int Count => skins != null ? skins.Length : 0;
+
+    // 네트워크로 받은 인덱스가 범위를 벗어나도 예외 대신 가장 가까운 유효 값을 쓴다.
+    public int ClampIndex(int index) => Count == 0 ? 0 : Mathf.Clamp(index, 0, Count - 1);
+    public Material GetMaterial(int index) => Count == 0 ? null : skins[ClampIndex(index)].material;
+    public string GetLabel(int index) => Count == 0 ? string.Empty : skins[ClampIndex(index)].label;
+}

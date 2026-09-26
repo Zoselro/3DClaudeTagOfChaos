@@ -86,15 +86,27 @@ public class PlayerAnimationDriver
         }
     }
 
-    private int carryLayerIndex = -1;
+    private const string CarryLayerName = "Carry";
+    private const int MissingLayer = -2;
+    private int carryLayerIndex = -1; // -1=아직 조회 전, -2=레이어 없음
 
-    // Carry Avatar Mask 레이어 가중치 제어(GameRule.md §4.1) — PlayerAnimator.controller에
-    // \"Carry\" 레이어가 아직 없으면 GetLayerIndex가 -1을 반환해 조용히 무시된다.
+    // Carry Avatar Mask 레이어 가중치 제어(GameRule.md §4.1) — PlayerAnimator.controller의 "Carry" 레이어
+    // (상체 마스크 CarryUpperBody, research.md §8.9).
     public void SetCarryLayerWeight(float weight)
     {
         if (animator == null) return;
-        if (carryLayerIndex < 0) carryLayerIndex = animator.GetLayerIndex("Carry");
-        if (carryLayerIndex < 0) return;
+        if (carryLayerIndex == MissingLayer) return;
+        if (carryLayerIndex < 0)
+        {
+            carryLayerIndex = animator.GetLayerIndex(CarryLayerName);
+            if (carryLayerIndex < 0)
+            {
+                // 문자열 계약이 깨지면 조용히 실패하지 않도록 한 번은 알린다(research.md §8.22).
+                Debug.LogWarning($"[PlayerAnimationDriver] Animator layer '{CarryLayerName}' not found. Carry pose is disabled.");
+                carryLayerIndex = MissingLayer;
+                return;
+            }
+        }
         animator.SetLayerWeight(carryLayerIndex, weight);
     }
 

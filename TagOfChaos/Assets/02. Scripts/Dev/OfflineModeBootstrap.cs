@@ -19,6 +19,14 @@ public class OfflineModeBootstrap : MonoBehaviour
         SpawnAsMonster = spawnAsMonster;
     }
 
+    // PhotonNetwork.OfflineMode와 SpawnAsMonster는 static이라 씬이 바뀌어도 남는다. 에디터에서 이 테스트 씬 다음에
+    // 다른 씬을 실행할 때 오프라인 상태가 이어지지 않도록 되돌린다(research.md §8.23).
+    private void OnDestroy()
+    {
+        SpawnAsMonster = false;
+        if (PhotonNetwork.OfflineMode && !PhotonNetwork.InRoom) PhotonNetwork.OfflineMode = false;
+    }
+
     private void Start()
     {
         if (!autoCreateRoom) return;

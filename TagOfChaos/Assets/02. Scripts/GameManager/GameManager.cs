@@ -1,13 +1,14 @@
 using Photon.Pun;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 using TMPro;
 using UnityEngine;
 
+// 채팅 전담(스폰은 PlayerSpawner, 퇴장은 RoomExitController로 분리됨). 외부에서 참조하는 곳이 없던 싱글톤
+// Inst와 Is_Conversating은 제거했다(research.md §8.21).
 public class GameManager : MonoBehaviourPunCallbacks
 {
-    static public GameManager Inst;
-
     const int MAX_CHAT = 50; // 채팅 최대 갯수
 
     [SerializeField] private PhotonView pv;
@@ -17,15 +18,9 @@ public class GameManager : MonoBehaviourPunCallbacks
     private List<string> m_MsgList = new List<string>();
     private bool bEnter = false;
 
-    private bool is_Conversating; // 채팅 중인지 여부를 나타내는 변수
-    public bool Is_Conversating => is_Conversating;
+    private readonly StringBuilder logBuilder = new StringBuilder();
 
     private HideOrSeekPlayer localPlayer;
-
-    private void Awake()
-    {
-        Inst = this;
-    }
 
     private void Start()
     {
@@ -48,18 +43,19 @@ public class GameManager : MonoBehaviourPunCallbacks
                         PhotonNetwork.LocalPlayer.NickName +
                         "] Connected</color>";
 
-        pv.RPC("LogMsg", RpcTarget.AllBuffered, msg, false);
+        // AllBuffered는 방 이벤트 캐시에 무한히 쌓이고, 씬마다 PhotonView ID가 달라 다른 씬의 오브젝트로
+        // 재생되기도 했다(research.md §8.19, Bug-fix-plan.md §24.6 ⑰-D). 현재 방에 있는 사람에게만 보낸다.
+        pv.RPC(RpcLogMsg, RpcTarget.All, msg, false);
     }
 
-private void Update()
+    private void Update()
     {
         //--- 채팅 구현 텍스트
-        if (Input.GetKeyUp(KeyCode.Return))
+        if (PlayerInput.ChatSubmitReleased)
         {// 엔터키를 누르면 인풋 필드 활성화
             bEnter = !bEnter;
             if (bEnter)
             {
-                is_Conversating = true;
                 InputFdChat.gameObject.SetActive(true);
                 InputFdChat.ActivateInputField(); // <--- 키보드 커서 입력 상자 쪽으로 가게 만들어 줌
                 SetLocalPlayerMovementLocked(true);
@@ -67,7 +63,6 @@ private void Update()
             else
             {
                 InputFdChat.gameObject.SetActive(false);
-                is_Conversating = false;
                 SetLocalPlayerMovementLocked(false);
                 if (!string.IsNullOrEmpty(InputFdChat.text.Trim()))
                 {
@@ -78,6 +73,9 @@ private void Update()
     }
 
     // 중계 하기 위함
+    // 다른 클래스(RoomExitController)도 보내는 RPC 이름 — 메서드 이름 변경 시 컴파일 단계에서 함께 바뀐다(research.md §12 E3).
+    public const string RpcLogMsg = nameof(LogMsg);
+
     [PunRPC]
     private void LogMsg(string msg, bool isChatMsg, PhotonMessageInfo info)
     {
@@ -99,11 +97,10 @@ private void Update()
         }
 
         // 로그 메시지 Text UI에 텍스트를 누적시켜 표시
-        txtLogMsg.text = "";
+        logBuilder.Clear();
         for (int i = 0; i < m_MsgList.Count; i++)
-        {
-            txtLogMsg.text += m_MsgList[i];
-        }
+            logBuilder.Append(m_MsgList[i]);
+        txtLogMsg.text = logBuilder.ToString();
     }
 
     //채팅 내용을 중계하는 함수
@@ -118,7 +115,7 @@ private void Update()
                     PhotonNetwork.LocalPlayer.NickName + "] " +
                     InputFdChat.text + "</color>";
 
-        pv.RPC("LogMsg", RpcTarget.AllBuffered, msg, true);
+        pv.RPC(RpcLogMsg, RpcTarget.All, msg, true);
 
         InputFdChat.text = "";
     }
@@ -130,10 +127,7 @@ private void Update()
     {
         if (localPlayer == null)
         {
-            foreach (var p in FindObjectsByType<HideOrSeekPlayer>(FindObjectsSortMode.None))
-            {
-                if (p.IsMine) { localPlayer = p; break; }
-            }
+            localPlayer = CharacterRegistry.FindLocal<HideOrSeekPlayer>();
         }
 
         if (localPlayer != null)

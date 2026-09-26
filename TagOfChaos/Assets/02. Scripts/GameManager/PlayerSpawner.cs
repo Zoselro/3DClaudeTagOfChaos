@@ -5,8 +5,14 @@ using UnityEngine;
 // 캐릭터 스폰 전담. GameManager.cs에서 분리됨(architecture-review.md §1.1).
 public class PlayerSpawner : MonoBehaviour
 {
-    private const string SpawnPointName = "PlayerSpawnPos";
+    private const string SpawnPointName = SceneSpawnPoints.Cookie;
     private const string PlayerPrefabName = "HideOrSeekPlayer";
+
+    // GameScene=true(괴물은 쿠키 대신 MonsterJoinController가 MonsterPlayer를 스폰), GameLobbyScene=false.
+    // 대기실에서는 괴물도 쿠키로 돌아다녀야 하는데, 판이 끝나 돌아온 직후에는 RoundStateResetter의 초기화가
+    // 도착하기 전의 옛 MonsterActorNumbers를 보고 이전 판 괴물의 스폰을 건너뛰는 경쟁 조건이 있었다
+    // (Bug-fix-plan.md §24.5).
+    [SerializeField] private bool skipConfirmedMonster = true;
 
     private void Start()
     {
@@ -25,7 +31,11 @@ public class PlayerSpawner : MonoBehaviour
         while (!PhotonNetwork.InRoom)
             yield return null;
 
-        if (IsAlreadyMonster()) yield break; // 이미 괴물로 확정된 플레이어는 이 씬에서 쿠키를 스폰하지 않음
+        if (skipConfirmedMonster && IsAlreadyMonster())
+        {
+            Debug.Log($"[PlayerSpawner] Skip cookie spawn: local actor {PhotonNetwork.LocalPlayer.ActorNumber} is the monster.");
+            yield break; // 이미 괴물로 확정된 플레이어는 이 씬에서 쿠키를 스폰하지 않음
+        }
 
         SpawnLocalPlayer();
     }
@@ -37,18 +47,16 @@ public class PlayerSpawner : MonoBehaviour
     {
         if (OfflineModeBootstrap.SpawnAsMonster) return true; // PlayerTestScene 개발용 몬스터 플레이테스트 토글
 
-        if (PhotonNetwork.LocalPlayer == null) return false;
-        if (!RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters)) return false;
-        return System.Array.IndexOf(monsters, PhotonNetwork.LocalPlayer.ActorNumber) >= 0;
+        return RoomState.IsLocalMonster();
     }
 
     
-private void SpawnLocalPlayer()
+    private void SpawnLocalPlayer()
     {
         GameObject spawnPointObj = GameObject.Find(SpawnPointName);
         if (spawnPointObj == null)
         {
-            Debug.LogWarning($"PlayerSpawner: \"{SpawnPointName}\" 오브젝트를 씬에서 찾을 수 없어 캐릭터를 스폰하지 못했습니다.");
+            Debug.LogWarning($"[PlayerSpawner] Spawn point \"{SpawnPointName}\" not found in scene. Cookie was not spawned.");
             return;
         }
 
@@ -56,8 +64,7 @@ private void SpawnLocalPlayer()
         // 혹시 모를 추후 다른 호출경로를 대비해 방어적으로 한 번 더 명시한다.
         PhotonNetwork.IsMessageQueueRunning = true;
 
-        Vector3 offset = new Vector3(Random.Range(-5.0f, 5.0f), 0f, Random.Range(-5.0f, 5.0f));
-        Vector3 spawnPos = spawnPointObj.transform.position + offset;
+        Vector3 spawnPos = SpawnPositionFinder.FindClearPosition(spawnPointObj.transform.position, GameSettings.Current.CookieSpawnRange);
 
         GameObject spawned = PhotonNetwork.Instantiate(PlayerPrefabName, spawnPos, Quaternion.identity, 0);
 
@@ -68,13 +75,13 @@ private void SpawnLocalPlayer()
         if (spawned != null)
         {
             PhotonView spawnedView = spawned.GetComponent<PhotonView>();
-            Debug.Log($"[PlayerSpawner] 스폰 완료: ViewID={spawnedView.ViewID}, IsMine={spawnedView.IsMine}, " +
+            Debug.Log($"[PlayerSpawner] Spawned cookie: ViewID={spawnedView.ViewID}, IsMine={spawnedView.IsMine}, " +
                       $"IsRoomView={spawnedView.IsRoomView}, LocalActorNr={PhotonNetwork.LocalPlayer.ActorNumber}, " +
                       $"IsMasterClient={PhotonNetwork.IsMasterClient}, RoomPlayerCount={PhotonNetwork.CurrentRoom.PlayerCount}");
         }
         else
         {
-            Debug.LogWarning("[PlayerSpawner] PhotonNetwork.Instantiate가 null을 반환함 — 로컬 생성 자체가 실패함.");
+            Debug.LogWarning("[PlayerSpawner] PhotonNetwork.Instantiate returned null. Local instantiation failed.");
         }
     }
 }

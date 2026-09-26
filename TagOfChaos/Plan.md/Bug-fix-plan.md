@@ -95,6 +95,23 @@
 | ⑪ | Cookie 마이그레이션 후: 색칠 시 하체만 칠해지고 상체는 안 칠해짐 + 붓 커서가 몸속으로 파고듦 | ✅ **원인 확정·구현·실측 검증 완료** | 두 증상 모두 동일 원인 — `Mesh_0`의 `MeshCollider`가 스킨 애니메이션을 따라가지 않고 임포트 시점 바인드 포즈에 고정됨. 로컬 플레이어의 `Mesh_0`를 매 프레임(3프레임에 1번, 성능상 스로틀링) `BakeMesh()`로 구워 콜라이더에 실시간 반영하도록 구현 — 구현 중 정점에 캐릭터 자체 스케일(100배)이 이중 적용되는 버그와 매 프레임 갱신 시 257fps→15fps로 급락하는 성능 문제를 추가로 발견해 함께 해결(스케일 역보정 + 3프레임 스로틀링 → 47fps로 개선). 수정 후 가슴/머리 레이캐스트가 전부 명중하고 실제 `ApplyStamp()`로 상체에 정상적으로 색이 칠해짐을 실측 확인. 상세는 §20 |
 | ⑫ | Dodge(회피) 중 캐릭터가 특정 구간에서 공중에 떠있는 것처럼 보임 | 🔎 **미해결 — 원인은 확정, B안 구현했으나 사용자 요청으로 롤백됨, 다른 방안 모색 필요** | 물리 루트(`rb.position.y`)는 완전히 지면에 고정돼 있으나, 발(뼈대) 좌표가 최대 1.28m까지 뜨는 것을 프레임별 실측으로 확인. 원인은 `Cookie_Dodge` 모션캡처 소스가 제자리 회피가 아니라 실제로 몸 전체가 앞으로 ~4m 이동하며 회전하는 "다이빙 롤"이고, `applyRootMotion=false` 환경에서 이 루트 모션이 실제 위치에는 반영되지 않고 메시에만 남아 허공에서 뒤집히는 것. 루트 모션 커브(`RootT.x/y/z`, `RootQ.x/y/z/w` 7개)를 0번 프레임 값으로 고정(flatten)하는 B안을 구현해 발의 최고 높이를 1.28m→0.375m로 낮추는 데는 성공했지만, 사용자가 결과를 확인한 뒤 되돌려달라고 요청해 **백업본으로 전부 원상복구했다 — 현재 미해결 상태.** 상세는 §21 |
 | ⑬ | 재리깅된 몬스터가 땅에 박혀 보임 / (재조사 후) 공중에 떠 보임 | ✅ **3차에 걸친 원인 실측·구현·검증 완료** | 1차(콜라이더만 이동)는 `Ground` 밖으로 나가 무한 낙하하는 새 버그 유발 → 롤백. 2차(모델을 루트 기준 +1.4037 들어올림)는 **정지된 바인드 포즈 기준으로는** 완벽했으나, 측정에 쓴 `SkinnedMeshRenderer.bounds`가 실제 애니메이션 포즈를 반영하지 않는 근사값이라는 것을 사용자 지적("떨어져 있는 현상 있을 듯")으로 재발견 — `BakeMesh()`로 정점 단위 재측정한 결과 Idle/Walk/TentacleDash/GrabKill 4개 상태 전부 진짜 포즈에서는 캡슐 바닥보다 약 3.06~3.07유닛 위에 떠 있었음을 확인. 3차로 모델을 추가로 `-0.565` 더 내려 재배치, `BakeMesh` 기반 재검증 결과 4개 상태 전부 간극 ±0.003 이내로 수렴 + Play Mode에서 완전 정지 확인. `GrabKill` 트리거(`SphereCollider`) 위치 재조정은 여전히 후속 과제. 상세는 §22 |
+| ⑭ | 색칠 페이즈에 팔레트(색 슬롯 패널)와 붓 커서가 나타나지 않음 | 🟢 **에디터 검증 완료 + 빌드 원인(정점 압축) 수정 완료(§25 P8) — 빌드 재확인 대기** — 격자 레이캐스트 0/49 → 36/49, 패널 표시·스와치 클릭·실제 스탬프 확인(§23.9) | 원인 2개가 겹쳐 있다. (1) `ColorSelectionPanel`이 첫 프레임에 자기 GameObject를 `SetActive(false)`로 끈 뒤 `Update()`가 더 이상 돌지 않아 다시 켜지지 못함 → 스와치 10개와 지우개·리셋 버튼이 전부 사라짐. (2) 커밋 `403f4b6`에서 쿠키 루트 레이어가 `PlayerCapsule(8)`에서 `Cookie(9)`로 바뀌면서, ⑧(§17)에서 고쳤던 "캡슐이 붓 레이캐스트를 가림" 문제가 다시 생김. 상세는 §23.2 |
+| ⑮ | 괴물이 GameLobbyScene에서 기다리다가 색칠 시간이 끝나면 GameScene으로 넘어와야 하는데, 처음부터 쿠키와 함께 GameScene으로 이동해 버림 | 🟢 **구현·단일 클라이언트 Play Mode 검증 완료, 실제 멀티 테스트 대기(2026-09-26)** | 버그라기보다 **미구현 기능**이다(GameRule.md 머리말: "쿠키만 GameScene 이동, 괴물은 GameLobbyScene 대기는 구현하지 않았다"). `AutomaticallySyncScene`이 방 전체를 방장 씬으로 옮기기 때문. 괴물 클라이언트만 동기화를 끄고 메시지 큐를 멈춘 채 대기실에 남았다가, 타이머가 끝나면 직접 `LoadLevel`하는 방식으로 설계했다. 상세는 §23.3 |
+| ⑯ | 술래(괴물)가 됐을 때 카메라가 3인칭으로 따라가지 않음 | ✅ **구현(A안)·Play Mode 검증 완료(2026-09-26)** — 카메라 추적·시선 일치·이동 방향 회전 확인(§23.9) | `MonsterController.Awake()`가 찾는 `MonsterFirstPersonCamera`가 어떤 씬의 Main Camera에도 붙어 있지 않아 `?.` 연산자로 조용히 넘어감. 쿠키용 `Camera_Ctrl`은 `m_Player == null`이라 카메라가 초기 위치에 고정됨. `Camera_Ctrl`을 괴물에도 재사용하는 3인칭 방식으로 설계했다. 상세는 §23.4 |
+| ⑰ | (빌드 테스트) 쿠키가 GameScene에서 칠하지 못하고, "술래"로 생각한 사람이 GameScene으로 넘어가 색칠함 | 🟢 **구현·에디터 Play Mode 검증 완료(§25) — 빌드 멀티 재확인 대기** | (A) 빌드 정점 압축이 UV0을 half로 만들어 `hit.textureCoord` 읽기 실패(로그 130여 건, 확정). (B) 무작위 괴물 배정 30초 타이머가 정원이 차기 전(방장 혼자일 때)에 돌아 괴물이 먼저 정해지고, 가마솥 입장은 조용히 무시, 늦게 온 사람은 공지 배너를 못 봄(강한 추정). (C/D) 로그의 NRE·PhotonView ID 불일치. 상세는 §24.2~24.6 |
+| ⑱ | 술래가 방을 나가도 5초 뒤 GameLobbyScene으로 돌아가지 않음 | 🟢 **구현·에디터 Play Mode 검증 완료(§25) — 빌드 멀티 재확인 대기** | `RoomLifecycleWatcher`가 괴물 목록을 지운 직후 캐시를 다시 읽는데, 온라인(PUN 기본 `BroadcastPropsChangeToAll=true`)에서는 서버 응답 전까지 캐시가 옛 값이라 항상 1명으로 보여 조기 종료. 복귀해도 판 상태가 초기화되지 않아 다음 판을 시작할 수 없는 후속 문제 포함. 상세는 §24.4~24.5 |
+| ⑲ | GameScene에서 칠한 모습이 GameLobbyScene으로 돌아와도 남아 있음 | 🟢 **구현·에디터 Play Mode 검증 완료(§27) — 빌드 멀티 재확인 대기** | 대기실에 새로 스폰된 쿠키의 `PlayerPaintCanvas.Start()`가 이전 판 강제 도포 정보를 읽어 전신을 다시 칠함(판 초기화 삭제는 서버 응답 후 반영돼 그 시점엔 옛 값이 남아 있음). 상세는 §26.2 |
+| ⑳ | GameLobbyScene 복귀 후 방장 시작 버튼 비활성 | 🟢 **구현·에디터 Play Mode 검증 완료(§27) — 빌드 멀티 재확인 대기** | 방을 만든 사람 화면에서 발생(사용자 확인) → 복귀 시 괴물 확정 초기화로 가마솥/30초 타이머 대기인데 사유 미표시 + 판 도중 1명 이탈 시 정원 미충족(㉑과 교착). 결정: 4명 정원 유지, 방장은 "괴물이 아닌 사람 중 입장 순서(ActorNumber) 최소"로 항상 수렴(생성자 → 2번째 → 3번째 입장자), 시작 버튼은 방장만. 상세는 §26.4, §26.8 |
+| ㉑ | LobbyScene에서 그 방에 참가할 수 없음 | 🟢 **구현·에디터 Play Mode 검증 완료(§27) — 빌드 멀티 재확인 대기** | 결과 화면 경로로 복귀하면 게임 시작 때 닫은 방(`IsOpen=false`)을 다시 열지 않음. 열더라도 늦게 들어온 사람에게 방 이벤트 캐시의 이전 씬 캐릭터가 전부 유령으로 생성됨. 상세는 §26.3 |
+| ㉒ | GameScene 색칠 페이즈의 남은 시간이 보이지 않음 | ✅ **구현·Play Mode 검증 완료(§29) — 스크린샷으로 하단 남은 시간·슬롯·리셋/지우개, 상단 변장 시간 표시 확인** | `ColorSlotPanel`의 `TimeLabel`·`SlotCountLabel`·`ResetButton`·`EraseButton`이 stretch 앵커인데 `anchoredPosition=(-960,-70)`이라 화면 밖(같은 유형 세 번째 발견). 슬롯 수·지우개·리셋도 안 보였음. 상세는 §28.2 |
+| ㉓ | 파괴된 쿠키가 있던 자리를 지나갈 수 없음 | 🟢 **구현·에디터 검증 완료(§29) — 괴물 클라이언트 빌드 멀티 재확인 대기** | 파괴 표시(콜라이더 끄기)가 한 번의 속성 변경 통지에만 의존 — 통지를 놓치거나 이후 생긴 복사본은 콜라이더가 켜진 채 남음. 진단 로그·실측으로 확정 후 현재 값 기반 재조정 + 전용 비충돌 레이어로 수정. 상세는 §28.3 |
+| ㉔ | 파괴 후 관전 중 우클릭 드래그로 시점 회전 불가 | 🟢 **구현·에디터 검증 완료(§29) — 다른 쿠키 관전은 빌드 멀티 재확인 대기** | `SpectatorController`가 `Camera_Ctrl`을 끄고 대상 등 뒤 고정 위치로 카메라를 직접 이동(마우스 입력 없음). 보던 대상이 파괴·퇴장해도 목록이 갱신되지 않는 결함 포함. 상세는 §28.4 |
+| ㉕ | (사용자 주석) 괴물이 쿠키를 파괴해도 쿠키 이름표가 사라지지 않음 | ✅ **구현·빌드 확인 완료(§31)** | `CookieLifeStatePresenter`가 몸통 렌더러 1개만 끔(이름표 TextMeshPro 렌더러 잔존). 모든 렌더러 순회 + 예외 목록 |
+| ㉖ | (사용자 주석) 괴물이 맵(Ground) 밖으로 떨어져도 리스폰되지 않음 | ✅ **구현·빌드 확인 완료(§31)** | `VoidKillZone`·`y<-100` 방어선이 모두 쿠키 전용. `IRespawnable` + `FallGuard` 공통화 |
+| ㉗ | 정원 미달 상태에서 가마솥에 들어가도 괴물 확정·배너·방장 시작 버튼 변화가 일어남 | ✅ **구현·빌드 확인 완료(§31)** | 가마솥(`Cauldron`)과 마스터 신청 처리(`MonsterAssignmentAuthority.OnEvent`) 모두 정원 조건 없음 → 방 생성자가 괴물이 되면 방장이 넘어가 시작 버튼이 사라짐 |
+| ㉘ | 색칠 페이즈 동안 프레임 드랍(끝나면 정상) | ✅ **1단계 구현·빌드 확인 완료(§31) — 갱신 1회당 메인 스레드 108ms→4ms** | 3프레임마다 17만 삼각형 스킨 메시 베이크 + `MeshCollider` 재쿠킹(마우스를 안 눌러도 페이즈 내내). 부원인: 스탬프당 512² 전체 Blit 2회 |
+| ㉙ | 정원이 찬 뒤 가마솥 진입 시 시작 버튼이 두 번째 입장자에게 넘어가고, 그 사람이 나가면 첫 번째에게 돌아감 | 🟢 **A안 구현·에디터 검증 완료(§33.5~§33.6) — 빌드 멀티 확인 대기** | 방장 정책이 "괴물이 아닌 최선 입장자"라 방 생성자가 괴물이 되면 방장(=시작 버튼)이 이동, 정원 미달 시 선정 초기화(D-1)로 다시 복귀. 시작 버튼 주인(호스트)과 진행 권한(Photon 방장)을 분리하는 A안 권장 |
+| ㉚ | 괴물 Idle·Walk 동작이 반복되지 않고 멈춤 / TentacleDash 동작이 앞부분만 보이고 끊김 | 🟢 **구현·에디터 검증 완료(§34.7~§34.8) — 빌드 확인 대기** | Idle(4s)·Walk(2s) 클립 임포트 설정의 Loop Time이 꺼져 있어 한 번 재생 후 마지막 포즈로 굳음(전환은 정상). 돌진은 0.25초인데 클립은 2.04초라 약 12%만 재생 |
 
 ---
 
@@ -3304,3 +3321,2001 @@ Play Mode 물리 재검증: 스폰 후 `t=12.6s` 시점 `root.y≈0`, `rb.linear
 `GrabKill` 트리거(`SphereCollider`) 위치 재조정은 여전히 후속 과제로 남아있다(§22.6-5) — 이번
 모델 재배치로 트리거의 상대 위치가 다시 한번 바뀌었으므로, 그 작업을 진행할 때는 이번에 확정된
 최종 배치를 기준으로 다시 측정해야 한다.
+
+---
+
+## 23. ⑭⑮⑯ 색칠 팔레트·붓 미표시 / 괴물 대기실 대기 / 괴물 3인칭 카메라 — ✅ 구현·Play Mode 검증 완료 (2026-09-26, ⑮ 실제 멀티 테스트만 사용자 확인 대기)
+
+> 사용자 제보(2026-09-26):
+> 1. "게임이 시작되기 전 색칠하는 시간에 색칠할 수 있는 팔레트 및 붓이 나타나지 않는다."
+> 2. "술래는 대기 방(GameLobbyScene)에 있다가 시간초가 다 되면 GameScene으로 넘어와야 하는데 그러지 않는다."
+> 3. "술래가 됐을 때 카메라가 3인칭으로 따라가지 않는다."
+>
+> 아래 내용은 전부 **커밋 `12415ee`의 실제 소스, 씬·프리팹 YAML, 그리고 프로젝트에 포함된 PUN2 소스
+> (`Assets/Photon/PhotonUnityNetworking/Code/`)를 직접 읽고** 작성했다. Play Mode 재현은 아직 하지
+> 않았으므로, §23.6 검증 단계에서 원인 가설을 먼저 실측으로 확인한 뒤 구현에 들어간다.
+> **CLAUDE.md 규칙("계획부터 말하고 승인 받은 후 작업")에 따라 코드와 씬은 아직 수정하지 않았다.**
+
+### 23.1 요약
+
+| # | 증상 | 근본 원인 | 수정 대상 |
+|---|---|---|---|
+| ⑭-1 | 팔레트(스와치·지우개·리셋·남은 시간)가 보이지 않음 | `ColorSelectionPanel`이 **자기 GameObject를 스스로 꺼서** `Update()`가 멈추고 다시 켜지지 않음 | `ColorSelectionPanel.cs`, `GameScene.unity`(`CanvasGroup` 추가) |
+| ⑭-2 | 붓 커서가 보이지 않고 실제로도 칠해지지 않음 | 붓 레이캐스트 마스크가 `PlayerCapsule`만 제외하는데, 쿠키 루트 캡슐은 현재 `Cookie` 레이어라 **캡슐이 몸 메시를 가림**(⑧/§17 회귀) | `PlayerPaintCanvas.cs`, `BrushCursorController.cs` |
+| ⑮ | 괴물이 대기실에 남지 않고 쿠키와 함께 GameScene으로 이동 | `AutomaticallySyncScene=true`라 방장의 `LoadLevel`이 방 전원을 옮김. "괴물만 대기실 대기"는 **처음부터 구현되지 않은 기능** | 신규 `MonsterLobbyWaitController.cs`, 신규 `MasterHandoffGuard.cs`, 신규 `Core/GameTimings.cs`, `GameLobbyController.cs`, `PlayerPaintCanvas.cs`, `GameLobbyScene.unity` |
+| ⑯ | 괴물 카메라가 따라가지 않음 | `MonsterFirstPersonCamera`가 **어느 씬에도 부착되지 않음** + 사용자가 원하는 시점은 1인칭이 아니라 **3인칭** | `MonsterController.cs`, `Camera_Ctrl.cs`, (정리) `MonsterFirstPersonCamera.cs` |
+
+구현 순서는 **⑭ → ⑯ → ⑮** 를 권장한다. ⑭와 ⑯은 독립적이고 작다. ⑮는 규모가 가장 크고, ⑮ 구현 후
+괴물이 GameScene에 도착했을 때 ⑯이 이미 동작하고 있어야 끝까지 검증할 수 있다.
+
+---
+
+### 23.2 ⑭ 색칠 페이즈에 팔레트와 붓이 나타나지 않음
+
+#### 23.2.1 원인 1 — `ColorSelectionPanel`이 자기 자신을 끄고 다시 켜지 못함
+
+**코드** (`Assets/02. Scripts/ColorTag/ColorSelectionPanel.cs:191-195`):
+
+```csharp
+private void Update()
+{
+    bool isPaintPhaseActive = RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double endTime) && PhotonNetwork.Time < endTime;
+    gameObject.SetActive(isPaintPhaseActive);   // ← 자기 자신을 끔
+    if (!isPaintPhaseActive) return;
+```
+
+**씬 배선** (`GameScene.unity`를 파싱해 확인):
+
+```
+Canvas/ColorSlotPanel          ← ColorSelectionPanel + Image + CanvasRenderer (이 오브젝트가 꺼짐)
+  ├─ SwatchRow
+  │   └─ Swatch0 ~ Swatch9     ← ColorSwatchButton ×10
+  ├─ TimeLabel
+  ├─ SlotCountLabel
+  ├─ ResetButton               ← PaintToolButton
+  └─ EraseButton               ← PaintToolButton
+```
+
+**메커니즘**
+1. GameScene이 로드된 **첫 프레임**에는 `PaintPhaseEndTime`이 아직 Room Props에 없다. 마스터의
+   `GamePhaseStarter.Update()`(`Monster/GamePhaseStarter.cs:26`)가 `SetCustomProperties`를 호출해도,
+   PUN2는 **서버 응답이 와야** 로컬 캐시(`CurrentRoom.CustomProperties`)를 갱신한다. 마스터 자신도 마찬가지다.
+2. 따라서 `isPaintPhaseActive == false`가 되고, `gameObject.SetActive(false)`가 실행된다.
+3. **비활성 GameObject에서는 `Update()`가 호출되지 않는다.** 이 컴포넌트 말고는 이 패널을 다시 켜는
+   코드가 없으므로 패널은 게임이 끝날 때까지 꺼져 있다.
+4. 스와치가 자식이라 함께 사라진다. 그러면 `PlayerPaintCanvas.SetBrushColor()`가 호출되지 않아
+   `currentBrushColorIndex == -1`로 남고, `PlayerPaintCanvas.cs:559`의 `if (currentBrushColorIndex < 0) return;`
+   때문에 **칠하는 것 자체가 불가능**해진다. `BrushCursorController.UpdateColor()`도 −1이면 색을 바꾸지 않는다.
+
+> ⚠️ 같은 "자기 자신 끄기" 함정이 `ResultScreenController`(`Awake`에서 `root`=자기 자신을 끔)와
+> `MonsterDepartureBanner`에도 있다(`research.md` §8.1). 두 컴포넌트는 `MonoBehaviourPunCallbacks`라서
+> 꺼지는 순간 Photon 콜백 등록까지 풀린다. 이번 제보 범위 밖이므로 §23.7에 후속 과제로만 남긴다.
+
+#### 23.2.2 원인 2 — 붓 레이캐스트가 쿠키 루트 캡슐에 먼저 맞음 (⑧/§17 회귀)
+
+**코드**
+- `PlayerPaintCanvas.cs:491`: `paintRaycastMask = Physics.DefaultRaycastLayers & ~LayerMask.GetMask("PlayerCapsule");`
+- `PlayerPaintCanvas.cs:549-550`: `Physics.Raycast(ray, out hit, Mathf.Infinity, paintRaycastMask)` → `if (hit.collider != paintableCollider) return;`
+- `BrushCursorController.cs:36, 82-83`: 같은 마스크와 같은 비교.
+
+**프리팹과 레이어 실측**
+- `TagManager`: 8 = `PlayerCapsule`, 9 = `Cookie`, 10 = `Monster`.
+- `HideOrSeekPlayer.prefab` 루트(`CapsuleCollider r=0.46, h=2, center y=1`)의 `m_Layer`는 **9(Cookie)**.
+  `Mesh_0`(붓칠 대상 `MeshCollider`)는 0(Default)이다.
+- `git log`로 확인한 루트 레이어 변경 이력:
+
+  | 커밋 | 루트 `m_Layer` |
+  |---|---|
+  | `2a8b95b` 이전 | 0 |
+  | `4268d13`, `16c662b` (§17 수정) | **8 PlayerCapsule** |
+  | **`403f4b6` "몬스터 구현진행중"** | **9 Cookie** ← 여기서 회귀 |
+
+**메커니즘**: 카메라 광선이 몸 전체를 감싼 캡슐에 먼저 맞는다. 캡슐의 레이어(Cookie)는 마스크에서
+제외되지 않으므로 `hit.collider`가 캡슐이 되고, `!= paintableCollider` 조건으로 즉시 종료된다.
+§17.3에서 측정했던 "49/49 캡슐에 막힘" 상태로 되돌아간 것이다. 그 결과:
+- `BrushCursorController`: `hitSurface == false` → 붓 커서 `SetActive(false)`, OS 커서만 보인다.
+- `PlayerPaintCanvas`: 스와치를 골라도(원인 1을 고쳐도) 칠해지지 않는다.
+
+**왜 레이어를 다시 8로 되돌리면 안 되는가**: 루트를 Cookie(9)로 바꾼 것은 `MonsterGrabKillTrigger`와
+`PlayerGrabController.cookieLayer`가 Cookie 레이어로 쿠키를 식별하게 하려는 의도로 보인다(Monster 도메인
+작업 커밋). 레이어를 되돌리면 그쪽이 깨질 수 있으므로, **레이어 값에 의존하지 않도록 레이캐스트 방식을
+바꾸는 것**이 맞다.
+
+#### 23.2.3 수정 계획
+
+**(A) `ColorSelectionPanel` — 자기 자신을 끄지 않고 `CanvasGroup`으로 보이기만 전환**
+
+계층 구조를 바꾸지 않아도 되므로(스와치 10개 등 기존 배선 유지) 가장 안전하다.
+
+```csharp
+// Assets/02. Scripts/ColorTag/ColorSelectionPanel.cs (변경 후)
+[RequireComponent(typeof(CanvasGroup))]
+public class ColorSelectionPanel : MonoBehaviourPunCallbacks
+{
+    [SerializeField] private TextMeshProUGUI timeLabel;
+    [SerializeField] private TextMeshProUGUI slotCountLabel;
+    [SerializeField] private CanvasGroup canvasGroup; // 같은 오브젝트의 CanvasGroup — 자기 GameObject는 절대 끄지 않는다
+
+    private PlayerPaintCanvas localPaintCanvas;
+    private bool? lastVisible; // 상태가 바뀔 때만 CanvasGroup을 건드려 매 프레임 쓰기를 피한다
+
+    private void Update()
+    {
+        bool isPaintPhaseActive = RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double endTime) && PhotonNetwork.Time < endTime;
+        SetVisible(isPaintPhaseActive);
+        if (!isPaintPhaseActive) return;
+        // ... 기존 timeLabel / slotCountLabel 갱신 그대로 ...
+    }
+
+    // 비활성화 대신 알파·입력만 끈다 — GameObject가 계속 활성이라 Update()가 살아 있어
+    // 페이즈 시작 신호가 늦게 도착해도 스스로 다시 나타날 수 있다.
+    private void SetVisible(bool visible)
+    {
+        if (lastVisible == visible) return;
+        lastVisible = visible;
+        canvasGroup.alpha = visible ? 1f : 0f;
+        canvasGroup.interactable = visible;
+        canvasGroup.blocksRaycasts = visible;
+    }
+}
+```
+
+- 씬 작업: `Canvas/ColorSlotPanel`에 `CanvasGroup` 컴포넌트를 추가하고 `canvasGroup` 필드를 연결한다
+  (Unity MCP `manage_components`로 처리). `Resources/UI/Scene/ColorSelectionPanel/ColorSelectionPanel.prefab`
+  원본에도 같은 변경을 적용해 씬과 프리팹이 어긋나지 않게 한다.
+- `SlotCountLabel`의 "N / 4"는 로컬 캔버스를 찾을 때까지 매 프레임 `FindObjectsByType`를 호출한다.
+  ⑮ 구현 후에는 괴물이 색칠 페이즈 동안 GameScene에 없으므로 이 부담도 자연히 줄어든다(추가 수정 없음).
+
+**(B) 붓 레이캐스트 — 씬 전체가 아니라 "내 몸 콜라이더 하나"만 검사**
+
+```csharp
+// PlayerPaintCanvas.Update() (549-550줄 대체)
+Ray ray = localCamera.ScreenPointToRay(Input.mousePosition);
+if (!paintableCollider.Raycast(ray, out RaycastHit hit, MaxPaintRayDistance)) return;
+// hit.collider != paintableCollider 비교는 더 이상 필요 없음
+
+// BrushCursorController.Update() (82-83줄 대체)
+bool hitSurface = localPaintCanvas.PaintableCollider.Raycast(ray, out RaycastHit hit, MaxPaintRayDistance);
+```
+
+- `Collider.Raycast`는 해당 콜라이더 하나만 검사하므로 **어떤 레이어의 어떤 콜라이더(자기 캡슐, 다른
+  쿠키, 환경)가 앞에 있어도 가려지지 않는다.** `MeshCollider`에 대해 `hit.textureCoord`도 정상적으로 채워진다.
+- `MaxPaintRayDistance = 100f` 상수를 두고(`Mathf.Infinity`보다 명확), 두 클래스의 `paintRaycastMask` 필드와
+  `Awake`/`Start`의 마스크 계산 코드, "PlayerCapsule" 문자열 의존을 제거한다.
+- 동작 차이: 벽이 카메라와 내 몸 사이에 있어도 칠할 수 있게 된다. 카메라가 3.2m 뒤에서 자기 캐릭터를
+  보는 구조라 실사용에서 문제될 가능성은 낮다. 필요하면 나중에 `Physics.Raycast`로 차폐 여부만 따로 검사할 수 있다.
+- **대안(비권장)**: 마스크를 `~LayerMask.GetMask("PlayerCapsule", "Cookie")`로 넓히는 방법. 수정은 한 줄이지만
+  레이어 문자열 의존이 그대로 남아, 다음에 레이어가 또 바뀌면 같은 회귀가 생긴다.
+- `PlayerCapsule` 레이어는 현재 어떤 오브젝트에도 쓰이지 않는다. 삭제 여부는 이번 범위 밖으로 둔다.
+
+**(C) 관련 확인(수정 불필요, 검증 단계에서 확인만)**
+- `GameScene/PaintManagers`의 `BrushCursorController`에는 `brushSettings`(`DefaultBrushSettings`)와
+  `palette`(`DefaultColorPalette`)가 연결돼 있고, `DefaultBrushSettings.cursorPrefab`은 `BrushCursor.prefab`을
+  가리킨다. 설정 누락은 없다.
+- 두 번째 판부터는 `PaintPhaseEndTime`이 이전 판 값(과거 시각)으로 남아 있어 색칠 페이즈가 시작되지 않는다
+  (`research.md` §8.7). 이것도 "팔레트가 안 보인다"는 같은 증상으로 나타난다. ⑮ 계획(§23.3.4-②)에서 시작
+  버튼을 누를 때마다 `PaintPhaseEndTime`을 새로 쓰도록 바꾸므로 **이 키에 한해서는 함께 해결된다.**
+
+---
+
+### 23.3 ⑮ 괴물은 GameLobbyScene에서 대기하다가 색칠 시간이 끝나면 GameScene으로 이동
+
+#### 23.3.1 현재 동작과 원인
+
+현재 흐름(코드 기준):
+1. 방장이 "게임 시작"을 누름 → `GameLobbyController.OnStartGameButtonClicked()`(`Lobby/GameLobbyController.cs:91-98`)
+   → `IsOpen=false`, `PhotonNetwork.LoadLevel(SceneNames.Game)`.
+2. `LobbyController.Awake()`(`Lobby/LobbyController.cs:24`)가 `AutomaticallySyncScene = true`로 설정해 두었기 때문에,
+   PUN2가 Room Prop `"curScn"`을 GameScene으로 바꾸고(`PhotonNetworkPart.cs:2125` `SetLevelInPropsIfSynced`),
+   **다른 모든 클라이언트가 `LoadLevelIfSynced()`(`PhotonNetworkPart.cs:2093`)로 자동 이동한다. 괴물도 예외가 아니다.**
+3. GameScene에서 `PlayerSpawner.IsAlreadyMonster()`가 괴물의 쿠키 스폰만 건너뛰므로, 괴물은 60초 동안
+   **아바타도 카메라 대상도 없는 빈 화면**으로 GameScene에 있게 된다.
+4. 60초 후 `MonsterJoinController`가 `MonsterPlayer`를 스폰한다.
+
+`GameRule.md` 머리말은 이 부분을 이렇게 기록하고 있다. "쿠키만 GameScene 이동, 괴물은 GameLobbyScene
+대기(§2.3/§2.4)는 구현하지 않았다. … 진짜 '다른 씬 대기'가 필요하다면 별도 설계 검토가 필요하다."
+즉 ⑮는 **설계상 단순화로 빠진 기능을 이제 구현하는 작업**이다.
+
+#### 23.3.2 설계 전에 PUN2 소스로 확인한 사실
+
+| # | 사실 | 근거(프로젝트 내 PUN2 소스) | 설계에 미치는 영향 |
+|---|---|---|---|
+| F1 | 방장이 아닌 클라이언트는 `AutomaticallySyncScene=false`이면 `curScn` 변경을 무시한다 | `PhotonNetworkPart.cs:2095` `if (!AutomaticallySyncScene \|\| IsMasterClient …) return;` | 괴물 클라이언트만 동기화를 끄면 대기실에 남는다 |
+| F2 | `AutomaticallySyncScene`을 `true`로 되돌리는 **순간** `LoadLevelIfSynced()`가 즉시 실행된다 | `PhotonNetwork.cs:515-520` setter | 되돌리는 시점에 캐시의 `curScn`이 현재 씬과 다르면 그 씬으로 끌려간다. 반드시 캐시가 `GameScene`이 된 **뒤에** 되돌려야 한다 |
+| F3 | 방장이 아닌 클라이언트의 `PhotonNetwork.LoadLevel(name)`은 Room Prop을 건드리지 않고 **자기 혼자만** 로드한다. 로드하는 동안 메시지 큐를 멈추고, 로드가 끝나면 자동으로 재개한다 | `PhotonNetwork.cs:3057-3071`, `PhotonNetworkPart.cs:1468-1475` `NewSceneLoaded()` | 괴물은 타이머가 끝나면 `PhotonNetwork.LoadLevel(SceneNames.Game)` 한 줄로 이동할 수 있다 |
+| F4 | 원격 플레이어의 `PhotonNetwork.Instantiate` 이벤트를 받으면 **받은 클라이언트의 현재 활성 씬**에 오브젝트가 생성된다. 씬이 바뀌면 그 오브젝트는 로컬에서 파괴되고, **이벤트가 다시 전송되지는 않는다** | PUN2 기본 동작(`PhotonView.OnDestroy`의 "got destroyed by engine. This is OK when loading levels" 경로) | 괴물이 대기실에서 큐를 계속 돌리면, 쿠키들이 GameScene에서 스폰한 캐릭터가 **괴물의 대기실에 생성됐다가 괴물이 GameScene으로 넘어갈 때 사라진다** → **괴물은 GameScene에서 쿠키를 하나도 볼 수 없다.** 이것이 이 기능의 핵심 함정이다 |
+| F5 | `IsMessageQueueRunning=false`이면 **수신 처리(Dispatch)뿐 아니라 송신(`SendOutgoingCommands`)과 직렬화(`RunViewUpdate`)도 멈춘다** | `PhotonHandler.cs:180-203` (`while (PhotonNetwork.IsMessageQueueRunning && doSend …)`) | 큐를 멈추면 대기 중인 괴물은 채팅·RPC·위치 동기화를 보낼 수 없다 → 대기 중에는 채팅과 Back 버튼을 막아야 한다 |
+| F6 | 큐가 멈춰도 연결은 백그라운드 스레드가 ACK만 보내며 유지한다. 하지만 **`KeepAliveInBackground`(기본 60,000ms)가 지나면 끊는다** | `ConnectionHandler.cs:51, 240-272` | 대기 시간(약 63초)이 기본값을 넘는다 → 대기하는 동안 `PhotonNetwork.KeepAliveInBackground`를 늘려야 한다 |
+| F7 | 방장(MasterClient)은 `curScn`을 설정하는 주체이고, GameScene의 게임 진행 로직(`GamePhaseStarter`, `PaintPhaseController`, `MonsterJoinController.MasterTick`, `GameRuleController`, `RoomLifecycleWatcher`)은 **전부 방장만 실행**한다 | 각 파일의 `if (!PhotonNetwork.IsMasterClient) return;` | **방장이 괴물이면 대기실에 남을 수 없다**(GameScene에 방장이 없으면 게임이 진행되지 않음) → 괴물이 확정되면 방장 권한을 쿠키에게 넘겨야 한다 |
+
+#### 23.3.3 방식 비교와 선택
+
+| 방식 | 내용 | 장점 | 단점 | 판단 |
+|---|---|---|---|---|
+| **A. 동기화 끄기 + 메시지 큐 정지 (권장)** | 괴물 클라이언트만 `AutomaticallySyncScene=false`. 게임 시작 신호를 받는 순간 `IsMessageQueueRunning=false`로 이후 이벤트를 전부 **쌓아 두고**, 타이머가 끝나면 `PhotonNetwork.LoadLevel(Game)`. 로드가 끝나면 PUN이 큐를 재개하고 쌓인 이벤트(쿠키 Instantiate, 색칠 스트로크, Room Props)가 **GameScene 안에서 순서대로 재생**된다 | PUN이 원래 "씬 로딩 중 큐 정지" 용도로 설계한 메커니즘을 그대로 사용한다(F3). F4 함정이 원천적으로 사라진다. 괴물이 도착하면 쿠키들이 **이미 칠해진 상태로** 보인다 | 대기 중 괴물은 네트워크상 격리된다(F5). 60초 이상 정지하므로 Keep-Alive 연장이 필요하다(F6). 도착 순간 약 60초 분량 이벤트를 한 프레임에 처리하므로 순간적인 끊김이 생긴다 | **채택** |
+| B. 동기화만 끄고 큐는 계속 돌림 | 괴물 대기실에 생성되는 쿠키 오브젝트를 `DontDestroyOnLoad`로 보존했다가 GameScene으로 옮김 | 대기 중에도 채팅 가능 | 쿠키가 대기실 좌표계에서 대기실 지형과 겹친 채 움직인다. 색칠 RT, 이벤트 콜백, Rigidbody를 전부 특수 처리해야 한다. 코드가 PUN 내부 동작에 강하게 의존한다 | 기각 |
+| C. 인터레스트 그룹으로 괴물만 수신 차단 | GameScene 오브젝트를 별도 그룹으로 스폰 | — | 그룹을 늦게 켜도 **지나간 Instantiate 이벤트는 다시 받지 못한다** → 괴물이 쿠키를 영영 못 봄 | 기각 |
+| D. 현 구조 유지(전원 GameScene) + 괴물에게 대기 화면만 표시 | 괴물은 GameScene에서 대기 UI만 보다가 60초 후 스폰 | 가장 단순하고 안전하다 | 사용자 요구("대기 방에 있다가")와 다르다 | 요구 불일치. 방식 A가 실측 검증에서 문제를 일으킬 때의 **대비책**으로만 남긴다 |
+
+#### 23.3.4 방식 A 상세 설계
+
+**전체 타임라인 (변경 후)**
+
+```
+[GameLobbyScene — 전원]
+  ① 괴물 확정(MonsterActorNumbers)
+       ├─ 괴물 클라이언트: AutomaticallySyncScene = false          (MonsterLobbyWaitController)
+       └─ 방장이 괴물이면: SetMasterClient(쿠키 중 ActorNumber 최소)  (MasterHandoffGuard)
+  ② 시작 버튼: 방장 + 정원 + "괴물 확정됨"일 때만 누를 수 있음          (GameLobbyController)
+  ③ 방장이 시작을 누름:
+       SetCustomProperties(PaintPhaseEndTime = Now + LoadGrace(3s) + 60s)
+       → IsOpen = false → LoadLevel(Game)  (curScn = GameScene)
+[쿠키 3명]  curScn 수신 → GameScene 자동 이동 → 쿠키 스폰 → 색칠
+[괴물]      PaintPhaseEndTime 변경 수신 (curScn보다 먼저 도착 — 같은 방장이 순서대로 보낸 Props 변경)
+       → 대기 모드 진입:
+          · 남의 쿠키 오브젝트를 로컬에서 파괴(원래 주인들은 이미 씬을 떠남, 대기실에 굳은 채 남는 것 방지)
+          · 대기 UI 표시(남은 시간 카운트다운), 채팅·Back 버튼 비활성화
+          · KeepAliveInBackground = 남은 시간 + 여유(30s)
+          · IsMessageQueueRunning = false   ← 이후 모든 이벤트는 쌓아 둠
+       → 로컬 카운트다운(Time.realtimeSinceStartupAsDouble 기준) 종료
+       → PhotonNetwork.LoadLevel(Game)    (F3: 혼자만 로드, 로드 후 큐 자동 재개)
+[GameScene — 괴물 도착]
+       쌓인 이벤트 재생: curScn=GameScene, 쿠키 Instantiate, 색칠 스트로크, ForcedPaint, MonsterJoined …
+       → MonsterJoinController.TryLocalSpawn()이 MonsterPlayer 스폰 (⑯의 3인칭 카메라 연결)
+       → 캐시의 curScn == "GameScene"을 확인한 뒤 AutomaticallySyncScene = true 복구 (F2 함정 회피)
+       → KeepAliveInBackground = 60 복구
+```
+
+**① 신규 `Assets/02. Scripts/Monster/MonsterLobbyWaitController.cs`** (GameLobbyScene의 `MonsterManagers`에 부착)
+
+```csharp
+// GameLobbyScene 전용. 괴물 클라이언트만 대기실에 남겨 두었다가, 색칠 페이즈가 끝나는 시각에
+// 혼자 GameScene으로 이동시킨다(Bug-fix-plan.md §23.3). 다른 클라이언트에서는 아무 일도 하지 않는다.
+public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
+{
+    private const float KeepAliveMarginSeconds = 30f;
+
+    [SerializeField] private GameObject waitPanelRoot;      // 반드시 이 컴포넌트와 다른 자식 오브젝트(§23.2.1 함정 회피)
+    [SerializeField] private TMP_Text countdownText;
+    [SerializeField] private string countdownFormat = "{0}"; // 표시 문구는 인스펙터에서 입력(코드에 한글 금지 규칙)
+    [SerializeField] private Button[] buttonsToDisableWhileWaiting; // Back 버튼 등
+    [SerializeField] private Behaviour[] behavioursToDisableWhileWaiting; // GameManager(채팅) 등
+
+    private bool isWaiting;
+    private double departAtLocalTime; // Time.realtimeSinceStartupAsDouble 기준 출발 시각
+
+    private void Start()
+    {
+        if (waitPanelRoot != null) waitPanelRoot.SetActive(false);
+        ApplySceneSyncPolicy(); // 이미 괴물로 확정된 상태로 대기실에 들어온 경우(두 번째 판 등)
+    }
+
+    public override void OnRoomPropertiesUpdate(Hashtable changedProps)
+    {
+        if (changedProps.ContainsKey(NetKeys.MonsterActorNumbers)) ApplySceneSyncPolicy();
+
+        // 시작 신호: 방장이 시작 버튼을 누르면서 새로 쓴 PaintPhaseEndTime. 대기실 입장 시 이미
+        // 있던(이전 판) 값은 "변경"이 아니므로 여기로 들어오지 않는다.
+        if (changedProps.ContainsKey(NetKeys.PaintPhaseEndTime) && IsLocalMonster() && !isWaiting)
+            EnterWaiting();
+    }
+
+    private void ApplySceneSyncPolicy()
+    {
+        if (IsLocalMonster()) PhotonNetwork.AutomaticallySyncScene = false;
+    }
+
+    private void EnterWaiting()
+    {
+        if (!RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double endTime)) return;
+
+        isWaiting = true;
+        double remaining = System.Math.Max(0, endTime - PhotonNetwork.Time);
+        departAtLocalTime = Time.realtimeSinceStartupAsDouble + remaining;
+
+        RemoveOtherPlayersAvatars();
+        SetWaitingUi(true);
+
+        PhotonNetwork.KeepAliveInBackground = (float)remaining + KeepAliveMarginSeconds;
+        PhotonNetwork.IsMessageQueueRunning = false; // 이후 이벤트는 GameScene 도착 후 재생된다
+    }
+
+    private void Update()
+    {
+        if (!isWaiting) return;
+
+        double remaining = departAtLocalTime - Time.realtimeSinceStartupAsDouble;
+        if (countdownText != null)
+            countdownText.text = string.Format(countdownFormat, Mathf.CeilToInt((float)System.Math.Max(0, remaining)));
+
+        if (remaining > 0) return;
+        isWaiting = false;
+        PhotonNetwork.LoadLevel(SceneNames.Game); // 방장이 아니므로 혼자만 로드, 로드 후 큐 자동 재개
+    }
+
+    // 원래 주인들은 이미 GameScene으로 떠나 이 오브젝트들은 더 이상 갱신되지 않는다(대기실에 굳은 채 남음).
+    private void RemoveOtherPlayersAvatars()
+    {
+        foreach (var cookie in FindObjectsByType<HideOrSeekPlayer>(FindObjectsSortMode.None))
+            if (!cookie.IsMine) Destroy(cookie.gameObject);
+    }
+    // IsLocalMonster(), SetWaitingUi(bool) 생략 — SetWaitingUi는 패널 표시 + 버튼 interactable + Behaviour.enabled 전환
+}
+```
+
+설계 포인트
+- **시작 신호로 `curScn`이 아니라 `PaintPhaseEndTime`을 쓰는 이유**: `"curScn"`은 PUN 내부 상수(`internal const`,
+  `PhotonNetworkPart.cs:160`)라 게임 코드에서 참조하면 안 된다. 또 괴물이 카운트다운에 쓸 종료 시각이 반드시
+  대기 모드 진입 **전에** 캐시에 있어야 한다. 방장이 `PaintPhaseEndTime`을 먼저 쓰고 그다음 `LoadLevel`을 호출하므로,
+  같은 방장이 보낸 Props 변경은 이 순서대로 도착한다.
+- **로컬 시계로 카운트다운하는 이유**: 큐가 멈춘 동안에는 서버 시간 보정 결과를 받지 못한다. 진입 순간에 남은 시간을
+  한 번 계산하고, 이후에는 `Time.realtimeSinceStartupAsDouble`(timeScale 영향 없음)로만 센다.
+- **자기 쿠키는 남겨 둔다**: 대기하는 동안 대기실을 걸어 다닐 수 있다. 큐가 멈춰 있으므로 이 쿠키의 위치는
+  남에게 전송되지 않는다(F5). GameScene으로 이동하면 자동으로 파괴된다.
+- `buttonsToDisableWhileWaiting`/`behavioursToDisableWhileWaiting`: 큐가 멈춘 상태에서 `LeaveRoom`이나 채팅 RPC를 호출하면
+  송신이 막혀 방 나가기가 멈춘 것처럼 보이거나, 도착 후 엉뚱한 씬의 PhotonView로 전달될 수 있다(F5). 그래서 대기
+  중에는 막는다. **Back 버튼을 막을지, 아니면 "큐 재개 후 나가기"로 허용할지는 사용자 결정 사항이다**(§23.5 D3).
+
+**② 신규 `Assets/02. Scripts/Core/GameTimings.cs` + `GameLobbyController` 수정**
+
+```csharp
+// Core/GameTimings.cs — Lobby(시작 버튼)와 Monster(GamePhaseStarter/대기실)가 함께 쓰는 게임 시간 상수.
+public static class GameTimings
+{
+    public const float PaintPhaseDuration = 60f;
+    public const float SceneLoadGrace = 3f; // 쿠키들이 GameScene을 로드하는 동안 색칠 시간이 깎이지 않도록 둔 여유
+}
+```
+
+`GameLobbyController` 변경 사항:
+- `OnStartGameButtonClicked()`: `IsOpen=false` 전에 `PaintPhaseEndTime = PhotonNetwork.Time + SceneLoadGrace + PaintPhaseDuration`을
+  **먼저** 기록한 뒤 `LoadLevel(Game)`. 판마다 새 값을 쓰므로 두 번째 판의 오래된 값 문제(§23.2.3-C)도 이 키에 한해서는 해결된다.
+- `RefreshStartButton()`: 기존 조건(방장 + 정원)에 **"`MonsterActorNumbers`가 있고 비어 있지 않음"** 을 추가한다.
+  현재는 괴물이 정해지기 전에도 시작할 수 있다. 그런데 `MonsterAssignmentAuthority`는 GameLobbyScene에만 있으므로,
+  그렇게 시작하면 **괴물이 없는 판**이 되고 `GameRuleController`는 영원히 판정하지 않는다. ⑮의 전제 조건이기도 하다.
+- `OnRoomPropertiesUpdate` 오버라이드를 추가해 `MonsterActorNumbers`가 바뀌면 `RefreshStartButton()`을 호출한다
+  (기존 `Update()` 안전망은 인원수와 방장 여부만 감시하므로 Props 변화는 잡지 못한다).
+- `GamePhaseStarter`는 **변경하지 않는다.** 키가 이미 있으면 아무것도 하지 않으므로, 대기실을 거치지 않는
+  `PlayerTestScene` 같은 경로에서만 대비책으로 동작한다. 60 상수만 `GameTimings.PaintPhaseDuration`으로 바꾼다.
+
+**③ 신규 `Assets/02. Scripts/Monster/MasterHandoffGuard.cs`** (GameLobbyScene의 `MonsterManagers`에 부착)
+
+```csharp
+// 괴물은 대기실에 남아야 하므로 방장(게임 진행 권한자, F7)이 될 수 없다. 방장이 괴물로 확정되면
+// 쿠키 중 ActorNumber가 가장 작은 사람에게 방장을 넘긴다(Bug-fix-plan.md §23.3).
+public class MasterHandoffGuard : MonoBehaviourPunCallbacks
+{
+    private void Start() => TryHandOff();
+    public override void OnRoomPropertiesUpdate(Hashtable changed) { if (changed.ContainsKey(NetKeys.MonsterActorNumbers)) TryHandOff(); }
+    public override void OnPlayerEnteredRoom(Player newPlayer) => TryHandOff(); // 괴물 혼자 있다가 사람이 들어온 경우
+    public override void OnMasterClientSwitched(Player newMaster) => TryHandOff(); // 넘겨받은 쪽도 괴물인 극단적 경우
+
+    private void TryHandOff()
+    {
+        if (!PhotonNetwork.IsMasterClient) return;
+        if (!RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters)) return;
+        if (System.Array.IndexOf(monsters, PhotonNetwork.LocalPlayer.ActorNumber) < 0) return;
+
+        Player target = PhotonNetwork.PlayerList
+            .Where(p => System.Array.IndexOf(monsters, p.ActorNumber) < 0)
+            .OrderBy(p => p.ActorNumber)
+            .FirstOrDefault();
+        if (target != null) PhotonNetwork.SetMasterClient(target);
+    }
+}
+```
+
+- `GameLobbyController.OnMasterClientSwitched`가 이미 `RefreshStartButton()`을 호출하므로, **시작 버튼은 새 방장에게
+  자동으로 넘어간다.** 방을 만든 사람이 괴물이 되면 시작 버튼이 다른 사람에게 보이게 되는 UX 변화가 있다(§23.5 D2).
+- `MonsterAssignmentAuthority`의 `sceneEnterTime`은 괴물이 확정된 뒤에는 쓰이지 않으므로, 방장이 넘어가도 영향이 없다.
+
+**④ `PlayerPaintCanvas` — 괴물 도착 시 한꺼번에 재생되는 이벤트를 안전하게 처리**
+
+방식 A에서는 괴물이 GameScene에 도착하는 순간, 쌓여 있던 "쿠키 Instantiate → 그 쿠키의 스트로크 수십~수천 개"가
+**같은 Dispatch 루프 안에서 연달아** 처리된다. 그런데 현재 `PaintCanvas`(RenderTexture)는 `Start()`에서 만들어진다
+(`PlayerPaintCanvas.cs:485-492`). `Start`는 다음 프레임에야 실행되므로, 그 전에 도착한 스트로크가
+`ApplyStamp()`에서 `PaintCanvas.width`를 참조하다가 **NullReferenceException**이 난다(PUN이 예외를 모아서
+`AggregateException`으로 다시 던짐, `PhotonHandler.cs:238-241`). 괴물 화면의 쿠키 색칠이 일부 빠지게 된다.
+
+수정: 초기화를 둘로 나눈다.
+- `Awake()`: RenderTexture 생성과 투명 초기화만 한다(스킨과 무관한 부분).
+- `Start()`: 기존처럼 스킨 합성 머티리얼 생성(`PlayerSkinApplier.Awake`가 스킨을 바꾼 뒤여야 하므로 Start에 남김),
+  마스크와 베이크 메시 준비 등.
+- `MonoBehaviourPunCallbacks.OnEnable`이 `Awake` 직후 이벤트 수신을 등록하므로, 이렇게 바꾸면 Instantiate 직후
+  도착하는 스트로크도 정상적으로 RenderTexture에 그려진다. 머티리얼은 Start에서 같은 RT를 연결하므로 결과는 똑같이 보인다.
+
+**⑤ GameScene 도착 후 복구 — `MonsterJoinController`에 추가**
+
+```csharp
+// 괴물 클라이언트가 대기실에서 끈 씬 자동 동기화를 되돌린다. 캐시의 curScn이 아직 이전 값(GameLobbyScene)인
+// 상태에서 true로 바꾸면 PUN이 즉시 그 씬으로 다시 끌고 가므로(F2), 쌓여 있던 Props 변경이 재생돼
+// 현재 씬과 일치하게 된 뒤에만 복구한다.
+private void RestoreSceneSyncWhenCaughtUp()
+{
+    if (PhotonNetwork.AutomaticallySyncScene) return;
+    if (!RoomState.IsInRoom()) return;
+    if (!PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue(SceneSyncKey, out object scene)) return;
+    if (!Equals(scene, SceneManager.GetActiveScene().name)) return;
+
+    PhotonNetwork.AutomaticallySyncScene = true;
+    PhotonNetwork.KeepAliveInBackground = DefaultKeepAliveSeconds; // 60
+}
+```
+
+- `SceneSyncKey = "curScn"` 문자열을 이 한 곳에만 두고, PUN 내부 키라는 주석을 단다. 대안으로, 비교 없이
+  "GameScene 도착 후 N초 뒤에 복구"하는 방법도 있지만 타이밍에 의존하므로 권장하지 않는다.
+- 결과 화면이나 괴물 이탈로 방장이 `LoadLevel(GameLobby)`를 호출할 때는 이미 `true`로 복구된 상태이므로 괴물도 함께 돌아간다.
+- `LobbyController.Awake`도 로비로 돌아가면 `true`로 설정하므로, 대기 중 방을 나가는 경우에도 전역 상태가 남지 않는다.
+
+#### 23.3.5 ⑮의 리스크와 대응
+
+| 리스크 | 대응 |
+|---|---|
+| 괴물 도착 순간 약 60초 분량 이벤트(쿠키 3명의 위치 약 1,800개 + 색칠 스트로크 최대 약 10,000개)를 한 프레임에 처리해 생기는 끊김 | 1차 구현 후 Profiler로 측정한다. 끊김이 크면 색칠 스트로크 전송 묶음(`research.md` §8.16)을 후속으로 진행한다. 도착 직후에는 로딩 화면이 있어 체감은 작을 것으로 예상한다 |
+| 큐가 멈춘 동안 괴물은 쿠키의 이탈이나 방장 변경을 알 수 없다 | 도착하면 쌓인 이벤트로 한꺼번에 따라잡는다. `RoomLifecycleWatcher`는 GameScene의 방장이 처리하므로 영향이 없다 |
+| 대기 중 네트워크 문제로 괴물이 끊김 | `KeepAliveInBackground`를 남은 시간 + 30초로 설정. 끊기면 기존 `OnDisconnected` 흐름을 따른다(현재 별도 처리 없음, 범위 밖) |
+| 방장이 대기 중에 나가서 방장이 괴물로 넘어옴 | 괴물은 큐가 멈춰 있어 GameScene 진행 로직을 실행할 수 없다. 쿠키가 남아 있으면 PUN이 남은 사람 중에서 방장을 고르지만, 괴물이 선택될 수도 있다. 도착 후 `MasterHandoffGuard`와 같은 원리를 GameScene에도 적용할지는 이번에는 기록만 해 둔다(§23.7) |
+| `GameManager.Start()`가 도착 후 "Connected" 메시지를 한 번 더 보냄 | 기능에는 영향이 없다. 필요하면 후속으로 정리한다 |
+
+---
+
+### 23.4 ⑯ 괴물 카메라가 3인칭으로 따라가지 않음
+
+#### 23.4.1 원인
+
+- `MonsterController.Awake()`(`Monster/MonsterController.cs:30-37`):
+  ```csharp
+  var fpsCam = Camera.main != null ? Camera.main.GetComponent<MonsterFirstPersonCamera>() : null;
+  fpsCam?.InitCamera(eyeSocket);
+  ```
+- `MonsterFirstPersonCamera` 스크립트의 GUID(`a924b161…`)를 모든 `.unity`와 `.prefab`에서 검색한 결과 **0건**.
+  GameScene과 PlayerTestScene의 `Main Camera`에는 쿠키용 `Camera_Ctrl`만 있다.
+- 그래서 `fpsCam == null` → 아무 일도 일어나지 않는다. `Camera_Ctrl.m_Player`도 괴물에게는 설정되지 않으므로
+  (`HideOrSeekPlayer.Awake`만 `InitCamera`를 호출함), `Camera_Ctrl.LateUpdate()`가 첫 줄 `if (m_Player == null) return;`에서
+  종료되고 **카메라가 씬의 초기 위치에 고정된다.**
+- 게다가 설계 문서(GameRule.md §6.2)는 괴물을 **1인칭으로 확정**했었지만, 이번 제보에서 사용자가 원하는 것은
+  **3인칭 추적 카메라**다. 설계 방향이 바뀐 것이므로, 1인칭 카메라를 부착하는 대신 3인칭으로 구현한다.
+
+#### 23.4.2 조작 방식 결정 필요 (§23.5 D1)
+
+현재 `MonsterController.Update()`는 1인칭 전제로 짜여 있다. 마우스 X로 몸통을 **항상** 회전시키고, 이동은 몸 기준이며,
+마우스 Y로 `eyeSocket` 피치를 조절한다. 쿠키용 `Camera_Ctrl`은 **우클릭 드래그**로만 카메라를 궤도 회전시킨다. 두 방식을
+그대로 섞으면 몸이 마우스를 따라 돌아도 카메라는 따라가지 않아 조작이 어긋난다. 따라서 둘 중 하나로 통일해야 한다.
+
+| 방식 | 조작 | 수정 범위 | 장점 | 단점 |
+|---|---|---|---|---|
+| **A. 쿠키와 같은 궤도형 (권장)** | 우클릭 드래그 = 카메라 회전, WASD = **카메라 기준** 이동, 몸은 이동 방향을 바라봄 | `MonsterController.Update/FixedUpdate`만 수정, `Camera_Ctrl`은 그대로 재사용(대상 높이와 거리만 매개변수화) | 쿠키와 조작이 같아 배울 것이 없다. 커서 잠금이 필요 없다(`research.md` §8.8 자동 해소). 코드 재사용이 최대다 | 괴물이 뒤를 보려면 방향키로 몸을 돌려야 한다. 돌진(`TentacleDash`)은 "바라보는 방향 = 마지막 이동 방향"으로 나간다 |
+| B. 숄더뷰 추적형 | 마우스 이동 = 괴물 몸 회전(지금처럼), 카메라는 항상 괴물 등 뒤를 따라감 | `Camera_Ctrl`에 "대상 yaw 추종 모드" 추가 또는 신규 카메라 컴포넌트. **`Cursor.lockState` 도입 필수** | 조준감이 좋다(TPS 게임 스타일). 돌진 방향을 마우스로 정확히 조준할 수 있다 | 수정 범위가 넓고, 커서 정책(쿠키는 색칠 때 커서 필요)까지 함께 설계해야 한다 |
+
+아래 상세 계획은 **A 기준**이다. B로 결정되면 §23.4.4의 대체안을 따른다.
+
+#### 23.4.3 수정 계획 (A)
+
+**(1) `Camera_Ctrl` — 대상별 높이와 거리를 받을 수 있게 매개변수화**
+
+```csharp
+// Camera/Camera_Ctrl.cs
+private const float DefaultTargetHeight = 1.5f; // 기존 하드코딩 값(쿠키 기준)
+private float m_TargetHeight = DefaultTargetHeight;
+private float m_Distance;                        // Start/Init에서 m_DefaultDist로 초기화
+
+public void InitCamera(GameObject player) => InitCamera(player, DefaultTargetHeight, m_DefaultDist);
+
+public void InitCamera(GameObject player, float targetHeight, float distance)
+{
+    m_Player = player;
+    m_TargetHeight = targetHeight;
+    m_Distance = distance;
+    ResetToDefaultView();
+}
+// ResetToDefaultView()/LateUpdate()의 "m_TargetPos.y += 1.5f"를 m_TargetHeight로,
+// "-m_DefaultDist"를 -m_Distance로 교체
+```
+
+- 쿠키 쪽 호출(`HideOrSeekPlayer.Awake`)은 기존 오버로드를 그대로 쓰므로 **동작이 바뀌지 않는다.**
+
+**(2) `MonsterController` — 카메라 연결과 이동 방식 변경**
+
+```csharp
+[SerializeField] private float cameraTargetHeight = 2.2f; // 초기 제안값 — Play Mode에서 실측 후 확정(§23.6)
+[SerializeField] private float cameraDistance = 4.5f;
+
+private void Awake()
+{
+    if (!pv.IsMine) return;
+    // HideOrSeekPlayer.Awake()와 같은 "Main Camera에 나를 넘긴다" 패턴 — 쿠키와 같은 3인칭 궤도 카메라를 재사용
+    var camCtrl = Camera.main != null ? Camera.main.GetComponent<Camera_Ctrl>() : null;
+    if (camCtrl != null) camCtrl.InitCamera(gameObject, cameraTargetHeight, cameraDistance);
+    else Debug.LogError("MonsterController: Camera_Ctrl not found on Main Camera."); // 이번처럼 조용히 실패하지 않게
+}
+
+private void Update()   // 로컬 분기만 변경
+{
+    // yaw/pitch 마우스 회전 제거. 이동은 HideOrSeekPlayer.CheckMovementInput()과 같은 카메라 기준 방향.
+    Transform cam = Camera.main.transform;
+    Vector3 forward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
+    Vector3 right = Vector3.ProjectOnPlane(cam.right, Vector3.up).normalized;
+    moveInput = (forward * Input.GetAxisRaw("Vertical") + right * Input.GetAxisRaw("Horizontal")).normalized;
+    // 이하 TentacleDash / 상태 전환 로직은 그대로 (돌진 방향은 transform.forward = 현재 바라보는 방향)
+}
+
+private void FixedUpdate()   // 비돌진 분기에 회전 추가
+{
+    // transform.rotation 직접 대입 대신 rb.MoveRotation — Rigidbody 보간과 충돌하지 않도록(Bug-fix-plan §13과 같은 이유)
+    if (moveInput != Vector3.zero) rb.MoveRotation(Quaternion.LookRotation(moveInput));
+    // 기존 수평 속도 설정 그대로
+}
+```
+
+- 현재 1인칭 코드는 `Update()`에서 `transform.rotation`을 직접 대입한다(`MonsterController.cs:63`). 이 방식은 `rb.interpolation =
+  Interpolate`와 충돌해 회전이 튀는 문제가 있다(쿠키에서 §13으로 고쳤던 것과 같은 패턴). 이번 변경으로 함께 해소된다.
+- `eyeSocket` 필드와 `mouseSensitivity`는 A에서는 쓰이지 않는다. 필드는 남겨 두되(프리팹 배선 유지), 사용하는 코드는 제거한다.
+- **`MonsterFirstPersonCamera.cs`**: 어디에서도 참조되지 않게 된다. **삭제를 권장**한다(.meta 포함, 씬 참조 0건 확인 완료).
+  남겨 두면 "1인칭 카메라가 있다"는 오해를 계속 만든다.
+- **`SpectatorController`**: 쿠키 전용이라 영향이 없다. 괴물은 관전 모드에 들어가지 않는다.
+- **GameLobbyScene**: 괴물도 대기실에서는 쿠키 캐릭터이므로 기존 `Camera_Ctrl`이 그대로 따라간다. 변경할 것이 없다.
+- **PlayerTestScene**: `MonsterTestSpawner`가 같은 `MonsterController.Awake` 경로를 타므로, 몬스터 단독 테스트에서도 3인칭이 적용된다.
+
+#### 23.4.4 B로 결정될 경우의 대체안(요약)
+
+- `Camera_Ctrl`에 `followTargetYaw` 모드를 추가한다. 이 모드에서는 `m_RotH = m_Player.transform.eulerAngles.y`를 매 프레임
+  적용하고, 우클릭 없이 마우스 Y로 피치만 조절한다.
+- `MonsterController`는 현재의 yaw 회전을 유지하되, `rb.MoveRotation`으로 FixedUpdate에서 적용한다.
+- 괴물 클라이언트에서만 `Cursor.lockState = Locked`, `Cursor.visible = false`로 설정하고, ESC나 결과 화면에서 해제한다.
+  쿠키의 색칠 페이즈 커서 정책과 충돌하지 않도록 "역할별 커서 정책" 주체를 하나 둔다.
+
+---
+
+### 23.5 사용자 결정이 필요한 사항
+
+| # | 질문 | 권장 | 비고 |
+|---|---|---|---|
+| **D1** | 괴물 3인칭 조작을 A(쿠키와 같은 궤도형, 우클릭 회전) / B(숄더뷰, 마우스로 몸 회전 + 커서 잠금) 중 무엇으로 할까? | **A** | GameRule.md §6.2의 "1인칭 확정"도 이번 결정에 맞춰 갱신해야 한다 |
+| **D2** | 방을 만든 사람이 괴물이 되면 방장 권한(시작 버튼)을 쿠키에게 넘겨도 될까? | **넘긴다** | 넘기지 않으면 방장인 괴물은 대기실에 남을 수 없다(F7). 대안은 "방장은 괴물이 될 수 없게 하기"(가마솥 입장 거부 + 무작위 배정에서 제외) |
+| **D3** | 괴물이 대기실에서 기다리는 동안 Back(방 나가기)을 막을까, 허용할까? | **막는다**(1차) | 허용하려면 "큐 재개 → LeaveRoom" 순서로 처리해야 하고 경계 조건이 늘어난다 |
+| **D4** | 대기실 대기 UI 문구 | 인스펙터 입력 | 예: "쿠키들이 변장 중입니다… {0}초 후 입장". CLAUDE.md 규칙에 따라 코드에는 한글을 넣지 않는다 |
+
+---
+
+### 23.6 검증 계획
+
+**구현 전 가설 확인 (Unity MCP, PlayerTestScene / GameScene 오프라인)**
+1. ⑭-1: Play Mode 진입 직후 `Canvas/ColorSlotPanel.activeSelf`가 `false`로 바뀌는지, 이후 `PaintPhaseEndTime`이 설정된 뒤에도
+   `false`로 남는지 확인한다.
+2. ⑭-2: 로컬 쿠키 화면 영역에 격자 레이캐스트(§17.3과 같은 방식, 7×7)를 쏴서 첫 명중 콜라이더가 루트 `CapsuleCollider`인지 센다.
+   (예상: 대부분 캡슐)
+3. ⑯: 괴물 스폰 후 `Camera_Ctrl.m_Player == null`인지, 카메라 위치가 변하지 않는지 확인한다.
+
+**구현 후 단위 확인 (Unity MCP)**
+4. ⑭: 색칠 페이즈 동안 패널 `CanvasGroup.alpha == 1`, 스와치 클릭 → 붓 커서 표시 → 상체와 하체 스탬프가 성공하는지.
+   격자 레이캐스트 명중률이 §17.7 수준(44/49 이상)으로 회복되는지. 페이즈 종료 후 alpha 0, 클릭이 막히는지.
+5. ⑯: 괴물 스폰 후 카메라가 괴물을 따라가는지. 우클릭 회전, 카메라 기준 WASD, 몸 방향 전환, 돌진 방향이 올바른지.
+   `cameraTargetHeight`/`cameraDistance`를 `BakeMesh` 기준 괴물 실제 키(§22 교훈)로 조정한다. 쿠키 카메라에 회귀가 없는지 확인한다.
+6. `read_console`에서 에러와 경고 0건을 확인한다.
+
+**멀티 클라이언트 통합 확인 (빌드 + 에디터, 최소 2명 — 쿠키 1 + 괴물 1, 가능하면 4명)**
+7. ⑮ 정상 흐름: 대기실 → 가마솥으로 괴물 확정 → (방장이 괴물이면 방장이 넘어가는지) → 시작 → **쿠키만 GameScene**,
+   괴물은 대기실에 남아 카운트다운 → 0초에 괴물이 GameScene에 도착 → **쿠키가 이미 칠해진 모습으로 보이는지**, 괴물 스폰과
+   3인칭 카메라, 쿠키 화면에도 괴물이 보이는지.
+8. ⑮ 복귀: 결과 화면 또는 괴물 이탈로 방장이 `LoadLevel(GameLobby)` → 괴물도 함께 돌아오는지(`AutomaticallySyncScene` 복구 확인).
+9. ⑮ 네트워크: 대기 60초 동안 괴물 연결이 끊기지 않는지(`KeepAliveInBackground`), 도착 직후 프레임 시간이 얼마나 튀는지(Profiler).
+10. ⑮ 경계: 괴물 확정 전에는 시작 버튼이 비활성인지. 괴물이 대기 중일 때 Back과 채팅이 막혀 있는지.
+
+---
+
+### 23.7 범위 밖 (이번 계획에서 수정하지 않고 기록만 함)
+
+- `ResultScreenController`/`MonsterDepartureBanner`의 "자기 자신 끄기"로 인한 Photon 콜백 해제(`research.md` §8.1) —
+  §23.2.1과 같은 패턴이다. 결과 화면이 뜨지 않아 게임 종료 후 대기실로 돌아가지 않으므로 **§23.6-8 검증을 막는다.**
+  바로 다음 작업으로 진행하거나, 이번 작업에 포함할지 결정이 필요하다.
+- 괴물 GrabKill이 한 판에 1회만 동작하는 문제(`research.md` §8.4), 쿠키 그랩 `cookieLayer = Nothing`(§8.6).
+- 두 번째 판의 Room/Player Props 초기화(`research.md` §8.7) — 이번 계획은 `PaintPhaseEndTime`만 해결한다.
+- 대기 중 방장이 이탈해 괴물이 방장이 되는 경우의 GameScene 쪽 방장 이관(§23.3.5).
+
+---
+
+### 23.8 구현 진행 현황 (2026-09-26, 사용자 승인: D1=A안, 결과 화면 포함 / D2·D3는 권장안 적용)
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| S1 | `Core/GameTimings.cs`, `Core/CanvasGroupVisibility.cs` 신규 | ✅ 완료 |
+| S2 | ⑭-1 `ColorSelectionPanel` — `SetActive` 대신 `CanvasGroup` | ✅ 코드 완료 |
+| S3 | ⑭-2 `PlayerPaintCanvas`/`BrushCursorController` — `paintableCollider.Raycast` 로 교체, 마스크 제거 | ✅ 코드 완료 |
+| S4 | ⑮-④ `PlayerPaintCanvas` — RT 생성을 `Awake`로, 머티리얼 합성은 `Start` 유지 | ✅ 코드 완료 |
+| S5 | §23.7 `ResultScreenController`/`MonsterDepartureBanner` — `CanvasGroup`으로 숨김(콜백 유지), 결과 중복 표시 방지, 이탈 배너 null 통지 무시 | ✅ 코드 완료 |
+| S6 | ⑯ `Camera_Ctrl.InitCamera(player, height, distance)` 오버로드 + `MonsterController` 3인칭(A안) 전환, `MonsterFirstPersonCamera.cs` 삭제 | ✅ 코드 완료 |
+| S7 | ⑮ `GameLobbyController`(시작 조건에 괴물 확정 추가, 시작 시 `PaintPhaseEndTime` 선기록), `GamePhaseStarter`(상수화), `MonsterJoinController`(동기화·KeepAlive 복구), 신규 `MasterHandoffGuard`/`MonsterLobbyWaitController` | ✅ 코드 완료 |
+| S8 | Unity 컴파일 확인 | ✅ 오류 0 · 프로젝트 코드 경고 0 (기존 `NatureStarterKit2` 경고 17건만 존재) |
+| S9 | 씬 배선: GameScene `ColorSlotPanel`/`ResultScreen`/`MonsterDepartureBanner`에 `CanvasGroup` 추가(+`ColorSelectionPanel.canvasGroup` 연결). GameLobbyScene `MonsterManagers`에 `MasterHandoffGuard`/`MonsterLobbyWaitController` 부착, `GameLobbyUICanvas/MonsterWaitPanel/MonsterWaitText`(NotoSansKR SDF) 신규, 대기 중 비활성 대상 = Back `Button` + `GameManager`(채팅) | ✅ 완료(두 씬 저장) |
+| S10 | Play Mode 검증 (오프라인 방, 결과는 §23.9) | ✅ 완료 — 단일 클라이언트로 검증 가능한 항목 전부 통과, Console 오류/예외/경고 0건 |
+| S11 | 검증 중 추가 발견·수정: `ResultScreen` RectTransform `anchoredPosition (-960,-540)` → `(0,0)`(화면 왼쪽 아래로 절반 밀려 잘려 보이던 기존 레이아웃 결함), `MonsterPlayer.prefab` `cameraDistance` 4.5 → **12**(괴물 모델 실측 높이 약 9m에 맞춤) | ✅ 완료 |
+| S12 | 실제 멀티 클라이언트(빌드 + 에디터) 통합 테스트 — §23.6-7~10 | ⏳ **사용자 테스트 필요** (MCP 단일 에디터로는 두 클라이언트를 동시에 띄울 수 없음) |
+
+### 23.9 Play Mode 검증 결과 (2026-09-26, Unity MCP, 오프라인 방)
+
+GameScene을 Play Mode로 실행하고 `PhotonNetwork.OfflineMode` + `CreateRoom`으로 방을 만든 뒤, 실제 컴포넌트들이
+동작하는 상태에서 측정했다.
+
+| # | 검증 항목 | 결과 |
+|---|---|---|
+| V1 | ⑭-1 방 입장 전(= `PaintPhaseEndTime` 없음) 첫 프레임 | ✅ `ColorSlotPanel` **activeSelf=True 유지**, alpha 0 / blocksRaycasts false (수정 전에는 이 시점에 `SetActive(false)`로 꺼져 복귀 불가) |
+| V2 | ⑭-1 색칠 페이즈 시작 후 | ✅ alpha 1, interactable true, 남은 시간 "53", 슬롯 "0 / 4" 표시. 스크린샷으로 10색 팔레트 표시 확인 |
+| V3 | ⑭-2 붓 레이캐스트 7×7 격자(쿠키 루트 레이어 = `Cookie`) | ✅ 수정 전 방식(`Physics.Raycast`+PlayerCapsule 제외 마스크): **몸 명중 0/49, 캡슐에 막힘 49/49**(회귀 실측 확정). 수정 후(`paintableCollider.Raycast`): **36/49 명중**(나머지는 실루엣 밖) |
+| V4 | ⑭ 스와치 클릭 → 실제 스탬프 | ✅ Swatch3 `onClick` → `CurrentBrushColorIndex=3`, 명중 UV에 스탬프 후 RT 픽셀 = `(0.549, 0.776, 0.247, 1)` = 팔레트 Lime과 정확히 일치. 스크린샷에서 몸에 칠해진 것 확인 |
+| V5 | ⑯ 괴물 스폰 시 카메라 연결 | ✅ `Camera_Ctrl.m_Player == MonsterPlayer`, 시선 높이 = `eyeSocket` 기준 5.90m |
+| V6 | ⑯ 괴물 이동 시 추적 | ✅ 괴물을 (−4, 0, +6) 이동 → 다음 프레임 카메라가 따라와 목표점까지 거리 **12.00**, 시선 일치도(dot) **1.0000** |
+| V7 | ⑯ 이동 방향 회전 | ✅ `moveInput=(1,0,0)` → `rb.MoveRotation`으로 yaw **90.0°**, 수평 속도 4(=`speed`) |
+| V8 | ⑯ 카메라 구도 | ⚠️→✅ `BakeMesh` 실측 결과 괴물 모델 높이 약 9m(캡슐은 1.9m — §22 이전부터의 불일치, 범위 밖). 거리 4.5는 너무 가까워 **12로 조정**, 스크린샷으로 전신이 보이는 구도 확인 |
+| V9 | §23.7 이탈 배너 | ✅ `MonsterDepartedAt` 설정 → 배너 alpha 1, 문구 표시(수정 전에는 콜백 해제로 영원히 미표시) |
+| V10 | §23.7 결과 화면 | ✅ `GameResult=MonsterWins` → alpha 1, 괴물 승리 배너 on / 쿠키 배너 off, 결과 행 생성, 카운트다운 "로비로 이동 (5)" → **12초 후 방장이 `LoadLevel(GameLobby)`로 자동 복귀 확인** |
+| V11 | ⑮ 괴물 확정 상태로 GameLobbyScene 진입 | ✅ `AutomaticallySyncScene=False` |
+| V12 | ⑮ 시작 신호(`PaintPhaseEndTime` 변경) 수신 | ✅ `IsWaiting=True`, **메시지 큐 정지**, `KeepAliveInBackground` 60→36(남은 6초+30), 대기 패널 표시, Back 버튼 비활성, `GameManager`(채팅) 비활성 |
+| V13 | ⑮ 카운트다운 종료 | ✅ 괴물 혼자 `GameScene` 로드, **로드 후 큐 자동 재개**(`IsMessageQueueRunning=True`), 방 유지, `MonsterJoinController`가 괴물 스폰 + 카메라 연결 |
+| V14 | ⑮-⑤ 씬 동기화 복구 가드 | ✅ 캐시 `curScn="GameLobbyScene"`(이전 값)일 때는 복구하지 않음 → 씬 끌려가지 않음. `curScn="GameScene"`이 되자 `AutomaticallySyncScene=True`, KeepAlive 60 복구 |
+| V15 | ⑮-④ Instantiate 직후(Start 이전) 스트로크 도착 | ✅ Start 이전에 `PaintCanvas` 준비됨, 스탬프 예외 없음(가운데 픽셀 = 팔레트 Red). 다음 프레임 Start 후 머티리얼 `ColorTag/PlayerPaintedSkin`의 `_PaintTex`가 같은 RT |
+| V16 | Console | ✅ GameScene → GameLobbyScene → GameScene 전 구간 **Error/Exception/Warning 0건** |
+
+**단일 에디터로 검증하지 못한 것 (사용자 멀티 테스트 필요, §23.6-7~10)**
+- 실제 2~4 클라이언트에서 "쿠키만 GameScene 이동 → 괴물은 대기실 카운트다운 → 도착 시 쿠키가 **이미 칠해진 모습**으로 보임"(쌓인 이벤트 재생).
+- `MasterHandoffGuard`의 방장 이관(방장이 괴물이 되는 경우 시작 버튼이 쿠키에게 넘어가는지) — 2명 이상 필요.
+- 실제 서버 연결에서 60초 이상 큐 정지 중 연결 유지(KeepAlive), 도착 순간 프레임 스파이크(Profiler).
+- 붓 커서의 실제 마우스 호버 표시 — 코드 경로는 V3/V4와 동일한 `paintableCollider.Raycast`라 동일하게 동작할 것으로 보지만, 에디터 자동화로는 마우스 위치를 줄 수 없어 직접 확인이 필요하다.
+
+**테스트 부수 효과 정리**: 테스트 중 `ApplyStamp`가 공유 머티리얼 에셋(`BrushStampMaterial`/`FinalizeStampMaterial`)의 스탬프 값을,
+TMP 동적 아틀라스가 `NotoSansKR SDF.asset`을 변경했다(둘 다 기존 동작) — `git checkout`으로 되돌렸다. 검증용 스크린샷도 삭제했다.
+참고로 오프라인 테스트 특성상 한 클라이언트가 쿠키와 괴물을 둘 다 소유해, 괴물 스폰 직후 GrabKill 트리거가 자기 쿠키를 처치 →
+쿠키의 `SpectatorController`가 `Camera_Ctrl`을 끄는 현상이 있었다. 실제 게임에서는 괴물 클라이언트에 자기 쿠키가 없어 발생하지 않는다.
+
+---
+
+## 24. ⑰ 쿠키가 GameScene에서 색칠하지 못하고 "술래"가 넘어가 색칠함 / ⑱ 술래가 방을 나가도 5초 뒤 GameLobbyScene으로 돌아가지 않음 — 🟢 구현·에디터 검증 완료(§25), 빌드 멀티 재확인 대기 (2026-09-26)
+
+> 사용자 제보(2026-09-26, §23 구현 후 빌드 멀티 테스트):
+> 1. "넘어가는 건 쿠키들이 GameScene으로 이동한 뒤 붓으로 칠할 수 있어야 되는데, 지금은 술래가 넘어가서 붓으로 칠하게 되어 있다."
+> 2. "술래가 방을 나갔을 경우 5초 뒤에 GameLobbyScene으로 퇴장해야 되는데 그러지 않는다."
+>
+> **조사 자료**
+> - 사용자가 테스트한 빌드 `TagOfChaosGame/TagOfChaos_Data/Managed/TagOfChaos.Scripts.dll`(16:49 빌드)에 §23의 클래스
+>   (`MonsterLobbyWaitController`/`MasterHandoffGuard`/`CanvasGroupVisibility`)가 포함돼 있고 `MonsterFirstPersonCamera`는
+>   없음을 문자열 검색으로 확인했다. **§23 변경이 들어간 빌드로 테스트한 결과**다.
+> - 빌드 로그 `%USERPROFILE%/AppData/LocalLow/DefaultCompany/TagOfChaos/Player.log`(16:56). 여러 빌드 인스턴스(Actor 1~4)가
+>   **한 파일에 동시에 기록**해 줄이 뒤섞여 있어 시간 순서를 완전히 복원할 수는 없지만, 아래 증거 줄은 명확하다.
+>   에디터 로그(`Editor.log`)에는 제 오프라인 테스트만 있어, 사용자는 **빌드끼리만** 테스트한 것으로 확인했다.
+> - PUN2 소스(`Assets/Photon/PhotonRealtime/Code/Room.cs`, `LoadBalancingClient.cs`, `LoadBalancingPeer.cs`)와
+>   `ProjectSettings/ProjectSettings.asset`, 두 씬의 PhotonView ID를 직접 확인했다.
+>
+> **§23 검증의 한계에 대한 정정**: §23.9는 "오프라인 방" 검증이었다. 이번 조사 결과 ⑰-A(빌드에서만 적용되는 정점 압축)와
+> ⑱(온라인에서만 늦게 반영되는 Room Props 캐시)은 **둘 다 에디터 오프라인 검증으로는 원리적으로 재현되지 않는 문제**였다.
+> §23.9에서 "⑭ 검증 완료"로 적은 것은 에디터 한정 결과였으므로 요약표의 ⑭ 상태도 함께 정정한다.
+
+### 24.1 요약
+
+| # | 증상 | 근본 원인 | 확실성 | 수정 대상 |
+|---|---|---|---|---|
+| ⑰-A | 빌드에서 쿠키가 붓으로 칠해도 몸에 색이 묻지 않음 | 빌드의 **정점 압축(Vertex Compression)이 UV0을 half로 압축** → `RaycastHit.textureCoord`가 UV를 읽지 못함(float32만 지원). 에디터에서는 압축이 적용되지 않아 정상 | **확정**(로그 130여 줄 + 설정값) | `ProjectSettings`(Vertex Compression에서 TexCoord0 해제) |
+| ⑰-B | 사용자가 술래라고 생각한 사람(가마솥에 들어간 사람)이 GameScene으로 넘어가 색칠함 | 무작위 괴물 배정 30초 타이머가 **방장이 대기실에 들어온 순간부터** 돌아, 정원이 차기 전에(대개 방장 혼자일 때) 괴물이 먼저 정해진다. 그 뒤 가마솥 입장은 **조용히 무시**되고, 나중에 들어온 사람은 **괴물 공지 배너를 보지 못한다** | **강한 추정**(코드 경로 확정, 로그로는 직접 증명 불가 → §24.9 Q1) | `MonsterAssignmentAuthority`, `MonsterRevealController`, `NetKeys` |
+| ⑰-C | (로그) `HideOrSeekPlayer.OnPhotonSerializeView` NullReferenceException | `animationDriver`가 `Start`에서 생성되는데, `Start` 전에 직렬화 송신이 먼저 호출됨 | **확정**(Player.log 36-37줄) | `HideOrSeekPlayer` |
+| ⑰-D | (로그) `RPC method 'LogMsg' not found on object with PhotonView 2` | 씬마다 PhotonView ID가 다름: GameLobbyScene `GameManager=1, MonsterManagers=2` / GameScene `GameManager=2, GameRuleManagers=1` → 한 씬에서 보낸 채팅 RPC가 다른 씬의 엉뚱한 오브젝트로 전달됨 | **확정**(로그 38-40줄 + 씬 실측) | 두 씬의 PhotonView ID |
+| ⑱ | 술래가 나가도 경고 배너가 뜨지 않고 5초 뒤 복귀도 안 됨 | `RoomLifecycleWatcher`가 괴물 목록을 `SetCustomProperties`로 지운 **직후 캐시를 다시 읽어** 남은 괴물 수를 센다. 온라인(`BroadcastPropsChangeToAll=true`, PUN 기본값)에서는 서버 응답 전까지 캐시가 그대로라 **항상 1명으로 보여 조기 종료** | **확정**(PUN 소스) | `RoomLifecycleWatcher` |
+| ⑱-후속 | 복귀에 성공해도 다음 판을 시작할 수 없음 | 복귀 후 `MonsterActorNumbers=[]`(빈 배열)가 남아 `HasMonsterAssigned()`는 true(새 괴물 선정 불가), 시작 버튼 조건 `Length > 0`은 false → **영구 대기**. 결과 화면 경로로 돌아와도 `GameResult`·`HitCount` 등이 남아 두 번째 판이 판정되지 않음(`research.md` §8.7) | **확정**(코드) | 신규 `RoundStateResetter`, `MonsterLobbyWaitController`, `PlayerSpawner` |
+
+권장 구현 순서: **⑱ → ⑰-A → ⑰-B → ⑱-후속 → ⑰-C → ⑰-D**. ⑱과 ⑰-A는 작고 원인이 확정됐으며, 사용자가 직접 겪은
+증상을 바로 없앤다. ⑰-B와 ⑱-후속은 "누가 술래인지"와 "판 사이 상태"를 다루므로 함께 검증하는 것이 효율적이다.
+
+---
+
+### 24.2 ⑰-A 빌드에서 붓이 칠해지지 않음 — 정점 압축으로 UV 읽기 실패 (확정)
+
+**증거**
+- `Player.log` 64~196줄: `Reading UV coordinates of mesh "BakedColliderMesh_HideOrSeekPlayer(Clone)_2002" failed. Only float32 format is supported.`
+  가 약 130번 반복된다. 이 메시는 `PlayerPaintCanvas.RefreshColliderMesh()`가 `BakeMesh`로 만드는 붓칠 대상 콜라이더 메시다.
+  `_2002`는 Actor 2의 쿠키이므로, **쿠키가 좌클릭을 누를 때마다 UV 읽기에 실패**했다는 뜻이다.
+- `ProjectSettings/ProjectSettings.asset:190` `VertexChannelCompressionMask: 4054` = 이진수 `1111 1101 0110`.
+  이 안에 **TexCoord0 비트(16)가 켜져 있다**. 빌드에서는 모든 메시의 UV0이 half(16비트)로 압축되고, `BakeMesh` 결과도
+  원본과 같은 정점 형식을 따른다.
+
+**메커니즘**: `PlayerPaintCanvas.Update()`는 `paintableCollider.Raycast`(§23)로 몸에 맞힌 뒤 `hit.textureCoord`를 스탬프 위치로 쓴다.
+`RaycastHit.textureCoord`는 **float32 UV만 읽을 수 있어** 실패하고 `(0,0)`을 돌려준다. 그 결과 모든 스탬프가 텍스처 왼쪽 아래 모서리에
+찍혀 몸에는 색이 보이지 않는다. 붓 커서는 `hit.point`만 쓰므로 정상 표시돼, **"붓은 보이는데 칠이 안 된다"** 로 보인다.
+에디터는 정점 압축을 적용하지 않으므로 §23.9 V4(에디터)에서는 정상이었다.
+
+**수정안**
+
+| 안 | 내용 | 장점 | 단점 | 판단 |
+|---|---|---|---|---|
+| **A1 (권장)** | Player Settings → Other Settings → Vertex Compression에서 **TexCoord0만 해제**(`4054` → `4038`) | 한 곳, 코드 변경 없음, 원인을 직접 제거 | 전체 메시의 UV0 메모리가 약 2바이트 × 정점 수만큼 증가(이 프로젝트 규모에서는 무시할 수 있음) | **채택** |
+| A2 | `hit.triangleIndex` + `hit.barycentricCoordinate` + 베이크 메시의 `mesh.uv`(스크립트가 만든 메시라 읽기 가능, 압축 형식도 float로 변환해 줌)로 UV를 직접 계산 | 프로젝트 설정과 무관 | 코드가 늘고, UV·삼각형 배열 캐싱 관리가 필요 | A1이 빌드에서 해결되지 않을 때의 대체안 |
+
+- A1 적용 후에는 `hit.textureCoord`를 쓰는 `PlayerPaintCanvas` 코드를 그대로 둔다.
+- **빌드 검증 필수**(§24.8 V-B1). 에디터로는 이 문제를 재현할 수 없다.
+
+---
+
+### 24.3 ⑰-B "술래"가 GameScene으로 넘어가 색칠함 — 괴물이 사용자 생각과 다른 사람으로 정해짐 (강한 추정)
+
+§23의 대기실 대기 로직 자체는 `MonsterActorNumbers`에 든 사람을 정확히 대기실에 남긴다. 그런데도 "술래가 넘어가서 칠한다"면,
+**사용자가 술래라고 생각한 사람과 실제로 `MonsterActorNumbers`에 든 사람이 다를 가능성**이 가장 높다. 코드상 이런 상황이
+만들어지는 경로가 확실히 존재한다.
+
+**원인 경로 (코드 확정)**
+1. `MonsterAssignmentAuthority.Start()`(`Monster/MonsterAssignmentAuthority.cs:15-18`)는 **방장이 대기실에 들어온 시각**을 기준으로 잡고,
+   `Update()`에서 30초가 지나면 **그 시점 방에 있는 사람 중 무작위로** 괴물을 확정한다. 정원이 찼는지는 보지 않는다.
+2. 빌드를 여러 개 띄워 하나씩 입장하면, 방을 만든 사람이 혼자인 상태로 30초가 금방 지난다. 그러면 **방장 자신이 괴물로 확정**된다.
+   (§23의 `MasterHandoffGuard`가 다음 입장자에게 방장을 넘긴다.)
+3. `MonsterRevealController`는 `OnRoomPropertiesUpdate`(= 값이 **바뀔 때**)에만 배너를 띄운다. `Start`에서 이미 정해진 값을
+   확인하는 코드가 없다. 그래서 **나중에 들어온 사람들은 "OO이(가) 괴물이 되었습니다" 배너를 보지 못한다.**
+4. 이후 누군가 가마솥에 들어가면 `ClaimMonster`가 방장에게 가지만, `HasMonsterAssigned()`가 true라 **아무 피드백 없이 무시**된다.
+5. 결과적으로 사용자는 가마솥에 들어간 캐릭터를 술래로 알고 있다. 하지만 그 사람은 실제로 쿠키라서 GameScene으로 넘어가 색칠하고,
+   진짜 괴물(방을 만든 창)은 대기실에서 카운트다운한다. 제보 내용과 정확히 일치한다.
+
+> 로그만으로는 누가 가마솥에 들어갔는지 복원할 수 없어 "추정"으로 둔다. §24.9 Q1로 사용자에게 확인하고,
+> 구현 시 역할 확정·씬 이동 시점에 진단 로그(§24.3 B4)를 남겨 다음 테스트에서 바로 판별할 수 있게 한다.
+
+**수정 계획**
+- **B1 — 무작위 배정 타이머를 "정원이 찬 시점"부터 시작.** 새 Room Prop `NetKeys.MonsterSelectDeadline`(double)을 둔다.
+  - 방장(`MonsterAssignmentAuthority.Update`): 괴물이 아직 없고 `PlayerCount == MaxPlayers`인데 deadline이 없으면
+    `Now + monsterSelectTimeout`을 기록한다. 인원이 다시 줄면(`OnPlayerLeftRoom`) deadline을 `null`로 지운다.
+    `Now >= deadline`이면 무작위로 확정한다.
+  - 기준 시각을 Room Prop에 두므로 **방장이 바뀌어도 새 방장이 같은 시각을 이어받는다**(기존 `sceneEnterTime=0` 즉시 배정 문제도 해소, `research.md` §8.13).
+  - 가마솥 선착순은 지금처럼 언제든 받는다(GameRule.md §2.1 "선착순 자진 입장 + 아무도 안 들어가면 랜덤").
+- **B2 — 늦게 들어온 사람에게도 괴물 공지 표시.** `MonsterRevealController.Start()`에서 이미 `MonsterActorNumbers`가 있으면 배너를 즉시 표시한다.
+  괴물 본인 화면에는 "당신이 술래입니다" 문구를 따로 보여준다(문구는 인스펙터 입력 필드로, 코드에 한글을 넣지 않는다).
+- **B3 — 이미 정해진 뒤 가마솥에 들어간 사람에게 로컬 피드백.** `Cauldron.OnTriggerEnter`에서 이미 괴물이 있으면 이벤트를 보내지 않고,
+  `MonsterRevealController`의 배너를 다시 띄워 "이미 술래가 정해졌다"는 것을 알 수 있게 한다.
+- **B4 — 진단 로그**(다음 테스트에서 역할을 즉시 판별하기 위함): 괴물 확정 순간(방장, 경로=가마솥/타임아웃), 대기 모드 진입(괴물 본인),
+  `PlayerSpawner` 스폰 로그에 `isMonster` 포함. 형식은 기존 `[PlayerSpawner]` 로그와 같은 `[Tag]` 접두어를 쓰고, 메시지는 영어로 쓴다.
+
+---
+
+### 24.4 ⑱ 술래가 방을 나가도 5초 뒤 GameLobbyScene으로 돌아가지 않음 (확정)
+
+**코드** (`Monster/RoomLifecycleWatcher.cs:14-29`):
+```csharp
+public override void OnPlayerLeftRoom(Player otherPlayer)
+{
+    ...
+    if (!IsMonster(otherPlayer)) return;
+    RemoveFromMonsterList(otherPlayer.ActorNumber);   // SetCustomProperties(MonsterActorNumbers = 나머지)
+    if (RemainingMonsterCount() > 0) return;          // ← 캐시를 다시 읽음
+    monstersGoneAt = PhotonNetwork.Time;
+    PhotonNetwork.CurrentRoom.SetCustomProperties(... MonsterDepartedAt ...);
+}
+```
+
+**PUN2 소스로 확인한 사실**
+- `Room.SetCustomProperties`(`PhotonRealtime/Code/Room.cs:408-437`): 오프라인이면 **즉시** `CustomProperties.Merge`하지만,
+  온라인이면 `OpSetPropertiesOfRoom`만 호출한다.
+- `LoadBalancingClient.OpSetPropertiesOfRoom`(`:2287-2305`): `!BroadcastPropertiesChangeToAll`일 때만 로컬 캐시를 즉시 갱신한다.
+- `RoomOptions.BroadcastPropsChangeToAll`의 기본값은 **true**(`LoadBalancingPeer.cs:2001`). `LobbyController`는 이 값을 바꾸지 않는다.
+- 결론: 온라인에서는 **서버가 PropertiesChanged 이벤트를 돌려줄 때까지 로컬 `MonsterActorNumbers`가 옛 값 그대로**다.
+  `RemainingMonsterCount()`가 1을 돌려주므로 `return` → `MonsterDepartedAt`을 쓰지 않는다. 배너도 뜨지 않고 5초 뒤 복귀도 일어나지 않는다.
+- 떠난 사람이 방장이었어도 PUN은 `RemovePlayer → OnMasterClientSwitched → OnPlayerLeftRoom` 순서로 호출한다(`LoadBalancingClient.cs:3475-3489`).
+  그래서 새 방장이 `OnPlayerLeftRoom`을 처리하는 데는 문제가 없다.
+- §23.9 V9는 `MonsterDepartedAt`을 직접 기록해 **배너 표시만** 확인했고, 오프라인이라 이 경로의 캐시 지연은 드러나지 않았다.
+
+**수정 계획**
+```csharp
+// RoomLifecycleWatcher.OnPlayerLeftRoom — 캐시를 다시 읽지 않고, 방금 계산한 배열로 판단한다.
+if (!RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters)) return;
+if (!monsters.Contains(otherPlayer.ActorNumber)) return;
+
+int[] remaining = monsters.Where(a => a != otherPlayer.ActorNumber).ToArray();
+var props = new Hashtable { { NetKeys.MonsterActorNumbers, remaining } };
+if (remaining.Length == 0)
+{
+    monstersGoneAt = PhotonNetwork.Time;
+    props[NetKeys.MonsterDepartedAt] = monstersGoneAt.Value; // 목록 갱신과 한 번에 보낸다
+}
+PhotonNetwork.CurrentRoom.SetCustomProperties(props);
+```
+- 같은 "쓰고 곧바로 다시 읽기" 패턴이 다른 곳에도 있는지 전수 점검한다(구현 단계 체크리스트). 현재 확인된 곳은
+  `RoomLifecycleWatcher.RemainingMonsterCount`뿐이다.
+- 괴물이 **대기실(GameLobbyScene)에서** 나간 경우도 처리한다(현재 `RoomLifecycleWatcher`는 GameScene에만 있음).
+  `MonsterAssignmentAuthority`에 `OnPlayerLeftRoom`을 추가해, 나간 사람이 괴물이면 `MonsterActorNumbers`를 `null`로 지우고
+  선정을 다시 시작한다(가마솥 또는 B1 타이머). 그러지 않으면 떠난 사람이 괴물로 남은 채 시작 버튼이 활성화돼 **괴물 없는 판**이 시작된다.
+  - 괴물이 **대기실에서 카운트다운 중**에 나가는 경우는 다른 사람들이 이미 GameScene에 있으므로, GameScene의 `RoomLifecycleWatcher`가
+    위 수정으로 처리한다.
+
+---
+
+### 24.5 ⑱-후속 GameLobbyScene 복귀 시 판 상태 초기화 (확정 — 없으면 복귀해도 다음 판 불가)
+
+⑱을 고쳐 대기실로 돌아와도, 현재 코드로는 **다음 판을 시작할 수 없다.**
+- 괴물 이탈 경로: `MonsterActorNumbers=[]`(빈 배열). `HasMonsterAssigned()`는 `ContainsKey`라 true → 가마솥·타이머 모두 무시.
+  시작 버튼 조건은 `Length > 0`이라 false → **영구 대기.**
+- 결과 화면 경로: 이전 괴물이 그대로 괴물로 남고, `GameResult`가 남아 `GameRuleController`가 판정하지 않는다. `HitCount=2`가 남아
+  이전에 파괴된 쿠키는 다음 판 시작부터 죽은 것으로 취급된다(`research.md` §8.7).
+
+**수정 계획 — 신규 `Assets/02. Scripts/Monster/RoundStateResetter.cs`** (GameLobbyScene의 `MonsterManagers`에 부착)
+- **방장**: `Start()`와 `OnMasterClientSwitched()`에서 판 단위 Room 키를 `null`로 지운다.
+  대상 키: `MonsterActorNumbers`, `MonsterRevealTime`, `MonsterSelectDeadline`(B1), `PaintPhaseEndTime`, `MonsterJoined`, `GameEndTime`,
+  `GameResult`, `ForcedPaintActorNumbers`, `ForcedPaintColors`, `MonsterDepartedAt`.
+- **모든 클라이언트**: `Start()`에서 자기 Player Props의 `HitCount`, `RegisteredSlotCount`를 `null`로 지운다. `SkinIndex`는 유지한다.
+- 첫 입장에는 지울 키가 없으므로 아무 영향이 없다.
+
+**초기화와 맞물려 함께 고쳐야 하는 곳**
+- `MonsterLobbyWaitController.ApplySceneSyncPolicy()`: 지금은 괴물일 때 `false`로 **끄기만** 한다. 대기실 복귀 직후 초기화가 도착하기 전에
+  옛 값을 보고 꺼 버리면 다시 켤 방법이 없다. `AutomaticallySyncScene = !IsLocalMonster()`로 **양방향**으로 바꾼다(키 삭제 통지 때도 호출).
+- `PlayerSpawner.IsAlreadyMonster()`: GameLobbyScene에서는 괴물도 쿠키로 돌아다녀야 하는데, 복귀 직후 옛 `MonsterActorNumbers`를 보고
+  **이전 판 괴물의 쿠키 스폰을 건너뛴다**(초기화 도착 전 경쟁 조건). `[SerializeField] bool skipConfirmedMonster`를 추가해
+  GameScene=true, GameLobbyScene=false로 설정한다.
+- `MonsterRevealController`: `MonsterActorNumbers`가 `null`로 바뀌면 배너를 숨긴다.
+
+---
+
+### 24.6 ⑰-C / ⑰-D 로그에서 확인된 부수 결함 (확정)
+
+- **⑰-C `HideOrSeekPlayer` NRE** (`Player.log` 36-37줄): `OnPhotonSerializeView`의 쓰기 쪽이 `animationDriver.CurrentState`를 읽는데,
+  `animationDriver`는 `Start()`에서 생성된다(`Unit/HideOrSeekPlayer.cs:127`). `networkSync`는 같은 이유로 이미 `Awake`로 옮겼지만
+  `animationDriver`는 빠져 있었다(`research.md` §8.18). **`animator`/`animationDriver`/`groundDetector` 생성을 `Awake()`로 옮긴다.**
+  (`animator.applyRootMotion = false`는 `Start`에 그대로 둔다.)
+- **⑰-D 씬 PhotonView ID 불일치** (`Player.log` 38-40줄): `GameManager`의 `LogMsg` RPC가 다른 씬의 같은 ID 오브젝트로 전달된다.
+  두 씬 모두 **`GameManager`를 ID 1로 통일**하고, 나머지는 겹치지 않게 GameLobbyScene `MonsterManagers=2`, GameScene `GameRuleManagers=3`으로 둔다.
+  두 매니저의 PhotonView는 RPC를 쓰지 않으므로 ID 변경의 부작용이 없다(구현 시 grep으로 재확인).
+- **(부수) 결과 행 글리프 누락** (`Player.log` 197줄): `PlayerResultRow`의 "✕"(U+2715)가 `LiberationSans SDF`에 없어 □로 표시된다.
+  한글("부숴짐")도 이 폰트에 없다. `PlayerResultRow.prefab`의 두 텍스트 폰트를 `NotoSansKR SDF`로 바꾸고 "✕"는 "X"로 바꾼다.
+
+---
+
+### 24.7 변경 파일 목록
+
+| 파일 | 변경 | 관련 |
+|---|---|---|
+| `ProjectSettings/ProjectSettings.asset` | `VertexChannelCompressionMask` 4054 → 4038 (TexCoord0 해제, Unity MCP로 `PlayerSettings` API 사용) | ⑰-A |
+| `ColorTag/NetKeys.cs` | `MonsterSelectDeadline` 추가 | ⑰-B |
+| `Monster/MonsterAssignmentAuthority.cs` | deadline 기반 타이머, `OnPlayerLeftRoom`(대기실 괴물 이탈), 진단 로그 | ⑰-B, ⑱ |
+| `Monster/MonsterRevealController.cs` | `Start`에서 기존 값 표시, 괴물 본인 문구, 키 삭제 시 숨김 | ⑰-B, ⑱-후속 |
+| `Monster/Cauldron.cs` | 이미 괴물이 정해졌으면 로컬 피드백만 | ⑰-B |
+| `Monster/RoomLifecycleWatcher.cs` | 캐시 재조회 제거, 목록과 `MonsterDepartedAt`을 한 번에 기록 | ⑱ |
+| `Monster/RoundStateResetter.cs` (신규) | 대기실 진입 시 판 상태 초기화 | ⑱-후속 |
+| `Monster/MonsterLobbyWaitController.cs` | 동기화 정책 양방향화, 진단 로그 | ⑱-후속, ⑰-B |
+| `GameManager/PlayerSpawner.cs` | `skipConfirmedMonster` 필드, 로그에 역할 포함 | ⑱-후속, ⑰-B |
+| `Unit/HideOrSeekPlayer.cs` | 협력 객체 생성을 `Awake`로 | ⑰-C |
+| `GameLobbyScene.unity` | `RoundStateResetter` 부착, `PlayerSpawner.skipConfirmedMonster=false`, `MonsterRevealController` 문구 필드 | ⑱-후속, ⑰-B |
+| `GameScene.unity` | PhotonView ID(`GameManager=1`, `GameRuleManagers=3`), `PlayerSpawner.skipConfirmedMonster=true` | ⑰-D |
+| `04. Prefabs/PlayerResultRow.prefab` | 폰트 `NotoSansKR SDF`, "✕"→"X"(`PlayerResultRow.cs`) | 부수 |
+
+---
+
+### 24.8 검증 계획
+
+**에디터(Unity MCP, 오프라인) — 로직 단위**
+- V-E1 ⑱: 오프라인에서는 캐시가 즉시 반영돼 원래 버그가 재현되지 않는다. 대신 `OnPlayerLeftRoom`을 **가짜 Player로 직접 호출**해서,
+  수정 후 코드가 캐시를 다시 읽지 않고 `MonsterDepartedAt`을 기록하는지(Props 전송 내용), 5초 뒤 `LoadLevel(GameLobby)`가 호출되는지 확인한다.
+- V-E2 ⑱-후속: GameScene → GameLobbyScene 복귀 후 초기화 대상 키가 모두 없어졌는지, 이전 판 괴물에게 쿠키가 스폰되는지,
+  `AutomaticallySyncScene == true`인지, 시작 버튼이 "괴물 미확정"으로 비활성인지 확인한다.
+- V-E3 ⑰-B: `PlayerCount < MaxPlayers`이면 deadline이 생기지 않는지, 정원이 차면 생기는지, 인원이 줄면 지워지는지.
+  늦게 들어온 클라이언트 조건(`Start` 시점에 이미 괴물 확정)에서 배너가 표시되는지.
+- V-E4 ⑰-C: 쿠키 Instantiate 직후(Start 전) 직렬화 쓰기를 호출해도 예외가 나지 않는지.
+- 매 단계 컴파일 오류 0, Console 오류·예외·경고 0 확인.
+
+**빌드 멀티 테스트 — 필수** (이번 두 버그 모두 에디터 오프라인에서는 재현되지 않으므로)
+- V-B1 ⑰-A: 빌드 쿠키로 색칠 → 몸에 색이 묻는지, `Player.log`에 `Reading UV coordinates ... failed`가 **0건**인지.
+- V-B2 ⑰-B: 빌드 4개를 30초 이상 간격으로 하나씩 입장 → 정원이 차기 전에는 괴물이 정해지지 않는지. 가마솥에 들어간 사람이 괴물이 되는지,
+  모든 창에 배너가 뜨는지, **괴물은 대기실에 남고 나머지 3명만 GameScene으로 이동해 색칠하는지**. 진단 로그(B4)로 역할을 대조한다.
+- V-B3 ⑱: GameScene에서 괴물 창을 닫거나 Back으로 나감 → 남은 3명에게 배너 → **5초 뒤 GameLobbyScene 복귀** → 새 괴물 선정 →
+  **두 번째 판 시작까지** 진행되는지.
+- V-B4 ⑰-D: `Player.log`에 `RPC method 'LogMsg' not found`가 0건인지.
+
+> 참고: Unity MCP는 에디터 하나만 제어하므로 빌드 멀티 테스트는 사용자가 진행해야 한다. 원하면 에디터를 네 번째 참가자로 투입해
+> 제가 에디터 쪽 상태(Props·역할·씬)를 실시간으로 읽으며 함께 디버깅할 수 있다(§12에서 쓴 방식).
+
+---
+
+### 24.9 사용자 확인이 필요한 사항
+
+| # | 질문 | 이유 |
+|---|---|---|
+| **Q1** | 테스트할 때 **방을 만든 창이 아닌 다른 창의 캐릭터를 가마솥에 넣어 술래로 만드셨나요?** 그리고 대기실에서 "OO이(가) 괴물이 되었습니다" 배너가 모든 창에 보였나요? | ⑰-B 추정을 확정하기 위함. "예 / 배너 못 봄"이면 ⑰-B가 원인이다 |
+| **Q2** | 무작위 배정 타이머를 "정원(4명)이 찬 순간부터 30초"로 바꿔도 될까요? | 게임 규칙 변경(GameRule.md §2.1)이라 확인이 필요하다 |
+| **Q3** | 정점 압축에서 TexCoord0만 해제하는 A1안(프로젝트 설정 변경)으로 진행해도 될까요? | 프로젝트 전역 설정이라 확인이 필요하다. 원치 않으면 코드로 해결하는 A2안으로 간다 |
+
+---
+
+## 25. research.md §8 전체 순차 수정 + §24 교차 구현 — 진행 현황 (2026-09-26)
+
+> 사용자 지시: "research.md에서 발견했던 문제들을 순차적으로 수정하고, bug-fix-plan.md(§24) 계획도 교차 검증하여 구현".
+> §24.9의 Q1~Q3은 답변이 없어 **권장안**으로 진행한다: Q2 = 정원이 찬 순간부터 30초, Q3 = A1(정점 압축에서 TexCoord0 해제).
+> research.md §8 번호 순서대로 진행하고, §24 항목은 같은 문제를 다루는 §8 항목에 묶어 처리한다.
+
+| 단계 | research.md | Bug-fix-plan | 내용 | 상태 |
+|---|---|---|---|---|
+| P1 | §8.1, §8.2, §8.3, §8.5 | §23 | 결과 화면·색칠 패널·붓 레이캐스트·괴물 카메라 | ✅ §23에서 완료(에디터 검증) — §8.3의 빌드 문제는 P7(⑰-A)에서 처리 |
+| P2 | §8.4, §8.11 | — | GrabKill 1회 제한, 파괴된 쿠키 트리거·콜라이더 | ✅ 코드 완료 — `MonsterController`: GrabKill 중 이동·상태 전환 차단, 클립 길이 기반 쿨다운 타이머(Animator 상태명 문자열 의존 제거). `MonsterGrabKillTrigger`: 파괴된 쿠키 제외, `OnTriggerStay` 재검사, RPC 대상을 소유자로 한정. `HideOrSeekPlayer`: 파괴 시 캐리 해제·키네마틱 전환, 이동 잠금을 (채팅 ∨ 파괴 ∨ 들림) 계산값으로. `PlayerCrackDisplay`: 파괴 시 전 클라이언트 콜라이더 비활성, null 통지 무시. 컴파일 오류 0 (Play Mode 검증은 P10) |
+| P3 | §8.6, §8.9 | — | 그랩 `cookieLayer`, 캐리 충돌·물리, Held/Carry 애니메이션 | ✅ 코드·에셋 완료 — 프리팹 `cookieLayer`=Cookie(512). 캐리 중 들린 쪽 키네마틱 + 양쪽 콜라이더 충돌 무시, 드는 쪽 소멸 시 자동 해제, 파괴·잠금 중 그랩 금지, `OverlapSphereNonAlloc`. `Cookie_Hanging_Idle`/`Cookie_Carrying` FBX를 Humanoid+루프로 재임포트, Animator `Held` 상태(AnyState→Held) + 상체 마스크(`CarryUpperBody.mask`) `Carry` 레이어 추가. 캐리 자세를 `PlayerNetworkSync`로 원격 동기화(죽은 `isJump` 필드 대체). 컴파일 오류 0 |
+| P4 | §8.7 | §24.5(⑱-후속) | 대기실 진입 시 판 상태 초기화 | ✅ 코드·씬 완료 — 신규 `RoundStateResetter`(GameLobbyScene `MonsterManagers`): 입장 후 InRoom 첫 프레임에 방장은 `NetKeys.RoundRoomKeys`(10개), 각자는 `HitCount`/`RegisteredSlotCount`를 null로 삭제(존재하는 키만 전송, `SkinIndex` 유지). `MonsterLobbyWaitController` 동기화 정책 양방향화(값이 바뀔 때만 대입). `PlayerSpawner.skipConfirmedMonster`(GameScene=true, GameLobbyScene=false). `MonsterRevealController`는 목록이 비면 배너 숨김. 공용 조회 `RoomState.HasMonster()`(빈 배열=미확정). 컴파일 오류 0 |
+| P5 | §8.8, §8.10, §8.12 | — | 우클릭 회전 중 커서 잠금, 돌진 장애물 마스크, 방 나가기 정리 | ✅ 코드·프리팹 완료 — §8.8 `Camera_Ctrl`: 우클릭 드래그 중에만 `Cursor.lockState=Locked`, 떼거나 컴포넌트가 꺼지면 해제(A안 궤도 카메라라 상시 잠금은 불필요). §8.10 `MonsterPlayer.prefab` `obstructionMask`=Default(1). §8.12 `RoomExitController`: 무의미한 Room Props 로컬 Clear 제거, 플레이어 키는 판 단위 키만 로컬 삭제(`SkinIndex` 유지 — PUN은 LocalPlayer 속성을 다음 방으로 가져감), 여는 괄호 오타 해결, 퇴장 로그·확인 문구를 인스펙터 필드로, `OnLeftRoom`에서 메시지 큐·KeepAlive 복구. 컴파일 오류 0 |
+| P6 | §8.13 | §24.3(⑰-B), §24.4(대기실 이탈) | 괴물 선정 타이머, 공지, 가마솥 피드백, 진단 로그 | ✅ 코드·씬 완료 — `MonsterAssignmentAuthority`: 타임아웃 기준을 **정원이 찬 순간**으로, Room Prop `MonsterSelectDeadline`에 기록(방장 교체에도 유지, 인원 감소 시 삭제), 응답 전 중복 요청 방지 플래그, 대기실 괴물 이탈 시 선정 재시작, 확정 로그(경로 cauldron/timeout). `MonsterRevealController`: `Start`/`OnJoinedRoom`에서도 표시, 괴물 본인 문구, 문구는 인스펙터 필드. `Cauldron`: 이미 확정이면 신청 대신 공지 재표시. **씬 추가 발견**: `MonsterRevealText`가 `anchoredPosition (-960,-918)`로 화면 밖 + 한글 없는 LiberationSans 폰트라 **공지가 누구에게도 보이지 않았다**(⑰-B 추가 근거) → 위치 (0,0)·NotoSansKR·자동 크기로 수정. 컴파일 오류 0 |
+| P7 | §8.14~§8.18 | §24.6(⑰-C) | 강제 도포 괴물 제외, 생존 타이머 UI, 색칠 보간·묶음 전송, 면적 기준 등록, 생명주기 | ✅ 코드·씬 완료 — §8.14 `PaintPhaseController`: 괴물 제외, 배정 수를 팔레트 색 수로 제한. §8.15 신규 `SurvivalTimerDisplay`(GameScene `Canvas/SurvivalTimer`, 괴물 합류~판정 전 mm:ss, CanvasGroup 숨김), 쿠키 0명 시 괴물 승을 의도된 규칙으로 명시. §8.16/§8.17 `PlayerPaintCanvas`: 화면 경로 6px 간격 보간 스탬프(프레임당 최대 32), 15Hz 묶음 전송(배열 페이로드, 64개 초과 시 즉시), 획 종료·페이즈 종료·리셋 전 flush → 스탬프 수가 이동 거리에 비례해 등록 기준이 프레임레이트 무관. §8.18 강제 도포 후 슬롯 수 보고, ⑰-C `HideOrSeekPlayer` 협력 객체 Awake 생성. 추가: 늦게 도착한 스킨이 합성 머티리얼을 덮어써 칠이 사라지던 문제(`TrySetBaseSkin`). 컴파일 오류 0 |
+| P8 | §8.19, §8.20 | §24.4(⑱), §24.2(⑰-A), §24.6(⑰-D) | 누수, LogMsg, OnLeftRoom 중복, 괴물 이탈 캐시 버그, 정점 압축, PhotonView ID | ✅ 코드·설정·씬 완료 — §8.19 합성·스탬프 머티리얼 인스턴스 해제(공유 에셋 오염 제거), 원격은 베이크 메시 미생성, 붓 커서 인스턴스 정리, `LogMsg` AllBuffered→All, `PlayerPaintCanvas.Local` 레지스트리로 4곳의 FindObjectsByType(괴물은 매 프레임) 제거. §8.20 `RoomLifecycleWatcher.OnLeftRoom` 제거. ⑱ 괴물 이탈 시 계산한 배열로 판단·목록과 `MonsterDepartedAt`을 한 번에 기록, 방장 교체 시 복귀 인계. ⑰-A `VertexChannelCompressionMask` 4054→4038(TexCoord0 해제). ⑰-D GameScene PhotonView `GameManager` 2→1, `GameRuleManagers` 1→3(GameLobbyScene은 GameManager=1, MonsterManagers=2). 컴파일 오류 0 |
+| P9 | §8.21~§8.23, §7 | §24.6(결과 행 폰트) | 죽은 코드, 안전 캐스트, 공용 키 Core 이동, Animator 정리, 한글 문자열 직렬화 | ✅ 코드·에셋 완료 — §7 `NetKeys`/`NetEventCodes`/`RoomState`를 `Core/`로 이동(`git mv`로 GUID 유지), 괴물·파괴 판별 헬퍼 통합. §8.21 죽은 키 8개·`FillAll`·`GetRoundIndex`·`SetLocked`·`OnSlotsChanged/OnSlotRejected`·`IsDodge`·`CooldownRemaining01`·`GameManager.Inst/Is_Conversating`·`PaintColorReplace` 셰이더·프리팹 `VoteIndicator` 제거, `MonsterAnimator` 중복 AnyState 전이 3개·오타 파라미터/전이 제거·상태명 `GrapKill`→`GrabKill`. §8.22 `RoomState` 안전 캐스트(`is` 패턴), 팔레트 인덱스 범위 검사, `Mesh_0`·Carry 레이어 누락 시 로그. §8.23 결과 "/ 4"→실제 쿠키 수, `OfflineModeBootstrap` static 상태 복구, 코드 내 한글 문자열 리터럴 0건(UI 문구는 인스펙터 필드 + 씬·프리팹에 한글 값), 한글 표시 텍스트 10개 폰트 LiberationSans→NotoSansKR, 결과 행 "✕"→"X". 남긴 것: `07. Expression` PNG·백업 애니메이션·`_tmp` 물리 머티리얼(사용자 에셋이라 삭제하지 않음), 빌드 폴더 `TagOfChaosGame/` git 추적 해제(저장소 구조 변경이라 보류). 컴파일 오류 0 |
+| P10 | — | §24.8 | 컴파일·콘솔 확인, Play Mode 통합 검증 | ✅ 완료 — 결과는 §25.1. 에디터 오프라인 Play Mode로 검증 가능한 항목 전부 통과, 게임 코드 기인 Console 오류·예외·경고 0건. 빌드 멀티 테스트는 §25.3 |
+
+### 25.1 P10 Play Mode 검증 결과 (에디터, 오프라인 방)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| V1 | 색칠 시작·패널·레지스트리 | ✅ 방 생성 직후 색칠 페이즈 59.6초, 패널 alpha 1, `PlayerPaintCanvas.Local` 등록, GameScene `GameManager` ViewID=1 |
+| V2 | §8.16/§8.17 보간·등록 | ✅ 화면 84px 경로 → 6px 간격 스탬프 14개(미등록) → 15번째에 Blue 슬롯 등록·`RegisteredSlotCount=1` 보고. 다음 프레임 15Hz 묶음 전송으로 대기열 0 |
+| V3 | 묶음 수신·구 형식 방어·에셋 오염 | ✅ 배열 페이로드 재생 시 UV(0.2)=Red, UV(0.8)=Green 정확. 구 형식 페이로드는 예외 없이 무시. 공유 `BrushStampMaterial` 값 불변(인스턴스에만 기록) |
+| V4 | §8.6/§8.9 캐리 | ✅ `TryGrab` → 들린 쪽 `Held` 상태·키네마틱·이동 잠금·소켓 추적, 드는 쪽 `Carry` 레이어 가중치 1, 두 캡슐 충돌 무시 |
+| V5 | **신규 발견·수정** 캐리 해제 시 튕김 | ⚠️→✅ 수정 전: 내려놓는 순간 들린 쿠키가 드는 쪽 캡슐과 겹친 채 충돌이 복원돼 **y=1.4 → 4.75로 튕겨 오름**. 수정 후(드는 쪽 정면 1.2m에 먼저 내려놓고, 드는 쪽은 0.5초 뒤 충돌 복원): 바닥(y=0)에 속도 0으로 착지, 드는 쪽 미동 없음 |
+| V6 | §8.4 GrabKill 반복 | ✅ `PlayGrabKill` 후 여러 프레임 동안 상태 `GrabKill` 유지 + Animator가 실제로 `GrabKill` 상태 재생(수정 전에는 같은 프레임에 Idle로 덮여 미재생) → 클립 길이 3.71초 뒤 쿨다운 해제·Idle 복귀 → **다시 처치 가능** |
+| V7 | §8.11 트리거 처치·시체 정리 | ✅ 괴물을 쿠키 옆으로 옮기자 트리거로 처치, `HitCount=2`, 파괴 쿠키 키네마틱·활성 콜라이더 0·렌더러 off·바닥 유지 |
+| V8 | §8.15 생존 타이머 | ✅ `MonsterJoined`+`GameEndTime` 설정 시 화면 상단 "생존까지 02:03" 표시(스크린샷 확인) |
+| V9 | ⑱ 괴물 이탈 | ✅ 가짜 괴물(액터 99) `OnPlayerLeftRoom` → 목록 빈 배열 + `MonsterDepartedAt` 한 번에 기록, 배너 "괴물이 나갔습니다. 5초 뒤 대기실로 돌아갑니다." → **5초 뒤 GameLobbyScene 복귀** |
+| V10 | §8.7 판 초기화 | ✅ 복귀 후 Room 키 0개(`Cleared 8 round room keys`), 플레이어 `HitCount`/`RegisteredSlotCount` 삭제(`SkinIndex` 유지), `AutomaticallySyncScene=True`, 대기실 쿠키 스폰, 공지 숨김 |
+| V11 | §8.13 선정 타이머 | ✅ 정원 미달(1/4)에서는 deadline 없음 → 정원 충족 시 deadline 기록 → 타임아웃(테스트용 3초) 후 확정, deadline 삭제 |
+| V12 | ⑰-B 공지 | ✅ 괴물 본인 화면 상단에 "당신이 괴물입니다! 쿠키들이 변장하는 동안 대기실에서 기다립니다." 표시(스크린샷 — 수정 전에는 텍스트가 화면 밖), 괴물 확정 시 `AutomaticallySyncScene=False`, 시작 버튼 활성 |
+| V13 | 대기실 괴물 이탈 | ✅ 괴물 키 삭제·선정 재시작, 동기화 복구, 공지 숨김 |
+| V14 | **신규 발견·수정** 스폰-가마솥 겹침 | ⚠️→✅ 테스트 중 대기실 스폰 직후 `Monster confirmed … (by cauldron)` 발생 — 스폰 ±5m 무작위가 3m 옆 가마솥 트리거와 겹쳐 **자동으로 괴물 신청**. 실제 콜라이더 기준 실측 예전 방식 **2.8%(83/3000)** / 신규 `SpawnPositionFinder`(트리거 포함 겹침 검사 후 재추첨) **0%(0/300)**. 리스폰에도 적용 |
+| V15 | Console | ✅ GameScene → GameLobbyScene 전 구간 게임 코드 기인 Error/Exception/Warning 0. (경고 1건 "CreateRoom failed … leave a room"은 시간 초과로 재시도된 테스트용 방 생성 호출에서 난 것) |
+
+### 25.2 테스트 부수 효과 정리
+- 이전 세션의 강제 도포 테스트로 메모리에서 수정된 `FinalizeStampMaterial.mat`이 에셋 저장 시 함께 기록됨(현재 코드는 인스턴스만 수정) → `git checkout`으로 복구.
+- TMP 동적 아틀라스(`NotoSansKR SDF.asset`) 증가분 → 복구. 검증 스크린샷은 `Temp/`에만 저장 후 삭제.
+- 단일 클라이언트 오프라인 테스트의 한계로 나타난 현상(두 쿠키가 같은 소유자라 `PlayerPaintCanvas.Local`이 나중 쿠키로 바뀜, 한 쿠키 처치 후 같은 소유자의 다른 쿠키는 "소유자 파괴"로 제외, 로컬 쿠키 파괴로 관전 카메라 전환)은 실제 게임(클라이언트당 쿠키 1개)에서는 발생하지 않는다.
+
+### 25.3 사용자 빌드 멀티 테스트 필요 항목 (에디터 단독으로 재현 불가)
+1. **⑰-A** 빌드 쿠키로 색칠 → 몸에 색이 묻는지, `Player.log`에 `Reading UV coordinates … failed`가 0건인지(정점 압축 설정 변경은 빌드에서만 효과가 있다).
+2. **⑰-B** 빌드 4개를 하나씩 입장 → 정원이 차기 전엔 괴물 미확정, 모든 창에 공지 배너, 가마솥에 넣은 사람이 괴물, **괴물은 대기실에 남고 쿠키 3명만 GameScene에서 색칠**. `Player.log`의 `[MonsterAssignment] Monster confirmed: actor N (by cauldron|timeout)` / `[MonsterLobbyWait]` 로그로 역할 대조.
+3. **⑱** GameScene에서 괴물이 Back 또는 창 닫기 → 남은 쿠키에게 배너 → **5초 뒤 대기실 복귀 → 새 괴물 선정 → 두 번째 판 시작**까지. (온라인 캐시 지연은 오프라인으로 재현되지 않아, 이번 수정의 온라인 효과는 빌드에서만 확인 가능)
+4. **⑰-D** `Player.log`에 `RPC method 'LogMsg' not found` 0건.
+5. 캐리/처치의 원격 표시(다른 클라이언트에서 Held·Carry 자세, 처치 연출이 보이는지).
+
+---
+
+## 26. ⑲ 로비 복귀 후 색칠 유지 / ⑳ 방장 시작 버튼 비활성 / ㉑ LobbyScene에서 참가 불가 — 🟢 구현·에디터 검증 완료(§27), 빌드 멀티 재확인 대기 (2026-09-26)
+
+> 사용자 제보(2026-09-26, §25 구현 후 빌드 테스트):
+> 1. GameScene에서 색칠했던 모습이 GameLobbyScene으로 돌아왔을 때도 그대로 적용된다.
+> 2. GameLobbyScene으로 돌아왔을 때, 방장 화면에서 게임 시작 버튼이 비활성화된다.
+> 3. LobbyScene에서 그 방에 참가할 수 없다.
+>
+> **조사 자료**
+> - 현재 소스(§25 반영본)의 해당 줄을 직접 읽었다: `PlayerPaintCanvas.cs:120, 427-450`, `RoundStateResetter.cs`,
+>   `GameLobbyController.cs:96-123`, `MonsterAssignmentAuthority.cs:38-50`, `ResultScreenController.cs:102`,
+>   `RoomLifecycleWatcher.cs:59-60`, `RoomListItem.cs:26`, `LobbyController.cs:120`.
+> - PUN2 소스: `PhotonNetwork.cs:2681`(Instantiate 이벤트 캐싱), `PhotonNetworkPart.cs:758-766`(`DestroyAll`), `:1054-1058`(`OpRemoveCompleteCache`).
+> - 빌드 로그 `Player.log`(17:47, 17:39 빌드 = §25 반영본 — 여러 인스턴스가 섞여 기록됨). 확인된 단서:
+>   `[RoomExit] Left room. Loading lobby scene.` 이후 `RoomPlayerCount=3` 스폰 → **판 도중 1명이 방을 나갔다.**
+>   액터 3 → 액터 4 순으로 괴물이 된 기록 → 두 번째 판까지 진행됐다.
+
+### 26.1 요약
+
+| # | 증상 | 근본 원인 | 확실성 |
+|---|---|---|---|
+| ⑲ | 로비로 돌아와도 GameScene의 색이 몸에 남아 있음 | 대기실에 새로 스폰된 쿠키의 `PlayerPaintCanvas.Start()`가 **이전 판의 강제 도포 정보**(`ForcedPaintActorNumbers/Colors`)를 읽어 전신을 다시 칠하고, 그 결과를 전원에게 전송한다. 판 초기화(`RoundStateResetter`)의 삭제는 온라인에서 서버 응답 후에야 캐시에 반영돼 **이 시점에 옛 값이 아직 남아 있다.** 스스로 칠한 붓 자국은 새 인스턴스·새 캔버스라 남지 않는다 → 보이는 것은 "슬롯 0개로 강제 도포된 색" | **확정**(코드 경로) |
+| ⑳-1 | 복귀 직후 시작 버튼 비활성, 이유를 알 수 없음 | §25에서 시작 조건을 "정원(4) + 괴물 확정"으로 바꿨고, 복귀 시 괴물 확정이 초기화된다. 가마솥 입장 또는 정원 충족 후 30초가 지나야 활성화되는데, **화면에 그 이유·남은 시간이 표시되지 않는다** | **확정**(설계 + UX 결함) |
+| ⑳-2 | 누가 나간 뒤에는 시작 버튼이 영원히 비활성 | 정원 조건(`PlayerCount >= MaxPlayers`)이 채워지지 않고, ㉑ 때문에 새 사람이 들어올 수도 없어 **교착 상태**가 된다(로그의 `RoomPlayerCount=3`) | **확정** |
+| ⑳-3 | (가능성) 방을 만든 사람 화면에 시작 버튼 자체가 없음 | 이전 판에 방을 만든 사람이 괴물이었다면 `MasterHandoffGuard`가 방장을 쿠키에게 넘기고 **되돌려주지 않는다** | 추정 — §26.6 Q1로 확인 |
+| ㉑-1 | LobbyScene 방 목록에서 입장 버튼 비활성 / 입장 실패 | 게임 시작 시 `IsOpen=false`(`GameLobbyController.cs:122`)로 닫은 방을, **결과 화면 경로(`ResultScreenController.cs:102`)는 다시 열지 않는다.** 괴물 이탈 경로(`RoomLifecycleWatcher.cs:59`)만 연다 | **확정** |
+| ㉑-2 | (잠재) 입장에 성공해도 대기실에 이전 판의 캐릭터 유령이 나타남 | `PhotonNetwork.Instantiate`는 방 이벤트 캐시에 저장되고(`AddToRoomCache`), 씬 전환으로 파괴된 오브젝트의 캐시는 지워지지 않는다. **늦게 들어온 사람은 모든 이전 씬의 쿠키·괴물(약 9m)을 자기 대기실에 생성**한다 | **확정**(PUN 소스) — ㉑-1을 고치면 바로 드러남 |
+
+권장 구현 순서: **㉑(재개방 + 캐시 정리) → ⑲ → ⑳**. ㉑이 풀려야 ⑳-2의 교착이 풀린다.
+
+---
+
+### 26.2 ⑲ 로비 복귀 후 색칠 유지
+
+**복귀 직후 타임라인 (온라인, 코드 기준)**
+```
+[방장] ResultScreen/RoomLifecycleWatcher → PhotonNetwork.LoadLevel(GameLobby)
+[전원] GameLobbyScene 로드 (Room 캐시에는 이전 판 키가 그대로: ForcedPaintActorNumbers/Colors, MonsterActorNumbers, ...)
+  프레임 N   : PlayerSpawner.SpawnWhenInRoom() — InRoom이 이미 true라 즉시 쿠키 Instantiate → PlayerPaintCanvas.Awake(새 RT, 투명)
+  프레임 N   : RoundStateResetter.Update() (방장) — 판 키 삭제 요청 전송(아직 캐시에는 옛 값)
+  프레임 N+1 : PlayerPaintCanvas.Start() → `if (pv.IsMine) ApplyForcedColorIfAssignedToMe();` (PlayerPaintCanvas.cs:120)
+               → 옛 ForcedPaint 목록에 내가 있으면 전신 ForceFill + FlushStrokes()로 다른 클라이언트에도 전송
+  수십 ms 후 : 삭제 응답 도착 → OnRoomPropertiesUpdate(ForcedPaint=null) → Apply…가 조회에 실패해 아무것도 안 함
+               → **이미 칠해진 전신 색은 지워지지 않고 남는다**
+```
+- 스스로 칠해 슬롯을 등록한 쿠키는 강제 도포 대상이 아니므로 새 캔버스(투명)로 시작한다. 제보된 현상은 **슬롯 0개로 강제 도포된 쿠키**에서 나타난다(검증 단계에서 전신 단색인지 확인).
+- 같은 뿌리의 잠재 문제: 괴물이 대기실에서 기다리는 60초 동안 `PaintPhaseEndTime`이 유효해, 괴물의 대기실 쿠키 `PlayerPaintCanvas`가 **3프레임마다 콜라이더 베이크(프레임당 약 6ms)** 를 계속 수행한다(`PlayerPaintCanvas.Update`). 팔레트 UI가 없어 칠하지는 못하지만 비용은 든다.
+
+**수정 계획 — 색칠은 "색칠 씬(GameScene)"에서만 동작**
+- `PaintPhaseController`(GameScene에만 배치된 ColorTag 매니저)에 `public static bool IsPaintScene`을 두고, `Awake`에서 true, `OnDestroy`에서 false로 설정한다.
+- `PlayerPaintCanvas`는 `IsPaintScene`이 false이면 다음을 모두 하지 않는다.
+  - `Start`/`OnRoomPropertiesUpdate`의 강제 도포
+  - `Update`의 입력·콜라이더 베이크
+  - `OnEvent`의 스탬프 재생(씬 전환 중 늦게 도착한 스트로크 방어)
+- 씬 이름 문자열 비교 대신 씬에 배치된 컴포넌트 존재로 판단하므로 `PlayerTestScene` 같은 테스트 씬에도 같은 규칙이 적용된다(해당 씬에 `PaintPhaseController`를 두면 색칠 가능).
+- 강제 도포 목록에 "어느 판의 것인지"(PaintPhaseEndTime 값)를 함께 기록하는 방식(라운드 토큰)도 검토했다. 하지만 위 씬 게이트만으로 대기실 적용이 원천 차단되고, 대기실 초기화가 판 키를 지우므로 추가하지 않는다.
+
+---
+
+### 26.3 ㉑ LobbyScene에서 참가 불가 (먼저 수정)
+
+**㉑-1 방이 다시 열리지 않음 (확정)**
+- 시작: `GameLobbyController.OnStartGameButtonClicked` → `IsOpen = false`(122줄).
+- 복귀 경로 두 가지:
+  - 괴물 이탈: `RoomLifecycleWatcher.ReturnToGameLobby` → `IsOpen = true`(59줄) → **열림**
+  - 결과 화면(정상 종료): `ResultScreenController.OnLobbyButtonClicked` → `LoadLevel`만 호출(102줄) → **닫힌 채로 남음**
+- LobbyScene 방 목록은 `joinButton.interactable = info.IsOpen`(`RoomListItem.cs:26`)이라 입장 버튼이 꺼지고, 랜덤 입장도 닫힌 방은 제외한다.
+
+**㉑-2 늦게 들어온 사람에게 이전 판 캐릭터 유령 (확정, PUN 소스)**
+- `PhotonNetwork.Instantiate`의 전송 옵션은 `CachingOption = AddToRoomCache`다(`PhotonNetwork.cs:2681`). 서버 캐시는 `PhotonNetwork.Destroy`나 캐시 정리 명령으로만 지워지고, **씬 전환으로 로컬에서 파괴된 오브젝트는 캐시에 그대로 남는다.**
+- 입장한 사람은 캐시를 전부 재생하므로 다음이 모두 자기 대기실에 생성된다.
+  - 1판 대기실 쿠키
+  - 1판 GameScene 쿠키와 괴물(약 9m)
+  - 2판 대기실 쿠키
+  - …이후 판의 것까지
+  현재 코드에서는 ㉑-1 때문에 드러나지 않았을 뿐, 방을 다시 열면 바로 나타난다.
+
+**수정 계획**
+- **R1 대기실 입장 시 방 재개방을 한 곳으로 모은다.** `RoundStateResetter.ResetRoomRoundState()`(방장)에서 `IsOpen = true`, `IsVisible = true`를 설정한다. 두 복귀 경로 모두 대기실을 거치므로 한 곳에서 처리된다. `RoomLifecycleWatcher`의 중복 대입(59줄)은 제거한다.
+- **R2 씬 전환 직전에 방 이벤트 캐시를 비운다.** Core에 헬퍼 `RoomSceneTransition.LoadLevelForRoom(string sceneName)`을 새로 만든다. 방장이 `PhotonNetwork.OpRemoveCompleteCache()`(공개 API, 방 캐시 전체 삭제)를 호출한 뒤 `PhotonNetwork.LoadLevel`을 호출한다. 세 호출 지점(`GameLobbyController.cs:123`, `ResultScreenController.cs:102`, `RoomLifecycleWatcher.cs:60`)을 이 헬퍼로 바꾼다.
+  - `DestroyAll()` 대신 캐시 삭제만 하는 이유: `DestroyAll`은 전원에게 파괴 이벤트까지 보낸다. 그러면 로드 직전 캐릭터가 사라지는 것이 보이고, 대기실에서 메시지 큐를 멈추고 기다리는 괴물은 GameScene 도착 후 그 파괴 이벤트를 처리하게 된다. 씬 로드가 어차피 로컬 오브젝트를 파괴하므로 서버 캐시만 지우면 된다.
+  - 순서 보장: 시작 버튼에서는 `SetCustomProperties(PaintPhaseEndTime)` → 캐시 삭제 → `LoadLevel`(curScn) 순서로 보낸다. 같은 클라이언트가 보낸 명령은 서버에서 순서대로 처리된다. 다른 사람들의 새 씬 Instantiate는 curScn을 받은 뒤에 일어나므로 **새 씬의 캐시는 지워지지 않는다.** Room Props는 이벤트 캐시와 별개라 영향이 없다.
+  - 채팅 `LogMsg`는 §25에서 이미 버퍼링하지 않는 `All`로 바꿨다.
+
+---
+
+### 26.4 ⑳ 방장 시작 버튼 비활성
+
+**현재 조건** (`GameLobbyController.CanStartGame`, 101-106줄): `PlayerCount >= MaxPlayers(4)` **그리고** `RoomState.HasMonster()`.
+괴물 선정(`MonsterAssignmentAuthority.Update`, 38-50줄)은 가마솥 입장 즉시, 또는 **정원이 찬 뒤 30초** 후 무작위로 확정된다.
+
+- **⑳-1**: 복귀하면 `RoundStateResetter`가 괴물 확정을 지우므로, 4명이 모두 있어도 가마솥에 누가 들어가거나 30초가 지날 때까지 버튼이 꺼져 있다. 상태 문구는 "4 / 4 대기 중"뿐이라 **무엇을 기다리는지 알 수 없다.**
+- **⑳-2**: 판 도중 한 명이라도 나가면(로그 `RoomPlayerCount=3`) 정원 조건이 영원히 채워지지 않는다. ㉑-1로 방이 닫혀 있어 새로 들어올 수도 없다 → **교착**. 무작위 선정 타이머도 같은 "정원 충족" 조건이라 멈춘다.
+- **⑳-3**(추정): 이전 판에 방을 만든 사람이 괴물이었다면 방장이 다른 쿠키에게 넘어가 있다. 그러면 방을 만든 사람 화면에는 시작 버튼 자체가 없다(`startGameButton.SetActive(isOwner)`).
+
+**수정 계획**
+- **S1 대기 사유와 남은 시간 표시** (`GameLobbyController`): 상태 문구를 상황별로 표시한다(문구는 인스펙터 필드, 1초마다 갱신).
+  - 인원 부족: "3 / 4 — 참가자를 기다리는 중"
+  - 정원 충족, 괴물 미확정: "술래 선정 중 — 가마솥에 들어가거나 {남은 초}초 후 자동 선정"(`MonsterSelectDeadline` 기준)
+  - 준비 완료: "술래: {닉네임} — 방장이 시작할 수 있습니다"
+- **S2 교착 해소**는 §26.3 R1(방 재개방)으로 해결된다. 새 참가자가 들어와 정원이 차면 타이머가 다시 돈다.
+- **S3 최소 시작 인원**(사용자 결정 D1): 현재 규칙은 "정원 4명일 때만 시작"이다. 한 명이 빠지면 새 참가자를 기다려야 한다. 최소 인원(예: 2명 = 괴물 1 + 쿠키 1)으로 시작을 허용할지 결정이 필요하다. 허용하면 시작 조건과 무작위 선정 타이머의 "정원 충족" 판정을 같은 `GameTimings.MinPlayersToStart` 기준으로 바꾼다.
+- **S4 방장 되돌려주기**(사용자 결정 D2): 방 생성 시 `LobbyController.OnCreatedRoom`에서 방 생성자 ActorNumber를 Room Prop `RoomCreatorActor`로 기록한다. 대기실 입장 시 방장이 생성자가 아니고, 생성자가 방에 있고, 괴물이 아니면 `SetMasterClient(생성자)`로 되돌린다. `MasterHandoffGuard`와 충돌하지 않도록 "생성자가 괴물이면 되돌리지 않음"을 같은 조건으로 둔다.
+
+---
+
+### 26.5 변경 파일 목록
+
+| 파일 | 변경 | 관련 |
+|---|---|---|
+| `Core/RoomSceneTransition.cs` (신규) | 방장 전용: 방 이벤트 캐시 삭제 후 `LoadLevel` | ㉑-2 |
+| `Monster/RoundStateResetter.cs` | 방장: `IsOpen=true`, `IsVisible=true` | ㉑-1 |
+| `Monster/RoomLifecycleWatcher.cs` | 중복 `IsOpen` 제거, `RoomSceneTransition` 사용 | ㉑ |
+| `Monster/ResultScreenController.cs` | `RoomSceneTransition` 사용 | ㉑ |
+| `Lobby/GameLobbyController.cs` | `RoomSceneTransition` 사용, 대기 사유·남은 시간 문구(S1), (D1 선택 시) 최소 인원 | ㉑, ⑳ |
+| `ColorTag/PaintPhaseController.cs` | `IsPaintScene` 정적 플래그 | ⑲ |
+| `ColorTag/PlayerPaintCanvas.cs` | 색칠 씬이 아니면 강제 도포·입력·베이크·스탬프 재생 안 함 | ⑲ |
+| `Lobby/LobbyController.cs`, `Core/NetKeys.cs`, `Monster/MasterHandoffGuard.cs` 또는 신규 컴포넌트 | (D2 선택 시) 방 생성자 기록·방장 되돌리기 | ⑳-3 |
+| `Monster/MonsterAssignmentAuthority.cs` | (D1 선택 시) 정원 판정을 최소 인원 기준으로 | ⑳ |
+| `Resources/UI/Scene/GameLobbyPanel/GameLobbyPanel.prefab` | 상태 문구 필드 한글 값 | ⑳ |
+
+---
+
+### 26.6 검증 계획
+
+**에디터(Unity MCP, 오프라인)**
+- V1 ⑲: GameLobbyScene을 Play로 실행하고 옛 강제 도포 키(`ForcedPaintActorNumbers=[내 액터]`, `ForcedPaintColors=[3]`)를 넣은 상태에서 쿠키를 스폰한다. 캔버스가 **투명으로 유지**되는지(RT 픽셀), 강제 도포 스탬프가 전송되지 않는지 확인한다. GameScene에서는 같은 키로 전신 도포가 정상 동작하는지(회귀 없음)도 확인한다.
+- V2 ㉑-1: GameScene에서 `GameResult`를 설정해 결과 화면 경로로 복귀한 뒤 `CurrentRoom.IsOpen == true`인지 확인한다(괴물 이탈 경로도 동일).
+- V3 ⑳-1: 복귀 직후 상태 문구가 "술래 선정 중 … N초"로 바뀌고 카운트다운되는지, 확정 후 "방장이 시작할 수 있습니다" + 버튼 활성이 되는지 확인한다.
+- 매 단계 컴파일 오류 0, Console 오류·예외·경고 0 확인.
+
+**빌드 멀티 테스트 (에디터로 재현 불가 — 서버 이벤트 캐시와 온라인 캐시 지연)**
+- V-B1 ⑲: 색을 칠하지 않은(강제 도포된) 쿠키가 결과 → 대기실 복귀 후 **원래 스킨**으로 보이는지, 다른 클라이언트 화면에서도 그런지 확인한다.
+- V-B2 ㉑: 게임을 마치고 대기실로 돌아온 뒤 LobbyScene의 다른 빌드에서 **입장 버튼이 활성**이고 입장되는지, 입장한 사람의 대기실에 **이전 판 캐릭터 유령(특히 거대 괴물)이 없는지** 확인한다.
+- V-B3 ⑳: 한 명이 나간 상태로 돌아온 뒤 새 참가자가 들어오면 정원 → 선정 → 시작까지 진행되는지 확인한다.
+
+### 26.7 사용자 확인이 필요한 사항
+
+| # | 질문 | 권장 |
+|---|---|---|
+| **D1** | 시작 조건을 지금처럼 "4명 정원"으로 유지할까요, 아니면 최소 인원(예: 2명)부터 시작을 허용할까요? | 테스트 편의와 이탈 대응을 위해 **최소 2명 허용** 권장(정원 4는 유지) |
+| **D2** | 판이 끝나 대기실로 돌아오면 방장 권한을 **방을 만든 사람에게 되돌릴까요?** | 방을 만든 사람이 계속 시작 버튼을 갖는 편이 자연스러우므로 **되돌리기** 권장 |
+| **Q1** | 이번 테스트에서 "시작 버튼 비활성"을 본 화면이 **방을 만든 사람의 화면**이었나요? 그 화면에 버튼이 **회색(비활성)** 이었나요, 아니면 **아예 없었나요**? | 회색이면 ⑳-1/⑳-2, 없었다면 ⑳-3 |
+
+### 26.8 사용자 결정 반영 (2026-09-26) — 시작 조건 유지 + 방장 권한 정책
+
+> 사용자 답변:
+> - **D1**: 지금처럼 **4명이 다 차야만 시작**한다 → §26.4 S3(최소 인원 완화)은 **하지 않는다.**
+> - **D2**: 판이 끝나 대기실로 돌아오면 방장을 **방을 만든 사람**에게 되돌린다. 만든 사람이 나갔으면 **두 번째로 입장한 사람**,
+>   그 사람도 없으면 **세 번째로 입장한 사람**에게 넘긴다.
+> - **Q1**: 시작 버튼이 비활성으로 보인 화면은 **방을 만든 사람의 화면**이었다(버튼은 보였고 회색) → ⑳-3(방장 이전)이 아니라
+>   **⑳-1(대기 사유 미표시) / ⑳-2(1명 이탈 + 방 닫힘 교착)** 이 원인으로 확정된다.
+> - 요구 사항: **시작 버튼이 보이는 사람은 항상 방장이어야 한다.**
+
+#### 26.8.1 "입장 순서"를 무엇으로 판정하는가
+
+- Photon은 방에 들어온 순서대로 `ActorNumber`를 1, 2, 3…으로 부여하고 **한 방 안에서 재사용하지 않는다.** 방을 만든 사람은 항상 1번이다.
+  이 프로젝트에는 방장 교체용 별도 기록이 없고, 기존 `MasterHandoffGuard`도 이미 `OrderBy(p => p.ActorNumber)`로 후보를 고른다(`MasterHandoffGuard.cs:41-44`).
+- 따라서 사용자 규칙("만든 사람 → 두 번째 입장자 → 세 번째 입장자…")은 **"방에 남아 있는 사람 중 ActorNumber가 가장 작은 사람"** 과 정확히 같다.
+  새 Room Prop(생성자 기록)이 필요 없다.
+- 예외(기록만 함): 방을 만든 사람이 나갔다가 **다시 들어오면 새 번호(가장 큰 번호)** 를 받으므로, 그때는 "가장 늦게 들어온 사람"으로 취급된다.
+
+#### 26.8.2 방장 결정 규칙 (단일 정책)
+
+```
+원하는 방장 = PlayerList 중 (괴물이 아닌 사람) 가운데 ActorNumber 최소
+              — 괴물이 확정돼 있지 않으면 전원이 후보
+              — 후보가 없으면(괴물 혼자) 교체하지 않음
+```
+
+- 대기실에서 판이 끝나 돌아오면 `RoundStateResetter`가 괴물 확정을 지운다. 그러면 괴물 제외 조건이 사라져 **자동으로 방을 만든 사람(최소 번호)에게 돌아간다.**
+- 대기실에서 새로 정해진 괴물이 최소 번호라면 기존 요구(§23: 괴물은 대기실에 남아야 하므로 방장이 될 수 없음)대로 **그다음 번호에게** 넘어간다.
+  이것은 현재 `MasterHandoffGuard`의 동작과 같다. 결국 두 규칙이 하나의 정책으로 합쳐진다.
+- 방장이 방을 나가면 Photon 서버가 새 방장을 정한다. 이 프로젝트의 PUN 콜백 순서는 `RemovePlayer → OnMasterClientSwitched → OnPlayerLeftRoom`이다(`LoadBalancingClient.cs:3475-3489`).
+  서버가 누구를 고르든 `OnMasterClientSwitched`에서 정책을 다시 적용해 **"남은 사람 중 최소 번호"로 수렴**시킨다.
+  (정책을 적용하는 쪽은 "현재 방장"뿐이다 — `PhotonNetwork.SetMasterClient`는 현재 방장만 호출할 수 있다.)
+
+#### 26.8.3 구현 계획
+
+**① `MasterHandoffGuard` → `MasterClientPolicy`로 확장** (`Monster/MasterHandoffGuard.cs`, 클래스·파일명 변경 + `.meta` 유지로 씬 참조 보존)
+- 기존 "방장이 괴물이면 넘김"을 §26.8.2의 **"원하는 방장과 다르면 넘김"** 으로 일반화한다.
+  ```csharp
+  // 현재 방장만 호출 가능한 SetMasterClient를 이용해 "괴물이 아닌 사람 중 입장 순서(ActorNumber)가 가장 빠른 사람"으로 방장을 맞춘다.
+  private void EnforcePolicy()
+  {
+      if (!PhotonNetwork.IsMasterClient || !RoomState.IsInRoom()) return;
+      Player desired = PhotonNetwork.PlayerList
+          .Where(p => !RoomState.IsMonster(p.ActorNumber))
+          .OrderBy(p => p.ActorNumber)
+          .FirstOrDefault();
+      if (desired == null || desired.IsLocal || switchRequested) return;
+      switchRequested = true; // 서버 응답(OnMasterClientSwitched) 전 중복 요청 방지
+      PhotonNetwork.SetMasterClient(desired);
+  }
+  ```
+- 호출 시점: 첫 InRoom 프레임, `OnMasterClientSwitched`, `OnPlayerLeftRoom`, `OnRoomPropertiesUpdate(MonsterActorNumbers)`.
+  `OnPlayerEnteredRoom`은 새 입장자가 항상 가장 큰 번호라 필요 없지만, 기존 동작(괴물 혼자일 때의 이관) 호환을 위해 남긴다.
+- **GameScene에도 배치**한다. 게임 도중 방장이 나가 서버가 괴물을 새 방장으로 고르면, 괴물이 GameScene에 있는 경우 즉시 쿠키에게 넘긴다.
+  괴물이 대기실에서 메시지 큐를 멈추고 기다리는 중이면 그 통지는 GameScene 도착 후 처리되고, 그때 넘긴다(아래 ③으로 그 사이 중복 실행을 막는다).
+
+**② "시작 버튼은 항상 방장만" 보장** (`Lobby/GameLobbyController.cs`)
+- 현재 이미 `startGameButton.gameObject.SetActive(PhotonNetwork.IsMasterClient)`(93줄)이다. `OnMasterClientSwitched`(64줄)와 `Update`의 방장 여부 감시(40-47줄)에서도 다시 갱신된다.
+- 보강 1: 방장 교체는 서버 응답 후에만 반영되므로, 교체 요청 직후 "아직 방장이지만 곧 넘어갈" 창에서 버튼을 누르는 경우를 막는다. `OnStartGameButtonClicked`의 기존 `if (!PhotonNetwork.IsMasterClient) return;`에 더해 **정책상 원하는 방장이 자기 자신일 때만** 시작을 허용한다(정책 계산을 `RoomState.DesiredMasterActor()`로 공용화해 양쪽에서 사용).
+- 보강 2: 방장이 아닌 사람 화면에는 상태 문구(§26.4 S1)에 "방장 {닉네임}이(가) 시작할 수 있습니다"를 표시해, 버튼이 왜 안 보이는지 알 수 있게 한다.
+
+**③ 방장이 바뀌어도 방장 전용 작업이 다시 실행되지 않게** (정책 도입으로 교체가 잦아지므로 필수)
+
+| 파일 | 현재 | 문제 | 수정 |
+|---|---|---|---|
+| `ColorTag/PaintPhaseController.cs` | 로컬 `resolved` 플래그(16·21·26줄) | 색칠 종료 후 방장이 바뀌면 새 방장의 `resolved=false` → **강제 도포 색을 다시 무작위 배정** → 쿠키 색이 게임 중에 바뀜 | Room에 `ForcedPaintActorNumbers` 키가 이미 있으면 처리된 것으로 본다(판 초기화에서 삭제되는 키라 판마다 한 번) |
+| `Monster/MonsterJoinController.cs` | 로컬 `masterTriggered`(23·49·53줄) | 새 방장이 `MonsterJoined`/`GameEndTime`을 다시 기록 → **생존 종료 시각이 "지금+10분"으로 늘어남** | `MonsterJoined` 키가 이미 있으면 처리된 것으로 본다 |
+| `Monster/GamePhaseStarter.cs` | 키 존재 확인(21줄) | 문제 없음(이미 Room Prop 기준) | 변경 없음 |
+| `Monster/GameRuleController.cs` | `GameResult` 키 확인 | 문제 없음 | 변경 없음 |
+| `Monster/MonsterAssignmentAuthority.cs` | deadline은 Room Prop | 문제 없음(§25에서 이미 처리) | 변경 없음 |
+| `Monster/RoundStateResetter.cs` | 입장 첫 프레임에 **그때의 방장**만 초기화 | 입장 직후 방장이 생성자에게 넘어가도, 초기화는 이미 이전 방장이 수행했으므로 문제 없음. 단 초기화 전에 방장이 바뀌는 경쟁을 막기 위해 방 재개방(§26.3 R1)과 함께 **"판 키가 남아 있으면 현재 방장이 초기화"** 로 조건을 바꿔 누가 방장이든 한 번은 실행되게 한다 | 조건 변경 |
+| `Monster/RoomLifecycleWatcher.cs` | `MonsterDepartedAt`을 새 방장이 이어받음(§25) | 문제 없음 | 변경 없음 |
+
+#### 26.8.4 §26 계획 갱신 사항
+
+- §26.4 **S3(최소 시작 인원) — 취소**(D1: 4명 정원 유지). 한 명이 나간 경우는 §26.3 R1(방 재개방)로 새 참가자가 들어와 정원을 채우는 흐름으로 해결한다.
+- §26.4 **S4(생성자 기록 Prop) — 대체**: 별도 기록 없이 ActorNumber 최소 규칙(§26.8.1)으로 구현한다.
+- §26.5 변경 파일 목록에 추가: `Monster/MasterHandoffGuard.cs`(→ `MasterClientPolicy`), `Core/RoomState.cs`(`DesiredMasterActor()`), `ColorTag/PaintPhaseController.cs`, `Monster/MonsterJoinController.cs`, `Scenes/GameScene.unity`(정책 컴포넌트 부착).
+- 권장 구현 순서(갱신): **㉑(재개방·캐시 정리) → 방장 정책(①②③) → ⑲(색칠 씬 게이트) → ⑳ 상태 문구(S1)**.
+
+#### 26.8.5 검증 계획 추가
+
+**에디터(오프라인)** — 방장 교체는 오프라인에 사용자 1명뿐이라 실제 교체는 재현되지 않는다. 그래서 정책 계산만 단위로 확인한다.
+- 가짜 `Player`(ActorNumber 1·2·3) 목록 + 괴물 지정 조합에 대해 `DesiredMasterActor()`가 기대값을 돌려주는지 확인한다.
+  예: 괴물 없음 → 1, 괴물=1 → 2, 1 이탈 → 2, 1·2 이탈 → 3.
+- 방장 교체를 흉내 낸 상태(`resolved`/`masterTriggered` 초기화)에서 `PaintPhaseController`·`MonsterJoinController`가 **다시 실행되지 않는지**(ForcedPaint·GameEndTime 값 불변) 확인한다.
+
+**빌드 멀티(사용자)**
+- V-B4: A(생성)·B·C·D 입장 → A가 가마솥 → 방장 B로 이관, **B 화면에만 시작 버튼** → 판 종료 후 대기실 → **방장 A로 복귀, A 화면에만 시작 버튼.**
+- V-B5: 대기실에서 A 퇴장 → 방장 B, B도 퇴장 → 방장 C. 각 시점에 **시작 버튼이 방장 한 명에게만** 보이는지 확인한다.
+- V-B6: GameScene 도중 방장이 나가도 쿠키 색이 바뀌지 않고, 생존 타이머가 늘어나지 않는지 확인한다.
+
+---
+
+## 27. §26 구현 + 인원 확장성 — 진행 현황 (2026-09-26)
+
+> 사용자 지시: "전부 구현해라" + "지금은 4명이 최대이지만 나중에 4명 이상으로 늘어날 것을 대비해 코드 확장성을 고려하여 구현, 나머지 항목도 마찬가지".
+> 결정 사항(§26.8): 4명 정원 유지, 방장 = 괴물이 아닌 사람 중 입장 순서(ActorNumber) 최소, 시작 버튼은 방장만.
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| Q1 | **확장성**: 전역 설정 `GameSettingsSO`(Core) + 에셋 `Assets/Resources/GameSettings.asset`(CLAUDE.md 전역 SO 규칙), 접근자 `GameSettings.Current`. 최대 인원(4)·괴물 수(1)·선정 타임아웃(30s)·색칠(60s)·로드 여유(3s)·색 슬롯(4)·생존(600s)·이탈 복귀 지연(5s)을 한 곳으로. `GameTimings`·`LobbyController.MaxPlayers`·`PlayerPaintCanvas` 슬롯 4·`ColorSelectionPanel` "/ 4"·`MonsterJoinController` 600·`MonsterAssignmentAuthority` 30·`RoomLifecycleWatcher` 5 상수 제거 | ✅ 코드·에셋 완료 |
+| Q2 | ㉑ `Core/RoomSceneTransition.LoadLevelForRoom`(방장: `OpRemoveCompleteCache` → `LoadLevel`)로 방 전체 전환 3곳 통일. `RoundStateResetter`: 이전 판 흔적(`GameResult`/`MonsterJoined`/`MonsterDepartedAt`/지난 `PaintPhaseEndTime`)이 있으면 **현재 방장이** 초기화 + `IsOpen`/`IsVisible`=true(방장 교체 시에도 재시도), `RoomLifecycleWatcher`의 중복 `IsOpen` 제거 | ✅ 코드 완료 |
+| Q3 | `MasterHandoffGuard` → **`MasterClientPolicy`**(파일·클래스명 변경, `.meta` GUID 유지로 GameLobbyScene 참조 보존) — `RoomState.DesiredMasterActor()`(괴물 아닌 사람 중 최소 ActorNumber)로 수렴, 입장·방장 교체·퇴장·괴물 변경 시 적용, 응답 전 중복 요청 방지. GameScene `GameRuleManagers`에도 부착. `GameLobbyController`: 시작 버튼은 방장만 표시(기존) + **정책상 원하는 방장일 때만 시작 허용** | ✅ 코드·씬 완료 |
+| Q4 | 방장 교체 시 재실행 방지: `PaintPhaseController`는 `ForcedPaintActorNumbers` 키 존재로(대상 0명도 빈 배열 기록), `MonsterJoinController`는 `MonsterJoined` 키 존재로 판단(로컬 플래그 제거) | ✅ 코드 완료 |
+| Q5 | ⑲ `PaintPhaseController.IsPaintScene`(GameScene에만 존재) — `PlayerPaintCanvas`의 `Start`/`OnRoomPropertiesUpdate` 강제 도포, `Update` 입력·베이크, `OnEvent` 스탬프 재생을 색칠 씬에서만 | ✅ 코드 완료 |
+| Q6 | ⑳ `GameLobbyController` 상황별 상태 문구: 인원 대기 / 술래 선정 중(남은 초, 초 단위 갱신) / 준비 완료(방장: 시작 가능, 그 외: 방장 닉네임). 문구는 `GameLobbyPanel` 프리팹에 한글로 입력. 참가자 목록은 입장 순서로 표시 | ✅ 코드·프리팹 완료 |
+| Q7 | **확장성**: 괴물 수 설정 지원 — `MonsterAssignmentAuthority`가 필요한 수(`MonsterCountFor(인원)`)만큼 가마솥 선착순 + 타임아웃으로 남은 자리를 무작위 채움, 대기실 괴물 이탈 시 그 사람만 제외. `RoomState.IsMonsterSelectionComplete()`로 시작 조건·가마솥 판정. 공지는 괴물 전원 닉네임 나열. 괴물 스폰을 `SpawnPositionFinder`로 분산. 강제 도포 색은 인원 > 팔레트 색 수면 순환 배정. 결과 화면 쿠키 아이콘을 쿠키 수만큼 템플릿에서 생성(`CookieIconRow`/`CookieIconTemplate`). 이탈 배너 문구에 설정 지연값 반영 | ✅ 코드·씬 완료 |
+| Q8 | 컴파일·콘솔 확인, Play Mode 검증, 문서 완료 표시 | ✅ 완료 — 컴파일 오류 0·프로젝트 코드 경고 0, Play Mode 검증 결과 §27.1, 빌드 멀티 확인 항목 §27.2 |
+
+### 27.1 Q8 Play Mode 검증 결과 (에디터, 오프라인 방)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| W1 | 방장 정책 계산(`RoomState.DesiredMasterActor(int[], int[])`) | ✅ 4명·괴물 없음→1 / 괴물=1→2 / 생성자 퇴장→2 / 1·2 퇴장→3 / 1 퇴장+괴물=2→3 / 생성자 재입장(5번)→2 / 8명·괴물 {1,3}→2 / 괴물만 남음→-1(교체 안 함) |
+| W2 | 확장 설정(`GameSettingsSO`) | ✅ `Resources.Load("GameSettings")` 로드, 기본값 4명·괴물1·30s·60s·3s·슬롯4·600s·5s. 8명·괴물2 설정 시 `MonsterCountFor(8)=2, (3)=2, (2)=1, (1)=1`, 괴물 9 입력 → `OnValidate`가 7(정원-1)로 제한 |
+| W3 | Q4 방장 교체 후 재실행 방지 | ✅ 색칠 종료 → 강제 도포(액터1, 색8)·`GameEndTime` 기록 후, 새 방장처럼 요청 플래그를 초기화하고 프레임 진행 → **`GameEndTime`·강제 도포 색 모두 불변** |
+| W4 | 결과 화면 확장 UI | ✅ 결과 시 쿠키 아이콘이 쿠키 수(1)만큼 생성, "1 / 1", "쿠키 승!", "로비로 이동 (12)"(스크린샷 확인) |
+| W5 | ㉑-1 결과 화면 경로 방 재개방 | ✅ 시작 상태처럼 `IsOpen=false` → 결과 → 12초 후 대기실 복귀 → **`IsOpen=True`, `IsVisible=True`**, Room 키 전부 삭제, `PaintPhaseController.IsPaintScene=False` |
+| W6 | ⑲ 대기실 색칠 게이트 | ✅ 대기실에서 옛 강제 도포 키(내 액터, 색8)를 다시 넣고 기존 쿠키(OnRoomPropertiesUpdate 경로)와 새 쿠키(Start 경로) 모두 확인 → **두 캔버스 모두 투명 유지** |
+| W7 | ⑳ 상태 문구 | ✅ "1 / 4 참가자를 기다리는 중" → 정원 충족 시 "술래 선정 중 — 가마솥에 들어가거나 3초 후 자동 선정"(초 단위 갱신) → 확정 후 "술래: … — 게임을 시작할 수 있습니다" |
+| W8 | Q3 시작 버튼 = 방장 + 정책 일치 | ⚠️→✅ 검증 중 발견: 방장 본인이 괴물로 정해진 순간(권한 이관 응답 전)에도 버튼이 활성으로 보였음(실제 클릭은 가드로 차단). 활성 조건에 "정책상 원하는 방장 = 나"를 포함하도록 수정 → 방장=괴물: 비활성 + "방장 #1의 시작을 기다리는 중", 방장=쿠키: 활성 + "시작할 수 있습니다". 닉네임이 빈 경우 `#액터번호`로 표시 |
+| W9 | Console | ✅ GameScene → GameLobbyScene 전 구간 오류·예외·경고 0(오프라인에서의 `OpRemoveCompleteCache` 호출 포함) |
+
+**테스트 부수 효과 정리**: 선정 타임아웃을 3초로 줄인 대상이 `Resources.Load`로 불러온 설정 에셋 인스턴스 자체였으므로 30초로 되돌려 저장(디스크 값 확인),
+TMP 동적 아틀라스 증가분은 `git checkout`으로 복구. Play 도중 늦게 실행된 재컴파일로 PUN이 끊겨 한 번 재시작함(코드 문제 아님).
+
+### 27.2 사용자 빌드 멀티 테스트 필요 항목 (에디터 단독으로 재현 불가)
+1. **⑲**: 색칠하지 않은(강제 도포된) 쿠키가 결과 → 대기실 복귀 후 원래 스킨으로 보이는지(본인·다른 클라이언트 모두).
+2. **㉑**: 판을 끝내고 대기실로 돌아온 뒤 LobbyScene의 다른 빌드에서 **입장 버튼 활성·입장 성공**, 입장한 사람의 대기실에 **이전 판 캐릭터 유령(특히 거대 괴물)이 없는지**(서버 이벤트 캐시 정리는 온라인에서만 효과).
+3. **방장 정책(§26.8.5 V-B4~B6)**: A(생성)·B·C·D 입장 → A가 가마솥 → 방장 B·B 화면에만 시작 버튼 → 판 종료 후 대기실 → **방장 A 복귀·A 화면에만 버튼**. 대기실에서 A 퇴장 → B, B 퇴장 → C. 게임 도중 방장이 나가도 쿠키 색 불변·생존 타이머 불변. `Player.log`의 `[MasterClientPolicy] Master x -> y` 로그로 확인 가능.
+4. **⑳**: 한 명이 나간 상태로 돌아온 뒤 새 참가자가 들어와 정원 → 술래 선정 문구·카운트다운 → 시작까지.
+5. **확장성**: 인원을 늘려 볼 때는 `Assets/Resources/GameSettings.asset`의 `maxPlayers`(필요 시 `monsterCount`)만 바꾸면 된다(방을 새로 만들어야 적용).
+
+---
+
+## 28. ㉒ 색칠 남은 시간 미표시 / ㉓ 파괴된 쿠키 자리를 지나갈 수 없음 / ㉔ 관전 중 우클릭 시점 회전 불가 — 🟢 구현·에디터 검증 완료(§29), 빌드 멀티 재확인 대기 (2026-09-26) - 빌드로 확인 됐음.
+
+> 사용자 제보(2026-09-26, §27 반영 빌드 18:26 + 에디터 4인 온라인 테스트):
+> 1. GameScene으로 넘어갔을 때 쿠키들이 색칠할 때의 남은 시간이 보이지 않는다.
+> 2. 쿠키를 파괴시킨 뒤 그 쿠키가 있던 곳으로 가면 그곳을 지나갈 수 없다.
+> 3. 파괴당한 뒤 다른 쿠키 시점을 볼 때 마우스 우클릭 드래그로 시점을 회전할 수 없다.
+>
+> **조사 자료**: 현재 소스(`SpectatorController.cs`, `Camera_Ctrl.cs`, `PlayerCrackDisplay.cs`, `HideOrSeekPlayer.cs`, `MonsterGrabKillTrigger.cs`,
+> `ColorSelectionPanel.cs`, `SurvivalTimerDisplay.cs`), `GameScene.unity` YAML 파싱, `HideOrSeekPlayer.prefab` 콜라이더 구성,
+> 빌드 로그(`Player.log` 18:38, 빌드 18:26 = §27 반영본 — 예외 없음).
+> 조사 시점에 에디터는 **사용자의 온라인 4인 세션(로컬 액터 5, GameLobbyScene)** 에 참여 중이었다. 상태를 **읽기만** 했다(쿠키 4개, 전원 콜라이더 활성·HitCount 없음 — 대기실이라 정상).
+
+### 28.1 요약
+
+| # | 증상 | 근본 원인 | 확실성 |
+|---|---|---|---|
+| ㉒ | 색칠 남은 시간이 안 보임 | `Canvas/ColorSlotPanel`의 자식 **`TimeLabel`·`SlotCountLabel`·`ResetButton`·`EraseButton` 4개가 늘어나는 앵커(stretch)인데 `anchoredPosition=(-960, -70)`** 으로 밀려 화면 밖에 그려진다. 남은 시간뿐 아니라 **슬롯 수·지우개·리셋 버튼도 보이지 않았다.** 같은 유형이 결과 화면(§25 S11)·괴물 공지(§25 P6)에 이어 세 번째로 발견된 것 | **확정**(씬 YAML) |
+| ㉓ | 파괴된 쿠키 자리에 보이지 않는 벽 | 파괴 표시(렌더러·콜라이더 끄기)가 **`PlayerCrackDisplay.OnPlayerPropertiesUpdate` 한 번의 통지에만 의존**한다. 이 통지를 받지 못하거나 통지 이후에 생긴 복사본은 콜라이더가 켜진 채 남는다. 정적 코드상 통지 경로는 정상이라, 어느 클라이언트에서 무엇이 남는지는 재현 시 실측해 확정한다(§28.3.1) | **원인 후보 좁힘** |
+| ㉔ | 관전 중 우클릭 회전 불가 | `SpectatorController.EnterSpectatorMode()`가 `Camera_Ctrl`을 **꺼 버리고**(29-34줄), `LateUpdate`에서 대상 뒤쪽 고정 위치로 카메라를 직접 옮긴다(52-61줄). 마우스 입력을 읽는 코드가 없다 | **확정**(코드) |
+| ㉔-부수 | 관전 대상 목록이 오래됨 / 예외 | 목록은 Space를 누를 때만 갱신 → 보던 쿠키가 파괴돼도 **시체를 계속 따라감**. 보던 쿠키의 주인이 나가 오브젝트가 파괴되면 `aliveCookies[i].transform`에서 **MissingReferenceException** | **확정**(코드) |
+
+권장 구현 순서: **㉒(씬 위치 수정 + 재발 방지 도구) → ㉔(카메라 추적 대상 일반화) → ㉓(진단 로그 선행 → 파괴 상태 재조정 구조)**.
+
+---
+
+### 28.2 ㉒ 색칠 남은 시간이 보이지 않음
+
+**실측(GameScene.unity)**
+
+| 오브젝트 | 앵커 | anchoredPosition | 결과 |
+|---|---|---|---|
+| `ColorSlotPanel` | (0.5,0)~(0.5,0), 620×110, pos (0,70) | — | 화면 하단 중앙 — 정상 |
+| `SwatchRow` | (0,0.4)~(1,1) | (0,0) | 정상 — 스크린샷에 스와치 10개가 보였던 이유 |
+| `TimeLabel` | (0,0)~(0.3,0.35) | **(-960,-70)** | 화면 밖 |
+| `SlotCountLabel` | (0.35,0)~(0.65,0.35) | **(-960,-70)** | 화면 밖 |
+| `ResetButton` | (0.68,0)~(0.83,0.35) | **(-960,-70)** | 화면 밖 |
+| `EraseButton` | (0.84,0)~(0.99,0.35) | **(-960,-70)** | 화면 밖 |
+
+- 코드(`ColorSelectionPanel`)는 매 프레임 `timeLabel.text`를 정상 갱신하고 있다. 표시 위치만 잘못됐다.
+- 네 오브젝트의 앵커 영역(패널 하단 35%)은 레이아웃 의도가 분명하므로, `anchoredPosition`과 `sizeDelta`를 (0,0)으로 되돌리면 의도대로 배치된다.
+
+**수정 계획**
+1. **씬 수정**: 위 4개의 `anchoredPosition`과 `sizeDelta`를 (0,0)으로. `Resources/UI/Scene/ColorSelectionPanel/ColorSelectionPanel.prefab` 원본도 같은 값인지 확인하고 맞춘다.
+2. **색칠 남은 시간을 화면 상단에도 크게 표시 — 타이머 표시 일반화(확장성)**
+   - §25의 `SurvivalTimerDisplay`(생존 시간 전용)를 **`PhaseCountdownDisplay`** 로 일반화한다. 어떤 종료 시각 키를 셀지(`PaintPhaseEndTime` 또는 `GameEndTime`)와 표시 조건을 인스펙터에서 고르게 한다.
+     ```csharp
+     public enum CountdownPhase { Paint, Survival } // 새 페이즈가 생기면 항목과 조건만 추가
+     [SerializeField] private CountdownPhase phase;
+     [SerializeField] private string format = "{0:00}:{1:00}";
+     // Paint: PaintPhaseEndTime이 미래일 때 / Survival: MonsterJoined && !GameResult
+     ```
+   - GameScene 상단에 "변장 시간 00:57"(Paint), 괴물 합류 후 "생존까지 09:59"(Survival)를 **같은 컴포넌트 두 개**로 배치한다. 기존 `SurvivalTimer` 오브젝트는 컴포넌트만 교체한다(`.meta` GUID 유지 방식으로 파일명을 바꿔 씬 참조를 보존).
+   - 패널 안 `TimeLabel`은 그대로 두어 이중 표시하되, 상단 표시가 주 정보가 된다.
+3. **재발 방지 — UI 레이아웃 검사 도구**(같은 유형이 세 번째)
+   - `Assets/Editor/UILayoutValidator.cs`(CLAUDE.md 에디터 폴더 규칙): 메뉴 `Tools/TagOfChaos/Validate UI Layout`. 열린 씬과 `Resources/UI` 프리팹의 모든 `RectTransform` 중 다음을 목록으로 출력한다.
+     - 앵커가 늘어나는(min≠max) 요소인데 `anchoredPosition`의 절댓값이 부모 크기의 절반을 넘는 경우
+     - 요소의 월드 사각형이 캔버스 밖으로 완전히 벗어나는 경우
+   - 결과만 알려주는 읽기 전용 도구다(자동 수정하지 않음). 이번 수정 후 **세 씬 전체에서 0건**이 되는지 확인하는 데도 쓴다.
+
+---
+
+### 28.3 ㉓ 파괴된 쿠키 자리를 지나갈 수 없음
+
+**현재 구조**
+- 처치: `MonsterGrabKillTrigger`(괴물 소유자) → 피해자 소유자에게 `RequestGrabKill` RPC → 피해자가 `HitCount=2`를 자기 Player Props에 기록하고 몸을 키네마틱으로 바꾼다(`HideOrSeekPlayer.RequestGrabKill`).
+- 표시: **모든 클라이언트**의 `PlayerCrackDisplay.OnPlayerPropertiesUpdate(피해자, HitCount)` → 렌더러를 끄고 `GetComponentsInChildren<Collider>()`(루트 `CapsuleCollider` + `Mesh_0` `MeshCollider`) 비활성.
+- 프리팹 실측: 쿠키의 콜라이더는 이 두 개뿐이고, 둘 다 트리거가 아니다(다른 캐릭터를 막는다).
+
+**원인 후보 (코드 기준으로 좁힘)**
+1. **한 번의 통지에만 의존하는 구조 (가장 유력)**: `OnPlayerPropertiesUpdate`는 **값이 바뀌는 순간 한 번만** 온다. 그 시점에 그 클라이언트에 해당 쿠키 복사본이 없거나 콜백이 등록돼 있지 않았다면, 이후에 생긴 복사본은 `HitCount=2` 상태인데도 **콜라이더가 켜진 채** 남는다.
+   - 예: 늦게 도착한 클라이언트, 메시지 큐 정지 후 재생, 재입장, 향후 늦은 참가 허용 시.
+   - `PlayerCrackDisplay`에는 `Start`/`OnEnable`에서 현재 값을 확인하는 코드가 없다.
+2. **파괴된 몸이 여전히 물리 레이어(`Cookie`)에 있음**: 콜라이더 비활성 외에 레이어 차원의 안전장치가 없다. 콜라이더가 하나라도 다시 켜지면(향후 코드, 애니메이션 이벤트 등) 바로 벽이 된다.
+3. 확인 필요: 벽을 만난 쪽이 **괴물인지 쿠키인지**, 그리고 그 클라이언트에서 해당 쿠키의 콜라이더 상태가 어땠는지.
+
+#### 28.3.1 선행 진단 (구현 첫 단계)
+- `PlayerCrackDisplay`에 진단 로그를 추가한다. 파괴 표시를 적용할 때 `[CookieLife] view=… owner=… broken via {callback|reconcile}`.
+- **다음 재현 때 에디터(사용자 세션 참가 중)의 상태를 읽기 전용으로 조회**한다. 파괴된 쿠키의 콜라이더 enabled, `HitCount`, 레이어, 벽에 막힌 캐릭터의 접촉 대상(`Physics.OverlapCapsule`)을 확인한다. 조회 코드는 §28.6에 준비해 둔다.
+
+#### 28.3.2 수정 계획 — 파괴 상태를 "통지"가 아니라 "현재 값"으로 맞추기(확장성)
+- **`PlayerCrackDisplay` → `CookieLifeStatePresenter`로 일반화**(`.meta` GUID 유지로 프리팹 참조 보존)
+  - 표시 상태(`Alive`/`Broken`)를 **소유자의 현재 `HitCount` 값에서 계산**하고, 다음 시점마다 다시 맞춘다(idempotent).
+    - `Start`
+    - `OnPlayerPropertiesUpdate`
+    - `OnJoinedRoom`/`OnMasterClientSwitched`(재동기화 시점)
+    - 0.5초 주기의 가벼운 확인(쿠키 수만큼 정수 비교 한 번, 인원이 늘어도 비용이 선형으로 작음)
+  - 판 초기화로 `HitCount`가 지워지면 `Alive`로 되돌린다. 지금은 복원 경로가 없다. 대기실에서는 새 인스턴스라 문제가 없지만, 향후 한 씬 안에서 부활하는 규칙이 생겨도 대응된다.
+  - `Broken` 적용 시 다음을 모두 한다.
+    - ① 모든 콜라이더 비활성
+    - ② 몸 전체의 레이어를 새 레이어 **`BrokenCookie`**로 변경 — `ProjectSettings/TagManager`에 추가하고, 충돌 매트릭스에서 모든 레이어와 충돌하지 않게 설정. 레이어 이름은 `CookieLifeStatePresenter`의 직렬화 필드로 둬 문자열 계약 위반 시 경고
+    - ③ 렌더러 끄기
+    - ④ 파괴 연출(있을 경우)
+  - `Alive` 복원은 이 반대 동작이다.
+- **`MonsterGrabKillTrigger` / `PlayerGrabController`의 파괴 판정도 같은 계산(`RoomState.IsBroken`)을 쓰도록 이미 통일돼 있다(§25).** 변경 없음.
+- 진단 결과 원인 후보 1·2가 아니라고 확인되면, 실측된 원인에 맞춰 §28에 추가 기록한 뒤 수정한다.
+
+---
+
+### 28.4 ㉔ 관전 중 우클릭 시점 회전 불가
+
+**코드 확정**
+- `SpectatorController.EnterSpectatorMode()`(24-38줄): `Camera_Ctrl.enabled = false`.
+- `SpectatorController.LateUpdate()`(52-61줄): `cam.position = target.position - target.forward*4 + up*2; LookAt(...)` — 대상의 등 뒤 고정 위치로만 움직이고 **마우스 입력이 없다.** 쿠키가 방향을 바꾸면 카메라도 같이 돌아서, 회전을 조작할 수단이 전혀 없다.
+
+**수정 계획 — "카메라가 누구를 따라가는가"를 한 곳으로(확장성)**
+- **`Camera_Ctrl`에 추적 대상 교체 API 추가**
+  ```csharp
+  // 추적 대상만 바꾸고 현재 회전(우클릭 드래그로 돌려 둔 각도)은 유지한다 — 관전 대상 순환 시 카메라가 튀지 않게.
+  public void SetFollowTarget(GameObject target, float targetHeight, float distance, bool keepRotation)
+  ```
+  - 기존 `InitCamera(player[, height, distance])`는 `SetFollowTarget(..., keepRotation:false)`의 별칭으로 둔다(쿠키·괴물 기존 호출부 호환).
+  - 우클릭 드래그 회전·커서 잠금(§25 P5)·Slerp 보간을 관전에서도 그대로 쓴다.
+- **`SpectatorController`는 "누구를 볼지"만 결정한다**
+  - `Camera_Ctrl`을 끄지 않고, 대상이 정해지거나 바뀔 때 `SetFollowTarget(대상, 쿠키 높이, 쿠키 거리, keepRotation:true)`를 호출한다. `LateUpdate`의 직접 카메라 이동은 제거한다.
+  - 관전 대상 목록 갱신: Space를 누를 때뿐 아니라 **보던 대상이 파괴되거나(`RoomState.IsBroken`) 사라지면(null/파괴된 오브젝트) 자동으로 다음 대상으로** 넘어간다(MissingReferenceException 제거). 대상이 하나도 없으면 마지막 위치에서 카메라를 유지한다.
+  - **관전 대상 규칙을 확장 가능하게**: 후보 선택을 `SpectateCandidateFilter`(쿠키만 / 쿠키+괴물) 직렬화 옵션으로 분리한다. 기본값은 현재 규칙(살아 있는 쿠키만)이다. 나중에 괴물 시점 관전이나 팀 규칙을 추가할 때 한 곳만 고친다. 괴물의 높이·거리는 `MonsterController`의 카메라 설정값을 재사용한다.
+  - 관전 대상 순환 키(Space)는 직렬화 필드로 둔다(향후 키 설정 UI 대비).
+- 관전 대상 이름 표시(선택): "관전 중: {닉네임} (Space: 다음)" 문구를 화면 하단에 띄운다(문구는 인스펙터 입력).
+
+---
+
+### 28.5 변경 파일 목록
+
+| 파일 | 변경 | 관련 |
+|---|---|---|
+| `Scenes/GameScene.unity`, `Resources/UI/Scene/ColorSelectionPanel/ColorSelectionPanel.prefab` | 4개 RectTransform 위치 수정, 상단 색칠 타이머 추가 | ㉒ |
+| `Monster/SurvivalTimerDisplay.cs` → `Core/PhaseCountdownDisplay.cs`(또는 Monster) | 페이즈 선택형 카운트다운으로 일반화(GUID 유지) | ㉒ 확장성 |
+| `Assets/Editor/UILayoutValidator.cs` (신규) | UI 화면 밖 배치 검사 메뉴 | ㉒ 재발 방지 |
+| `ColorTag/PlayerCrackDisplay.cs` → `CookieLifeStatePresenter` | 현재 값 기반 재조정, `BrokenCookie` 레이어, 복원 경로, 진단 로그 | ㉓ |
+| `ProjectSettings/TagManager.asset`, `DynamicsManager.asset` | `BrokenCookie` 레이어 추가, 충돌 매트릭스에서 전부 해제 | ㉓ |
+| `Camera/Camera_Ctrl.cs` | `SetFollowTarget(target, height, distance, keepRotation)` | ㉔ |
+| `Monster/SpectatorController.cs` | `Camera_Ctrl` 재사용, 자동 대상 교체, 후보 필터, 키 직렬화 | ㉔ |
+
+### 28.6 검증 계획
+
+**에디터 단독 (Play Mode, 오프라인)**
+- V1 ㉒: GameScene 색칠 페이즈에서 패널 하단의 남은 시간·"N / 4"·지우개·리셋이 화면 안에 보이는지(스크린샷). 상단 "변장 시간"이 카운트다운되고, 페이즈가 끝나면 숨겨지고, 괴물 합류 후 "생존까지"로 바뀌는지. `Validate UI Layout` 결과가 세 씬 모두 0건인지.
+- V2 ㉓: 로컬 쿠키를 파괴 상태로 만든 뒤 콜라이더 0개, 레이어 `BrokenCookie`를 확인한다. `HitCount`를 먼저 2로 둔 상태에서 **나중에 스폰한 쿠키 복사본**도 `Start` 재조정으로 즉시 파괴 상태가 되는지 확인한다(통지 누락 시나리오 재현). 파괴된 자리를 다른 캐릭터(괴물)가 `Physics.OverlapCapsule` 기준으로 통과 가능한지, `HitCount`를 지우면 `Alive`로 복원되는지도 본다.
+- V3 ㉔: 로컬 쿠키 파괴 → 관전 진입 후 `Camera_Ctrl`이 켜진 상태로 대상 쿠키를 추적하는지, 우클릭 드래그 회전이 반영되는지(`m_RotH` 변화, 입력 시뮬레이션이 안 되면 내부 상태로 확인). 보던 쿠키를 파괴하거나 제거하면 예외 없이 다음 대상으로 넘어가는지 확인한다.
+- 매 단계 컴파일 오류 0, Console 오류·예외·경고 0 확인.
+
+**사용자 세션 실측 (에디터가 참가자일 때, 읽기 전용 조회)**
+- ㉓ 재현 직후 에디터에서 다음을 조회한다: 각 쿠키의 `HitCount`·콜라이더 enabled·레이어, 막힌 캐릭터 주변의 `Physics.OverlapCapsule` 결과. 이 결과로 원인 후보를 확정하고 §28에 기록한다.
+
+**빌드 멀티 (사용자)**
+- 괴물이 쿠키를 파괴한 자리로 괴물·다른 쿠키 모두 지나갈 수 있는지(모든 클라이언트에서).
+- 파괴된 쿠키가 관전하며 우클릭으로 시점을 돌릴 수 있는지, Space로 대상을 바꿔도 각도가 유지되는지, 보던 쿠키가 파괴되면 자동으로 넘어가는지.
+- 색칠 페이즈의 남은 시간(상단·패널)과 슬롯 수, 지우개·리셋 버튼이 보이고 동작하는지.
+
+---
+
+## 29. §28 구현 — 진행 현황 (2026-09-26)
+
+> 구현 직전 실측(사용자 온라인 세션에 에디터가 액터 1로 참가 중, 판정 종료 상태 — 읽기 전용 조회):
+> 파괴된 쿠키 3개(액터 1·3·4) **모두 렌더러 off·CapsuleCollider/MeshCollider 비활성**, 괴물(액터 5, 원격) 주변 접촉은 `Ground`뿐.
+> → **쿠키 클라이언트 쪽 파괴 표시는 정상**이었다. 벽은 관찰할 수 없었던 **괴물 클라이언트(빌드)** 쪽일 가능성이 높아,
+> 계획대로 "현재 값 기준 재조정 + 비충돌 레이어 + 진단 로그"로 어느 클라이언트든 막히지 않게 한다. 구현을 위해 Play Mode를 종료했다(에디터가 세션에서 나감).
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| R1 | ㉒ GameScene `ColorSlotPanel`의 `TimeLabel`·`SlotCountLabel`·`ResetButton`·`EraseButton` 위치 (-960,-70)→(0,0). `SurvivalTimerDisplay` → **`Core/PhaseCountdownDisplay`**(`CountdownPhase {Paint, Survival}`, `.meta` GUID 유지), GameScene 상단에 `PaintCountdown`("변장 시간 mm:ss") 추가, 기존 `SurvivalTimer`는 Survival 페이즈로. (원본 `ColorSelectionPanel.prefab`은 씬과 다른 옛 구조이고 빌드 씬에서 쓰이지 않아 수정 후 되돌림 — PlayerTestScene 전용) | ✅ 코드·씬 완료 |
+| R2 | 재발 방지 `Assets/Editor/UILayoutValidator.cs` — 메뉴 `Tools/TagOfChaos/Validate UI Layout`, 빌드 씬 + `Resources/UI`·`04. Prefabs` 프리팹의 stretch 앵커 요소 중 anchoredPosition이 부모 크기 절반을 넘는 것을 경고(읽기 전용, 자동 호출용 `ValidateBuildScenesAndPrefabs()`). **첫 실행에서 숨은 결함 6건 추가 발견·수정**: 대기실 스킨 버튼 A/B/C 라벨, 색칠 패널 리셋·지우개 라벨, **괴물 이탈 배너 문구(`DepartureText`)** — 재검사 **0건** | ✅ 완료 |
+| R3 | ㉔ `Camera_Ctrl.SetFollowTarget(target, height, distance, keepRotation)` + `FollowTarget`/`CookieTargetHeight` 공개(기존 `InitCamera`는 별칭). `SpectatorController` 재작성: `Camera_Ctrl`을 끄지 않고 대상만 교체(우클릭 회전·커서 잠금 재사용, 각도 유지), 보던 대상 파괴·퇴장 시 자동 다음 대상, 후보 규칙 `SpectateTargets {AliveCookies, AliveCookiesAndMonsters}`, 순환 키 직렬화, 입장 순서 정렬, 대상 변경 이벤트 `SpectateTargetChanged`. 신규 `SpectatorLabel`(GameScene 하단 "관전 중: {0} (Space: 다음 · 우클릭 드래그: 시점 회전)"). `MonsterController.CameraTargetHeight/CameraDistance` 공개(괴물 관전 재사용) | ✅ 코드·씬 완료 |
+| R4 | ㉓ `PlayerCrackDisplay` → **`CookieLifeStatePresenter`**(`.meta` GUID 유지): 소유자 현재 `HitCount`로 상태 계산, `Start`·속성 통지·`OnJoinedRoom`·0.5초 주기 재조정(idempotent), 파괴 시 콜라이더 off + 몸 전체 **`BrokenCookie` 레이어(11번, 충돌 매트릭스에서 모든 레이어와 충돌 해제)**, `HitCount` 삭제 시 원래 레이어·콜라이더 복원, 진단 로그 `[CookieLife] view=… owner=… -> Broken (via …)`. (Unity 6이 `DynamicsManager.asset`을 저장하며 직렬화 형식을 최신으로 갱신함) | ✅ 코드·설정 완료 |
+| R5 | 컴파일·콘솔 확인, Play Mode 검증, 문서 완료 표시 | ✅ 완료 — 컴파일 오류 0·프로젝트 코드 경고 0, 결과 §29.1, 빌드 멀티 확인 항목 §29.2 |
+
+### 29.1 R5 Play Mode 검증 결과 (에디터, 오프라인 방)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| X1 | ㉒ 색칠 UI | ✅ 상단 "변장 시간 00:51"(PaintCountdown alpha 1, Survival alpha 0), 패널 남은 시간·"0 / 4"가 코드 값과 일치. 스크린샷: 수정 직후 하단 줄이 화면 가장자리에 붙고 흰 버튼 위 흰 글자라 리셋·지우개 글자가 안 보여 **패널을 (0,110)·640×150으로 올리고, 남은 시간 30pt·슬롯 26pt, 버튼 라벨을 어두운 색 "리셋"/"지우개"(NotoSansKR)로 조정** → 재촬영으로 "55"·"0 / 4"·"리셋"·"지우개" 모두 표시 확인 |
+| X2 | R2 레이아웃 검사 | ✅ 첫 실행 6건(스킨 A/B/C 라벨, 리셋·지우개 라벨, 괴물 이탈 배너 문구) → 수정 후 세 빌드 씬 + UI 프리팹 **0건** |
+| X3 | ㉓ 통지 경로 | ✅ 로컬 `HitCount=2` → `[CookieLife] view=1001 -> Broken (via callback)`, 콜라이더 0, 오브젝트 30/30 `BrokenCookie` 레이어, 렌더러 off, 괴물 크기 캡슐(모든 레이어·트리거 포함) 겹침 0 |
+| X4 | ㉓ 통지 이후 생성된 복사본 | ✅ `HitCount=2` 상태에서 새로 스폰한 쿠키가 `Start` 재조정으로 즉시 파괴 상태(`-> Broken (via start)`), 겹침 0 — **"통지 누락" 시나리오가 구조적으로 해소됨** |
+| X5 | ㉓ 레이어 안전장치·복원 | ✅ `BrokenCookie`는 Monster·Cookie·Default와 충돌 무시. `HitCount` 삭제 → 두 쿠키 모두 `Alive`로 복원(콜라이더 2, 루트 Cookie·Mesh_0 Default 레이어, 렌더러 on) |
+| X6 | ㉔ 관전 진입 | ✅ `EnterSpectatorMode` 예외 없음, **`Camera_Ctrl` 활성 유지**(예전에는 꺼짐), 후보가 없으면 추적 해제 후 카메라 유지 + 이벤트 null |
+| X7 | ㉔ 대상 교체 시 각도 유지 | ✅ 우클릭 드래그 결과를 흉내 낸 각도(yaw 123°, pitch 40°) 상태에서 `SetFollowTarget(keepRotation:true)`로 대상 교체 → 새 대상 기준 **yaw 123°·pitch 40°·거리 3.20·시선 일치 1.0000** 유지 |
+| X8 | 검증 중 추가 개선 | ⚠️→✅ 볼 대상이 없으면 관전 컨트롤러가 매 프레임 전체 탐색 → 0.5초 간격 재시도로 제한 |
+| X9 | Console | ✅ 게임 코드 기인 오류·예외·경고 0(서드파티 NatureStarterKit2 기존 경고만) |
+
+**오프라인 한계**: 오프라인에서는 모든 쿠키가 내 소유라 "다른 사람 쿠키"를 관전 후보로 만들 수 없어, 관전 대상 자동 순환·보던 대상 파괴 시 자동 전환은 빌드 멀티에서 확인한다.
+**테스트 부수 효과**: TMP 동적 아틀라스 증가분 `git checkout`으로 복구, 검증 스크린샷은 `Temp/`에만 저장 후 삭제.
+
+### 29.2 사용자 빌드 멀티 테스트 필요 항목
+1. **㉒** 색칠 페이즈: 상단 "변장 시간", 하단 남은 시간·"N / 4"·리셋·지우개가 보이고, 괴물 합류 후 상단이 "생존까지"로 바뀌는지.
+2. **㉓** 괴물이 쿠키를 파괴한 뒤 그 자리로 **괴물과 다른 쿠키가 모두 지나갈 수 있는지.** 막히면 해당 클라이언트 `Player.log`의 `[CookieLife] … -> Broken (via …)` 줄 유무를 알려주시면 원인을 바로 좁힐 수 있다.
+3. **㉔** 파괴된 쿠키가 관전할 때 **우클릭 드래그로 시점 회전**, Space로 다음 쿠키(각도 유지), 보던 쿠키가 파괴되거나 나가면 자동 전환, 하단 "관전 중: {닉네임}" 표시.
+4. 대기실 스킨 선택 버튼의 A/B/C 글자, 괴물 이탈 배너 문구가 보이는지(이번 검사 도구로 추가로 찾은 결함).
+
+
+## 추가적으로 괴물이 쿠키를 파괴했을 때 파괴된 쿠키의 이름표가 사라지지 않는 버그 및 쿠키처럼 몬스터가 맵(Ground) 밖으로 벗어났을 때 스폰 되지 않는 현상을 발견
+
+---
+
+## 30. ㉕ 파괴된 쿠키 이름표 잔존 / ㉖ 괴물 낙하 미복귀 / ㉗ 정원 미달 가마솥 반응 / ㉘ 색칠 페이즈 프레임 드랍 — 🟢 구현·에디터 검증 완료(§31), 빌드 멀티 재확인 대기 (2026-09-26)
+
+> 소스 파일을 직접 읽고 작성했다. ㉘은 에디터에서 `execute_code`로 쿠키 프리팹의 콜라이더 갱신 비용을 실측했다(§30.5.2).
+> CLAUDE.md 규칙에 따라 **승인 전에는 구현하지 않는다.** 모든 항목은 "인원이 늘어나도 설정만 바꾸면 되는" 방향(§27 확장성 원칙)으로 설계했다.
+
+### 30.1 요약
+
+| # | 증상 | 근본 원인(코드) | 수정 방향 |
+|---|---|---|---|
+| ㉕ | 괴물이 쿠키를 파괴해도 머리 위 이름표가 남음 | `CookieLifeStatePresenter.ApplyBroken()`이 `bodyRenderer` **하나만** 끔(`ColorTag/CookieLifeStatePresenter.cs:82-83`) — 이름표(`Nameplate`의 `MeshRenderer`, TextMeshPro)는 그대로 | 캐릭터의 **모든 렌더러**를 끄고 원래 상태를 기억해 복원(콜라이더·레이어와 같은 규칙), 예외는 목록으로 |
+| ㉖ | 괴물이 맵 밖으로 떨어지면 영원히 추락 | `VoidKillZone`(`GameManager/VoidKillZone.cs:10`)과 `y < -100` 방어선(`Unit/HideOrSeekPlayer.cs:272`)이 모두 **쿠키 전용**, `MonsterController`에 리스폰 경로 없음 | `IRespawnable` 공통 인터페이스 + 공용 `FallGuard`, 괴물은 `MonsterSpawnPos`로 복귀 |
+| ㉗ | 정원이 차기 전에 가마솥에 들어가도 괴물 확정, "당신이 괴물입니다"/"플레이어가 괴물이 되었습니다!" 표시, 방장 시작 버튼 변화가 일어남 | 가마솥 신청 경로에 **정원 조건이 없음** — `Cauldron.OnTriggerEnter`도, 마스터의 `MonsterAssignmentAuthority.OnEvent`도 정원을 보지 않는다(타임아웃 경로 `Update`만 정원을 봄) | 괴물 선정 가능 조건을 `RoomState.CanSelectMonster()` 하나로 정의해 가마솥(클라이언트)·마스터(권한) 양쪽에서 검사 → **정원 미달이면 아무 반응 없음** |
+| ㉘ | 색칠 페이즈(약 60초) 동안만 프레임 드랍, 끝나면 정상 | 로컬 쿠키가 **3프레임마다** 16.7만 정점 스킨 메시를 굽고(BakeMesh) `MeshCollider`를 **다시 쿠킹** — 한 번에 수십 ms가 걸려 3프레임마다 긴 멈춤. 페이즈가 끝나면 이 갱신이 멈춰 정상으로 돌아옴(부원인: 스탬프 1개당 512² 전체 Blit 2회) | 필요할 때만 갱신 + 쿠킹을 워커 스레드로(`Physics.BakeMesh`) + 쿠킹 옵션 경량화, 2단계로 저폴리 충돌 전용 메시, 스탬프는 블렌딩 1회 그리기로 |
+
+권장 구현 순서: ㉗ → ㉕ → ㉖ → ㉘(측정 → 1단계 → 재측정 → 필요 시 2단계).
+
+---
+
+### 30.2 ㉗ 정원이 차지 않았을 때 가마솥은 "아무 반응 없음"
+
+#### 30.2.1 현재 흐름(코드 근거)
+
+1. `Monster/Cauldron.cs` `OnTriggerEnter` — 로컬 쿠키가 들어오면:
+   - 이미 선정이 끝났으면(`RoomState.IsMonsterSelectionComplete()`) `revealController.ShowAgain()`으로 배너를 다시 띄운다.
+   - 아니면 `ClaimMonster` 이벤트를 마스터에게 보낸다. **정원 여부를 보지 않는다.**
+2. `Monster/MonsterAssignmentAuthority.cs` `OnEvent` — 마스터는 신청을 받으면 `IsMonsterSelectionComplete()`/`IsMonster()`만 확인하고 곧바로 `ConfirmMonsters(...)`로 `MonsterActorNumbers`를 기록한다. **정원 조건이 없다.**
+   - 같은 클래스의 `Update` 타임아웃 경로에는 `isFull` 검사가 있다. 즉 두 경로가 서로 다른 규칙을 쓰고 있다.
+3. `RoomState.IsMonsterSelectionComplete()`는 `MonsterCountFor(PlayerCount)` 기준이다. 2명뿐인 방에서도 필요한 괴물 수가 1이라, 가마솥 한 번으로 "선정 완료"가 된다.
+4. `MonsterActorNumbers`가 바뀌면 다음이 연쇄로 일어난다.
+   - `MonsterRevealController.Refresh()` → "You are the monster!"/"{0} is the monster!" 배너(인스펙터 문구: 당신이 괴물입니다 / 플레이어가 괴물이 되었습니다!)
+   - `MasterClientPolicy.EnforcePolicy()` → **방을 만든 사람이 가마솥에 들어가 괴물이 되면** "괴물이 아닌 사람 중 가장 먼저 들어온 사람"에게 방장이 넘어간다.
+     그러면 방 생성자 화면에서는 시작 버튼이 사라진다(`GameLobbyController.RefreshStartButton` → `SetActive(isOwner)`). 사용자가 본 "방장 기준 시작 버튼 비활성화"가 이것이다.
+   - `GameLobbyController.RefreshStatus()` → 상태 문구가 바뀐다.
+
+#### 30.2.2 요구사항 정리(사용자 원문 기준)
+
+- 정원 미달 상태에서 가마솥에 들어가면 **아무 반응이 없어야** 한다. 괴물 확정, 배너, 방장 이전, 시작 버튼 상태 변화가 모두 없어야 한다.
+- 시작 버튼 규칙 자체는 그대로다(§26.8: 정원이 다 차고 괴물이 정해져야 활성, 버튼은 항상 방장에게만 보임).
+  즉 정원 미달일 때 방장 화면의 버튼은 지금처럼 "보이지만 누를 수 없는" 상태를 유지하고, 가마솥 때문에 **사라지거나 바뀌지 않는다.**
+
+#### 30.2.3 수정 계획
+
+**A. 규칙을 한 곳에 정의** — `Core/RoomState.cs`
+```csharp
+// 정원이 모두 찼는지. 오프라인 개발 방(MaxPlayers=0)은 혼자 테스트할 수 있도록 찬 것으로 본다.
+public static bool IsRoomFull()
+{
+    if (!IsInRoom()) return false;
+    Room room = PhotonNetwork.CurrentRoom;
+    if (PhotonNetwork.OfflineMode && room.MaxPlayers == 0) return true;
+    return room.MaxPlayers > 0 && room.PlayerCount >= room.MaxPlayers;
+}
+
+// 괴물 선정(가마솥·타임아웃)을 받을 수 있는 상태인지 — 정원이 찼고 아직 자리가 남았을 때만(GameRule.md §2.1).
+public static bool CanSelectMonster() => IsRoomFull() && !IsMonsterSelectionComplete();
+```
+- 지금은 같은 식이 `GameLobbyController.IsRoomFull()`과 `MonsterAssignmentAuthority.Update`의 `isFull`에 **두 번 복사**돼 있다. 둘 다 `RoomState.IsRoomFull()`로 바꾼다.
+- 나중에 "정원의 N% 이상이면 시작" 같은 규칙으로 바뀌어도 이 함수만 고치면 된다(확장성).
+
+**B. 가마솥(클라이언트, 1차 차단)** — `Monster/Cauldron.cs`
+- `OnTriggerEnter` 맨 앞에 `if (!RoomState.IsRoomFull()) return;`를 둔다. 신청도, 배너 재표시도 하지 않는다.
+- 정원이 찬 뒤의 동작은 지금과 같다(선정 완료면 배너 재표시, 아니면 신청).
+
+**C. 마스터(권한, 2차 차단)** — `Monster/MonsterAssignmentAuthority.cs` `OnEvent`
+- `if (!RoomState.CanSelectMonster()) return;`로 바꾼다. 클라이언트 판단이 늦더라도(정원이 찬 순간 누가 나가는 경합) 마스터가 최종으로 거부한다.
+- 무시할 때는 `Debug.Log("[MonsterAssignment] Claim ignored: room not full")`만 남기고, UI 반응은 없다.
+
+**D. 정원이 다시 줄었을 때 기존 선정 처리** — *사용자 결정 필요(권장안 제시)*
+- 지금은 정원이 찬 뒤 괴물이 정해졌는데 **괴물이 아닌 사람**이 나가면 괴물이 그대로 남는다(괴물이 나간 경우만 §24.4로 재선정).
+  그러면 "정원 미달인데 괴물 배너가 떠 있고 방장이 바뀌어 있는" 상태가 다시 생긴다.
+- **권장 D-1**: 대기실에서 정원이 미달이 되면 마스터가 `MonsterActorNumbers`·`MonsterRevealTime`을 지워 괴물 선정을 **초기화**한다.
+  - 규칙이 "괴물은 정원이 찼을 때만 존재한다" 하나로 단순해진다.
+  - 방장 정책이 방 생성자에게 권한을 자동으로 되돌리고, 배너도 자동으로 숨는다. 둘 다 이미 `MonsterActorNumbers` 변경에 반응하기 때문이다.
+- 대안 D-2: 기존 괴물을 유지한다. 이 경우 정원 미달인데 괴물 배너가 남는 화면이 생긴다.
+- 구현 위치: `MonsterAssignmentAuthority.Update`의 `if (!isFull)` 분기(이미 `MonsterSelectDeadline`을 지우는 곳)에서 `MonsterActorNumbers`도 함께 지운다.
+  - 이 컴포넌트는 **대기실(GameLobbyScene)에만 있어서** 게임 중(GameScene) 이탈에는 영향이 없다. 게임 중 이탈은 계속 `RoomLifecycleWatcher`가 맡는다.
+  - `RoundStateResetter`(판 종료 후 복귀 초기화)와도 경합하지 않는다. 둘 다 "지우기"라 순서와 무관하게 결과가 같다(멱등).
+
+**E. 이미 가마솥 안에 서 있던 사람** — *사용자 결정 필요(권장안 제시)*
+- `OnTriggerEnter`는 들어가는 순간 한 번만 불린다. 정원 미달일 때 가마솥 안에 서 있다가 4번째 사람이 들어와도 아무 일도 일어나지 않는다.
+- **권장 E-1**: 한 번 나갔다가 다시 들어가야 신청된다. 동작이 단순하고, 4번째 입장과 동시에 자동 확정되는 "기습"이 생기지 않는다.
+- 대안 E-2: 정원이 차는 순간 가마솥 안에 있던 사람이 자동으로 신청한다(`OnTriggerStay` 또는 안에 있는지 기록). 여러 명이 안에 있으면 이벤트 도착 순서로 정해진다.
+
+#### 30.2.4 검증 계획
+1. 에디터 온라인 2클라이언트(또는 빌드 1 + 에디터 1), 최대 인원 4:
+   - 방 생성자가 가마솥에 들어갔을 때 확인할 것: 콘솔에 `[MonsterAssignment] Monsters confirmed`가 **나오지 않음**, 배너 없음, 방장 이전 없음, 버튼 상태 그대로.
+   - 두 번째 입장자가 들어갔을 때도 같은지 확인한다.
+2. 회귀 확인: `GameSettings.maxPlayers`를 테스트용 2로 낮추고, "정원이 찬 뒤 가마솥 → 확정 → 배너 → 방장 정책"이 기존대로 동작하는지 본다.
+3. (D-1 채택 시) 정원이 찬 뒤 확정 → 한 명 퇴장 → 배너가 숨고 방장이 원래 사람에게 돌아오는지 확인한다.
+4. 오프라인 개발 씬(`OfflineModeBootstrap`, MaxPlayers=0)에서 가마솥이 계속 동작하는지 확인한다.
+
+---
+
+### 30.3 ㉕ 파괴된 쿠키의 이름표 숨기기
+
+#### 30.3.1 원인(코드 근거)
+- 쿠키 프리팹(`04. Prefabs/Resources/HideOrSeekPlayer.prefab`)의 렌더러는 에디터 실측상 두 개다.
+  - `Mesh_0`의 `SkinnedMeshRenderer`(몸통)
+  - `Nameplate`의 `MeshRenderer`(TextMeshPro 이름표. 닉네임과 빌보드는 `Unit/PlayerBillBoard.cs`가 담당)
+- `CookieLifeStatePresenter.ApplyBroken()`은 콜라이더와 레이어는 `GetComponentsInChildren`으로 **전부** 처리하지만, 렌더러는 인스펙터로 연결된 `bodyRenderer` **하나만** 끈다. 그래서 이름표가 공중에 남는다.
+
+#### 30.3.2 수정 계획 — `ColorTag/CookieLifeStatePresenter.cs`
+- 렌더러도 콜라이더·레이어와 같은 **"전체 순회 + 원래 상태 저장 + 복원"** 규칙으로 처리한다.
+  ```csharp
+  [SerializeField] private Renderer[] keepVisibleWhenBroken; // 파괴 후에도 보여야 하는 표시물(기본 비어 있음)
+  private readonly List<(Renderer renderer, bool enabled)> savedRenderers = new List<(Renderer, bool)>();
+
+  // ApplyBroken
+  savedRenderers.Clear();
+  foreach (var r in GetComponentsInChildren<Renderer>(true))
+  {
+      if (System.Array.IndexOf(keepVisibleWhenBroken, r) >= 0) continue;
+      savedRenderers.Add((r, r.enabled));
+      r.enabled = false;
+  }
+  // RestoreAlive: 저장한 enabled 값으로 되돌린다.
+  ```
+- `bodyRenderer` 필드는 필요 없어지므로 제거한다. 프리팹에 직렬화된 값은 무시돼도 문제없다.
+- 파괴 이펙트(`breakVfxPrefab`)는 쿠키의 자식이 아니라 따로 `Instantiate`하는 오브젝트다. 순회 대상이 아니므로 그대로 재생된다.
+- 확장성: 앞으로 쿠키에 모자·장신구·그림자·이펙트 같은 표시물을 더해도 **코드 수정 없이** 파괴 시 숨겨진다. 남겨야 하는 것만 `keepVisibleWhenBroken`에 등록한다.
+- 비용: `GetComponentsInChildren`은 파괴·복원 순간에만 부른다(쿠키당 한 판에 1~2회). 매 프레임 비용은 없다.
+
+#### 30.3.3 검증 계획
+- 오프라인 테스트 씬에서 쿠키 `HitCount=2`를 설정한다(§29.1과 같은 방식).
+  - 이름표 `MeshRenderer.enabled == false`, 몸통도 꺼짐, 콘솔에 `[CookieLife] ... -> Broken` 확인, 스크린샷 기록.
+- `HitCount`를 지워 `RestoreAlive` 후 이름표가 다시 보이는지 확인한다(판 초기화 회귀).
+- 온라인 2클라이언트: 괴물 화면과 다른 쿠키 화면 모두에서 이름표가 사라지는지 확인한다(빌드 멀티, 사용자 확인).
+
+---
+
+### 30.4 ㉖ 괴물이 맵 밖으로 떨어졌을 때 복귀
+
+#### 30.4.1 원인(코드 근거)
+- `GameManager/VoidKillZone.cs` — `other.GetComponentInParent<HideOrSeekPlayer>()`만 찾는다. 괴물이 트리거에 들어와도 `null`이라 무시된다.
+  이 컴포넌트는 `GameScene`·`GameLobbyScene`·`PlayerTestScene`에 배치돼 있다.
+- `Unit/HideOrSeekPlayer.cs:272` — `y < -100f` 최후 방어선도 쿠키의 `FixedUpdate`에만 있다.
+- `Monster/MonsterController.cs` — Rigidbody 중력 이동(`useGravity = true`)을 쓰면서 리스폰 메서드가 없다.
+  그래서 한 번 떨어지면 무한 낙하하고, 판은 생존 시간이 끝날 때까지 괴물 없이 진행된다.
+- 스폰 위치 규칙은 이미 있다. `MonsterJoinController`가 `MonsterSpawnPos` + `SpawnPositionFinder.FindClearPosition(…, MonsterSpawnRange)`로 괴물을 처음 스폰한다.
+
+#### 30.4.2 수정 계획
+
+**A. 공통 계약** — `Core/IRespawnable.cs` (신규)
+```csharp
+// 맵 밖으로 떨어졌을 때 스폰 지점으로 돌아갈 수 있는 캐릭터(쿠키·괴물 공통).
+// VoidKillZone·FallGuard는 캐릭터 종류를 몰라도 이 계약만으로 처리한다 — 새 캐릭터 종류가 생겨도 구현만 추가하면 된다.
+public interface IRespawnable
+{
+    bool IsLocallyControlled { get; }   // 물리 소유자(PhotonView.IsMine)만 순간이동을 수행
+    void RespawnToSpawnPoint();
+}
+```
+
+**B. 쿠키** — `Unit/HideOrSeekPlayer.cs`
+- `IRespawnable`을 구현한다(`IsLocallyControlled => IsMine`). 기존 `RespawnToSpawnPoint()`는 그대로 쓴다.
+- `"PlayerSpawnPos"` 리터럴 중복(research.md §12 E3)을 없앤다. `PlayerSpawner`와 같은 상수를 쓰도록 Core의 `SceneSpawnPoints.Cookie`/`SceneSpawnPoints.Monster`로 모은다.
+- `FixedUpdate`의 `y < -100f` 검사는 공용 `FallGuard`로 옮기고 여기서는 지운다(C 참고).
+
+**C. 공용 낙하 방어선** — `GameManager/FallGuard.cs` (신규)
+- 같은 GameObject의 `IRespawnable`을 캐시해 둔다. 로컬 소유자만 `FixedUpdate`에서 `transform.position.y < GameSettings.Current.FallRespawnHeight`이면 `RespawnToSpawnPoint()`를 부른다.
+- 임계 높이 `-100`은 `GameSettingsSO.FallRespawnHeight`(기본 -100)로 옮긴다. 맵마다 높이가 다르면 설정만 바꾸면 된다.
+- 쿠키와 괴물 프리팹에 모두 붙인다.
+
+**D. 괴물** — `Monster/MonsterController.cs`
+- `IRespawnable`을 구현한다.
+  ```csharp
+  public bool IsLocallyControlled => pv.IsMine;
+  public void RespawnToSpawnPoint()
+  {
+      GameObject spawn = GameObject.Find(SceneSpawnPoints.Monster);
+      if (spawn == null) return;
+      tentacleDash.Cancel();   // 진행 중이던 돌진이 순간이동 직후에도 계속 밀지 않도록(신규 메서드)
+      Vector3 pos = SpawnPositionFinder.FindClearPosition(spawn.transform.position, GameSettings.Current.MonsterSpawnRange);
+      rb.linearVelocity = Vector3.zero;
+      rb.position = pos;       // 비키네마틱 Rigidbody는 transform만 바꾸면 다음 스텝에 되돌아감(쿠키에서 실측된 문제)
+      transform.position = pos;
+  }
+  ```
+- `MonsterTentacleDash`에 `Cancel()`을 추가한다(`isDashing=false`, 남은 거리 0, 쿨다운은 유지).
+- 들고 있던 쿠키는 괴물의 `CarrySocket`을 따라가므로 함께 이동한다. 다만 원격 복사본의 보간 때문에 **한 번 튀어 보일 수** 있다. 쿠키 쪽 캐리 추종이 순간이동 직후 첫 프레임에 스냅하는지를 검증 항목에 넣는다.
+- `MonsterSpawnRange`(현재 `MonsterJoinController`의 상수 4)는 `GameSettingsSO`로 옮겨, 스폰과 리스폰이 같은 값을 쓰게 한다.
+
+**E. 즉시 복귀 트리거** — `GameManager/VoidKillZone.cs`
+```csharp
+var respawnable = other.GetComponentInParent<IRespawnable>();
+if (respawnable != null && respawnable.IsLocallyControlled) respawnable.RespawnToSpawnPoint();
+```
+- 캐릭터에는 콜라이더가 여러 개라 같은 프레임에 여러 번 불릴 수 있다. 첫 호출에서 이미 스폰 지점으로 옮겨지므로 보통은 문제없지만, 방어적으로 캐릭터별 0.2초 리스폰 쿨다운을 둔다(`FallGuard`와 공유).
+
+#### 30.4.3 검증 계획
+- 오프라인 `PlayerTestScene`(괴물 스폰 옵션 `spawnAsMonster`)에서 괴물을 `VoidKillZone` 아래로 순간이동시킨다. `MonsterSpawnPos` 근처로 돌아오는지, 속도가 0인지 확인한다.
+- `VoidKillZone`을 끈 상태로 `FallRespawnHeight` 아래까지 떨어뜨려 `FallGuard`만으로 복귀하는지 확인한다.
+- 쿠키 낙하 복귀 회귀를 같은 두 경로로 확인한다.
+- 쿠키를 든 괴물을 떨어뜨려 쿠키도 함께 돌아오는지 확인한다(로컬). 원격에서 튀는지는 빌드 멀티로 사용자가 확인한다.
+
+---
+
+### 30.5 ㉘ 색칠 페이즈 동안의 프레임 드랍 — 원인 분석과 수정 계획
+
+#### 30.5.1 "색칠 페이즈 동안에만" 도는 코드 목록
+
+페이즈가 끝나면 멈추는 작업(`PaintPhaseEndTime` 조건)만 추려서 조사했다.
+
+| 코드 | 하는 일 | 빈도 | 비용 |
+|---|---|---|---|
+| `PlayerPaintCanvas.Update` → `RefreshColliderMesh()` (`ColorTag/PlayerPaintCanvas.cs:170-175, 315-333`) | 로컬 쿠키의 스킨 메시를 현재 포즈로 굽고(BakeMesh), 정점 배열 스케일을 보정한 뒤 `MeshCollider.sharedMesh`를 다시 대입 → **물리 메시 재쿠킹** | **3프레임마다**, 마우스를 누르지 않아도 페이즈 내내 | **매우 큼 — 주원인** |
+| `PlayerPaintCanvas.ApplyStamp` (`:418-428`) | 스탬프 1개마다 `GetTemporary` + 512×512 전체 `Blit` **2회**(복사 → 스탬프 셰이더) | 드래그 중 로컬 프레임당 최대 32개 + 다른 쿠키에게서 받은 스탬프(초당 15회, 이벤트당 최대 64개) | 중간 — 부원인 |
+| `PlayerPaintCanvas.StampAtScreenPoint` | 17만 삼각형 `MeshCollider` 레이캐스트 | 스탬프당 1회 | 작음(미드페이즈 BVH) |
+| `BrushCursorController.Update` | 같은 콜라이더 레이캐스트 1회, 커서 이동 | 매 프레임 | 작음 |
+| `PhaseCountdownDisplay`/`ColorSelectionPanel` | 초 단위 텍스트 갱신 | 매 프레임 비교, 문자열은 초당 1회 | 무시 가능 |
+
+#### 30.5.2 실측(에디터, 쿠키 프리팹 복제본, 10회 평균)
+
+에디터에서 `execute_code`로 쿠키 프리팹을 임시로 만들고, `RefreshColliderMesh`와 같은 절차를 단계별로 측정했다.
+
+| 항목 | 값 |
+|---|---|
+| 몸통 메시(`Mesh_0`) | **정점 167,404개 / 삼각형 171,610개**, 본 25개 |
+| 현재 쿠킹 옵션 | `CookForFasterSimulation, EnableMeshCleaning, WeldColocatedVertices, UseFastMidphase` (값 30) |
+
+| 단계 | 현재 옵션(30) | `UseFastMidphase`만 | `None` |
+|---|---|---|---|
+| `SkinnedMeshRenderer.BakeMesh` | 21.2 ms | 18.9 ms | 17.1 ms |
+| 정점 스케일 보정 루프 + `SetVertices` + `RecalculateBounds` | 110 ms* | 34 ms* | 35 ms* |
+| `MeshCollider.sharedMesh` 재대입(**쿠킹**) | **773 ms** | 666 ms | 593 ms |
+
+\* 에디터의 `execute_code`는 최적화 없는 디버그 컴파일에 에디터 오버헤드까지 붙어서 **절대값이 실제 Play/빌드보다 크게 부풀려져 있다.**
+기존 주석(§20)의 Play Mode 실측은 "매 프레임 갱신 시 257fps → 15fps"로, 갱신 1회당 **약 60ms**다. 실제 값은 이쪽에 가깝다.
+**비율은 분명하다.** 비용의 대부분(약 90%)이 물리 메시 재쿠킹이고, 쿠킹 옵션을 줄여도 20% 정도밖에 줄지 않는다. 근본 원인은 "17만 삼각형을 매번 쿠킹하는 것" 자체다.
+
+#### 30.5.3 결론 — 왜 색칠 시간에만 끊기나
+1. 로컬 쿠키는 색칠 페이즈 동안 **3프레임에 한 번씩 약 60ms(Play 기준)짜리 작업**을 한다. 평균 FPS도 떨어지지만, 더 크게 체감되는 것은 **3프레임마다 반복되는 긴 멈춤(스터터)**이다.
+2. 이 작업은 **마우스를 누르지 않아도**, 캐릭터가 가만히 서 있어도 페이즈 내내 돈다. `Update`의 조건이 "페이즈 중"뿐이기 때문이다.
+3. 쿠키 클라이언트마다 자기 쿠키에 대해 각자 수행하므로 **모든 쿠키 플레이어**가 같은 증상을 겪는다. 괴물은 대기실에 있어서 해당되지 않는다(사용자 관찰과 일치).
+4. 페이즈가 끝나면 `IsPaintPhaseActive()`가 false가 되어 갱신이 멈추고, 곧바로 정상 프레임으로 돌아온다.
+5. 부원인: 드래그 중에는 스탬프 1개마다 512² 텍스처 전체를 두 번 복사·그리기(`Blit` 2회)한다. 빠르게 긋는 프레임에는 최대 64회의 전체 화면 패스와 드로우 호출 오버헤드가 붙는다. 다른 쿠키 3명이 동시에 칠하면 그 스탬프도 같은 방식으로 재생된다.
+6. (참고, 페이즈와 무관) 쿠키 한 명에 17만 삼각형은 렌더링에도 무거운 편이다. 인원이 늘면(research.md §12.3) 상시 비용이 된다. 이번 범위는 아니지만 LOD/저폴리 메시를 권장한다.
+
+#### 30.5.4 수정 계획 (2단계)
+
+**1단계 — 코드만 수정(에셋 변경 없음)**
+
+| # | 변경 | 기대 효과 |
+|---|---|---|
+| F1 | **필요할 때만 갱신**: 페이즈 중이라도 ① 마우스가 내 쿠키 위에 있거나(커서 표시 조건) ② 획을 긋는 중일 때만 갱신한다. 획을 시작하는 순간에는 즉시 1회 갱신한다. 스와치 UI를 만지거나 가만히 서 있을 때는 갱신하지 않는다. 갱신 간격도 프레임 수가 아니라 **시간(`GameSettings.PaintColliderRefreshInterval`, 기본 0.2초)**으로 바꿔 프레임레이트와 무관하게 한다. | 대부분의 시간에 비용 0. 칠하는 중에도 초당 5회로 제한(현재 60fps 기준 초당 20회) |
+| F2 | **쿠킹을 워커 스레드로**: 메인 스레드에서 `BakeMesh`를 한 직후 `Physics.BakeMesh(mesh.GetInstanceID(), false, options)`를 `IJob`으로 백그라운드에서 돌린다. 끝나면 메인 스레드에서 `sharedMesh`를 대입하는데, 이미 쿠킹된 데이터를 재사용하므로 대입이 거의 즉시 끝난다. 작업 중에는 이전 콜라이더를 유지한다(1~2프레임 늦은 포즈 — 색칠 정확도 영향은 미미). Unity가 공식으로 권장하는 패턴이다. | 메인 스레드 멈춤의 대부분(쿠킹) 제거 |
+| F3 | **정점 스케일 보정 루프 제거**: 매번 17만 정점을 `List`로 꺼내 나누고 다시 넣는 대신, 콜라이더 전용 자식 Transform의 `localScale` 역수로 스케일 차이를 흡수한다. 또는 루프를 `Mesh.MeshData` + Burst Job으로 옮긴다. | 메인 스레드 루프 비용 제거 |
+| F4 | **쿠킹 옵션 경량화**: 런타임에 다시 쿠킹하는 콜라이더는 `UseFastMidphase`만 쓴다(Cleaning/Welding은 정적 메시용이고, 레이캐스트 전용이라 `CookForFasterSimulation`도 필요 없다). 프리팹 값에 의존하지 않도록 코드에서 설정한다. | 쿠킹 약 15~25% 감소(실측 비율) |
+| F5 | **스탬프를 블렌딩 1회 그리기로**: 셰이더가 "기존 캔버스를 읽어 통과"시키는 대신 스탬프 반경 안만 그리고 밖은 `clip()`한다. 잠금 규칙은 하드웨어 블렌딩으로 표현한다.<br>• 일반 붓: `Blend OneMinusDstAlpha DstAlpha`(이미 칠해진 알파=1 픽셀은 유지, 미도색만 칠함)<br>• 강제 도포: `Blend One Zero`<br>• 지우개: `Blend Zero Zero`<br>그러면 임시 RT와 복사 `Blit`이 사라진다. 한 프레임에 모인 스탬프는 `CommandBuffer` 하나에 모아 캔버스에 직접 그리고, 스탬프 영역만 덮는 작은 사각형으로 그린다. | 스탬프당 전체 화면 패스 2회 → 부분 패스 1회 |
+| F6 | `SetVector("_StampUV")` 같은 문자열 속성 이름을 `Shader.PropertyToID` 정적 캐시로 바꾼다. 받은 스탬프 재생도 같은 경로를 쓴다. | 소소한 CPU 절감 |
+
+- 수정 파일:
+  - `ColorTag/PlayerPaintCanvas.cs`(갱신 조건, 비동기 쿠킹, 스탬프 묶음 그리기). 콜라이더 갱신은 협력 클래스 `PaintColliderUpdater`로 분리해 489줄 클래스를 줄인다(research.md §12 E6).
+  - `ColorTag/BrushCursorController.cs`(커서가 쿠키 위에 있는지를 캔버스에 알려 F1 조건에 사용)
+  - `ColorTag/Shaders/PaintStamp.shader`·`PaintErase.shader`(블렌딩 방식)
+  - `Core/GameSettingsSO.cs`(갱신 간격)
+
+**2단계 — 1단계 후에도 부족하면(측정 결과로 결정)**
+
+| # | 변경 | 비고 |
+|---|---|---|
+| G1 | **충돌 전용 저폴리 메시**: 17만 삼각형 대신 1~2만 삼각형으로 줄인, 같은 UV·같은 본 가중치의 메시를 렌더링을 끈 `SkinnedMeshRenderer`로 따로 두고 콜라이더에 쓴다. 쿠킹 비용은 삼각형 수에 거의 비례하므로 약 1/10이 된다. | 에셋 작업 필요(Blender 등, UV 보존). 색칠 정밀도가 약간 떨어질 수 있지만 붓 반경이 커서 체감은 작을 것으로 예상 — 플레이테스트로 확인 |
+| G2 | **콜라이더 없이 GPU로 UV 찾기**: 로컬 쿠키만 "UV를 색으로 출력"하는 셰이더로 마우스 주변 1픽셀을 렌더링해 읽는다(`AsyncGPUReadback`). 메시 베이크·쿠킹이 완전히 사라지고 포즈 오차도 없다. | 구조 변경이 커서 G1로도 부족할 때만 검토 |
+
+#### 30.5.5 검증 계획
+1. **수정 전 기준값 측정**: Play Mode(오프라인 GameScene, 쿠키 1명, 색칠 페이즈)에서 `manage_profiler`로 측정한다.
+   - 대상: 프레임 시간 평균·최대, `MeshCollider` 쿠킹, `SkinnedMeshRenderer.BakeMesh`, `Graphics.Blit` 비용
+   - "가만히 서 있음"과 "칠하는 중" 두 상황을 모두 측정한다.
+2. F1~F6 적용 후 같은 조건으로 다시 측정한다.
+   - 목표: **가만히 서 있을 때 색칠 페이즈 전후 프레임 시간 차이 없음**, 칠하는 중 최대 프레임 시간 16.7ms(60fps) 이하.
+3. 기능 회귀를 확인한다.
+   - 칠한 위치가 커서 위치와 맞는지(포즈 추종, §20 회귀)
+   - 잠금 규칙(이미 칠한 곳은 다른 색으로 덮이지 않음)
+   - 지우개, 리셋, 강제 도포, 원격 재생(빌드 멀티)
+4. 목표에 못 미치면 2단계(G1) 진행 여부를 사용자와 결정한다.
+
+---
+
+### 30.6 확장성 체크 — 인원 증가·기능 추가에 어떻게 대응하나
+
+| 항목 | 설계 |
+|---|---|
+| ㉗ 선정 규칙 | `RoomState.IsRoomFull()`/`CanSelectMonster()` 한 곳에 정의. 시작 조건·타임아웃·가마솥이 모두 같은 함수를 쓰므로 규칙이 바뀌어도 한 곳만 고친다 |
+| ㉕ 파괴 표시 | "모든 렌더러 + 예외 목록" — 표시물이 늘어도 코드 수정 불필요 |
+| ㉖ 낙하 복귀 | `IRespawnable` + `FallGuard` — 새 캐릭터 종류는 인터페이스만 구현. 임계 높이·스폰 범위는 `GameSettings` |
+| ㉘ 성능 | 갱신 비용이 "페이즈 시간"이 아니라 "실제로 칠하는 시간"에 비례. 인원이 늘어도 각 클라이언트는 자기 쿠키 하나만 갱신하므로 로컬 비용은 그대로. 받은 스탬프는 F5로 1패스가 되어 칠하는 사람 수에 선형으로만 늘어난다 |
+
+### 30.7 사용자 결정 필요 사항 — ✅ 권장안 전부 채택(2026-09-26)
+1. **㉗-D** 정원이 찬 뒤 괴물이 정해졌는데, 괴물이 아닌 사람이 나가 정원 미달이 되면? — **권장 D-1: 괴물 선정 초기화**(배너 숨김, 방장 원복)
+2. **㉗-E** 정원 미달일 때 가마솥 안에 서 있다가 정원이 차면? — **권장 E-1: 다시 들어가야 신청**
+3. **㉘** 1단계(코드)를 먼저 적용하고 측정해서 2단계(저폴리 충돌 메시 에셋) 여부를 정해도 되는지 — **권장: 예**
+
+### 30.8 진행 현황
+- [x] ㉗ `RoomState.IsRoomFull/CanSelectMonster`, 가마솥·마스터 차단, D/E 결정 반영(D-1, E-1) — §31 S1
+- [x] ㉕ 모든 렌더러 숨김/복원 — §31 S2
+- [x] ㉖ `IRespawnable`·`FallGuard`·괴물 리스폰·설정값 이동 — §31 S3
+- [x] ㉘ 기준 측정 → F1~F6 → 재측정 — §31 S4·V1~V4 (G1은 빌드 체감 결과를 보고 결정)
+
+---
+
+## 31. §30 구현 — 진행 현황 (2026-09-26)
+
+사용자 결정: §30.7 권장안 전부 채택(D-1 정원 미달 시 선정 초기화, E-1 다시 들어가야 신청, ㉘ 1단계 먼저 → 측정 후 2단계 결정).
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| S1 | ㉗ `RoomState.IsRoomFull()`(오프라인 MaxPlayers=0은 찬 것으로 봄)·`CanSelectMonster()` 신설, `GameLobbyController`·`MonsterAssignmentAuthority`의 중복 정원 식 교체. `Cauldron.OnTriggerEnter` 맨 앞 정원 검사(신청·공지 재표시 모두 없음), 마스터 `OnEvent`는 `CanSelectMonster()`로 최종 거부 + 로그. **D-1**: 대기실에서 정원 미달이 되면 `MonsterActorNumbers`·`MonsterRevealTime`·`MonsterSelectDeadline` 삭제(`ResetSelectionIfRoomNotFull`, 판 진행 중 `PaintPhaseEndTime`이 있으면 건드리지 않음) | ✅ 완료 |
+| S2 | ㉕ `CookieLifeStatePresenter`: `bodyRenderer` 필드 제거 → 모든 `Renderer`를 숨기고 원래 `enabled`를 저장·복원, 예외 목록 `keepVisibleWhenBroken` | ✅ 완료 |
+| S3 | ㉖ 신규 `Core/IRespawnable`, `Core/SceneSpawnPoints`(스폰 지점 이름 상수 + `TryFindClearPosition`), `GameManager/FallGuard`(공용 낙하 방어선 + 0.2초 리스폰 쿨다운). `VoidKillZone`은 `IRespawnable`만 본다. `HideOrSeekPlayer`·`MonsterController`가 `IRespawnable` 구현(괴물은 `MonsterSpawnPos`로, 돌진 `MonsterTentacleDash.Cancel()`). 쿠키의 `y<-100` 코드 삭제. `GameSettingsSO`에 `CookieSpawnRange 5`·`MonsterSpawnRange 4`·`FallRespawnHeight -100` 이동(`PlayerSpawner`·`MonsterJoinController`·`MonsterTestSpawner`의 상수·리터럴 제거). 두 프리팹에 `FallGuard` 부착 | ✅ 완료 |
+| S4 | ㉘ 신규 `ColorTag/PaintColliderUpdater`(F1 필요할 때만 + 시간 간격 `GameSettings.PaintColliderRefreshInterval 0.2초`, F2 `Physics.BakeMesh` 워커 Job + 이중 버퍼, F3 `BakeMesh(useScale:true)`로 정점 루프 제거 — 에디터 실측으로 기존 결과와 동일함 확인, F4 `UseFastMidphase`). `PlayerPaintCanvas`: 3프레임 동기 갱신 삭제, 칠하는 중이거나 커서가 몸 경계 상자 위일 때만 갱신 요청. F5 `PaintStamp`/`PaintErase` 셰이더를 "스탬프 영역 사각형 + 원 밖 clip + 하드웨어 블렌딩 잠금"으로 교체, 스탬프는 프레임(로컬)·이벤트(수신) 단위로 GL 한 묶음으로 그림(임시 RT·Blit 2회 제거). F6 속성 ID 캐시 | ✅ 완료 |
+| S5 | 컴파일·콘솔 확인, Play Mode 검증, 문서 완료 표시 | ✅ 완료 — 컴파일 오류 0, 게임 코드 경고 0(서드파티 NatureStarterKit2 기존 경고만), 결과 §31.1 |
+
+### 31.1 Play Mode 검증 결과 (에디터, 오프라인 방)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| V1 | ㉘ 갱신 1회당 메인 스레드 비용(Play Mode, 실제 쿠키) | ✅ **기존 107.9 ms → 신규 4.0 ms**(굽기만), 미리 쿠킹된 메시 대입 0.03 ms(쿠킹 데이터 재사용 확인), 쿠킹 86 ms는 워커 스레드로 이동. 게다가 기존은 페이즈 내내 3프레임마다, 신규는 칠하는 중·커서가 몸 위일 때만 최대 초당 5회 |
+| V2 | ㉘ 비동기 갱신 동작 | ✅ 콜라이더가 두 버퍼(`BakedColliderMesh_…_0/_1`, 인스턴스 ID로 확인)를 번갈아 사용, 예약 후 2프레임 안에 교체. 커서가 몸에서 벗어나면 갱신 요청 없음(`wanted=False`) |
+| V3 | ㉘ 스탬프 결과 동일성 | ✅ 기존 셰이더로 만든 기준 픽셀과 신규 경로 결과가 **바이트 단위로 일치**(중심 RGBA 204,76,26,255 / 잠긴 픽셀 보호 / 방향 / 가장자리 보간값 82,30,10,102) |
+| V4 | ㉘ 실제 색칠 | ✅ 카메라에서 쿠키 등 쪽으로 레이캐스트한 지점에 노란 스탬프가 정확히 찍힘(슬롯 1/4), 지우개가 같은 지점에 원형 구멍, 강제 도포로 전신 5번 색, 수신 재생(지우개→빨강 순서 한 이벤트)이 순서대로 적용 — 스크린샷 확인 |
+| V5 | ㉕ 파괴 표시 | ✅ `HitCount=2` → `Nameplate`(MeshRenderer)·`Mesh_0` 모두 `enabled=False`, 콜라이더 0, 화면에 이름표 없음. `HitCount` 삭제 → 두 렌더러 모두 복원 |
+| V6 | ㉖ 괴물 `VoidKillZone` | ✅ 괴물을 트리거(y=-15) 위로 옮겨 떨어뜨림 → `[MonsterController] Respawned at (3.81, 0.00, 7.57)`(MonsterSpawnPos (5,0,5) ±4), 속도 0 |
+| V7 | ㉖ 괴물 `FallGuard`만 | ✅ `VoidKillZone`을 끄고 y=-98에서 낙하 → -100 통과 시 스폰 지점 근처(2.51, 0, 6.56)로 복귀 |
+| V8 | ㉖ 쿠키 회귀 | ✅ 쿠키도 `FallGuard`로 y=-99.5 → 스폰 근처(-4.91, 0, 4.40) 복귀 |
+| V9 | ㉗ 정원 미달(1/4) | ✅ 가마솥 진입 + 마스터에게 직접 신청 이벤트 → `Claim ignored` 로그, 괴물 없음, 공지 없음, 방장 유지, 시작 버튼 그대로(보임·비활성) |
+| V10 | ㉗ 정원 충족 회귀(정원 1/1) | ✅ 가마솥 → `Monsters confirmed: [1] (by cauldron)`, 공지 "당신이 괴물입니다!…" 표시 |
+| V11 | ㉗ D-1 정원 미달로 바뀜(1/2) | ✅ `Room is no longer full. Monster selection reset.` → 괴물·공개 시각 삭제, 공지 숨김, 시작 버튼 원상 |
+| V12 | ㉗ 판 진행 중 보호 | ✅ `PaintPhaseEndTime`이 있는 상태에서 정원 미달이 돼도 괴물 정보 유지 |
+| V13 | Console | ✅ 게임 코드 기인 오류·예외·경고 0(`CreateRoom failed …` 1건은 검증 도구가 방을 두 번 만들려 한 것) |
+
+**측정 한계**: 에디터가 포커스를 잃은 상태라 Play Mode 프레임이 약 2fps로 제한돼 FPS 자체는 비교할 수 없었다. 대신 갱신 1회당 메인 스레드 비용(V1)으로 원인 작업이 제거됐음을 확인했다. 2단계(G1 저폴리 충돌 메시)는 **사용자 빌드 체감 결과를 보고 결정**한다.
+**검증 중 관찰(버그 아님)**: `HitCount`만 직접 넣으면 쿠키가 비키네마틱 상태로 남아 콜라이더 없이 떨어졌다. 실제 파괴 경로(`RequestGrabKill`)는 `rb.isKinematic = true`를 먼저 설정하므로 게임에서는 발생하지 않는다. 오히려 이 낙하가 `FallGuard`/`VoidKillZone` 복귀를 추가로 확인해 줬다.
+**테스트 부수 효과**: 없음(검증 스크린샷은 `Temp/`에만 저장 후 삭제, 에셋 변경 없음). 에디터는 GameScene으로 되돌려 둠.
+
+### 31.2 사용자 빌드 멀티 테스트 필요 항목
+1. **㉗** 정원 4명 미만일 때 누가 가마솥에 들어가도(방 생성자 포함) 공지·방장 이전·시작 버튼 변화가 **전혀 없는지**. 4명이 모인 뒤 가마솥에 **다시 들어가면** 괴물이 되는지. 괴물이 정해진 뒤 한 명이 나가면 공지가 사라지고 방 생성자에게 방장이 돌아오는지.
+2. **㉕** 괴물이 쿠키를 파괴하면 모든 화면에서 이름표가 사라지는지.
+3. **㉖** 괴물이 맵 밖으로 떨어지면 괴물 스폰 지점으로 돌아오는지(쿠키를 들고 있을 때 쿠키도 함께 오는지, 원격 화면에서 튀지 않는지).
+4. **㉘** 색칠 시간 동안 프레임 드랍이 사라졌는지. 칠하는 동안 붓 위치가 몸 표면과 잘 맞는지(갱신이 최대 0.2초 늦을 수 있음 — 어긋나면 `GameSettings`의 `Paint Collider Refresh Interval`을 줄이면 된다). 여전히 끊기면 알려주시면 2단계(저폴리 충돌 메시)를 진행한다.
+
+---
+
+## 32. research.md §12 확장성 약점 수정 — ✅ 구현·에디터 검증·빌드 확인 완료 (2026-09-26)
+
+> 사용자 요청: "§12에 반영 현황 추가 + 전체 코드 확장성 검토에 대해 수정". §12.2 약점(E1~E13)과 §12.4 네트워크 부하를 코드로 고친다.
+> 원칙: **네트워크 프로토콜(Room/Player Props 키, 이벤트 코드, 직렬화 순서)과 게임 규칙은 바꾸지 않는다**(기존 빌드 멀티 검증을 무효화하지 않도록). 기본값은 현재 동작과 같게 둔다.
+
+| 단계 | 약점 | 내용 | 상태 |
+|---|---|---|---|
+| U1 | E1 | 캐릭터 공통 계약 확장: `ICameraFollowTarget`(카메라 높이·거리), `ISpectatable`(역할·관전 가능 여부) + `CharacterRegistry`(활성 캐릭터 목록, `FindObjectsByType` 대체). `SpectatorController`의 타입 분기 제거. `PlayerNetworkSync`/`MonsterNetworkSync` → 공용 제네릭 `NetworkTransformSync<TState>`(직렬화 순서 동일) | ✅ 완료 — W3·W4 |
+| U2 | E3 | RPC 이름 문자열 → `nameof`(컴파일 타임 검증) | ✅ 완료 — W5 |
+| U3 | E4 | 색 스와치를 `ColorPaletteSO` 개수·색으로 생성(`ColorSwatchGroup`), 스킨 버튼을 `SkinCatalogSO`로 생성(`PlayerSkinApplier`도 같은 카탈로그 사용) | ✅ 완료 — W6·W7 |
+| U4 | E5 | 입력 단일화: `InputBindingsSO`(키 설정) + `PlayerInput` 정적 파사드. 레거시 `Input` 직접 호출을 이 한 곳으로 모은다(Input System 전환 시 이 파일만 교체) | ✅ 완료 — W10(실제 키 조작은 빌드 확인) |
+| U5 | E7 | 괴물 돌진 수치(20m/0.25s/15s/0.4) → `GameSettingsSO`, `KeepAliveInBackground` 기본값 중복 → `Core/NetworkDefaults` | ✅ 완료 |
+| U6 | E8 | Props 키 수명 선언: `NetKeys.Scopes` 표에 키마다 대상·수명을 선언, 판 초기화 목록은 표에서 자동 생성(빌드에서 리플렉션을 쓰지 않도록 특성 대신 명시적 표로 구현, 누락은 테스트가 검사) | ✅ 완료 — 테스트로 누락 검사 |
+| U7 | E2 | 게임 단계 해석 단일화: `GamePhase` 열거형 + `GamePhaseState`(Props → 현재 단계). 색칠·생존 판정을 각자 해석하던 컴포넌트가 이 한 곳을 쓴다(프로토콜 불변) | ✅ 완료(해석 단일화) — W8 |
+| U8 | §12.4 | 인원 확대 대비 네트워크 부하 설정: 색칠 스탬프 전송 주기·캐릭터 동기화 빈도를 `GameSettingsSO`로, 인원이 기준(4명)을 넘으면 색칠 전송 주기를 자동으로 늘림(4명 이하 현재와 동일) | ✅ 완료 — W9 |
+| U9 | E10 | EditMode 테스트(`Assets/Editor/Tests`): 방장 정책 순수 함수, 괴물 수 계산, 키 수명 분류 누락 검사, 게임 단계 해석, UI 레이아웃 검사 0건 | ✅ 완료 — 11/11 통과 |
+| U10 | E6 | `HideOrSeekPlayer` 축소(입력 파사드 이전 후 재측정) | 🟡 부분 완료 — 421→389줄(캐리 추종·입력 분리) |
+| U11 | — | 컴파일·콘솔·EditMode 테스트·Play Mode 검증, research.md §12 반영 현황 작성 | ✅ 완료 — §32.1, research.md §12.6 |
+
+**이번 범위에서 제외(사유)**
+- E11 지역화: 씬·프리팹 30여 개 문구를 문자열 테이블로 옮기는 콘텐츠 작업이라 기능 수정과 분리해 별도로 진행하는 편이 안전하다.
+- E13 도메인 폴더 재배치: 파일 이동만으로 동작 변화가 없고, 현재 커밋되지 않은 변경(이름 변경 포함)이 많아 이력 추적이 어려워진다 — 커밋 후 별도 진행 권장.
+- Input System 패키지 전환: U4 파사드로 교체 지점을 한 파일로 줄여 두는 데까지만(실제 전환은 키 설정 UI와 함께).
+- ㉘ 2단계(저폴리 충돌 메시): 빌드 체감 결과를 보고 결정(§31.2).
+
+
+### 32.1 검증 결과 (에디터)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| W1 | 컴파일·콘솔 | ✅ `TagOfChaos.Scripts`·`TagOfChaos.Editor`·`TagOfChaos.EditorTests` 컴파일 오류 0, 게임 코드 경고 0(서드파티 NatureStarterKit2 기존 경고만), Play Mode 중 오류·예외 0 |
+| W2 | EditMode 테스트 | ✅ **11/11 통과**(첫 실행에서 테스트 코드 쪽 문제 2건 — PUN 쓰기 스트림 버퍼가 internal로만 설정됨 — 을 테스트 헬퍼로 수정) |
+| W3 | U1 캐릭터 등록·계약 | ✅ 쿠키 스폰 시 `CharacterRegistry` 1개(Cookie, 카메라 높이 1.5·기본 거리), 괴물 스폰 후 2개(Monster, 카메라 높이 3.27·거리 12 — eyeSocket 기준), `FindLocal<HideOrSeekPlayer>()`로 로컬 쿠키 조회 |
+| W4 | U1 캐리 추종 분리 | ✅ 쿠키 A가 B를 잡음 → B `IsCarried`·잠금·키네마틱, A의 CarrySocket과 위치 오차 0.000. 놓기 → 1.20m 앞 바닥(y=0)에 튀지 않고 내려오고 잠금·키네마틱 해제 |
+| W5 | U2 RPC `nameof` | ✅ `RpcRequestGrabKill` 상수로 보낸 RPC가 실행돼 쿠키 파괴·이름표 숨김·관전 진입. 그랩 RPC(`RpcOnGrabbedByOwner`/`RpcOnReleased`)는 W4에서 동작 확인 |
+| W6 | U3 스와치 | ✅ GameScene 스와치 10개의 번호·색이 팔레트와 10/10 일치, 스와치 클릭 → 붓 색 3. 임시 팔레트로 12색 → 12개(Swatch11), 5색 → 5개 생성 확인 |
+| W7 | U3 스킨 | ✅ 대기실 버튼 3개가 목록에서 생성(SkinButton0~2, 글자 A/B/C), C 클릭 → `SkinIndex=2` → 몸통 기본 텍스처 `Cookie_BaseSkin_C_Color`(페인트 합성 머티리얼 유지) |
+| W8 | U7 단계 해석 | ✅ 색칠 페이즈 설정 시 `GamePhaseState.Current = Paint`, 테스트로 5개 단계 해석 고정 |
+| W9 | U8 동기화 빈도 | ✅ `SerializationRate=10`(설정값 = PUN 기본), 색칠 전송 간격 4명 이하 1/15초 불변(테스트) |
+| W10 | 입력 | ✅ 게임 코드의 `Input` 직접 호출 0곳(파사드 제외), 키 기본값은 기존과 동일 — 실제 키 입력 동작은 에디터 포커스 없이 자동 검증할 수 없어 **빌드에서 조작 확인 필요** |
+
+**측정 한계·관찰**: 오프라인은 모든 캐릭터가 내 소유라 "다른 사람 쿠키 관전 순환"은 빌드 멀티에서 확인한다. 검증 중 파괴 상태 `HitCount`를 로컬 플레이어에 넣은 채 쿠키를 추가로 스폰해 두 쿠키가 파괴 상태로 떨어졌는데, 같은 플레이어 소유라 생긴 테스트 조작 탓이다(`FallGuard`가 복귀시킴).
+**테스트 부수 효과**: 없음 — 에셋은 의도한 것만 추가·변경(InputBindings, SkinCatalog, 두 씬, 쿠키 프리팹).
+
+### 32.2 사용자 빌드 확인 필요 항목
+1. **조작 회귀**: 쿠키 이동(WASD)·질주(Shift)·점프(Space)·회피(Ctrl)·잡기(E), 괴물 돌진(Shift), 우클릭 시점 회전, 색칠(좌클릭·휠 크기), 채팅(Enter), 관전 다음 대상(Space)이 예전과 같은지. 입력이 모두 `PlayerInput`/`InputBindings`로 바뀌었다.
+2. **관전**: 다른 쿠키 순환·파괴 시 자동 전환·괴물 관전 설정 시 괴물 시점(카메라 높이·거리).
+3. **스킨·스와치**: 대기실 스킨 A/B/C가 다른 플레이어 화면에도 반영되는지, 색칠 스와치 색이 칠해지는 색과 같은지.
+4. **원격 동기화**: 쿠키·괴물 원격 움직임·애니메이션·들기 자세가 예전과 같은지(직렬화 순서는 테스트로 동일함을 확인).
+
+빌드를 통해 해당건들은 완료가 됨.
+
+새로운 문제 추가 - 4명 정원이 다 차고 난 후 가마솥에 아무나 들어감 -> 갑자기 방장이였던 사람의 게임 시작 버튼이 두 번째 들어온 사람한테 보이기 시작 (예상으로는 방장이 두 번째 들어온 사람한테 바뀜)
+두 번째 사람한테 위임 됐는데, 두 번째 사람이 나감 -> 다시 첫 번째 사람한테 위임 됨 현상을 발견.
+
+
+---
+
+## 33. ㉙ 정원이 찬 뒤 가마솥 진입 시 시작 버튼이 두 번째 입장자에게 넘어감 / 그 사람이 나가면 다시 첫 번째에게 돌아감 — 🟢 A안 구현·에디터 검증 완료(§33.5~§33.6), 빌드 멀티 확인 대기 (2026-09-26)
+
+> 사용자 주석(원문): "빌드를 통해 해당건들은 완료가 됨. 새로운 문제 추가 - 4명 정원이 다 차고 난 후 가마솥에 아무나 들어감 -> 갑자기 방장이였던 사람의 게임 시작 버튼이 두 번째 들어온 사람한테 보이기 시작 (예상으로는 방장이 두 번째 들어온 사람한테 바뀜). 두 번째 사람한테 위임 됐는데, 두 번째 사람이 나감 -> 다시 첫 번째 사람한테 위임 됨 현상을 발견."
+> → §31·§32 빌드 확인 완료로 기록한다. 아래는 새 현상 ㉙의 분석이다. CLAUDE.md 규칙에 따라 **사용자 결정 전에는 구현하지 않는다.**
+
+### 33.1 결론 — 두 현상 모두 "코드 결함"이 아니라 현재 설계의 결과다
+
+**현상 1: 가마솥 진입 → 시작 버튼이 두 번째 입장자에게**
+- 방장 정책(`MasterClientPolicy`, `RoomState.DesiredMasterActor`, §26.8)은 "**괴물이 아닌** 사람 중 가장 먼저 들어온 사람"을 Photon 방장으로 맞춘다.
+- 그래서 **방을 만든 사람(액터 1) 본인이 괴물이 되면** 방장이 두 번째 입장자(액터 2)에게 넘어가고, 시작 버튼도 따라간다(버튼은 방장에게만 보임).
+- 다른 사람(액터 3·4)이 괴물이 되면 원하는 방장이 그대로 액터 1이므로 아무 변화가 없다. 가마솥 신청이 들어오지 않아 30초 타임아웃으로 무작위 선정될 때 액터 1이 뽑혀도 같은 현상이 난다.
+- 확인 요청: "아무나 들어감"에서 들어간 사람이 **방을 만든 사람**이었는지. 다른 사람이 들어갔는데도 버튼이 넘어갔다면 별도 결함이니 알려 주시면 로그(`[MasterClientPolicy] Master 1 -> 2`, `[MonsterAssignment] Monsters confirmed: [..]`)로 바로 확인하겠다.
+
+**현상 2: 두 번째 입장자가 나감 → 다시 첫 번째에게**
+- 두 번째 입장자가 나가면 방이 3/4가 된다. §30 D-1(사용자 결정: 정원 미달이면 괴물 선정 초기화)에 따라 괴물 선정이 지워진다.
+- 액터 1이 더 이상 괴물이 아니므로 방장 정책이 다시 액터 1을 방장으로 맞춘다.
+
+**왜 괴물은 방장이 될 수 없게 했나(§23.3·§26.8)**
+- 판이 시작되면 쿠키들은 GameScene으로 가고, 괴물은 색칠 시간 동안 **대기실에 남아 메시지 처리를 멈춘 채 기다린다**(`MonsterLobbyWaitController`).
+- 그런데 색칠 종료·괴물 합류·강제 도포·승패 판정은 **Photon 방장만 실행하는 코드**다.
+- 괴물이 방장이면 이 코드들이 멈춰 판이 진행되지 않는다. 그래서 "게임 진행 권한(Photon 방장)"을 괴물에게서 빼앗는 것은 필요하다.
+
+**문제의 본질**
+- 사용자에게 "방장"은 **시작 버튼을 가진 사람 = 방을 만든 사람(없으면 다음 입장자)**이다(§26.8 사용자 요구: "시작 버튼이 보이는 사람은 항상 방장").
+- 반면 코드는 "시작 버튼 주인"과 "게임 진행 권한(Photon 방장)"을 **같은 것**으로 묶어 두었다. 그래서 진행 권한을 괴물에게서 옮기는 순간 시작 버튼까지 옮겨 간다.
+
+### 33.2 선택지
+
+| 안 | 내용 | 사용자에게 보이는 동작 | 비용·위험 |
+|---|---|---|---|
+| **A (권장) 방장(호스트)과 진행 권한 분리** | "방장(호스트)" = 방에 있는 사람 중 가장 먼저 들어온 사람(괴물 여부 무관). 시작 버튼·"방장 ○○" 문구는 호스트 기준. Photon 방장(진행 권한)은 지금처럼 괴물이 아닌 사람으로 **보이지 않게** 유지 | 방을 만든 사람이 괴물이 돼도 **시작 버튼은 그 사람에게 그대로**. 누가 나가도 호스트는 "남은 사람 중 가장 먼저 들어온 사람" 규칙으로만 바뀐다(현상 2도 사라짐) | 중간. 호스트가 Photon 방장이 아닐 때 시작 버튼은 "시작 요청" 이벤트를 방장에게 보내고, 방장이 조건을 확인해 시작한다(네트워크 이벤트 1개 추가) |
+| B 현재 설계 유지 | 변경 없음. 대신 상태 문구로 "방장이 괴물이 되어 ○○님이 시작합니다" 안내 | 지금과 같음(버튼이 옮겨 다님) | 작음. 사용자 요구("시작 버튼은 방을 만든 사람")와 계속 어긋남 |
+
+### 33.3 A안 상세 계획(승인 시)
+
+1. **`RoomState.HostActor()` 신설** — 방에 있는 사람 중 최소 ActorNumber(=가장 먼저 들어온 사람, 괴물 여부 무관).
+   - 순수 함수 `HostActor(int[] actors)`와 EditMode 테스트를 추가한다.
+   - 기존 `DesiredMasterActor`(괴물 제외)는 Photon 방장 정책용으로 그대로 둔다. 두 개념의 이름과 주석으로 역할을 구분한다.
+2. **`GameLobbyController`**
+   - 시작 버튼 표시: `IsMasterClient` 대신 `HostActor() == 나`.
+   - 활성 조건: 정원이 찼고 괴물 선정이 끝났을 때.
+   - 상태 문구의 "방장 {1}"도 호스트 기준으로 바꾼다.
+   - 버튼 클릭 시 내가 Photon 방장이면 지금처럼 바로 시작하고, 아니면 `NetEventCodes.StartGameRequest`(신규 4번)를 방장에게 보낸다.
+3. **시작 실행을 한 곳으로** — 지금 `OnStartGameButtonClicked` 안에 있는 시작 절차(PaintPhaseEndTime 기록 → 씬 로드)를 방장 전용 `GameStartAuthority`로 옮긴다.
+   - 방장은 요청을 받으면 **보낸 사람이 호스트인지**, 시작 조건(정원·괴물 선정)을 만족하는지 다시 확인하고 실행한다.
+   - 중복 요청은 이미 시작됐는지(`PaintPhaseEndTime` 존재)로 막는다.
+4. **방장 교체 중 경합** — 요청이 옛 방장에게 도착했는데 그 사람이 이미 방장이 아니면 무시된다. 호스트 화면에는 버튼이 그대로 남아 있으므로 다시 누르면 된다. "시작 요청 중" 표시와 2초 뒤 재활성으로 중복 클릭을 막는다.
+5. **괴물 호스트의 흐름**
+   - 시작 후 괴물 호스트는 지금처럼 대기실에서 기다린다(`MonsterLobbyWaitController`, 변경 없음).
+   - 판이 끝나 돌아오면 괴물 선정이 초기화되지만, 호스트는 원래 괴물 여부와 무관하므로 바뀌지 않는다.
+6. **검증**
+   - EditMode: `HostActor` 테스트.
+   - 오프라인 Play Mode: 정원 1로 설정 → 가마솥 → 괴물이 된 호스트 화면에 시작 버튼 유지 → 클릭 → 시작 절차 실행.
+   - 빌드 멀티(사용자): ① 방 생성자가 괴물이 돼도 버튼 유지 → 눌러서 시작되는지 ② 두 번째 입장자가 나가도 버튼이 방 생성자에게 남는지 ③ 방 생성자가 나가면 두 번째 입장자에게 버튼이 가는지.
+
+### 33.4 사용자 결정 필요 — ✅ A안 채택(2026-09-26)
+1. A안(호스트와 진행 권한 분리, 시작 버튼은 항상 "남아 있는 사람 중 가장 먼저 들어온 사람")으로 진행할지, B안(현행 유지 + 안내 문구)으로 할지.
+2. 현상 1에서 가마솥에 들어간 사람이 방을 만든 사람이었는지(다른 사람이었다면 별도 결함으로 조사).
+
+
+### 33.5 A안 구현 — 진행 현황 (2026-09-26, 사용자 결정: A안)
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| H1 | `RoomState.HostActor()`/`HostActor(int[])`/`IsLocalHost()` — 방에 남은 사람 중 최소 ActorNumber(괴물 여부 무관). 진행 권한용 `DesiredMasterActor`(괴물 제외)와 역할을 주석으로 구분 | ✅ 완료 |
+| H2 | `NetEventCodes.StartGameRequest = 5`(옛 빌드와 혼동하지 않도록 4는 비워 둠) | ✅ 완료 |
+| H3 | 신규 `Lobby/GameStartAuthority` — 시작 절차(PaintPhaseEndTime 기록 → 방 닫기 → 씬 로드)를 한 곳으로 옮김. `RequestStart()`: 내가 진행 권한을 가진 방장이면 바로 실행, 아니면 방장에게 요청 이벤트. `TryStart(요청자)`: 진행 권한·요청자가 호스트인지·이미 시작됐는지(3초 중복 방지 포함)·정원/괴물 조건을 다시 확인 | ✅ 완료 |
+| H4 | `GameLobbyController` — 시작 버튼·"게임을 시작할 수 있습니다"·"방장 ○○ 대기" 문구를 **호스트 기준**으로. 요청 후 2초간 버튼 잠금(방장 교체 순간 요청이 무시되면 다시 누를 수 있음). 방장 쪽 `OnEvent`에서 요청 처리. 안전망 감시 대상을 "방장 여부" → "호스트 번호"로 | ✅ 완료 |
+| H5 | EditMode 테스트 `Host_IsEarliestJoined_EvenIfMonster` 추가 | ✅ 완료 — 전체 **12/12 통과** |
+| H6 | 컴파일·콘솔·Play Mode 검증 | ✅ 완료 — 아래 §33.6 |
+
+### 33.6 검증 결과 (에디터, 오프라인 방 — 참가자 1명의 한계 안에서)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| Y1 | 컴파일·콘솔 | ✅ 오류 0, 게임 코드 경고 0, Play Mode 중 오류·예외 0 |
+| Y2 | 호스트가 괴물이 됨(정원 1/1, 가마솥) | ✅ 괴물 확정 후에도 **시작 버튼이 호스트(액터 1)에게 보이고 활성**, 문구 "술래: #1 — 게임을 시작할 수 있습니다"(예전에는 이 순간 버튼이 다른 사람에게 넘어갔다) |
+| Y3 | 요청 경로 | ✅ 클릭 → `Start requested to master` → 방장 쪽 `Start request from actor 1: NotMaster` — 요청 이벤트(5번)가 방장에게 전달되고 처리기가 조건을 검사함. 이 방은 괴물 혼자라 진행 권한을 가질 사람이 없어 거부되는 것이 정상. 누른 직후 버튼 잠금 확인 |
+| Y4 | 직접 시작 경로 | ✅ 진행 권한을 가진 호스트가 클릭 → `Local start: Started`, PaintPhaseEndTime 기록, 방 닫힘, GameScene으로 전환, `GamePhaseState = Paint` |
+
+**오프라인 한계**: 참가자가 1명뿐이라 "괴물 호스트의 요청을 **다른 사람(진행 권한 방장)**이 받아 시작"하는 경로와 "두 번째 입장자가 나가도 버튼이 방 생성자에게 남음"은 빌드 멀티에서 확인한다(요청 전달·검사·시작 절차 각각은 Y3·Y4에서 확인).
+
+### 33.7 사용자 빌드 확인 필요 항목
+1. 4명이 모인 뒤 **방 생성자가 가마솥에 들어가 괴물이 돼도** 방 생성자 화면에 시작 버튼이 남고, 눌렀을 때 판이 시작되는지(괴물인 방 생성자는 대기실에 남아 기다리고, 쿠키 3명은 GameScene으로 이동).
+2. 다른 사람이 가마솥에 들어갔을 때도 버튼이 방 생성자에게 그대로 있는지.
+3. 두 번째 입장자가 나가도 버튼이 방 생성자에게 남는지(괴물 선정은 정원 미달로 초기화됨 — §30 D-1).
+4. 방 생성자가 나가면 버튼이 두 번째 입장자에게 가는지.
+
+
+---
+
+## 34. ㉚ 괴물 애니메이션 — Idle·Walk가 반복되지 않음 / TentacleDash가 끝까지 재생되지 않음 — 🟢 구현·에디터 검증 완료(§34.7~§34.8), 빌드 확인 대기 (2026-09-26)
+
+> 사용자 관찰: "애니메이션 전환은 잘 되는 것 같다. TentacleDash나 GrabKill은 반복이 안 되는 게 맞고, Idle이나 Walk는 해당 키를 누르고 있는 동안 반복되는 게 맞다고 생각한다."
+> → **의견: 맞다.** 상태가 유지되는 동안 계속 보여야 하는 동작(대기·걷기)은 반복, 한 번 일어나는 행동(돌진·처형)은 한 번 재생 후 다음 상태로 넘어가는 것이 표준이다. 쿠키 애니메이션(PlayerAnimator)도 같은 원칙이다.
+> 소스(`MonsterController.cs`, `MonsterAnimator.controller`)와 클립 임포트 설정(`Animation/Monster/NewAnimation/Monster_Manual_*.fbx.meta`)을 직접 확인하고, 에디터에서 클립 길이를 측정했다. CLAUDE.md 규칙에 따라 **승인 전에는 구현하지 않는다.**
+
+### 34.1 현재 상태(실측)
+
+| 클립 | 길이(24fps) | 반복(loopTime) | 있어야 할 동작 | 판정 |
+|---|---|---|---|---|
+| Idle | 4.00s (1~97프레임) | **꺼짐** | 반복 | ❌ 4초 뒤 마지막 포즈로 멈춤 |
+| Walk | 2.00s (1~49프레임) | **꺼짐** | 반복 | ❌ 2초 뒤 마지막 포즈로 멈춘 채 미끄러지듯 이동 |
+| TentacleDash | 2.04s (1~50프레임) | 꺼짐 | 한 번 | ⚠️ 반복 설정은 맞지만, 돌진이 0.25초라 앞부분 약 12%만 재생되고 끊김(§34.3) |
+| GrabKill | 3.71s (1~90프레임) | 꺼짐 | 한 번 | ✅ 맞음. 코드가 클립 길이만큼 GrabKill을 유지한 뒤 Idle로 전환 |
+
+**애니메이터 구조**: 네 상태 모두 Any State → 트리거(Idle/Walk/TentacleDash/GrabKill) 전환이고, 전환 시간 0·Exit Time 없음·자기 자신으로 재전환 허용이다. 전환 자체에는 문제가 없다(사용자 관찰과 일치).
+
+### 34.2 ㉚-A 원인: Idle·Walk 클립의 반복이 꺼져 있다
+
+- 네 클립 모두 임포트 설정 `loopTime: 0`이다. 반복이 꺼진 클립은 끝까지 재생하면 **마지막 프레임에서 멈춘다**.
+- 코드 `MonsterController.ChangeState()`는 **상태가 바뀔 때만** 트리거를 보낸다(`previousState == newState`면 무시). 이 설계는 맞다 — 매 프레임 트리거를 보내면 같은 상태로 재전환되면서 동작이 계속 처음부터 다시 시작돼 떨린다. 그래서 반복은 코드가 아니라 **클립 설정**이 맡아야 한다.
+- 결과적으로 W를 계속 누르고 있으면 Walk 상태는 유지되지만 2초 뒤 걷기 동작이 멈춘 포즈로 굳고, 가만히 있으면 4초 뒤 대기 동작이 굳는다. 원격 화면에서도 같은 상태 동기화를 쓰므로 똑같이 보인다.
+
+**수정 계획(코드 변경 없음, 에셋 임포트 설정만)**
+1. `Monster_Manual_Idle.fbx`, `Monster_Manual_Walk.fbx`의 클립 설정에서 **Loop Time 켜기**.
+2. 첫 프레임과 마지막 프레임 포즈가 어긋나 반복 순간 튀면 **Loop Pose**(loopBlend)도 켠다. 인스펙터의 루프 일치 표시(초록/빨강)로 판단한다.
+3. TentacleDash·GrabKill은 반복을 **끈 채로 유지**한다.
+4. 에디터 스크립트(`ModelImporter.clipAnimations` 수정 후 재임포트) 또는 인스펙터로 적용하고, `.fbx.meta`의 `loopTime: 1`을 확인한다.
+
+### 34.3 ㉚-B 추가 발견: TentacleDash 애니메이션이 앞부분만 재생되고 끊긴다
+
+- 돌진 이동은 `GameSettings.TentacleDashDuration = 0.25초`다. 그런데 클립은 2.04초다.
+- `MonsterController.Update`는 돌진이 끝나는 즉시(`!tentacleDash.IsDashing`) 상태를 Walk/Idle로 바꾼다. 그래서 돌진 동작의 **처음 0.25초(약 12%)만 보이고** 바로 걷기/대기로 넘어간다.
+- 반복하지 않는 것은 맞지만, 한 번이라도 **끝까지** 보여 주려면 아래 중 하나를 정해야 한다.
+
+| 안 | 내용 | 장단점 |
+|---|---|---|
+| **B-1 (권장) 클립 끝까지 유지** | GrabKill과 같은 방식으로, 돌진 시작 시 클립 길이만큼 TentacleDash 상태를 유지한다(이동은 처음 0.25초, 나머지는 **자리에서 마무리 동작**, 그동안 이동·재돌진 입력 무시). 끝나면 Idle/Walk | 애니메이션이 온전히 보인다. 대신 돌진 후 약 1.8초 경직이 생긴다(15초 쿨다운 스킬로는 자연스러운 편이지만 **게임 밸런스 변화**) |
+| B-2 재생 속도 맞춤 | 애니메이터 TentacleDash 상태 속도를 `클립 길이 / 돌진 시간`(약 8배)으로 올린다 | 경직 없음. 대신 동작이 지나치게 빨라 보일 수 있다 |
+| B-3 클립 구간 자르기 | 임포트 설정에서 실제 "돌진하는" 프레임만 남겨 0.25~0.5초 클립으로 만든다(필요하면 B-2와 같이) | 가장 자연스럽다. 클립에서 어느 구간이 돌진인지 눈으로 확인해야 한다(에셋 작업) |
+| B-4 현행 유지 | 변경 없음 | 돌진 동작이 거의 보이지 않는다 |
+
+- 어느 안이든 수치는 `GameSettingsSO`(예: `tentacleDashRecovery`)로 두어 코드 수정 없이 조정할 수 있게 한다.
+
+### 34.4 그 밖의 확인 사항(결함 아님)
+- **GrabKill**: 반복하지 않음, 클립 길이(3.71초)만큼 유지 후 Idle — 설계대로다. ㉚-A를 고치면 처형 후 Idle이 굳지 않고 계속 움직인다.
+- **걷기 속도와 발 미끄러짐**: 이동 속도 4m/s와 Walk 클립 한 주기(2초)의 보폭이 다르면 발이 미끄러져 보일 수 있다. 반복을 켠 뒤 눈으로 보고, 필요하면 Walk 상태 재생 속도를 조정한다(선택).
+- **원격 화면**: 상태 동기화(`NetworkTransformSync<MonsterMoveState>`)로 같은 트리거를 받으므로 위 수정이 그대로 적용된다.
+
+### 34.5 검증 계획
+1. 에디터: 네 클립의 `isLooping` 값 확인(Idle·Walk = true, TentacleDash·GrabKill = false).
+2. Play Mode(오프라인 PlayerTestScene, `spawnAsMonster`): 괴물 Idle/Walk 상태를 5초 이상 유지하면서 `Animator.GetCurrentAnimatorStateInfo(0).normalizedTime`이 1을 넘어 계속 증가하는지 확인한다(반복 재생 확인). 스크린샷 2장(1초 간격)으로 포즈가 바뀌는지도 본다.
+3. TentacleDash(B안 결정 후): 돌진 후 상태 유지 시간·재생 구간이 설정과 맞는지 확인한다. GrabKill 회귀도 확인한다.
+4. 빌드 멀티(사용자): 원격 화면에서 괴물 걷기·대기가 계속 움직이는지 확인한다.
+
+### 34.6 사용자 결정 필요 — ✅ B-1(끝까지 재생) + 돌진 경로의 쿠키는 GrabKill로 전환(2026-09-26)
+1. ㉚-A(Idle·Walk 반복 켜기)는 결정할 것이 없다 — 승인 시 바로 적용한다.
+2. ㉚-B TentacleDash를 어떻게 보여 줄지: **B-1(권장) 끝까지 유지 + 짧은 경직** / B-2 빠르게 재생 / B-3 클립 자르기 / B-4 현행 유지.
+
+
+### 34.7 구현 — 진행 현황 (2026-09-26, 사용자 결정: B-1 + 돌진 경로의 쿠키는 GrabKill로 전환)
+
+사용자 결정: "돌진 이동은 끝까지 재생을 하되, 돌진했을 때 중간에 쿠키가 있을 경우 GrabKill로 전환되게 해야 한다. 이 부분과 LoopTime 꺼져 있는 것을 수정."
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| K1 | ㉚-A `Monster_Manual_Idle.fbx`·`Monster_Manual_Walk.fbx` 임포트 설정 **Loop Time 켜기**(ModelImporter.clipAnimations → 재임포트, `.meta` 각 1줄 변경). 두 클립의 첫/마지막 프레임을 곡선 590개로 비교한 결과 차이가 0이라 Loop Pose는 켜지 않음(이음새 없음). TentacleDash·GrabKill은 반복 꺼짐 유지 | ✅ 완료 |
+| K2 | ㉚-B `MonsterController`: 돌진 시작 시 클립 길이(2.04초)만큼 TentacleDash 상태 유지(`IsTentacleDashing`). 이동은 처음 0.25초(설정값)만, 나머지는 자리에서 마무리하며 이동·재돌진 입력 무시. 끝나면 Idle/Walk | ✅ 완료 |
+| K3 | 돌진 경로의 쿠키 → GrabKill: 돌진 이동 스텝마다 처형 판정 구(`MonsterGrabKillTrigger`의 SphereCollider, 월드 반경 1.5m)로 이동 경로를 `SphereCastNonAlloc`(Cookie 레이어, 가까운 순)으로 훑고, 살아 있는 쿠키를 만나면 그 자리에 멈추고 처형. 한 스텝에 1m 넘게 움직여 트리거만으로는 쿠키를 건너뛸 수 있기 때문. 파괴된 쿠키는 BrokenCookie 레이어라 자동 제외 | ✅ 완료 |
+| K4 | `MonsterGrabKillTrigger.TryGrabKill(HideOrSeekPlayer)`를 처형 판정의 단일 진입점으로(트리거·돌진 경로 공용), 판정 범위 `ReachCenter`/`ReachRadius`·`IsOnCooldown` 공개. `PlayGrabKill()`은 진행 중인 돌진과 마무리 동작을 끊고 GrabKill을 우선. 리스폰 시에도 돌진 마무리 해제 | ✅ 완료 |
+| K5 | 컴파일·콘솔·EditMode 테스트·Play Mode 검증 | ✅ 완료 — §34.8 |
+
+### 34.8 검증 결과 (에디터, GameScene 오프라인 방)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| Z1 | 컴파일·콘솔·테스트 | ✅ 오류 0, 게임 코드 경고 0, Play Mode 중 오류·예외 0, EditMode **12/12 통과** |
+| Z2 | 클립 설정 | ✅ Idle `isLooping=True`(4.00s), Walk `isLooping=True`(2.00s), TentacleDash `False`(2.04s), GrabKill `False`(3.71s) |
+| Z3 | Idle 반복 | ✅ 네 번째 주기(normalizedTime 4.68→4.77)에서도 뼈 포즈가 계속 바뀜(예전에는 1 이후 마지막 포즈로 정지) |
+| Z4 | Walk 반복 | ✅ 네 번째 주기(4.51→4.69)에서도 포즈가 계속 바뀜 |
+| Z5 | 돌진 끝까지 재생(경로에 쿠키 없음, 시간 배율 0.2로 관찰) | ✅ 20m 이동 후 위치 고정, **1.16초 시점에도 TentacleDash 유지(애니메이션 54%)**, 2.04초 뒤 Idle 복귀 |
+| Z6 | 돌진 경로의 쿠키 → GrabKill | ✅ 10m 앞 쿠키: `Tentacle dash caught cookie (view 1001) after 0.46m`, 괴물은 쿠키 앞(z=-2.26, 쿠키 z=0)에서 정지, 돌진 유지 해제 → GrabKill 상태, 쿠키 파괴(`[CookieLife] -> Broken`). 처형 종료 후 Idle 복귀·처형 쿨다운 해제 |
+| Z7 | 관찰(버그 아님) | 첫 시도에서 돌진 끝 지점(z=15.8)이 바닥(24×24m) 밖이라 떨어졌는데, `FallGuard`가 괴물 스폰 지점으로 복귀시킴(§30 ㉖ 동작 재확인). 테스트 위치를 바닥 안으로 옮겨 재시험 |
+
+**측정 방법 메모**: 에디터가 포커스를 잃어 프레임이 느리게 돌기 때문에, 돌진 중간 상태는 `Time.timeScale = 0.2`로 관찰한 뒤 1로 되돌렸다. Shift 입력 대신 `Update`가 키를 눌렀을 때 하는 동작(TryStartDash → 유지 시간 설정 → 상태 전환)을 그대로 호출했다.
+
+### 34.9 사용자 빌드 확인 필요 항목
+1. 괴물이 가만히 있거나 걸을 때 동작이 멈추지 않고 계속 반복되는지(원격 화면 포함).
+2. Shift 돌진 후 돌진 동작이 끝까지 보이고, 그동안(약 1.8초) 제자리에 머무는지. 경직이 너무 길거나 짧게 느껴지면 알려 주면 설정으로 조정한다.
+3. 돌진 경로에 쿠키가 있으면 그 앞에서 멈추고 바로 처형(GrabKill)으로 넘어가는지, 원격 화면에서도 돌진 → 처형으로 보이는지.

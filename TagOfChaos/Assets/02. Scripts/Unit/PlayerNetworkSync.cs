@@ -1,51 +1,22 @@
 using Photon.Pun;
 using UnityEngine;
 
-public class PlayerNetworkSync
+// 쿠키 동기화 — 공용 NetworkTransformSync에 캐리 여부 한 필드를 덧붙인다(research.md §12 E1).
+public class PlayerNetworkSync : NetworkTransformSync<PlayerMoveState>
 {
-    private bool isFirstUpdate = true;
+    // 드는 쪽의 캐리(상체 Carry 레이어) 여부 — 원격 화면에서도 들고 있는 자세가 보이도록 동기화한다.
+    // (예전 4번째 필드 isJump는 수신만 하고 아무도 쓰지 않던 죽은 값이라 대체했다, research.md §8.21)
+    public bool RemoteIsCarrying { get; private set; }
 
-    public Vector3 RemotePosition { get; private set; } = Vector3.zero;
-    public Quaternion RemoteRotation { get; private set; } = Quaternion.identity;
-    public PlayerMoveState RemoteState { get; private set; } = PlayerMoveState.Idle;
-    public bool RemoteIsJump { get; private set; }
-
-    public void Write(PhotonStream stream, Transform transform, PlayerMoveState state, bool isJump)
+    public void Write(PhotonStream stream, Transform transform, PlayerMoveState state, bool isCarrying)
     {
-        stream.SendNext(transform.position);
-        stream.SendNext(transform.rotation);
-        stream.SendNext((int)state);
-        stream.SendNext(isJump);
+        Write(stream, transform, state);
+        stream.SendNext(isCarrying);
     }
 
-    public void Read(PhotonStream stream, Transform transform)
+    public override void Read(PhotonStream stream, Transform transform)
     {
-        RemotePosition = (Vector3)stream.ReceiveNext();
-        RemoteRotation = (Quaternion)stream.ReceiveNext();
-        RemoteState = (PlayerMoveState)stream.ReceiveNext();
-        RemoteIsJump = (bool)stream.ReceiveNext();
-
-        if (isFirstUpdate)
-        {
-            transform.position = RemotePosition;
-            transform.rotation = RemoteRotation;
-            isFirstUpdate = false;
-        }
-    }
-
-    // 마지막으로 수신한 위치에서 너무 멀리 떨어져 있으면(디싱크) 스냅시키고,
-    // 그렇지 않으면 고정 비율로 부드럽게 보간한다.
-    public void Interpolate(Transform transform, float deltaTime, float lerpRate = 10.0f, float snapDistance = 10.0f)
-    {
-        if (snapDistance < (transform.position - RemotePosition).magnitude)
-        {
-            transform.position = RemotePosition;
-        }
-        else
-        {
-            transform.position = Vector3.Lerp(transform.position, RemotePosition, deltaTime * lerpRate);
-        }
-
-        transform.rotation = Quaternion.Slerp(transform.rotation, RemoteRotation, deltaTime * lerpRate);
+        base.Read(stream, transform);
+        RemoteIsCarrying = (bool)stream.ReceiveNext();
     }
 }

@@ -67,8 +67,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Name
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: a04b00bb5ee22f5468123589eee7aca2, type: 2}
+  m_sharedMaterial: {fileID: -4628378689022734480, guid: a04b00bb5ee22f5468123589eee7aca2, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -203,8 +203,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Status
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: a04b00bb5ee22f5468123589eee7aca2, type: 2}
+  m_sharedMaterial: {fileID: -4628378689022734480, guid: a04b00bb5ee22f5468123589eee7aca2, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -351,3 +351,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   nameText: {fileID: 2649431261515537342}
   statusText: {fileID: 1272343955598876962}
+  monsterLabel: "(\uAD34\uBB3C)"
+  aliveLabel: "O \uC0DD\uC874"
+  brokenLabel: "X \uBD80\uC234\uC9D0"

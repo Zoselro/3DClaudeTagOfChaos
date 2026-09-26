@@ -6,7 +6,6 @@ using UnityEngine;
 
 public class LobbyController : MonoBehaviourPunCallbacks
 {
-    private const int MaxPlayers = 4; // GameScenePlan.md 0.1-5와 동일 (인원수는 게임 룰에 고정)
     private const string GameVersion = "1"; // 빌드가 바뀌면 올려서 이전 버전 클라이언트와 매치메이킹이 섞이지 않게 함
 
     [SerializeField] private TMP_InputField userIdInput;
@@ -14,6 +13,13 @@ public class LobbyController : MonoBehaviourPunCallbacks
     [SerializeField] private TMP_Text feedbackText;
     [SerializeField] private Transform roomListContent;
     [SerializeField] private RoomListItem roomListItemPrefab;
+
+    [Header("Feedback Messages (set in inspector)")] // 코드에 한글을 넣지 않는 프로젝트 규칙 — 표시 문구는 프리팹에서 입력
+    [SerializeField] private string enterRoomNameMessage = "Enter a room name.";
+    [SerializeField] private string enterUserIdMessage = "Enter a user ID.";
+    [SerializeField] private string roomNameExistsMessage = "A room with this name already exists.";
+    [SerializeField] private string noRoomAvailableMessage = "No room is available to join.";
+    [SerializeField] private string cannotJoinRoomMessage = "Cannot join this room.";
 
     private readonly Dictionary<string, RoomInfo> cachedRoomList = new Dictionary<string, RoomInfo>();
     private readonly Dictionary<string, RoomListItem> roomListItems = new Dictionary<string, RoomListItem>();
@@ -26,9 +32,6 @@ public class LobbyController : MonoBehaviourPunCallbacks
     }
 
 
-
-
-
     private void Start()
     {
         userIdInput.text = "Player" + Random.Range(1000, 10000); // 기본값, 직접 수정 가능
@@ -39,6 +42,7 @@ public class LobbyController : MonoBehaviourPunCallbacks
         }
         else
         {
+            PhotonNetwork.SerializationRate = GameSettings.Current.CharacterSyncRate; // 캐릭터 동기화 빈도(research.md §12.4)
             PhotonNetwork.ConnectUsingSettings();
         }
     }
@@ -79,7 +83,7 @@ public class LobbyController : MonoBehaviourPunCallbacks
                 item = Instantiate(roomListItemPrefab, roomListContent);
                 roomListItems.Add(kv.Key, item);
             }
-            item.Refresh(kv.Value, this); // 이름 / "N / 4" / 입장 버튼 interactable 갱신
+            item.Refresh(kv.Value, this); // 이름 / "N / 정원" / 입장 버튼 interactable 갱신
         }
 
         // 목록에서 사라진 방의 UI 항목 정리
@@ -109,15 +113,16 @@ public class LobbyController : MonoBehaviourPunCallbacks
         string roomName = roomNameInput.text.Trim();
         if (string.IsNullOrEmpty(roomName))
         {
-            feedbackText.text = "방 이름을 입력하세요.";
+            feedbackText.text = enterRoomNameMessage;
             return;
         }
 
-        var options = new RoomOptions { MaxPlayers = MaxPlayers };
+        // 정원은 전역 설정(Resources/GameSettings)에서 읽는다 — 인원을 늘릴 때 코드 수정 없이 에셋 값만 바꾼다.
+        var options = new RoomOptions { MaxPlayers = GameSettings.Current.MaxPlayers };
         PhotonNetwork.CreateRoom(roomName, options, TypedLobby.Default);
     }
 
-public void OnRandomJoinButtonClicked()
+    public void OnRandomJoinButtonClicked()
     {
         if (!TryApplyNickname()) return;
         PhotonNetwork.JoinRandomRoom(null, 0, MatchmakingMode.RandomMatching, null, null);
@@ -134,7 +139,7 @@ public void OnRandomJoinButtonClicked()
         string nickname = userIdInput.text.Trim();
         if (string.IsNullOrEmpty(nickname))
         {
-            feedbackText.text = "UserID를 입력하세요.";
+            feedbackText.text = enterUserIdMessage;
             return false;
         }
         PhotonNetwork.NickName = nickname;
@@ -143,20 +148,20 @@ public void OnRandomJoinButtonClicked()
 
     public override void OnCreateRoomFailed(short returnCode, string message)
     {
-        feedbackText.text = "이미 존재하는 방 이름입니다."; // 대부분 이 케이스 (ErrorCode.GameIdAlreadyExists)
+        feedbackText.text = roomNameExistsMessage; // 대부분 이 케이스 (ErrorCode.GameIdAlreadyExists)
     }
 
     public override void OnJoinRandomFailed(short returnCode, string message)
     {
-        feedbackText.text = "참가 가능한 방이 없습니다.";
+        feedbackText.text = noRoomAvailableMessage;
     }
 
     public override void OnJoinRoomFailed(short returnCode, string message)
     {
-        feedbackText.text = "입장할 수 없는 방입니다."; // 방금 꽉 찼거나 방장이 이미 게임을 시작한 경우 등
+        feedbackText.text = cannotJoinRoomMessage; // 방금 꽉 찼거나 방장이 이미 게임을 시작한 경우 등
     }
 
-public override void OnJoinedRoom()
+    public override void OnJoinedRoom()
     {
         if (PhotonNetwork.CurrentRoom.PlayerCount == 1)
             PhotonNetwork.LoadLevel(SceneNames.GameLobby); // 방을 새로 만든 최초 1인만 로드, 나머지는 자동 동기화
