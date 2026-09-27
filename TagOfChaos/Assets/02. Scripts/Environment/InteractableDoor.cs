@@ -100,9 +100,8 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
 
     // ---------------- IInteractable ----------------
 
-    // 방 안에서 메시지 큐가 멈춰 있으면(색칠 시간 동안 대기실에 혼자 남은 괴물) 요청을 보낼 수도, 결과를 받을 수도 없다
-    // — PUN은 큐가 멈추면 송신도 멈춘다. 이때는 안내 문구도 띄우지 않도록 상호작용 대상에서 뺀다.
-    public bool CanInteract(IGameCharacter character) => !RoomState.IsInRoom() || PhotonNetwork.IsMessageQueueRunning;
+    // 문 쪽 조건은 없다. 메시지 큐가 멈춘 동안(색칠 시간에 대기실에 혼자 남은 괴물)도 쓸 수 있다 — RequestState 참고(Bug-fix-plan.md §36).
+    public bool CanInteract(IGameCharacter character) => true;
 
     public void Interact(IGameCharacter character)
     {
@@ -121,8 +120,10 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
 
     private void RequestState(DoorState target)
     {
-        // 방 밖(오프라인 테스트 씬 등)에서는 동기화할 대상이 없으므로 로컬에서만 바꾼다.
-        if (!RoomState.IsInRoom())
+        // 동기화할 상대가 없으면 로컬에서만 바꾼다: 방 밖(오프라인 테스트 씬 등), 또는 메시지 큐가 멈춘 동안 — 색칠 시간에 괴물이
+        // 대기실에 혼자 남아 큐를 멈추면 PUN은 아무것도 보내지 않는다. 그동안 다른 사람은 문이 없는 GameScene에 있고, 판이 끝나면
+        // DoorStates가 초기화돼 모두 Room Prop 기준으로 다시 맞추므로 어긋남이 남지 않는다(Bug-fix-plan.md §36).
+        if (!RoomState.IsInRoom() || !PhotonNetwork.IsMessageQueueRunning)
         {
             ApplyState(target, instant: false);
             return;

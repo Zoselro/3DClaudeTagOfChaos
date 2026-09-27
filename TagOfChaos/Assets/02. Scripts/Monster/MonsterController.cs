@@ -20,6 +20,22 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     [SerializeField] private MonsterGrabKillTrigger grabKillTrigger;
     [SerializeField] private Animator animator;
 
+    [Header("GrabKill Presentation")]
+    [Tooltip("처형당하는 쿠키가 붙어 따라가는 본(Grab_Socket). GrabKill 클립이 이 본을 들어 올렸다 내리찍는다.")]
+    [SerializeField] private Transform grabSocket;
+    // 아래 진행도(0~1)는 원본 블렌더 파일의 분쇄 연출(Cookie_Ref·Crumb 오브젝트)을 GrabKill 클립(1~80프레임, 2.63초)에 맞춘 값이다
+    // — 진행도 = (블렌더 프레임 - 1) / 79 (Bug-fix-plan.md §37).
+    [Tooltip("두 손 사이에서 쿠키가 눌리기 시작하는 진행도(블렌더 47프레임).")]
+    [SerializeField, Range(0f, 1f)] private float grabKillSquashStart = 0.582f;
+    [Tooltip("쿠키가 가장 납작하게 눌린 진행도(블렌더 49프레임).")]
+    [SerializeField, Range(0f, 1f)] private float grabKillSquashEnd = 0.608f;
+    [Tooltip("쿠키가 작아지기 시작하는 진행도(블렌더 50프레임).")]
+    [SerializeField, Range(0f, 1f)] private float grabKillShrinkStart = 0.620f;
+    [Tooltip("쿠키 가루가 터지는 진행도(블렌더 51프레임).")]
+    [SerializeField, Range(0f, 1f)] private float grabKillCrumbTime = 0.633f;
+    [Tooltip("쿠키가 완전히 사라지는 진행도(블렌더 53프레임). 이때 숨기고 잡힌 쿠키는 관전으로 넘어간다.")]
+    [SerializeField, Range(0f, 1f)] private float grabKillCrushNormalizedTime = 0.658f;
+
     private Rigidbody rb;
     private Vector3 moveInput; // Update()에서 입력만 기록, 실제 적용은 FixedUpdate에서
     private readonly MonsterTentacleDash tentacleDash = new MonsterTentacleDash();
@@ -37,6 +53,27 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     private float grabKillRemaining;
 
     public bool IsGrabKilling => grabKillRemaining > 0f;
+
+    // 처형 연출(CookieLifeStatePresenter)이 쓰는 값. 진행도는 이 클라이언트 Animator 기준이라 원격 괴물에서도 그 화면의 손 움직임과 맞는다.
+    private static readonly int GrabKillStateHash = Animator.StringToHash(nameof(MonsterMoveState.GrabKill));
+    public Transform GrabSocket => grabSocket;
+    public float GrabKillSquashStart => grabKillSquashStart;
+    public float GrabKillSquashEnd => grabKillSquashEnd;
+    public float GrabKillShrinkStart => grabKillShrinkStart;
+    public float GrabKillCrumbTime => grabKillCrumbTime;
+    public float GrabKillCrushNormalizedTime => grabKillCrushNormalizedTime;
+    public float GrabKillDuration => grabKillDuration;
+
+    // GrabKill 상태를 재생 중이면 진행도(0~1), 아니면 -1.
+    public float GrabKillProgress
+    {
+        get
+        {
+            if (animator == null) return -1f;
+            AnimatorStateInfo state = animator.GetCurrentAnimatorStateInfo(0);
+            return state.shortNameHash == GrabKillStateHash ? state.normalizedTime : -1f;
+        }
+    }
 
     // 촉수 돌진 애니메이션은 이동(TentacleDashDuration, 0.25초)보다 길다(클립 약 2초). 예전에는 이동이 끝나는 즉시
     // Walk/Idle로 바꿔 동작의 앞부분만 보였다(㉚-B). 이제 GrabKill처럼 클립 길이만큼 TentacleDash 상태를 유지하고

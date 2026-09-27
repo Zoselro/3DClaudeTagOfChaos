@@ -70,8 +70,9 @@ public class MonsterGrabKillTrigger : MonoBehaviour
         onCooldown = true;
         monsterController.PlayGrabKill(); // 상태 동기화로 전원에게 GrabKill 애니메이션 전파(진행 중인 돌진은 여기서 끊긴다)
 
-        // 파괴 확정은 피해자 본인 클라이언트만 하므로(소유권 원칙) 소유자에게만 보낸다.
-        cookiePv.RPC(HideOrSeekPlayer.RpcRequestGrabKill, cookiePv.Owner);
+        // 전원에게 보낸다: 모든 클라이언트가 쿠키를 이 괴물의 Grab_Socket에 붙여 처형 연출을 보여야 하므로 괴물 ViewID를 함께 넘긴다.
+        // 파괴 확정(HitCount)은 여전히 피해자 본인 클라이언트만 한다(소유권 원칙, Bug-fix-plan.md §36).
+        cookiePv.RPC(HideOrSeekPlayer.RpcRequestGrabKill, RpcTarget.All, monsterPv.ViewID);
         return true;
     }
 

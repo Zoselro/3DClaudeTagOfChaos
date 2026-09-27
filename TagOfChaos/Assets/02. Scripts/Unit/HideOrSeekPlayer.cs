@@ -39,6 +39,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     private PlayerNetworkSync networkSync;
     private PlayerGrabController grabController;
     private PlayerCarryFollower carryFollower;
+    private CookieLifeStatePresenter lifePresenter;
 
     // 다른 클래스가 이 캐릭터에 보내는 RPC 이름 — 메서드 이름을 바꾸면 컴파일 단계에서 함께 바뀐다(research.md §12 E3).
     public const string RpcOnGrabbedByOwner = nameof(OnGrabbedByOwner);
@@ -62,7 +63,10 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     // IGameCharacter — 관전·카메라가 캐릭터 종류를 몰라도 되도록 하는 공통 계약(research.md §12 E1).
     public CharacterRole Role => CharacterRole.Cookie;
     public PhotonView View => pv;
-    public bool IsSpectatable => pv != null && pv.Owner != null && !RoomState.IsBroken(pv.Owner);
+    // 괴물에게 붙잡혀 부서지는 중인 쿠키도 부서지는 순간까지 관전 대상으로 남긴다 — 파괴 판정은 잡힌 즉시 기록되지만 관전자도
+    // 잡힌 본인처럼 분쇄 연출을 끝까지 보게 한다(Bug-fix-plan.md §38).
+    public bool IsSpectatable => pv != null && pv.Owner != null
+        && (!RoomState.IsBroken(pv.Owner) || (lifePresenter != null && lifePresenter.IsBeingGrabKilled));
     public bool CanInteract => !IsMovementLocked; // 파괴·들림·채팅 잠금 중에는 상호작용 불가
     public float CameraTargetHeight => Camera_Ctrl.CookieTargetHeight;
     public float CameraDistance => -1f; // Camera_Ctrl 인스펙터 기본 거리
@@ -105,10 +109,25 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         return false;
     }
 
+    // 괴물 소유 클라이언트가 전원에게 보낸다(MonsterGrabKillTrigger). 모든 클라이언트가 쿠키를 그 괴물의 Grab_Socket에 붙여 처형 연출을
+    // 보여 주고(CookieLifeStatePresenter), 파괴 확정은 본인 클라이언트만 한다(Bug-fix-plan.md §36).
     [PunRPC]
-    private void RequestGrabKill()
+    private void RequestGrabKill(int monsterViewId, PhotonMessageInfo info)
     {
-        if (!pv.IsMine || IsBroken) return; // 본인 클라이언트만 자기 상태 확정(소유권 원칙)
+        // 보낸 사람이 그 괴물 캐릭터의 주인인지 확인한다 — 아무 클라이언트나 쿠키를 파괴할 수 없게(research.md R4.10-2).
+        PhotonView monsterView = PhotonView.Find(monsterViewId);
+        MonsterController monster = monsterView != null ? monsterView.GetComponent<MonsterController>() : null;
+        if (monster == null || info.Sender == null || monsterView.Owner != info.Sender)
+        {
+            Debug.LogWarning($"[HideOrSeekPlayer] Ignored GrabKill on view {pv.ViewID}: sender {info.Sender?.ActorNumber} does not own monster view {monsterViewId}.");
+            return;
+        }
+        if (pv.IsMine && IsBroken) return;
+
+        // 붙잡힘 연출을 먼저 시작해야 곧이어 오는 HitCount 변경에 즉시 사라지지 않는다.
+        bool presented = lifePresenter != null && lifePresenter.BeginGrabKill(monster);
+
+        if (!pv.IsMine) return; // 본인 클라이언트만 자기 상태 확정(소유권 원칙)
 
         hitCount = 2;
         PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.HitCount, hitCount } });
@@ -117,14 +136,17 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         if (grabController != null) grabController.Release();
         ReleaseFromCarrierLocally();
 
-        animationDriver.ChangeState(PlayerMoveState.Broken);
+        // 괴물 손에 붙잡혀 들려 가는 동안은 매달려 떠 있는 모션(Held — 쿠키끼리 들 때와 같은 Cookie_Hanging_Idle)을 재생한다.
+        // 상태는 위치 동기화로 원격 화면에도 전달된다. 부서지는 순간 몸이 숨겨지므로 따로 되돌리지 않는다(Bug-fix-plan.md §36).
+        animationDriver.ChangeState(presented ? PlayerMoveState.Held : PlayerMoveState.Broken);
 
         // 파괴된 몸은 CookieLifeStatePresenter가 모든 클라이언트에서 렌더러·콜라이더를 끄고 비충돌 레이어로 옮긴다. 콜라이더가 꺼진 채
         // 중력을 받으면 바닥을 뚫고 떨어지므로 물리도 멈춘다(research.md §8.11).
         rb.linearVelocity = Vector3.zero;
         rb.isKinematic = true;
 
-        GetComponent<SpectatorController>()?.EnterSpectatorMode();
+        // 연출 중이면 부서지는 순간 CookieLifeStatePresenter가 관전으로 넘긴다 — 그때까지 자기 쿠키가 잡혀 가는 모습을 본다.
+        if (!presented) GetComponent<SpectatorController>()?.EnterSpectatorMode();
     }
 
     private void Awake()
@@ -141,6 +163,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         rb = GetComponent<Rigidbody>();
         grabController = GetComponent<PlayerGrabController>();
         carryFollower = new PlayerCarryFollower(gameObject, rb);
+        lifePresenter = GetComponent<CookieLifeStatePresenter>();
 
         if (!pv.IsMine) return;
 

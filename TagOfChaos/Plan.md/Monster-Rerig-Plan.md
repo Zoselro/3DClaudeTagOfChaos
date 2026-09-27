@@ -1,4 +1,239 @@
-# 계획: 몬스터 재리깅 전환 — `Monster_Rigged_kihong` + `NewAnimation` 세트로 `MonsterPlayer` 교체
+# 계획: 몬스터 재리깅 2차 — `NewAnimation/Monster_Rigged` 세트로 `MonsterPlayer` 교체
+
+> 상태: **✅ 구현·에디터 검증 완료, 2026-09-27** — 결정 §5.1, 진행 현황 §7, 검증 결과 §8. 남은 것은 빌드 2개로 원격 확인(V7)뿐.
+>
+> 사용자 요청: 새 괴물 애니메이션으로 교체. 기존 `NewAnimation` 폴더는 `Old2Animation`으로 이름을 바꿨고, 새 파일은 `NewAnimation`에 넣었다.
+> 전달받은 작업 지시:
+> 1. `Monster_Rigged.fbx` — Rig 탭 Generic, "Create From This Model"로 Avatar 생성
+> 2. 애니메이션 4개 — "Copy From Other Avatar"로 1번 Avatar 지정
+> 3. Idle·Walk는 Loop Time 켜기, TentacleDash·GrabKill은 끄기
+> 4. 본 이름이 현재 프리팹 리그(`Hip_L`, `Forearm_Lower_R` 등)와 다르므로 `MonsterPlayer` 프리팹의 모델과 Avatar도 이 파일로 교체
+>
+> 이 문서는 위 4단계에 더해, 에디터(Unity MCP)와 FBX 파일을 직접 실측해 **지시에 없지만 반드시 함께 처리해야 하는 문제**(§1)를 정리했다.
+> 이전 1차 재리깅(2026-09-25, kihong 리그) 기록은 맨 아래 **부록**에 그대로 보존했다.
+
+---
+
+## 0. 현재 상태 (실측)
+
+### 0.1 폴더 이름 변경 결과
+
+| 항목 | 상태 |
+|---|---|
+| `Animation/Monster/Old2Animation/` | 옛 세트 5개(`Monster_Rigged_kihong.fbx` + `Monster_Manual_{Idle,Walk,TentacleDash,GrabKill}.fbx`). **`.meta`가 함께 옮겨져 GUID 유지** — 프리팹·컨트롤러 참조가 끊기지 않았다. 폴더 `.meta`는 13:40에 새로 생성됨 |
+| `Animation/Monster/NewAnimation/` | 새 세트 5개(`Monster_Rigged.fbx`, `Monster_{Idle,Walk,TentacleDash,GrabKill}.fbx`). Unity가 13:40에 **기본 설정으로 자동 임포트**: Generic, Avatar 없음(`NoAvatar`), 애니메이션 가져오기 켬, 클립 설정 없음 |
+| `Animation/Monster/OldAnimation/` | 더 옛 세트 5개. 어디서도 참조하지 않음 |
+| git | 탐색기에서 옮긴 것이라 지금은 "`NewAnimation/*` 삭제 + `Old2Animation/` 신규"로 보인다. 스테이징하면 이름 변경으로 인식된다 |
+
+옛 세트를 참조하는 곳(GUID 검색): `Monster_Rigged_kihong.fbx` ← `04. Prefabs/Resources/MonsterPlayer.prefab`(메시·Avatar·머티리얼),
+`Monster_Manual_*.fbx` 4개 ← `Animation/MonsterAnimator.controller`. **이 두 에셋만 바꾸면 교체가 끝난다.**
+
+### 0.2 현재 `MonsterPlayer.prefab` (MCP 실측)
+
+| 항목 | 값 |
+|---|---|
+| 루트 | 레이어 10(Monster), **스케일 3** |
+| 자식 | `EyeSocket`(로컬 (0, 1.09, 0.03)), `Mesh_0`·`MonsterArmature`(로컬 위치 (0, 0.84, 0), 회전 X 270°, **스케일 100**) |
+| Animator | Avatar `Monster_Rigged_kihongAvatar`, Controller `MonsterAnimator.controller`, Apply Root Motion 끔, Culling AlwaysAnimate |
+| SkinnedMeshRenderer | 본 57개, rootBone `Root`, 머티리얼 `Material_0`(FBX 내장, Standard, `_MainTex`=`Image_0_BaseColor`, `_BumpMap`=`Image_2_Normal`) |
+| CapsuleCollider | r 0.1 / h 0.35 / center (0, 0.18, 0) → 월드 r 0.3, h 1.05 |
+| SphereCollider(트리거, 처형 범위) | r 0.5 / center (0, 0.15, 0.1) → 월드 r 1.5 |
+| MonsterController | cameraTargetHeight 2.2, cameraDistance 12, speed 4, obstructionMask 1(Default), pv·eyeSocket·grabKillTrigger·animator 모두 연결 |
+| 머리 높이 | `Head` 본 월드 y **3.27**, `EyeSocket` 월드 y 3.27 |
+
+### 0.3 현재 `MonsterAnimator.controller`
+
+| 상태 | 모션(현재) | 파라미터(Trigger) |
+|---|---|---|
+| Idle | `Old2Animation/Monster_Manual_Idle.fbx` : `Idle`(4.00초, 반복) | Idle |
+| Walk | `…_Walk.fbx` : `Walk`(2.00초, 반복) | Walk |
+| TentacleDash | `…_TentacleDash.fbx` : `TentacleDash`(2.04초) | TentacleDash |
+| GrabKill | `…_GrabKill.fbx` : `GrabKill`(3.71초) | GrabKill |
+
+AnyState → 각 상태(전환 0초, 자기 자신으로 전환 허용), Write Defaults 켬. `MonsterController.ChangeState`가 `MonsterMoveState` enum 이름을 트리거로 쓴다(`MonsterController.cs:265-273`).
+
+### 0.4 새 세트 (`NewAnimation/`, FBX 파일 직접 파싱 + MCP 실측)
+
+| 항목 | 값 |
+|---|---|
+| 노드 | 5개 파일 모두 **같은 40개**: `MonsterArmature`, `Mesh_0` + 본 38개 |
+| 본 | `Root`, `Hips`, `Spine`, `Chest`, `Neck`, `Head`, `Horn`, `Thigh/Shin/Foot_{L,R}`, `UpperArm/Forearm/Hand_{Top,Low}_{L,R}`, `Tentacle_01~06_{L,R}`, **`Grab_Socket`**(Root 자식, 스케일 1에서 (0, 0.35, 0.75) — 몸 앞쪽) |
+| 옛 리그와 비교 | 본 57개 → 38개. 이름 체계가 다르다(예: `Hip_L`·`Knee_L`·`Ankle_L` → `Thigh_L`·`Shin_L`·`Foot_L`, `Forearm_Lower_R` → `Forearm_Low_R`, 손가락·IK·Pole 본 없음, 촉수 4쌍 → 6쌍). **옛 클립은 새 리그에 쓸 수 없고 새 클립은 옛 리그에 쓸 수 없다** |
+| 코드의 본 이름 의존 | **없음**(`EyeSocket`은 본이 아닌 별도 자식, 처형 범위는 루트의 SphereCollider). 프리팹 안에서만 SkinnedMeshRenderer가 본을 참조 |
+| 단위·축 | FBX 7.4, UnitScaleFactor 100(cm)이지만 임포트 결과 자식 스케일 **1**(옛 kihong은 100). 자식 회전 X 270°로 옛 모델과 같음 |
+| 크기(스케일 1, Idle 첫 프레임 포즈) | 폭 2.06 × **높이 1.78** × 깊이 1.10 m, **발 y = 0.00**(피벗이 바닥), `Head` 본 y 1.04 |
+| 메시 | 정점 7,031 — **옛 kihong 메시와 정점 수·UV가 7,031개 모두 같은 인덱스로 일치**. 같은 메시를 다시 리깅한 것이다 |
+| 머티리얼 | `Material.001`(Standard, **흰색, 텍스처 없음**). FBX는 `Image_0.jpg`, `Image_2.jpg`, `texture_0_metallic.png`, `texture_0_roughness.png`를 가리키지만 프로젝트에 없다 |
+| 애니메이션 | 파일마다 테이크 1개, **클립 이름이 모두 `Scene`**, 커브 390개, **새 모델에서 해석 안 되는 커브 0개** |
+| 클립 길이(30fps) | Idle **3.20초** / Walk **1.60초** / TentacleDash **1.63초** / GrabKill **2.63초** (옛: 4.00 / 2.00 / 2.04 / 3.71) |
+| 애니메이션 파일 부수물 | 애니메이션 4개 파일에도 메시·머티리얼이 들어 있어 각각 임포트된다(쓰이지 않음) |
+
+---
+
+## 1. 지시 외에 함께 처리해야 하는 문제
+
+| # | 심각도 | 문제 | 근거 | 처리 |
+|---|---|---|---|---|
+| P1 | **높음** | **클립 이름이 모두 `Scene`이라 괴물 코드가 클립 길이를 못 찾는다.** `MonsterController.FindClipLength`는 컨트롤러의 클립 중 이름에 `"GrabKill"`·`"TentacleDash"`가 들어간 것을 찾는다(`MonsterController.cs:34, 45, 106-121`). 못 찾으면 대체값을 쓴다: 처형 쿨다운 **2초**(실제 2.63초 — 처형 동작이 끝나기 전에 Idle로 끊기고 다음 처형이 가능해짐), 돌진 유지 **0.25초**(실제 1.63초 — Bug-fix-plan §34에서 고친 "돌진 동작이 끝까지 재생되지 않음"이 **다시 발생**) | 코드 + 클립 이름 실측 | 임포트 설정(Animation 탭)에서 클립 이름을 `Idle`/`Walk`/`TentacleDash`/`GrabKill`로 지정한다. **코드 변경 없음**(옛 세트도 이 방식이었다) |
+| P2 | **높음** | **새 모델이 흰색으로 보인다.** FBX가 가리키는 텍스처 파일이 프로젝트에 없다 | 머티리얼 실측 | UV가 옛 메시와 완전히 같으므로 기존 텍스처(`Monster_Rigged_textures/Image_0_BaseColor.png`, `Image_2_Normal.png`)로 **외부 머티리얼 1개**를 만들고 FBX의 `Material.001`을 그 머티리얼로 리맵한다(지금 괴물과 같은 겉모습) |
+| P3 | 중간 | **루트 스케일을 다시 정해야 한다.** 자식 스케일이 100 → 1로 바뀌고 모델 비율도 다르다 | §0.2, §0.4 | 결정 D1. 머리 높이(3.27 m)를 유지하려면 3.27 ÷ 1.04 ≈ **3.15**(추천). 지금 값 3을 그대로 두면 약 5% 작아진다 |
+| P4 | 중간 | **애니메이션 길이가 짧아져 게임 수치가 바뀐다.** 처형 쿨다운 = GrabKill 클립 길이(3.71 → 2.63초, 처형 간격 1.1초 단축), 돌진 후 경직 = TentacleDash 클립 길이(2.04 → 1.63초) | §0.3, §0.4 | 결정 D3. 그대로 받아들이거나, 옛 길이를 유지하려면 상태 재생 속도를 낮춘다 |
+| P5 | 중간 | `EyeSocket`(카메라 시선 높이)을 새 `Head` 본 위치로 다시 맞춰야 한다 | §0.2 | 1차 때와 같이 `Head` 본 월드 좌표 → 루트 로컬로 변환해 배치 |
+| P6 | 낮음 | 루트 CapsuleCollider가 몸에 비해 매우 작다(월드 반경 0.3 m, 높이 1.05 m, 몸 폭은 약 6 m). **이번 교체로 생긴 문제가 아니라 원래 그렇다** | §0.2 | 결정 D2. 이번에는 로컬 값을 유지(스케일 3 → 3.15로 월드 크기 5% 증가)하는 것을 추천. 키우면 문·통로 통과, 처형 판정이 달라지므로 별도 작업 |
+| P7 | 낮음 | 애니메이션 파일 4개도 메시·머티리얼을 임포트한다 | §0.4 | 4개 파일은 머티리얼 가져오기 끔(`Material Creation Mode: None`) — 흰 머티리얼 4개가 생기지 않게 |
+| P8 | 낮음 | 반복 이음새 확인 필요 | — | Bug-fix-plan §34처럼 Idle·Walk의 첫/마지막 프레임 포즈를 비교해 다르면 Loop Pose를 켤지 판단 |
+| P9 | 참고 | 새 본 `Grab_Socket`(몸 앞)이 생겼다. 지금 코드는 쓰지 않는다 | §0.4 | 이번 범위 밖. 나중에 처형 때 쿠키를 붙잡는 위치 등에 쓸 수 있다 |
+
+---
+
+## 2. 작업 순서
+
+> 모든 작업은 Unity MCP로 수행하고, 단계마다 콘솔 에러·경고를 확인한다.
+
+### K1. 모델 임포트 설정 — `NewAnimation/Monster_Rigged.fbx`
+1. Rig: Animation Type **Generic**, Avatar Definition **Create From This Model**, Root node는 비워 둠(1차와 같음) → Apply.
+2. Animation: **Import Animation 끔**(이 파일에는 테이크가 없다).
+3. 결과 확인: `Monster_RiggedAvatar` 생성, `isValid = true`, `isHuman = false`.
+
+### K2. 애니메이션 임포트 설정 — `NewAnimation/Monster_{Idle,Walk,TentacleDash,GrabKill}.fbx`
+1. Rig: Generic, Avatar Definition **Copy From Other Avatar**, Source = K1의 `Monster_RiggedAvatar`.
+2. Animation: 테이크 `Scene`을 클립 하나로 두고 **이름을 `Idle` / `Walk` / `TentacleDash` / `GrabKill`로 지정**(P1), 범위는 테이크 전체.
+3. Loop Time: Idle·Walk **켬**, TentacleDash·GrabKill **끔**. Loop Pose는 P8 결과에 따라.
+4. Materials: Material Creation Mode **None**(P7).
+5. 결과 확인: 클립 이름·길이(3.20 / 1.60 / 1.63 / 2.63초)·반복 여부, 커브 해석 실패 0개, 클립이 비어 있지 않음.
+
+### K3. 머티리얼 — P2
+1. `Assets/Animation/Monster/Monster_Rigged_textures/M_Monster.mat` 생성(Standard). `_MainTex` = `Image_0_BaseColor.png`, `_BumpMap` = `Image_2_Normal.png`, 나머지 값은 현재 `Material_0`과 같게.
+2. `Monster_Rigged.fbx` Materials 탭에서 `Material.001` → `M_Monster` 리맵(externalObjects) → Apply.
+3. 결과 확인: 모델 프리뷰가 지금 괴물과 같은 색으로 보임(흰색 아님).
+
+### K4. `MonsterAnimator.controller` — 모션만 교체
+- Idle / Walk / TentacleDash / GrabKill 상태의 Motion을 K2 클립으로 바꾼다. 상태·파라미터·전환·Write Defaults는 **그대로**.
+- 결과 확인: 컨트롤러의 `animationClips`에 이름에 `GrabKill`·`TentacleDash`가 들어간 클립이 각각 하나씩 있음(P1이 코드 쪽에서 해결됐는지).
+
+### K5. `MonsterPlayer.prefab` 재구성 (에셋 경로·이름 유지 — 코드의 `"MonsterPlayer"` 그대로)
+`PrefabUtility.LoadPrefabContents`로 씬을 거치지 않고 편집한다.
+1. 옛 `Mesh_0`·`MonsterArmature` 자식 삭제.
+2. `Monster_Rigged.fbx`를 인스턴스화 → **`UnpackPrefabInstance(Completely)`를 먼저**(1차 때 이 단계 없이 부모를 바꾸다 자식이 통째로 사라진 사고가 있었다, 부록 §10.5) → `Mesh_0`·`MonsterArmature`를 루트 직계 자식으로 옮김(로컬 위치 (0, 0, 0), 회전 X 270°, 스케일 1 — 임포트 값 그대로) → 남은 임시 오브젝트 삭제.
+3. 새 자식 전체 레이어 0(루트만 10 유지 — 기존 규칙).
+4. 루트 스케일 = D1 결정값(추천 3.15).
+5. Animator: Avatar = `Monster_RiggedAvatar`, Controller 그대로, Root Motion 끔·Culling AlwaysAnimate 유지.
+6. `EyeSocket`: 새 `Head` 본 월드 좌표를 루트 로컬로 변환해 배치(P5). `EyeSocket`의 로컬 스케일(0.17)은 의미 없는 값이라 1로 정리.
+7. CapsuleCollider·SphereCollider·PhotonView·MonsterController·MonsterGrabKillTrigger·FallGuard: **로컬 값·연결 그대로**(D2가 ①일 때).
+8. 저장 후 누락 스크립트·빈 참조 0개 확인.
+
+### K6. 검증 — §4 표
+
+### K7. 정리 (검증 후, D5)
+- `Old2Animation/`(1차 세트), `OldAnimation/`(0차 세트), `Monster_Rigged_textures/`의 사용하지 않는 사본(`Image_0_BaseColor 1.png`, `Image_2_Normal 1.png`) — 즉시 삭제하지 않고 D5 결정에 따른다.
+
+---
+
+## 3. 코드 변경 범위
+
+**예상 0건.** 트리거 이름(enum)·프리팹 이름·클립 이름 키워드가 모두 유지되기 때문이다.
+단, K2에서 클립 이름을 바꾸지 않으면(P1) `MonsterController`가 대체값으로 동작하므로, K4 확인 항목에서 반드시 잡는다.
+
+---
+
+## 4. 검증 계획
+
+| # | 항목 | 방법 | 통과 기준 |
+|---|---|---|---|
+| V1 | 임포트 | K1~K3 후 콘솔·임포터 값 확인 | 에러·경고 0, Avatar valid, 클립 4개 이름·길이·반복 여부 일치, 해석 실패 커브 0 |
+| V2 | 코드 연동(P1) | Play 중 `MonsterController`가 찾은 길이 확인 | `Animation clip containing … not found` 경고 없음, 처형 쿨다운 2.63초, 돌진 유지 1.63초 |
+| V3 | 스폰 | `PlayerTestScene`에서 `OfflineModeBootstrap` `autoCreateRoom`·`spawnAsMonster`를 **테스트 동안만** 켜고 Play(씬 저장 안 함) | `MonsterPlayer(Clone)` 스폰, 예외 0, 흰색이 아닌 텍스처 |
+| V4 | 애니메이션 | Idle·Walk 네 번째 주기 이후에도 포즈가 계속 바뀌는지(Bug-fix-plan §34 Z3 방식), Shift 돌진 → 1.63초 유지 후 Idle, 처형 → 2.63초 후 Idle | 모두 새 클립으로 재생·전환 |
+| V5 | 크기·카메라 | 쿠키와 나란히 놓고 크기 비교, 3인칭 카메라 시선 높이 | 발이 바닥에 닿음(뜨거나 파묻히지 않음), 카메라가 머리 높이를 따라감 |
+| V6 | 처형·돌진 판정 | 쿠키를 앞에 두고 근접 처형, 돌진 경로 처형(§34 Z6 방식) | 기존과 같이 동작 |
+| V7 | 원격 | (가능하면) 빌드 2개로 원격 괴물 보간·애니메이션 | 원격에서도 새 모델·동작 |
+
+---
+
+## 5. 결정이 필요한 사항
+
+| # | 질문 | 선택지 | 추천 |
+|---|---|---|---|
+| D1 | 루트 스케일 | ① 머리 높이 유지 **≈ 3.15** ② 지금 값 3 유지(약 5% 작아짐) ③ 직접 지정 | ① |
+| D2 | 루트 CapsuleCollider | ① 로컬 값 그대로(월드 크기 거의 같음) ② 몸에 맞게 키우기(별도 작업) | ① |
+| D3 | 짧아진 애니메이션(처형 쿨다운 3.71 → 2.63초, 돌진 경직 2.04 → 1.63초) | ① 새 클립 길이 그대로 ② 옛 길이에 맞게 재생 속도를 낮춤 | ① (애니메이션을 만든 타이밍 그대로) |
+| D4 | 새 머티리얼 위치·이름 | `Animation/Monster/Monster_Rigged_textures/M_Monster.mat` | 이대로 |
+| D5 | 옛 세트 정리 | ① 검증·빌드 확인 후 `Old2Animation`·`OldAnimation` 삭제 ② 당분간 보관 | ② 후 ① |
+
+---
+
+### 5.1 결정 (2026-09-27, 사용자)
+
+| # | 결정 |
+|---|---|
+| D1 | ✅ 머리 높이 유지(≈ 3.15, K5에서 실측값으로 확정) |
+| D2 | ✅ 몸 충돌체 로컬 값 그대로 |
+| D3 | ✅ 새 클립 길이 그대로 |
+| D4 | ✅ `Animation/Monster/Monster_Rigged_textures/M_Monster.mat` |
+| D5 | ✅ 검증이 끝날 때까지 옛 폴더 보관 → 검증 후 삭제 |
+| 이름 | ✅ 새 파일 이름은 지금 그대로(`Monster_Rigged`, `Monster_{Idle,Walk,TentacleDash,GrabKill}`) — 다른 괴물 에셋과 접두어가 같고, 블렌더에서 다시 내보낼 때도 같은 이름이 나오므로. `OldAnimation/Monster_Rigged.fbx`와 겹치는 이름은 D5 정리로 사라진다 |
+
+---
+
+## 6. 되돌리기
+
+프리팹·컨트롤러·`.meta`는 모두 git으로 관리된다. 옛 세트 폴더는 K7에서 삭제했지만 커밋 `0a52d28`에 들어 있다. 되돌리려면 옛 세트(당시 경로 `Assets/Animation/Monster/NewAnimation/Monster_Manual_*`, `Monster_Rigged_kihong.fbx`와 `.meta`)를 git에서 꺼내고, `MonsterPlayer.prefab`·`MonsterAnimator.controller`를 같은 커밋으로 되돌리면 된다(GUID가 `.meta`에 있어 참조가 그대로 이어진다).
+
+---
+
+## 7. 진행 현황
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| K1 | `Monster_Rigged.fbx`: Generic, Create From This Model, Import Animation 끔 → `Monster_RiggedAvatar`(valid, Generic) | ✅ 완료 |
+| K2 | 애니메이션 4개: Copy From Other(`Monster_RiggedAvatar`), 클립 이름 `Idle`/`Walk`/`TentacleDash`/`GrabKill`, Loop Time Idle·Walk 켬, 머티리얼 가져오기 끔 → 길이 3.20/1.60/1.63/2.63초, 커브 390개, 비어 있지 않음 | ✅ 완료 |
+| P8 | 반복 이음새: Idle·Walk 모두 첫 프레임과 마지막 프레임 포즈 오차 0(위치 0, 회전 0°) → **Loop Pose 켜지 않음** | ✅ 완료 |
+| K3 | `M_Monster.mat` 생성(현재 `Material_0` 값 복사: Standard, 흰색, Smoothness 0.5, Metallic 0, `_NORMALMAP`, `_MainTex`=`Image_0_BaseColor.png`, `_BumpMap`=`Image_2_Normal.png`) → `Monster_Rigged.fbx`의 `Material.001` 리맵 → 모델 머티리얼 = `M_Monster` | ✅ 완료 |
+| K4 | `MonsterAnimator.controller` 상태 4개의 모션을 새 클립으로 교체(상태·파라미터·전환 그대로). `animationClips` = GrabKill·Idle·TentacleDash·Walk → 코드의 키워드 검색(`GrabKill`, `TentacleDash`) 모두 일치(P1 해결). 옛 세트 참조 0 | ✅ 완료 |
+| K5 | `MonsterPlayer.prefab`: 옛 `Mesh_0`·`MonsterArmature` 삭제 → 새 모델 인스턴스 **언팩 후** 루트 직계 자식으로(로컬 (0,0,0), X 270°, 스케일 1) → 자식 41개 레이어 0 → **루트 스케일 3.14**(옛 머리 높이 3.266 m ÷ 새 모델 머리 1.040 m, D1) → Avatar `Monster_RiggedAvatar` → `EyeSocket` 로컬 (0, 1.040, 0.000)·스케일 1(월드 y 3.266, 옛과 같음). SkinnedMeshRenderer 본 38개·rootBone `Root`·머티리얼 `M_Monster`. 콜라이더·PhotonView·MonsterController 값·연결 그대로(D2). 빈 참조·누락 스크립트 0, 옛 kihong 참조 0 | ✅ 완료 |
+| K6 | 검증(§8) | ✅ 완료(V7 원격 확인만 빌드 대기) |
+| K7 | 참조 0 재확인 후 `Old2Animation/`(1차 세트), `OldAnimation/`(0차 세트) 삭제(AssetDatabase). 둘 다 git에 커밋돼 있어 복구 가능(`OldAnimation` 10개, 1차 세트는 옛 `NewAnimation` 경로로 10개). 삭제 후 프리팹·컨트롤러 참조 정상 | ✅ 완료 |
+
+
+## 8. 검증 결과 (2026-09-27, 에디터)
+
+`PlayerTestScene`에서 `OfflineModeBootstrap`의 `autoCreateRoom`·`spawnAsMonster`를 **메모리에서만** 켜고 Play(씬 저장 안 함, 테스트 후 디스크 변경 없음 확인).
+
+| # | 항목 | 결과 |
+|---|---|---|
+| V1 | 임포트 | ✅ Avatar valid(Generic), 클립 4개 이름·길이·반복 설정 계획대로, 커브 390개 해석 실패 0. 단계마다 콘솔 에러·경고 0(Unity Animator 창 내부 NRE `UnityEditor.Graphs.Edge.WakeUp` 1건만 반복 — Cauldron.md K10과 같은 무관한 오류) |
+| V2 | 코드 연동(P1) | ✅ `MonsterController`가 찾은 길이: 처형 쿨다운 **2.633초**, 돌진 유지 **1.633초**. "clip not found" 경고 없음 |
+| V3 | 스폰 | ✅ `MonsterPlayer(Clone)` 스폰, IsMine, Avatar valid, 머티리얼 `M_Monster`·텍스처 `Image_0_BaseColor`(흰색 아님), 예외 0 |
+| V4 | 애니메이션 | ✅ Idle 5번째 주기(n=4.46→5.01)에도 촉수·머리 회전이 계속 변함. Walk 6번째 주기(n=6.55)에도 다리 회전이 계속 변함. 돌진: TentacleDash 상태로 들어가 남은 시간이 1.56초부터 줄어들고, 약 20 m 이동 후 Walk/Idle 복귀. 처형: 쿠키가 처형 범위에 들어오자 GrabKill → 쿠키 파괴(`[CookieLife] -> Broken`) → 약 2.6초 뒤 Idle, 쿨다운 해제 |
+| V5 | 크기·카메라 | ✅ 메시 가장 낮은 점 y **0.000**(발이 바닥에 닿음), 머리·`EyeSocket` y **3.27**(옛 괴물과 같음), 카메라 시선 높이 3.27 |
+| V6 | 처형·돌진 판정 | ✅ 근접 처형(위 V4) + 돌진 경로 처형: `Tentacle dash caught cookie (view 1004)` → 쿠키 앞에서 멈추고 GrabKill → Idle |
+| V7 | 원격 | ⏳ 빌드 2개로 확인 필요 |
+| 테스트 | EditMode | 11/12 통과. 실패 1건 `RoundKeys_MatchDeclaredLifetimes`(기대 10, 실제 11)는 **이번 작업과 무관**: 커밋 `0a52d28`에서 `NetKeys.DoorStates`(판 단위 Room 키)가 추가됐는데 테스트는 옛 개수 10을 고정해 두었다(`RuleTests.cs:106`). 괴물 동기화 테스트(`MonsterSync_RoundTripsState`)는 통과 |
+
+**측정 중 관찰(버그 아님)**
+- 첫 Walk 확인 때 Walk가 잠시 뒤 Idle로 돌아갔다. 같은 시간대에 괴물 위치가 스폰 지점에서 크게 옮겨져 있어, 에디터에 WASD 입력이 들어온 것으로 보인다. 다시 시험했을 때는 6주기 동안 Walk가 유지됐다.
+- 두 번째 쿠키가 스폰되자마자 "파괴"로 처리됐다. 오프라인 방에서는 테스트로 만든 쿠키가 모두 같은 플레이어 소유라, 첫 처형으로 기록된 `HitCount=2`를 이어받았기 때문이다(실제 게임에서는 쿠키마다 소유자가 다름). HitCount를 지운 뒤 다시 시험해 통과했다.
+- 돌진·처형 시간은 에디터 프레임이 느려 `Time.timeScale = 0.2`로 관찰한 뒤 1로 되돌렸다. Shift 입력 대신 Update가 키를 눌렀을 때 하는 동작(TryStartDash → 유지 시간 설정 → 상태 전환)을 그대로 호출했다(Bug-fix-plan §34.8과 같은 방법).
+
+### 8.1 변경 파일
+- 수정: `Assets/04. Prefabs/Resources/MonsterPlayer.prefab`, `Assets/Animation/MonsterAnimator.controller`
+- 신규: `Assets/Animation/Monster/Monster_Rigged_textures/M_Monster.mat`, `NewAnimation/*.fbx.meta` 5개(임포트 설정)
+- 삭제: `Assets/Animation/Monster/Old2Animation/`, `Assets/Animation/Monster/OldAnimation/`
+- 코드(`.cs`) 변경 **0건**
+- 이번 작업과 무관하게 작업 트리에 있는 변경: `GameLobbyScene.unity`(13:03 저장, 대기실 UI 스크롤바 값 미세 변화), 저장소 루트 `괴물FBX/`(사용자가 원본 파일 정리)
+
+### 8.2 사용자 확인 필요
+1. 빌드(또는 멀티)에서 괴물의 겉모습·크기, Idle·Walk 반복, 돌진·처형 동작이 새 애니메이션으로 보이는지(원격 화면 포함).
+2. 짧아진 처형 쿨다운(2.63초)과 돌진 경직(1.63초)이 게임 감각상 괜찮은지.
+
+---
+---
+
+# 부록: 1차 재리깅 기록 (2026-09-25, `Monster_Rigged_kihong` 세트) — 원문 보존
+
+> 아래 원문의 `NewAnimation/` 경로는 당시 폴더 이름이다. 해당 파일들은 지금 `Old2Animation/`에 있다.
+
+## 계획: 몬스터 재리깅 전환 — `Monster_Rigged_kihong` + `NewAnimation` 세트로 `MonsterPlayer` 교체
 
 > 상태: **✅ 구현 완료 (2026-09-25, A안)**. Unity MCP(`execute_code`/`manage_editor`/
 > `manage_components`)로 §1(A안)~§7(검증)까지 전부 수행했다. 실제 적용된 수치·결과는 **§10 구현
@@ -14,9 +249,9 @@
 
 ---
 
-## 0. 현재 자산 상태 (직접 확인한 사실)
+### 0. 현재 자산 상태 (직접 확인한 사실)
 
-### 0.1 기존(현역) 구성 — `MonsterPlayer.prefab`
+#### 0.1 기존(현역) 구성 — `MonsterPlayer.prefab`
 
 `Assets/04. Prefabs/Resources/MonsterPlayer.prefab`(코드가 `PhotonNetwork.Instantiate`로 실제
 스폰하는 프리팹, `MonsterJoinController.cs:14`/`MonsterTestSpawner.cs:10`의
@@ -49,7 +284,7 @@
 `MonsterMoveState` enum(`Idle/Walk/TentacleDash/GrabKill`) 값을 그대로 트리거 이름으로 쓴다 —
 **파라미터 이름과 이 enum이 정확히 일치해야 하는 암묵 계약**(`research.md` §2.4와 동일 패턴).
 
-### 0.2 신규 리깅·애니메이션 세트 — `Assets/Animation/Monster/NewAnimation/`
+#### 0.2 신규 리깅·애니메이션 세트 — `Assets/Animation/Monster/NewAnimation/`
 
 커밋 `b134164`가 추가한 5개 `.fbx`:
 
@@ -73,7 +308,7 @@
 Avatar 생성 + 애니메이션 파일들은 그 Avatar를 Copy" 하는 표준 멀티-FBX 파이프라인과 정확히
 일치하는 구조다.
 
-### 0.3 이미 존재하는 미완성 시도 — `PlayerMonster.prefab`
+#### 0.3 이미 존재하는 미완성 시도 — `PlayerMonster.prefab`
 
 `Assets/04. Prefabs/Resources/PlayerMonster.prefab`(`research.md` §3/§6.15에서 이미 지적)이
 `Monster_Rigged_kihong.fbx` 위에 `Animator`/`Rigidbody`/`CapsuleCollider`/`PhotonView`/
@@ -90,7 +325,7 @@ Avatar 생성 + 애니메이션 파일들은 그 Avatar를 Copy" 하는 표준 �
 
 ---
 
-## 1. 결정 필요 사항 — 최종 프리팹을 어느 파일로 할 것인가 — ✅ A안으로 확정(사용자 확인)
+### 1. 결정 필요 사항 — 최종 프리팹을 어느 파일로 할 것인가 — ✅ A안으로 확정(사용자 확인)
 
 **추천안(A)을 기본값으로 제안하되, 실제 착수 전 확인 요청.**
 
@@ -110,7 +345,7 @@ Avatar 생성 + 애니메이션 파일들은 그 Avatar를 Copy" 하는 표준 �
 
 ---
 
-## 2. Unity 임포트 설정 수정 (Rig 탭) — 선행 작업, 반드시 먼저 — ✅ 완료
+### 2. Unity 임포트 설정 수정 (Rig 탭) — 선행 작업, 반드시 먼저 — ✅ 완료
 
 Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므로 가장 먼저 처리한다.
 
@@ -131,7 +366,7 @@ Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므
 
 ---
 
-## 3. 머티리얼 확인 — ✅ 완료(문제 없음 확인)
+### 3. 머티리얼 확인 — ✅ 완료(문제 없음 확인)
 
 `Monster_Rigged_kihong.fbx`의 `materialLocation: 1`(외부/레거시 참조)이 실제로 텍스처가 제대로
 붙은 상태인지 Unity 에디터에서 모델을 직접 눈으로 확인 필요 — 핑크색(머티리얼 누락) 표시가
@@ -140,7 +375,7 @@ Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므
 
 ---
 
-## 4. `MonsterAnimator.controller` 갱신 — ✅ 완료(클립 4개 교체, 오타 정정은 미포함)
+### 4. `MonsterAnimator.controller` 갱신 — ✅ 완료(클립 4개 교체, 오타 정정은 미포함)
 
 `MonsterMoveState` enum(`Idle/Walk/TentacleDash/GrabKill`)과 `MonsterController.ChangeState()`가
 **트리거 파라미터 이름 문자열**로만 연결되므로, 파라미터 이름 자체(`Idle`/`Walk`/`TentacleDash`/
@@ -162,7 +397,7 @@ Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므
 
 ---
 
-## 5. 프리팹 재구성 (§1의 결정에 따라 `MonsterPlayer.prefab` 또는 `PlayerMonster.prefab`) — ✅ 완료
+### 5. 프리팹 재구성 (§1의 결정에 따라 `MonsterPlayer.prefab` 또는 `PlayerMonster.prefab`) — ✅ 완료
 
 `Monster_Rigged_kihong.fbx`를 씬/프리팹에 배치한 뒤, §0.1에 정리한 기존 `MonsterPlayer.prefab`
 구성을 그대로 재현한다:
@@ -196,7 +431,7 @@ Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므
 
 ---
 
-## 6. 코드 변경 범위 — ✅ 확인됨(계획대로 `.cs` 변경 0건)
+### 6. 코드 변경 범위 — ✅ 확인됨(계획대로 `.cs` 변경 0건)
 
 - **(A) 안 선택 시**: `Assets/02. Scripts/Monster/` 어떤 `.cs`도 수정 불필요(프리팹 이름이
   그대로 `"MonsterPlayer"`이므로 `MonsterJoinController.cs:14`/`MonsterTestSpawner.cs:10` 그대로
@@ -207,7 +442,7 @@ Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므
 
 ---
 
-## 7. 검증 계획 — ✅ 완료(결과는 §10)
+### 7. 검증 계획 — ✅ 완료(결과는 §10)
 
 1. `read_console`로 임포트/컴파일 에러 0건 확인(§2, §5 각 단계 직후).
 2. **`PlayerTestScene`을 활용한 단독 검증** — 이미 이 목적을 위한 개발 도구가 갖춰져 있다
@@ -232,7 +467,7 @@ Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므
 
 ---
 
-## 8. 정리 대상 (완료 후)
+### 8. 정리 대상 (완료 후)
 
 - (A) 선택 시: `Assets/04. Prefabs/Resources/PlayerMonster.prefab`(§0.3의 미완성 시도) 삭제.
   → **✅ 완료**(`git rm`으로 `.prefab`/`.meta` 제거, 아직 커밋은 안 함).
@@ -245,7 +480,7 @@ Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므
 
 ---
 
-## 9. 범위 밖 (이번 재리깅 작업과 분리해서 다룰 것)
+### 9. 범위 밖 (이번 재리깅 작업과 분리해서 다룰 것)
 
 - `research.md` §6.1(괴물 1인칭 카메라 미배선) — §7에서 언급했듯 이번 작업의 `EyeSocket`은
   준비하지만, 카메라 스위칭 자체는 별도 작업(포함 여부 재확인 가능).
@@ -258,12 +493,12 @@ Avatar가 없는 한(§0.2) Animator/Controller 작업 자체가 불가능하므
 
 ---
 
-## 10. 구현 완료 보고 (2026-09-25)
+### 10. 구현 완료 보고 (2026-09-25)
 
 Unity MCP `execute_code`로 Unity 6000.0.58f2 에디터(인스턴스 `TagOfChaos@ca592fd6`)에 직접 접속해
 아래를 순서대로 수행했다. 모든 단계 사이사이 `read_console`로 에러/경고 0건을 확인했다.
 
-### 10.1 §2 — Rig 임포트 설정
+#### 10.1 §2 — Rig 임포트 설정
 
 - `Monster_Rigged_kihong.fbx`: `ModelImporter.animationType = Generic`,
   `avatarSetup = CreateFromThisModel` → 재임포트 → **`Monster_Rigged_kihongAvatar` 생성 확인**
@@ -280,12 +515,12 @@ Unity MCP `execute_code`로 Unity 6000.0.58f2 에디터(인스턴스 `TagOfChaos
   `CopyFromOther`이다 — 계획 초안의 "CopyFromOtherAvatar" 표기는 실제 API명과 다름, 실행 시
   발견해 정정.)
 
-### 10.2 §3 — 머티리얼
+#### 10.2 §3 — 머티리얼
 
 `Monster_Rigged_kihong`의 `SkinnedMeshRenderer.sharedMaterial`(`Material_0`, Standard 셰이더)이
 `Image_0_BaseColor` 텍스처를 정상 참조 — 핑크(누락) 아님, 추가 조치 불필요로 확인.
 
-### 10.3 §5 — 프리팹 재구성 실제 값
+#### 10.3 §5 — 프리팹 재구성 실제 값
 
 `Assets/04. Prefabs/Resources/MonsterPlayer.prefab`을 `PrefabUtility.LoadPrefabContents`로 직접
 편집(씬을 거치지 않는 헤드리스 방식):
@@ -319,7 +554,7 @@ Unity MCP `execute_code`로 Unity 6000.0.58f2 에디터(인스턴스 `TagOfChaos
    0.6→0.542, 높이 2.1→1.897), §9에서 범위 밖으로 명시한 `obstructionMask`(여전히 Nothing)도
    이번 작업에서 건드리지 않았다.
 
-### 10.4 §7 — 검증 결과 (`PlayerTestScene`, Play Mode)
+#### 10.4 §7 — 검증 결과 (`PlayerTestScene`, Play Mode)
 
 `OfflineModeBootstrap.autoCreateRoom`/`spawnAsMonster`를 테스트 동안만 `true`로 설정(검증 후
 `false`로 원복, 씬 파일은 저장하지 않아 디스크상 변경 없음) → Play 진입:
@@ -337,7 +572,7 @@ Unity MCP `execute_code`로 Unity 6000.0.58f2 에디터(인스턴스 `TagOfChaos
 - `Rigidbody`(useGravity, non-kinematic), `SkinnedMeshRenderer`(bounds 정상) 모두 예상대로 동작.
 - 테스트 종료 후 Play Mode 정지, `OfflineModeBootstrap` 플래그 원복.
 
-### 10.5 계획에 없었던 실행 중 발견 사항
+#### 10.5 계획에 없었던 실행 중 발견 사항
 
 - **`PrefabUtility.InstantiatePrefab`으로 모델(.fbx) 애셋을 인스턴스화하면 "모델 프리팹 인스턴스"로
   취급되어, 언팩(`UnpackPrefabInstance`) 없이는 그 자식(`Mesh_0`/`MonsterArmature`)을 다른
@@ -353,7 +588,7 @@ Unity MCP `execute_code`로 Unity 6000.0.58f2 에디터(인스턴스 `TagOfChaos
   `git diff`상 실제 내용 차이는 없었다(개행 방식 등 무해한 차이로 추정, 이번 작업이 만든 실질적
   변경 아님).
 
-### 10.6 최종 변경 파일 목록 (`git status`)
+#### 10.6 최종 변경 파일 목록 (`git status`)
 
 - `Assets/04. Prefabs/Resources/MonsterPlayer.prefab` — 수정(신규 리그로 내부 재구성).
 - `Assets/04. Prefabs/Resources/PlayerMonster.prefab`(+`.meta`) — 삭제(§8, `git rm`).
@@ -362,7 +597,7 @@ Unity MCP `execute_code`로 Unity 6000.0.58f2 에디터(인스턴스 `TagOfChaos
 - `Assets/Animation/MonsterAnimator.controller` — 수정(4개 상태 모션 교체).
 - `Assets/02. Scripts/**/*.cs` — **변경 없음**(계획대로 0건).
 
-### 10.7 남은 후속 항목 (이번 범위 밖, `research.md`에 이미 기록됨)
+#### 10.7 남은 후속 항목 (이번 범위 밖, `research.md`에 이미 기록됨)
 
 - §6.1 괴물 1인칭 카메라 미배선, §6.2 `Cursor.lockState`, §6.4 `obstructionMask`, §6.5 재게임
   프로퍼티 정리, §6.13 `GrapKill` 오타 — 전부 이번 재리깅과 무관하게 그대로 남아 있음.

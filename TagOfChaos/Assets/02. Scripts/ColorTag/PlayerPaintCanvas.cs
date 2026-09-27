@@ -31,6 +31,11 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     // GameSettingsSO.PaintStrokeSendIntervalFor가 정한다(research.md §12.4 — 4명 이하 1/15초).
     [SerializeField] private int maxStampsPerEvent = 64;
 
+    // 몸 표면에서 고른 샘플 UV(삼각형 면적에 비례해 에디터에서 미리 뽑아 저장). 몸 메시(정점 16.7만 개)는 실행 중 읽을 수 없게
+    // 임포트돼 있어 미리 계산해 둔다. 처형 때 가루 색을 "칠한 색 + 스킨 색" 비율대로 섞는 데 쓴다(Bug-fix-plan.md §37).
+    [SerializeField] private Vector2[] surfaceSampleUVs = new Vector2[0];
+    private const int ColorSampleResolution = 64;
+
     // 붓 레이캐스트 최대 거리. 씬 전체가 아니라 paintableCollider 하나만 검사하므로(아래 Update 참고)
     // 무한대 대신 카메라-캐릭터 거리보다 넉넉한 유한값을 쓴다.
     public const float MaxPaintRayDistance = 100f;
@@ -341,6 +346,65 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
         RenderTexture.active = PaintCanvas;
         GL.Clear(true, true, Color.clear);
         RenderTexture.active = prev;
+    }
+
+    // 지금 보이는 몸 표면의 색을 샘플 UV 위치마다 돌려준다(칠해진 곳은 칠한 색, 아닌 곳은 스킨 색). 캔버스와 스킨 텍스처를 작게 줄여
+    // GPU에서 비동기로 읽으므로 게임이 멈추지 않는다. 색칠 스탬프는 모든 클라이언트가 다시 그리므로 원격 쿠키에서도 같은 색이 나온다.
+    // 읽을 수 없으면(샘플 UV 없음, 미지원, 실패) null을 넘긴다. 콜백은 몇 프레임 뒤에 온다.
+    public void SampleSurfaceColors(System.Action<Color[]> onDone)
+    {
+        if (onDone == null) return;
+        Texture baseTexture = paintedSkinInstance != null ? paintedSkinInstance.mainTexture
+            : bodyRenderer != null && bodyRenderer.sharedMaterial != null ? bodyRenderer.sharedMaterial.mainTexture : null;
+        if (surfaceSampleUVs == null || surfaceSampleUVs.Length == 0 || PaintCanvas == null || baseTexture == null
+            || !SystemInfo.supportsAsyncGPUReadback)
+        {
+            onDone(null);
+            return;
+        }
+
+        var paintSmall = RenderTexture.GetTemporary(ColorSampleResolution, ColorSampleResolution, 0, RenderTextureFormat.ARGB32);
+        var baseSmall = RenderTexture.GetTemporary(ColorSampleResolution, ColorSampleResolution, 0, RenderTextureFormat.ARGB32);
+        Graphics.Blit(PaintCanvas, paintSmall);
+        Graphics.Blit(baseTexture, baseSmall);
+
+        Color32[] paintPixels = null, basePixels = null;
+        bool failed = false;
+        int pending = 2;
+        void Complete()
+        {
+            if (--pending > 0) return;
+            onDone(failed ? null : ComposeSurfaceColors(paintPixels, basePixels));
+        }
+
+        UnityEngine.Rendering.AsyncGPUReadback.Request(paintSmall, 0, request =>
+        {
+            if (request.hasError) failed = true; else paintPixels = request.GetData<Color32>().ToArray();
+            RenderTexture.ReleaseTemporary(paintSmall);
+            Complete();
+        });
+        UnityEngine.Rendering.AsyncGPUReadback.Request(baseSmall, 0, request =>
+        {
+            if (request.hasError) failed = true; else basePixels = request.GetData<Color32>().ToArray();
+            RenderTexture.ReleaseTemporary(baseSmall);
+            Complete();
+        });
+    }
+
+    private Color[] ComposeSurfaceColors(Color32[] paintPixels, Color32[] basePixels)
+    {
+        var colors = new Color[surfaceSampleUVs.Length];
+        for (int i = 0; i < colors.Length; i++)
+        {
+            Vector2 uv = surfaceSampleUVs[i];
+            int x = Mathf.Clamp((int)((uv.x - Mathf.Floor(uv.x)) * ColorSampleResolution), 0, ColorSampleResolution - 1);
+            int y = Mathf.Clamp((int)((uv.y - Mathf.Floor(uv.y)) * ColorSampleResolution), 0, ColorSampleResolution - 1);
+            int index = y * ColorSampleResolution + x;
+            Color32 paint = paintPixels[index];
+            Color32 skin = basePixels[index];
+            colors[i] = paint.a >= 128 ? new Color32(paint.r, paint.g, paint.b, 255) : new Color32(skin.r, skin.g, skin.b, 255);
+        }
+        return colors;
     }
 
     private static bool IsPaintPhaseActive() => GamePhaseState.IsPaintActive;

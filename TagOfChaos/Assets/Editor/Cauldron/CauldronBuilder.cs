@@ -89,6 +89,11 @@ public static class CauldronBuilder
         }
 
         AssetDatabase.SaveAssets();
+
+        // 재빌드하면 컨트롤러를 지웠다 다시 만든다. 저장된 프리팹 내용이 이전과 같으면 메모리의 프리팹이 다시 읽히지 않아
+        // 지워진 옛 컨트롤러 객체를 가리킨 채(null) 남는다 — 씬 인스턴스·Verify가 컨트롤러 없는 Animator를 보게 된다
+        // (디스크의 참조는 정상, Bug-fix-plan.md §35.8). 프리팹을 강제로 다시 임포트해 새 컨트롤러에 연결한다.
+        AssetDatabase.ImportAsset(PrefabPath, ImportAssetOptions.ForceUpdate);
         Verify();
     }
 
@@ -261,8 +266,9 @@ public static class CauldronBuilder
 
     // ---------------- controller ----------------
 
-    // Base: 반복(Idle). Splash(덮어쓰기, 가중치 1): 평소 빈 상태 → Splash 트리거로 풍덩 1회 → 빈 상태.
-    // 빈 상태는 모션이 없고 Write Defaults를 끄므로 Base 값을 그대로 둔다.
+    // Base: 반복(Idle). Splash(덮어쓰기): 평소 빈 상태 → Splash 트리거로 풍덩 1회 → 빈 상태.
+    // Splash 레이어의 기본 가중치는 0이고 CauldronSplash가 풍덩 동안만 1로 올린다. 가중치 1인 채로 빈 상태(모션 없음,
+    // Write Defaults 끔)에 돌아오면 레이어가 마지막 값을 붙잡고 Base의 Idle을 덮어써 연출이 멈췄다(Bug-fix-plan.md §35).
     private static AnimatorController WriteController(AnimationClip idle, AnimationClip splash)
     {
         if (AssetDatabase.LoadAssetAtPath<AnimatorController>(ControllerPath) != null) AssetDatabase.DeleteAsset(ControllerPath);
@@ -275,16 +281,16 @@ public static class CauldronBuilder
         idleState.writeDefaultValues = false;
         baseMachine.defaultState = idleState;
 
-        controller.AddLayer("Splash");
+        controller.AddLayer(CauldronSplash.SplashLayerName);
         AnimatorControllerLayer[] layers = controller.layers;
-        layers[1].defaultWeight = 1f;
+        layers[1].defaultWeight = 0f;
         layers[1].blendingMode = AnimatorLayerBlendingMode.Override;
         controller.layers = layers;
 
         AnimatorStateMachine splashMachine = controller.layers[1].stateMachine;
         AnimatorState empty = splashMachine.AddState("Empty");
         empty.writeDefaultValues = false;
-        AnimatorState splashState = splashMachine.AddState("Splash");
+        AnimatorState splashState = splashMachine.AddState(CauldronSplash.SplashStateName);
         splashState.motion = splash;
         splashState.writeDefaultValues = false;
         splashMachine.defaultState = empty;
@@ -468,11 +474,16 @@ public static class CauldronBuilder
             var controller = animator.runtimeAnimatorController as AnimatorController;
             bool hasTrigger = false;
             if (controller != null) foreach (var p in controller.parameters) if (p.name == CauldronSplash.SplashTriggerParameter && p.type == AnimatorControllerParameterType.Trigger) hasTrigger = true;
-            bool layerOk = controller != null && controller.layers.Length == 2 && controller.layers[1].defaultWeight > 0.99f;
+            bool layerOk = controller != null && controller.layers.Length == 2 && controller.layers[1].name == CauldronSplash.SplashLayerName
+                           && controller.layers[1].defaultWeight < 0.01f;
             bool light = model.Find(FireLightName) != null && model.Find(FireLightName).GetComponent<Light>() != null;
             bool partsOk = walls == WallSegments + 1 && triggers == 1 && convex == 1 && linked && hasTrigger && layerOk && light;
             Debug.Log($"{LogTag} VERIFY boxColliders={walls} triggers={triggers} convexMesh={convex} splashLinked={linked} splashParam={hasTrigger} layers={(controller != null ? controller.layers.Length : 0)} fireLight={light} {(partsOk ? "OK" : "FAIL")}");
             if (!partsOk) errors++;
+
+            // 6) 레이어 상호작용: 풍덩이 끝난 뒤에도 Base의 Idle이 화면에 계속 반영되는지(Bug-fix-plan.md §35).
+            //    클립을 하나씩 샘플링하는 3)·4)로는 잡히지 않으므로 Animator를 실제로 진행시킨다. 가중치 전환은 CauldronSplash와 같은 규칙.
+            if (!VerifySplashLayerReleasesIdle(animator, model)) errors++;
         }
         finally
         {
@@ -481,6 +492,41 @@ public static class CauldronBuilder
 
         if (errors == 0) Debug.Log($"{LogTag} VERIFY ALL OK");
         else Debug.LogError($"{LogTag} VERIFY {errors} problem(s) found");
+    }
+
+    private static bool VerifySplashLayerReleasesIdle(Animator animator, Transform model)
+    {
+        const float step = 0.1f;
+        Transform flame = model.Find("Fire_Flame_01");
+        int layer = animator.GetLayerIndex(CauldronSplash.SplashLayerName);
+        int splashState = Animator.StringToHash(CauldronSplash.SplashStateName);
+        if (flame == null || layer < 0) { Debug.LogError($"{LogTag} VERIFY splash layer/flame missing"); return false; }
+
+        animator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+        animator.Rebind();
+        for (int i = 0; i < 6; i++) animator.Update(step);
+
+        animator.SetLayerWeight(layer, 1f);
+        animator.SetTrigger(CauldronSplash.SplashTriggerParameter);
+        bool started = false, released = false;
+        for (int i = 0; i < Mathf.CeilToInt((SplashLength + 0.5f) / step); i++)
+        {
+            animator.Update(step);
+            bool inSplash = animator.IsInTransition(layer) || animator.GetCurrentAnimatorStateInfo(layer).shortNameHash == splashState;
+            if (inSplash) started = true;
+            else if (started && !released) { animator.SetLayerWeight(layer, 0f); released = true; }
+        }
+
+        float min = float.MaxValue, max = float.MinValue;
+        for (int i = 0; i < 8; i++)
+        {
+            animator.Update(step);
+            min = Mathf.Min(min, flame.localScale.y);
+            max = Mathf.Max(max, flame.localScale.y);
+        }
+        bool ok = started && released && max - min > 0.1f;
+        Debug.Log($"{LogTag} VERIFY splashLayer started={started} released={released} idleAfterSplash flameRange={max - min:F2} {(ok ? "OK" : "FAIL")}");
+        return ok;
     }
 
     // ---------------- helpers ----------------

@@ -43,11 +43,39 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         ShowResult((GameResult)result);
     }
 
+    // 마지막 쿠키가 잡히면 파괴 판정(HitCount)이 처형 즉시 기록돼 승패가 바로 난다. 괴물이 쿠키를 들어 올려 부수는 연출이
+    // 끝난 뒤에 결과를 보여 준다(Bug-fix-plan.md §36 D2). 연출이 멈춰도 결과가 막히지 않도록 최대 대기 시간을 둔다.
+    private const float MaxGrabKillWait = 5f;
+
     private void ShowResult(GameResult result)
     {
         if (isShown) return; // 결과 행/코루틴이 중복 생성되지 않도록 한 번만 표시
         isShown = true;
 
+        if (result == GameResult.MonsterWins) StartCoroutine(ShowAfterGrabKills(result));
+        else Present(result);
+    }
+
+    private IEnumerator ShowAfterGrabKills(GameResult result)
+    {
+        float giveUpAt = Time.time + MaxGrabKillWait;
+        while (IsAnyCookieBeingGrabKilled() && Time.time < giveUpAt) yield return null;
+        Present(result);
+    }
+
+    private static bool IsAnyCookieBeingGrabKilled()
+    {
+        foreach (IGameCharacter character in CharacterRegistry.All)
+        {
+            if (character.Role != CharacterRole.Cookie || !CharacterRegistry.IsAlive(character)) continue;
+            var presenter = character.gameObject.GetComponent<CookieLifeStatePresenter>();
+            if (presenter != null && presenter.IsBeingGrabKilled) return true;
+        }
+        return false;
+    }
+
+    private void Present(GameResult result)
+    {
         CanvasGroupVisibility.Set(rootGroup, true);
         if (monsterWinBanner != null) monsterWinBanner.SetActive(result == GameResult.MonsterWins);
         if (cookieWinBanner != null) cookieWinBanner.SetActive(result == GameResult.CookiesWin);

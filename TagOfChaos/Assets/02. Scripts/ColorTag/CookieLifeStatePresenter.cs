@@ -13,14 +13,27 @@ using UnityEngine;
 // 파괴 시에는 콜라이더를 끄는 것에 더해 몸 전체를 어떤 레이어와도 충돌하지 않는 BrokenCookie 레이어로 옮긴다.
 // 표시물도 몸통 하나가 아니라 캐릭터의 모든 렌더러(이름표 TextMeshPro 포함)를 숨긴다 — 예전에는 몸통만 꺼서
 // 파괴된 쿠키의 이름표가 공중에 남았다(Bug-fix-plan.md §30.3). 새 표시물을 붙여도 코드 수정 없이 함께 숨겨진다.
+//
+// 괴물에게 처형당할 때는 곧바로 사라지지 않고 "붙잡힘" 단계를 거친다(Bug-fix-plan.md §36): 충돌만 즉시 끄고, 쿠키를 그 괴물의
+// Grab_Socket에 붙여 따라가게 하다가, 이 클라이언트의 괴물 애니메이션이 부서지는 순간(두 손이 맞붙는 진행도)에 이르면 숨긴다.
+// 각 클라이언트가 자기 화면의 괴물 애니메이션을 기준으로 하므로 원격 화면에서도 괴물 손과 맞는다. 파괴 판정(HitCount)은 처형
+// 즉시 기록되지만, 붙잡힘 동안에는 숨기기를 미룬다.
 public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
 {
     private const float ReconcileInterval = 0.5f; // 쿠키 수만큼 정수 비교 한 번 — 인원이 늘어도 비용이 작다
+    private const float GrabKillTimeoutMargin = 1f; // 괴물 애니메이션이 끝까지 오지 않을 때(상태 누락 등) 클립 길이에 더해 기다리는 시간
 
     [SerializeField] private PhotonView pv;
     [SerializeField] private Renderer[] keepVisibleWhenBroken = new Renderer[0]; // 파괴 후에도 보여야 하는 표시물(기본 없음)
-    [SerializeField] private GameObject breakVfxPrefab; // 로컬 Instantiate
+    [Tooltip("처형으로 부서질 때 터지는 가루(ParticleSystem, 방출은 코드가 칠한 색을 붙여 Emit). 전원 로컬 재생.")]
+    [SerializeField] private GameObject breakVfxPrefab;
+    [SerializeField, Min(1)] private int crumbCount = 12;
+    [SerializeField] private Color fallbackCrumbColor = new Color(0.55f, 0.30f, 0.12f); // 색을 읽지 못했을 때(원본 CookieCrumb 재질 색)
     [SerializeField] private string brokenLayerName = "BrokenCookie"; // ProjectSettings 충돌 매트릭스에서 모든 레이어와 충돌 해제된 레이어
+
+    // 원본 분쇄 연출의 눌림 비율(블렌더 Cookie_Ref: 세로 0.0045 → 0.0022, 가로 0.0045 → 0.0054).
+    private const float SquashHeightScale = 0.5f;
+    private const float SquashWidthScale = 1.2f;
 
     private enum LifeState { Unknown, Alive, Broken }
 
@@ -33,13 +46,134 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
     private readonly List<(GameObject go, int layer)> savedLayers = new List<(GameObject, int)>();
     private readonly List<(Renderer renderer, bool enabled)> savedRenderers = new List<(Renderer, bool)>();
 
+    private bool collisionDisabled;
+    private bool visualsHidden;
+
+    // 붙잡힘 단계
+    private MonsterController grabbingMonster;
+    private bool grabKillEnteredAnimation; // 이 클라이언트의 괴물 Animator가 GrabKill에 한 번이라도 들어갔는지(원격은 상태 동기화가 조금 늦다)
+    private float grabKillDeadline;
+    private float bodyCenterHeight = 1f; // 루트 캡슐 중심 높이 — 이 점을 소켓에 맞춘다
+    private Vector3 originalScale = Vector3.one;
+    private Color[] crumbColors;          // 몸 표면 색(칠한 색 + 스킨 색), 비동기로 채워진다
+    private bool crumbsSpawned;
+
     public bool IsBroken => appliedState == LifeState.Broken;
+    public bool IsBeingGrabKilled { get; private set; }
 
     private void Awake()
     {
         brokenLayer = LayerMask.NameToLayer(brokenLayerName);
         if (brokenLayer < 0)
             Debug.LogWarning($"[CookieLife] Layer '{brokenLayerName}' not found. Broken cookies will only disable colliders.");
+
+        var capsule = GetComponent<CapsuleCollider>();
+        if (capsule != null) bodyCenterHeight = capsule.center.y * transform.lossyScale.y;
+        originalScale = transform.localScale;
+    }
+
+    // 처형이 시작될 때 모든 클라이언트에서 HideOrSeekPlayer.RequestGrabKill이 호출한다. 연출을 시작했으면 true.
+    // 이미 파괴돼 보이는 쿠키(늦게 도착한 RPC 등)는 그대로 둔다.
+    public bool BeginGrabKill(MonsterController monster)
+    {
+        if (IsBeingGrabKilled || visualsHidden || monster == null || monster.GrabSocket == null) return false;
+
+        grabbingMonster = monster;
+        grabKillEnteredAnimation = false;
+        grabKillDeadline = Time.time + monster.GrabKillDuration + GrabKillTimeoutMargin;
+        crumbColors = null;
+        crumbsSpawned = false;
+        IsBeingGrabKilled = true;
+        DisableCollision(); // 괴물 몸·다른 쿠키와 부딪히지 않도록 즉시
+
+        // 가루 색은 지금 몸에 보이는 색(칠한 색 + 스킨 색)으로 — 분쇄(약 1.6초 뒤) 전에 비동기로 읽어 둔다.
+        var paintCanvas = GetComponent<PlayerPaintCanvas>();
+        if (paintCanvas != null) paintCanvas.SampleSurfaceColors(colors => crumbColors = colors);
+
+        FollowGrabSocket(Vector3.one);
+        Debug.Log($"[CookieLife] view={pv.ViewID} grabbed by monster view={monster.View.ViewID}");
+        return true;
+    }
+
+    // Animator가 이번 프레임의 본을 움직인 뒤에 소켓을 따라간다. 원본 분쇄 연출 순서: 눌림 → (가루 터짐) → 작아지며 사라짐.
+    private void LateUpdate()
+    {
+        if (!IsBeingGrabKilled) return;
+
+        if (grabbingMonster == null) // 괴물이 방을 나가 사라짐
+        {
+            FinishGrabKill("monster gone");
+            return;
+        }
+
+        MonsterController monster = grabbingMonster;
+        float progress = monster.GrabKillProgress;
+        if (progress >= 0f) grabKillEnteredAnimation = true;
+
+        if (progress >= monster.GrabKillCrushNormalizedTime) { FinishGrabKill("crush"); return; }
+        if (grabKillEnteredAnimation && progress < 0f) { FinishGrabKill("animation ended"); return; }
+        if (Time.time >= grabKillDeadline) { FinishGrabKill("timeout"); return; }
+
+        if (!crumbsSpawned && progress >= monster.GrabKillCrumbTime) SpawnCrumbs();
+        FollowGrabSocket(CrushScale(monster, progress));
+    }
+
+    // 진행도에 따른 몸 크기 배율: 눌림 구간에 세로는 줄고 가로는 넓어지고, 축소 구간에 전체가 0으로.
+    private static Vector3 CrushScale(MonsterController monster, float progress)
+    {
+        if (progress < 0f) return Vector3.one;
+        float squash = Mathf.InverseLerp(monster.GrabKillSquashStart, monster.GrabKillSquashEnd, progress);
+        float shrink = 1f - Mathf.InverseLerp(monster.GrabKillShrinkStart, monster.GrabKillCrushNormalizedTime, progress);
+        float width = Mathf.Lerp(1f, SquashWidthScale, squash) * shrink;
+        float height = Mathf.Lerp(1f, SquashHeightScale, squash) * shrink;
+        return new Vector3(width, height, width);
+    }
+
+    // 몸 중심(캡슐 중심)을 소켓에 맞추고 괴물을 바라본다. 크기가 줄어도 몸 중심은 소켓에 머문다.
+    private void FollowGrabSocket(Vector3 scale)
+    {
+        Transform socket = grabbingMonster.GrabSocket;
+        Vector3 toMonster = Vector3.ProjectOnPlane(grabbingMonster.transform.position - socket.position, Vector3.up);
+        Quaternion facing = toMonster.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(toMonster) : transform.rotation;
+        transform.localScale = Vector3.Scale(originalScale, scale);
+        transform.SetPositionAndRotation(socket.position - Vector3.up * (bodyCenterHeight * scale.y), facing);
+    }
+
+    // 소켓 위치에서 가루를 터뜨린다. 조각마다 몸 표면 색 중 하나를 무작위로 받는다(D4 — 칠한 색이 섞인다).
+    // 가루는 괴물 정면 쪽으로 튄다(프리팹 원뿔이 +Z 방향).
+    private void SpawnCrumbs()
+    {
+        crumbsSpawned = true;
+        if (breakVfxPrefab == null) return;
+
+        Vector3 position = grabbingMonster != null ? grabbingMonster.GrabSocket.position : transform.position + Vector3.up * bodyCenterHeight;
+        Vector3 forward = grabbingMonster != null ? Vector3.ProjectOnPlane(grabbingMonster.transform.forward, Vector3.up) : transform.forward;
+        Quaternion rotation = forward.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(forward) : Quaternion.identity;
+
+        GameObject burst = Instantiate(breakVfxPrefab, position, rotation);
+        var particles = burst.GetComponent<ParticleSystem>();
+        if (particles == null) return;
+
+        var emit = new ParticleSystem.EmitParams();
+        for (int i = 0; i < crumbCount; i++)
+        {
+            emit.startColor = crumbColors != null && crumbColors.Length > 0 ? crumbColors[Random.Range(0, crumbColors.Length)] : fallbackCrumbColor;
+            particles.Emit(emit, 1);
+        }
+        Debug.Log($"[CookieLife] view={pv.ViewID} crumbs x{crumbCount} ({(crumbColors != null ? crumbColors.Length + " surface colors" : "fallback color")})");
+    }
+
+    // 부서지는 순간: 숨기고, 본인 클라이언트는 관전으로 넘어간다. 가루가 아직이면(애니메이션이 빨리 끝남 등) 여기서 터뜨린다.
+    private void FinishGrabKill(string reason)
+    {
+        if (!crumbsSpawned) SpawnCrumbs();
+        IsBeingGrabKilled = false;
+        grabbingMonster = null;
+        ApplyBroken();
+        appliedState = LifeState.Broken;
+        Debug.Log($"[CookieLife] view={pv.ViewID} crushed (via {reason})");
+
+        if (pv != null && pv.IsMine) GetComponent<SpectatorController>()?.EnterSpectatorMode();
     }
 
     private void Start()
@@ -69,6 +203,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
     private void Reconcile(string reason)
     {
         if (pv == null || pv.Owner == null) return;
+        if (IsBeingGrabKilled) return; // 붙잡힘 동안에는 부서지는 순간(FinishGrabKill)까지 숨기기를 미룬다
         LifeState desired = RoomState.IsBroken(pv.Owner) ? LifeState.Broken : LifeState.Alive;
         if (desired == appliedState) return;
 
@@ -82,7 +217,12 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
 
     private void ApplyBroken()
     {
-        // 몸통·이름표 등 모든 표시물을 감추고 파편 연출로 대체한다.
+        DisableCollision();
+        if (visualsHidden) return;
+        visualsHidden = true;
+
+        // 몸통·이름표 등 모든 표시물을 감춘다. 가루는 처형 연출(SpawnCrumbs)에서만 터진다 — 이미 파괴된 쿠키가 있는 방에
+        // 늦게 들어와 여기로 오는 경우에는 터지지 않아야 한다.
         savedRenderers.Clear();
         foreach (var r in GetComponentsInChildren<Renderer>(true))
         {
@@ -90,8 +230,14 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
             savedRenderers.Add((r, r.enabled));
             r.enabled = false;
         }
+    }
 
-        // 모든 콜라이더를 끄고, 몸 전체를 비충돌 레이어로 옮긴다 — 둘 중 하나만으로도 벽이 되지 않도록 이중으로 막는다.
+    // 모든 콜라이더를 끄고, 몸 전체를 비충돌 레이어로 옮긴다 — 둘 중 하나만으로도 벽이 되지 않도록 이중으로 막는다.
+    private void DisableCollision()
+    {
+        if (collisionDisabled) return;
+        collisionDisabled = true;
+
         savedColliders.Clear();
         foreach (var col in GetComponentsInChildren<Collider>(true))
         {
@@ -108,13 +254,13 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
                 t.gameObject.layer = brokenLayer;
             }
         }
-
-        if (breakVfxPrefab != null)
-            Instantiate(breakVfxPrefab, transform.position, transform.rotation); // 전원 로컬 재생, 정밀 동기화 불필요
     }
 
     private void RestoreAlive()
     {
+        collisionDisabled = false;
+        visualsHidden = false;
+        transform.localScale = originalScale; // 처형 연출로 눌리고 줄어든 크기 복원
         foreach (var (r, enabled) in savedRenderers)
             if (r != null) r.enabled = enabled;
         foreach (var (col, enabled) in savedColliders)
