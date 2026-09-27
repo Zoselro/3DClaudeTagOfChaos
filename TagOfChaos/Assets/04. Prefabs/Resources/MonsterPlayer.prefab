@@ -980,8 +980,8 @@ MonoBehaviour:
   pv: {fileID: 2616822378223098066}
   eyeSocket: {fileID: 5964730739849707578}
   cameraTargetHeight: 2.2
-  cameraDistance: 12
-  speed: 4
+  cameraDistance: 5
+  speed: 10
   obstructionMask:
     serializedVersion: 2
     m_Bits: 1

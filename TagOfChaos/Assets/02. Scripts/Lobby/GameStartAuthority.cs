@@ -58,14 +58,31 @@ public static class GameStartAuthority
         // (MonsterLobbyWaitController)이 이 값을 시작 신호 겸 카운트다운 기준으로 쓰므로, 반드시 아래
         // LoadLevel(= curScn 변경)보다 먼저 보내야 한다(같은 클라이언트의 Props 변경은 보낸 순서대로 도착).
         // 판마다 새 값을 쓰므로 이전 판의 값이 남아 색칠 페이즈가 시작되지 않던 문제도 함께 막는다.
+        // 이번 판 맵도 같은 요청으로 기록한다 — 괴물은 시작 신호(PaintPhaseEndTime)를 받을 때 맵 이름도 함께 받는다(GameScenePlan.md §3.2).
+        string map = settings.PickGameMap(lastMap, SceneNames.Game);
+        lastMap = map;
         PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
         {
             { NetKeys.PaintPhaseEndTime, PhotonNetwork.Time + settings.SceneLoadGrace + settings.PaintPhaseDuration },
+            { NetKeys.GameMapScene, map },
         });
 
         PhotonNetwork.CurrentRoom.IsOpen = false; // 씬 전환 도중 새로 입장하는 걸 방지(대기실 복귀 시 RoundStateResetter가 다시 연다)
-        RoomSceneTransition.LoadLevelForRoom(SceneNames.Game); // 방장만 호출, 나머지는 AutomaticallySyncScene으로 함께 이동
+        RoomSceneTransition.LoadLevelForRoom(map); // 방장만 호출, 나머지는 AutomaticallySyncScene으로 함께 이동
+        Debug.Log($"[GameStart] Map: {map}");
         return Result.Started;
+    }
+
+    // 직전 판 맵(이 클라이언트가 방장으로 시작한 판). 판이 끝나면 Room의 맵 키는 지워지므로 여기서 기억한다.
+    private static string lastMap;
+
+    // 이번 판 맵 씬 — 대기실에 남은 괴물이 GameScene 대신 이 씬으로 간다. 값이 없으면 기본 게임 씬.
+    public static string CurrentMapScene()
+    {
+        if (RoomState.IsInRoom() && PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue(NetKeys.GameMapScene, out object value)
+            && value is string map && !string.IsNullOrEmpty(map))
+            return map;
+        return SceneNames.Game;
     }
 
     // 지금 Photon 방장이고, 방장 정책상 진행 권한을 가져야 하는 사람(괴물이 아닌 최선 입장자)도 나인지.

@@ -18,5 +18,23 @@ MonoBehaviour:
   paintPhaseDuration: 60
   sceneLoadGrace: 3
   maxColorSlots: 4
+  paintColliderRefreshInterval: 0.2
+  gameMapScenes:
+  - Game_CandyForest
+  - Game_GingerbreadVillage
+  - Game_ChocolateFactory
+  - Game_CursedCandyCarnival
+  - Game_HauntedBakery
   survivalDuration: 600
   monsterDepartureReturnDelay: 5
+  tentacleDashDistance: 20
+  tentacleDashDuration: 0.25
+  tentacleDashCooldown: 15
+  tentacleDashRadius: 0.4
+  characterSyncRate: 10
+  paintStrokeSendRate: 15
+  paintStrokeReferencePlayers: 4
+  minPaintStrokeSendRate: 5
+  cookieSpawnRange: 5
+  monsterSpawnRange: 4
+  fallRespawnHeight: -100

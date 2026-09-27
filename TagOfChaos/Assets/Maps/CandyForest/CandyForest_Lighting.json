@@ -1,0 +1,557 @@
+{
+ "ambient_color": [
+  1.0,
+  0.74,
+  0.85
+ ],
+ "ambient_intensity": 1.0,
+ "fog": true,
+ "fog_mode": "Exponential",
+ "fog_color": [
+  0.98,
+  0.8,
+  0.88
+ ],
+ "fog_density": 0.008,
+ "directional": {
+  "color": [
+   1.0,
+   0.82,
+   0.9
+  ],
+  "intensity": 1.0,
+  "euler_x": 50,
+  "euler_y": -35
+ },
+ "point_lights": [
+  {
+   "name": "LGT_Landmark_LollipopTree",
+   "pos_unity": [
+    -0.0,
+    20.0,
+    -0.0
+   ],
+   "color": [
+    1.0,
+    0.5,
+    0.8
+   ],
+   "range": 60.0,
+   "intensity": 80.0,
+   "shadows": true
+  },
+  {
+   "name": "LGT_GiantMushroom",
+   "pos_unity": [
+    73.27,
+    7.8,
+    84.02
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 14.1,
+   "intensity": 11.93,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.001",
+   "pos_unity": [
+    41.35,
+    4.94,
+    87.92
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 8.9,
+   "intensity": 4.73,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.002",
+   "pos_unity": [
+    58.24,
+    6.02,
+    81.79
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 8.7,
+   "intensity": 4.52,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.003",
+   "pos_unity": [
+    99.23,
+    4.53,
+    50.93
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 8.7,
+   "intensity": 4.58,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.004",
+   "pos_unity": [
+    79.6,
+    5.17,
+    59.6
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 13.4,
+   "intensity": 10.8,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.005",
+   "pos_unity": [
+    89.27,
+    3.29,
+    56.8
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 8.0,
+   "intensity": 3.82,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.006",
+   "pos_unity": [
+    41.78,
+    5.84,
+    42.83
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 11.7,
+   "intensity": 8.18,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.007",
+   "pos_unity": [
+    88.07,
+    6.33,
+    77.05
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 13.1,
+   "intensity": 10.28,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.008",
+   "pos_unity": [
+    74.28,
+    5.33,
+    50.17
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 10.7,
+   "intensity": 6.9,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.009",
+   "pos_unity": [
+    52.13,
+    3.65,
+    59.1
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 7.4,
+   "intensity": 3.25,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.010",
+   "pos_unity": [
+    66.34,
+    4.56,
+    63.21
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 9.8,
+   "intensity": 5.71,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.011",
+   "pos_unity": [
+    99.81,
+    3.86,
+    69.01
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 7.5,
+   "intensity": 3.36,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.012",
+   "pos_unity": [
+    83.1,
+    6.15,
+    90.18
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 12.1,
+   "intensity": 8.85,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.013",
+   "pos_unity": [
+    62.92,
+    3.85,
+    53.13
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 7.7,
+   "intensity": 3.58,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.014",
+   "pos_unity": [
+    98.61,
+    6.9,
+    99.64
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 13.5,
+   "intensity": 10.91,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.015",
+   "pos_unity": [
+    65.47,
+    7.66,
+    89.63
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 10.7,
+   "intensity": 6.83,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.016",
+   "pos_unity": [
+    62.29,
+    5.71,
+    70.72
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 11.7,
+   "intensity": 8.26,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.017",
+   "pos_unity": [
+    86.13,
+    3.43,
+    64.63
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 9.7,
+   "intensity": 5.63,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.018",
+   "pos_unity": [
+    73.57,
+    6.08,
+    67.12
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 13.6,
+   "intensity": 11.07,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GiantMushroom.019",
+   "pos_unity": [
+    73.97,
+    5.09,
+    97.08
+   ],
+   "color": [
+    0.75,
+    0.35,
+    1.0
+   ],
+   "range": 8.3,
+   "intensity": 4.14,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal",
+   "pos_unity": [
+    75.31,
+    1.73,
+    25.35
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 6.9,
+   "intensity": 1.57,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.001",
+   "pos_unity": [
+    19.19,
+    2.58,
+    91.82
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 9.3,
+   "intensity": 2.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.002",
+   "pos_unity": [
+    -16.9,
+    1.65,
+    101.62
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 7.0,
+   "intensity": 1.61,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.003",
+   "pos_unity": [
+    32.27,
+    1.53,
+    42.61
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 6.1,
+   "intensity": 1.23,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.004",
+   "pos_unity": [
+    61.11,
+    1.98,
+    10.54
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 7.5,
+   "intensity": 1.89,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.005",
+   "pos_unity": [
+    -5.1,
+    0.32,
+    58.15
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 8.3,
+   "intensity": 2.31,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.006",
+   "pos_unity": [
+    5.69,
+    1.74,
+    54.27
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 8.0,
+   "intensity": 2.14,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.007",
+   "pos_unity": [
+    13.58,
+    1.45,
+    54.9
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 5.9,
+   "intensity": 1.15,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.008",
+   "pos_unity": [
+    78.03,
+    2.5,
+    -8.17
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 9.3,
+   "intensity": 2.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.009",
+   "pos_unity": [
+    97.21,
+    2.43,
+    12.07
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 9.6,
+   "intensity": 3.04,
+   "shadows": false
+  },
+  {
+   "name": "LGT_MagicCrystal.010",
+   "pos_unity": [
+    5.26,
+    1.64,
+    90.95
+   ],
+   "color": [
+    0.7,
+    0.4,
+    1.0
+   ],
+   "range": 6.5,
+   "intensity": 1.43,
+   "shadows": false
+  },
+  {
+   "name": "LGT_Key.028",
+   "pos_unity": [
+    -0.0,
+    40.0,
+    -0.0
+   ],
+   "color": [
+    1.0,
+    0.6,
+    0.85
+   ],
+   "range": 90,
+   "intensity": 120.0,
+   "shadows": true
+  }
+ ],
+ "coordinate_note": "Unity position = (-blender_x, blender_z, -blender_y); FBX exported -Z forward / Y up."
+}

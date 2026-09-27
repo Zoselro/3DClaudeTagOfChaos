@@ -26,6 +26,10 @@ public class GameSettingsSO : ScriptableObject
     [Tooltip("색칠 중 몸 콜라이더를 현재 포즈로 다시 굽는 최소 간격(초). 짧을수록 정확하지만 비용이 크다(Bug-fix-plan.md §30.5).")]
     [SerializeField, Min(0.02f)] private float paintColliderRefreshInterval = 0.2f;
 
+    [Header("Maps")]
+    [Tooltip("판마다 무작위로 고르는 게임 맵 씬 이름(빌드 목록에 있어야 함). 비어 있으면 GameScene을 쓴다. 직전 판 맵은 다시 고르지 않는다(맵이 2개 이상일 때).")]
+    [SerializeField] private string[] gameMapScenes = new string[0];
+
     [Header("Survival")]
     [SerializeField, Min(1f)] private float survivalDuration = 600f;
     [Tooltip("괴물이 전원 나간 뒤 대기실로 돌아가기까지의 경고 시간(초).")]
@@ -82,6 +86,20 @@ public class GameSettingsSO : ScriptableObject
         int referenceReceivers = Mathf.Max(1, paintStrokeReferencePlayers - 1);
         float rate = paintStrokeSendRate * Mathf.Min(1f, (float)referenceReceivers / receivers);
         return 1f / Mathf.Max(minPaintStrokeSendRate, rate);
+    }
+
+    public System.Collections.Generic.IReadOnlyList<string> GameMapScenes => gameMapScenes;
+
+    // 이번 판 맵(GameScenePlan.md D1): 목록에서 무작위, 직전 판 맵은 제외. 목록이 비면 fallback.
+    public string PickGameMap(string previousMap, string fallback)
+    {
+        var candidates = new System.Collections.Generic.List<string>();
+        foreach (string scene in gameMapScenes)
+            if (!string.IsNullOrEmpty(scene) && scene != previousMap) candidates.Add(scene);
+        if (candidates.Count == 0)
+            foreach (string scene in gameMapScenes)
+                if (!string.IsNullOrEmpty(scene)) candidates.Add(scene);
+        return candidates.Count > 0 ? candidates[Random.Range(0, candidates.Count)] : fallback;
     }
 
     // 현재 방 인원에서 실제로 뽑을 괴물 수 — 쿠키가 최소 1명 남도록 제한한다.

@@ -1,0 +1,2477 @@
+{
+ "ambient_color": [
+  0.03,
+  0.05,
+  0.14
+ ],
+ "ambient_intensity": 0.6,
+ "fog": true,
+ "fog_mode": "Exponential",
+ "fog_color": [
+  0.06,
+  0.08,
+  0.2
+ ],
+ "fog_density": 0.006,
+ "directional": {
+  "color": [
+   0.55,
+   0.62,
+   1.0
+  ],
+  "intensity": 0.16,
+  "euler_x": 55,
+  "euler_y": 30
+ },
+ "point_lights": [
+  {
+   "name": "LGT_Landmark_ClockTower",
+   "pos_unity": [
+    -0.0,
+    17.0,
+    -0.0
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.45
+   ],
+   "range": 40.0,
+   "intensity": 24.0,
+   "shadows": true
+  },
+  {
+   "name": "LGT_CandyStreetLamp",
+   "pos_unity": [
+    -30.0,
+    3.94,
+    106.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.001",
+   "pos_unity": [
+    90.0,
+    3.9,
+    106.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.002",
+   "pos_unity": [
+    7.5,
+    3.91,
+    -104.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.003",
+   "pos_unity": [
+    7.5,
+    3.95,
+    -64.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.004",
+   "pos_unity": [
+    -7.5,
+    3.91,
+    44.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.005",
+   "pos_unity": [
+    30.0,
+    3.91,
+    -106.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.006",
+   "pos_unity": [
+    -124.0,
+    3.89,
+    7.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.007",
+   "pos_unity": [
+    27.0,
+    3.9,
+    9.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.008",
+   "pos_unity": [
+    7.5,
+    3.87,
+    -124.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.009",
+   "pos_unity": [
+    -164.0,
+    3.88,
+    7.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.010",
+   "pos_unity": [
+    -7.5,
+    3.87,
+    -124.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.011",
+   "pos_unity": [
+    104.0,
+    3.9,
+    7.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.012",
+   "pos_unity": [
+    -7.5,
+    3.89,
+    104.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.013",
+   "pos_unity": [
+    144.0,
+    3.96,
+    7.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.014",
+   "pos_unity": [
+    -106.5,
+    3.89,
+    60.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.015",
+   "pos_unity": [
+    -27.0,
+    3.9,
+    -9.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.016",
+   "pos_unity": [
+    7.5,
+    3.9,
+    -144.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.017",
+   "pos_unity": [
+    7.5,
+    3.92,
+    -84.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.018",
+   "pos_unity": [
+    -30.0,
+    3.89,
+    -106.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.019",
+   "pos_unity": [
+    144.0,
+    3.9,
+    -7.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.020",
+   "pos_unity": [
+    -44.0,
+    3.95,
+    7.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.021",
+   "pos_unity": [
+    27.0,
+    3.9,
+    -9.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.022",
+   "pos_unity": [
+    106.5,
+    3.9,
+    90.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.023",
+   "pos_unity": [
+    84.0,
+    3.92,
+    7.5
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.024",
+   "pos_unity": [
+    -27.0,
+    3.9,
+    -27.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.025",
+   "pos_unity": [
+    -7.5,
+    3.92,
+    -44.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_CandyStreetLamp.026",
+   "pos_unity": [
+    -27.0,
+    3.9,
+    27.0
+   ],
+   "color": [
+    1.0,
+    0.55,
+    0.65
+   ],
+   "range": 14.0,
+   "intensity": 1.0,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink",
+   "pos_unity": [
+    146.82,
+    0.84,
+    -85.94
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.2,
+   "intensity": 0.26,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.001",
+   "pos_unity": [
+    9.71,
+    0.56,
+    110.38
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 4.0,
+   "intensity": 0.11,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.002",
+   "pos_unity": [
+    129.8,
+    0.64,
+    8.82
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 4.8,
+   "intensity": 0.15,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.003",
+   "pos_unity": [
+    -12.62,
+    1.15,
+    -139.47
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 7.7,
+   "intensity": 0.39,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.004",
+   "pos_unity": [
+    151.52,
+    0.95,
+    -7.29
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.9,
+   "intensity": 0.32,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.005",
+   "pos_unity": [
+    -108.41,
+    1.52,
+    -59.19
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 5.9,
+   "intensity": 0.23,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.006",
+   "pos_unity": [
+    135.67,
+    0.99,
+    -8.08
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 7.3,
+   "intensity": 0.36,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.007",
+   "pos_unity": [
+    129.76,
+    1.03,
+    -21.66
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 7.7,
+   "intensity": 0.4,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.008",
+   "pos_unity": [
+    -100.4,
+    0.82,
+    -146.0
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.5,
+   "intensity": 0.28,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.009",
+   "pos_unity": [
+    -39.89,
+    0.57,
+    -11.98
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 5.4,
+   "intensity": 0.2,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.010",
+   "pos_unity": [
+    -10.36,
+    0.69,
+    -145.35
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 4.0,
+   "intensity": 0.1,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.011",
+   "pos_unity": [
+    -104.23,
+    0.67,
+    -125.05
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 5.5,
+   "intensity": 0.2,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.012",
+   "pos_unity": [
+    -7.6,
+    0.94,
+    51.46
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 7.1,
+   "intensity": 0.33,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.013",
+   "pos_unity": [
+    -62.06,
+    0.99,
+    24.0
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.7,
+   "intensity": 0.3,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.014",
+   "pos_unity": [
+    91.75,
+    1.29,
+    82.14
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 4.9,
+   "intensity": 0.16,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.015",
+   "pos_unity": [
+    26.16,
+    0.81,
+    -108.57
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.1,
+   "intensity": 0.25,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.016",
+   "pos_unity": [
+    -73.24,
+    0.9,
+    156.63
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.7,
+   "intensity": 0.3,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.017",
+   "pos_unity": [
+    161.18,
+    0.59,
+    -9.21
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 3.7,
+   "intensity": 0.09,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.018",
+   "pos_unity": [
+    -10.13,
+    0.87,
+    -93.15
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.3,
+   "intensity": 0.27,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.019",
+   "pos_unity": [
+    12.19,
+    0.72,
+    -65.42
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 3.7,
+   "intensity": 0.09,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.020",
+   "pos_unity": [
+    -41.47,
+    0.72,
+    109.17
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 4.0,
+   "intensity": 0.11,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.021",
+   "pos_unity": [
+    -52.63,
+    0.95,
+    -92.64
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 7.1,
+   "intensity": 0.34,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.022",
+   "pos_unity": [
+    55.42,
+    0.93,
+    -88.37
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 7.0,
+   "intensity": 0.32,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.023",
+   "pos_unity": [
+    -60.51,
+    0.5,
+    9.62
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 4.3,
+   "intensity": 0.12,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.024",
+   "pos_unity": [
+    93.28,
+    0.61,
+    7.94
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 4.6,
+   "intensity": 0.14,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.025",
+   "pos_unity": [
+    -108.99,
+    0.94,
+    55.49
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.9,
+   "intensity": 0.32,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Pink.026",
+   "pos_unity": [
+    -34.82,
+    0.85,
+    -126.99
+   ],
+   "color": [
+    1.0,
+    0.4,
+    0.7
+   ],
+   "range": 6.4,
+   "intensity": 0.27,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow",
+   "pos_unity": [
+    -120.19,
+    1.09,
+    -96.27
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 7.6,
+   "intensity": 0.38,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.001",
+   "pos_unity": [
+    10.89,
+    0.55,
+    84.52
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.7,
+   "intensity": 0.15,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.002",
+   "pos_unity": [
+    -50.66,
+    0.99,
+    -38.88
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 7.4,
+   "intensity": 0.37,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.003",
+   "pos_unity": [
+    49.49,
+    0.6,
+    -107.58
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.5,
+   "intensity": 0.14,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.004",
+   "pos_unity": [
+    -91.75,
+    0.84,
+    -10.62
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 5.9,
+   "intensity": 0.24,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.005",
+   "pos_unity": [
+    90.07,
+    0.84,
+    15.72
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 6.8,
+   "intensity": 0.3,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.006",
+   "pos_unity": [
+    130.16,
+    0.68,
+    7.51
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 5.1,
+   "intensity": 0.17,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.007",
+   "pos_unity": [
+    8.76,
+    0.61,
+    40.81
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.3,
+   "intensity": 0.12,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.008",
+   "pos_unity": [
+    -130.7,
+    0.85,
+    98.74
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 6.4,
+   "intensity": 0.27,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.009",
+   "pos_unity": [
+    -92.73,
+    0.55,
+    70.62
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.2,
+   "intensity": 0.12,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.010",
+   "pos_unity": [
+    56.28,
+    1.28,
+    51.1
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 5.6,
+   "intensity": 0.21,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.011",
+   "pos_unity": [
+    -7.41,
+    0.72,
+    -81.81
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 5.4,
+   "intensity": 0.2,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.012",
+   "pos_unity": [
+    -37.21,
+    0.66,
+    124.82
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 5.6,
+   "intensity": 0.21,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.013",
+   "pos_unity": [
+    -146.64,
+    0.49,
+    8.18
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.1,
+   "intensity": 0.11,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.014",
+   "pos_unity": [
+    -108.22,
+    1.34,
+    -67.64
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 5.4,
+   "intensity": 0.2,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.015",
+   "pos_unity": [
+    -127.08,
+    1.11,
+    122.34
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 7.0,
+   "intensity": 0.32,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.016",
+   "pos_unity": [
+    -105.83,
+    0.63,
+    -17.13
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.8,
+   "intensity": 0.15,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.017",
+   "pos_unity": [
+    110.26,
+    0.71,
+    13.0
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.8,
+   "intensity": 0.15,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.018",
+   "pos_unity": [
+    7.79,
+    0.63,
+    57.37
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 5.1,
+   "intensity": 0.17,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.019",
+   "pos_unity": [
+    -10.41,
+    0.51,
+    50.08
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 3.6,
+   "intensity": 0.09,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.020",
+   "pos_unity": [
+    -107.39,
+    0.54,
+    11.03
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 3.7,
+   "intensity": 0.09,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.021",
+   "pos_unity": [
+    7.02,
+    0.57,
+    93.49
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.4,
+   "intensity": 0.13,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.022",
+   "pos_unity": [
+    110.08,
+    1.02,
+    51.79
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 7.7,
+   "intensity": 0.4,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.023",
+   "pos_unity": [
+    10.11,
+    0.41,
+    61.92
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.6,
+   "intensity": 0.14,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Yellow.024",
+   "pos_unity": [
+    -108.63,
+    1.33,
+    -66.33
+   ],
+   "color": [
+    1.0,
+    0.8,
+    0.3
+   ],
+   "range": 4.9,
+   "intensity": 0.16,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan",
+   "pos_unity": [
+    -25.26,
+    0.59,
+    109.2
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.3,
+   "intensity": 0.12,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.001",
+   "pos_unity": [
+    9.49,
+    0.47,
+    -134.93
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.2,
+   "intensity": 0.12,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.002",
+   "pos_unity": [
+    106.89,
+    0.49,
+    -75.37
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 3.7,
+   "intensity": 0.09,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.003",
+   "pos_unity": [
+    12.76,
+    0.87,
+    122.0
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 5.7,
+   "intensity": 0.22,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.004",
+   "pos_unity": [
+    92.52,
+    0.66,
+    23.46
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.9,
+   "intensity": 0.16,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.005",
+   "pos_unity": [
+    -7.51,
+    0.52,
+    63.2
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.0,
+   "intensity": 0.11,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.006",
+   "pos_unity": [
+    -133.79,
+    1.68,
+    -91.23
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 5.9,
+   "intensity": 0.24,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.007",
+   "pos_unity": [
+    -81.86,
+    -0.19,
+    128.25
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 5.8,
+   "intensity": 0.23,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.008",
+   "pos_unity": [
+    -146.3,
+    0.74,
+    74.81
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 5.6,
+   "intensity": 0.21,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.009",
+   "pos_unity": [
+    9.94,
+    0.6,
+    -43.85
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.6,
+   "intensity": 0.14,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.010",
+   "pos_unity": [
+    9.95,
+    0.57,
+    -93.91
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.2,
+   "intensity": 0.12,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.011",
+   "pos_unity": [
+    69.39,
+    0.77,
+    -89.74
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 5.7,
+   "intensity": 0.21,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.012",
+   "pos_unity": [
+    29.21,
+    0.95,
+    -73.2
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 7.1,
+   "intensity": 0.34,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.013",
+   "pos_unity": [
+    -43.73,
+    0.83,
+    110.66
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.4,
+   "intensity": 0.13,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.014",
+   "pos_unity": [
+    -116.83,
+    0.57,
+    8.07
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.0,
+   "intensity": 0.11,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.015",
+   "pos_unity": [
+    53.42,
+    1.83,
+    64.62
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 7.8,
+   "intensity": 0.4,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.016",
+   "pos_unity": [
+    108.4,
+    0.69,
+    -14.43
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 5.1,
+   "intensity": 0.18,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.017",
+   "pos_unity": [
+    118.23,
+    0.95,
+    15.27
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 6.8,
+   "intensity": 0.31,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.018",
+   "pos_unity": [
+    9.37,
+    0.74,
+    -70.67
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.4,
+   "intensity": 0.13,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.019",
+   "pos_unity": [
+    71.14,
+    1.21,
+    106.31
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.2,
+   "intensity": 0.12,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.020",
+   "pos_unity": [
+    -80.6,
+    0.9,
+    24.9
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 6.6,
+   "intensity": 0.29,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.021",
+   "pos_unity": [
+    109.01,
+    0.64,
+    -82.99
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.8,
+   "intensity": 0.15,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.022",
+   "pos_unity": [
+    9.72,
+    0.68,
+    -46.92
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 4.9,
+   "intensity": 0.16,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GlowDrop_Cyan.023",
+   "pos_unity": [
+    -69.09,
+    0.6,
+    10.42
+   ],
+   "color": [
+    0.2,
+    0.9,
+    1.0
+   ],
+   "range": 5.2,
+   "intensity": 0.18,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse",
+   "pos_unity": [
+    61.19,
+    3.09,
+    -119.07
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.8,
+   "intensity": 1.83,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.001",
+   "pos_unity": [
+    139.66,
+    5.16,
+    -159.91
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 12.3,
+   "intensity": 1.26,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.002",
+   "pos_unity": [
+    82.12,
+    2.93,
+    -119.92
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.1,
+   "intensity": 1.65,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.003",
+   "pos_unity": [
+    -59.22,
+    2.27,
+    40.23
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.9,
+   "intensity": 0.99,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.004",
+   "pos_unity": [
+    -56.25,
+    3.16,
+    -139.68
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.0,
+   "intensity": 1.64,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.005",
+   "pos_unity": [
+    140.27,
+    2.0,
+    39.34
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 9.6,
+   "intensity": 0.77,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.006",
+   "pos_unity": [
+    159.31,
+    2.27,
+    80.58
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.9,
+   "intensity": 0.99,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.007",
+   "pos_unity": [
+    63.7,
+    3.32,
+    59.91
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 13.2,
+   "intensity": 1.45,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.008",
+   "pos_unity": [
+    -78.88,
+    3.12,
+    -40.65
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 15.0,
+   "intensity": 1.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.009",
+   "pos_unity": [
+    -144.4,
+    5.38,
+    -61.2
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 13.8,
+   "intensity": 1.58,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.010",
+   "pos_unity": [
+    -59.49,
+    2.27,
+    80.91
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.9,
+   "intensity": 0.99,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.011",
+   "pos_unity": [
+    -77.01,
+    2.0,
+    -140.74
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 9.6,
+   "intensity": 0.77,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.012",
+   "pos_unity": [
+    56.71,
+    2.4,
+    -79.43
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 11.5,
+   "intensity": 1.11,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.013",
+   "pos_unity": [
+    -138.5,
+    3.64,
+    -80.37
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.5,
+   "intensity": 0.93,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.014",
+   "pos_unity": [
+    -64.08,
+    2.0,
+    60.88
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 9.6,
+   "intensity": 0.77,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.015",
+   "pos_unity": [
+    -61.39,
+    2.03,
+    159.7
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 9.8,
+   "intensity": 0.79,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.016",
+   "pos_unity": [
+    -119.83,
+    3.12,
+    40.0
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 15.0,
+   "intensity": 1.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.017",
+   "pos_unity": [
+    55.77,
+    3.12,
+    -138.75
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 15.0,
+   "intensity": 1.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.018",
+   "pos_unity": [
+    36.24,
+    3.12,
+    -139.0
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 15.0,
+   "intensity": 1.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.019",
+   "pos_unity": [
+    -137.45,
+    2.99,
+    78.76
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.3,
+   "intensity": 1.71,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.020",
+   "pos_unity": [
+    80.7,
+    2.11,
+    -40.2
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.1,
+   "intensity": 0.86,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.021",
+   "pos_unity": [
+    162.11,
+    3.12,
+    -59.19
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 15.0,
+   "intensity": 1.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.022",
+   "pos_unity": [
+    40.0,
+    3.12,
+    40.0
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 15.0,
+   "intensity": 1.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.023",
+   "pos_unity": [
+    -141.82,
+    2.14,
+    -119.85
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.3,
+   "intensity": 0.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.024",
+   "pos_unity": [
+    162.68,
+    4.17,
+    -118.56
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 13.9,
+   "intensity": 1.61,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.025",
+   "pos_unity": [
+    -63.37,
+    2.75,
+    -59.04
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 13.2,
+   "intensity": 1.45,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.026",
+   "pos_unity": [
+    159.81,
+    2.16,
+    41.02
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.4,
+   "intensity": 0.9,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.027",
+   "pos_unity": [
+    -59.95,
+    2.0,
+    -39.3
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 9.6,
+   "intensity": 0.77,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.028",
+   "pos_unity": [
+    -163.29,
+    2.73,
+    -120.12
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 13.1,
+   "intensity": 1.43,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.029",
+   "pos_unity": [
+    59.03,
+    4.43,
+    79.48
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 11.5,
+   "intensity": 1.1,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.030",
+   "pos_unity": [
+    62.99,
+    3.12,
+    -58.63
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 15.0,
+   "intensity": 1.88,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.031",
+   "pos_unity": [
+    -120.65,
+    2.87,
+    -160.07
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 13.8,
+   "intensity": 1.59,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.032",
+   "pos_unity": [
+    60.94,
+    2.98,
+    -160.67
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.3,
+   "intensity": 1.71,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.033",
+   "pos_unity": [
+    137.47,
+    6.96,
+    -141.34
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.4,
+   "intensity": 1.73,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.034",
+   "pos_unity": [
+    60.46,
+    2.25,
+    40.24
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.8,
+   "intensity": 0.97,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.035",
+   "pos_unity": [
+    -36.09,
+    4.12,
+    -140.52
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 12.5,
+   "intensity": 1.3,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.036",
+   "pos_unity": [
+    -119.64,
+    4.55,
+    160.94
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.5,
+   "intensity": 0.92,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.037",
+   "pos_unity": [
+    -38.45,
+    3.09,
+    -81.31
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.9,
+   "intensity": 1.84,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.038",
+   "pos_unity": [
+    42.0,
+    2.0,
+    -120.6
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 9.6,
+   "intensity": 0.77,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.039",
+   "pos_unity": [
+    156.44,
+    5.65,
+    -139.29
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 12.8,
+   "intensity": 1.36,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.040",
+   "pos_unity": [
+    42.15,
+    3.09,
+    59.12
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.0,
+   "intensity": 1.63,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.041",
+   "pos_unity": [
+    117.06,
+    4.35,
+    -141.08
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 10.1,
+   "intensity": 0.86,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.042",
+   "pos_unity": [
+    -159.56,
+    2.8,
+    -39.39
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 9.9,
+   "intensity": 0.81,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.043",
+   "pos_unity": [
+    -81.78,
+    2.0,
+    -58.78
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 9.6,
+   "intensity": 0.77,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.044",
+   "pos_unity": [
+    75.72,
+    2.52,
+    -139.29
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 12.1,
+   "intensity": 1.22,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.045",
+   "pos_unity": [
+    119.23,
+    2.67,
+    40.34
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 12.8,
+   "intensity": 1.37,
+   "shadows": false
+  },
+  {
+   "name": "LGT_GingerHouse.046",
+   "pos_unity": [
+    81.73,
+    3.06,
+    -161.1
+   ],
+   "color": [
+    1.0,
+    0.75,
+    0.35
+   ],
+   "range": 14.7,
+   "intensity": 1.79,
+   "shadows": false
+  },
+  {
+   "name": "LGT_Key.029",
+   "pos_unity": [
+    -0.0,
+    12.0,
+    14.0
+   ],
+   "color": [
+    1.0,
+    0.7,
+    0.4
+   ],
+   "range": 40,
+   "intensity": 32.0,
+   "shadows": true
+  },
+  {
+   "name": "LGT_Key.030",
+   "pos_unity": [
+    -0.0,
+    12.0,
+    -14.0
+   ],
+   "color": [
+    1.0,
+    0.7,
+    0.4
+   ],
+   "range": 40,
+   "intensity": 32.0,
+   "shadows": false
+  }
+ ],
+ "coordinate_note": "Unity position = (-blender_x, blender_z, -blender_y); FBX exported -Z forward / Y up."
+}

@@ -31,6 +31,9 @@ public static class NetKeys
     // 상호작용 문(GameLobbyScene.md §14) — Hashtable { 문 ID(string): 상태(byte, InteractableDoor.DoorState) }
     public const string DoorStates = "DoorStates";
 
+    // 이번 판 맵 씬 이름(string) — 시작 때 방장이 고르고, 대기실에 남은 괴물도 이 씬으로 간다(GameScenePlan.md §3.2)
+    public const string GameMapScene = "GameMapScene";
+
     // Player CustomProperties (GameRule.md §4.4 — hitCount는 0 또는 2만 실제로 쓰임, v3.6)
     public const string HitCount = "HitCount";
     public const string RegisteredSlotCount = "RegisteredSlotCount"; // GameRule.md §3.2
@@ -72,6 +75,7 @@ public static class NetKeys
         new Scope(MonsterDepartedAt, Target.Room, Lifetime.Round),
         new Scope(GameResult, Target.Room, Lifetime.Round),
         new Scope(DoorStates, Target.Room, Lifetime.Round),
+        new Scope(GameMapScene, Target.Room, Lifetime.Round),
         new Scope(HitCount, Target.Player, Lifetime.Round),
         new Scope(RegisteredSlotCount, Target.Player, Lifetime.Round),
         new Scope(SkinIndex, Target.Player, Lifetime.Session),

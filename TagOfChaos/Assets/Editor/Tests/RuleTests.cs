@@ -103,7 +103,30 @@ public class RuleTests
         CollectionAssert.Contains(NetKeys.RoundPlayerKeys, NetKeys.HitCount);
         CollectionAssert.Contains(NetKeys.RoundPlayerKeys, NetKeys.RegisteredSlotCount);
         CollectionAssert.DoesNotContain(NetKeys.RoundPlayerKeys, NetKeys.SkinIndex); // 스킨은 판이 바뀌어도 유지
-        Assert.AreEqual(10, NetKeys.RoundRoomKeys.Length); // 예전 수동 목록과 같은 10개
+        CollectionAssert.Contains(NetKeys.RoundRoomKeys, NetKeys.DoorStates);
+        CollectionAssert.Contains(NetKeys.RoundRoomKeys, NetKeys.GameMapScene); // 이번 판 맵은 판이 끝나면 지운다
+
+        // 개수는 선언 표에서 센다 — 키를 추가할 때마다 이 숫자를 손으로 고치다 빠뜨리던 문제(GameScenePlan.md P13)
+        int declaredRoundRoomKeys = 0;
+        foreach (NetKeys.Scope scope in NetKeys.Scopes)
+            if (scope.Target == NetKeys.Target.Room && scope.Lifetime == NetKeys.Lifetime.Round) declaredRoundRoomKeys++;
+        Assert.AreEqual(declaredRoundRoomKeys, NetKeys.RoundRoomKeys.Length);
+    }
+
+    [Test]
+    public void GameMap_PicksFromListExcludingPrevious()
+    {
+        var settings = ScriptableObject.CreateInstance<GameSettingsSO>();
+        var so = new UnityEditor.SerializedObject(settings);
+        var list = so.FindProperty("gameMapScenes");
+        list.arraySize = 2;
+        list.GetArrayElementAtIndex(0).stringValue = "MapA";
+        list.GetArrayElementAtIndex(1).stringValue = "MapB";
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        for (int i = 0; i < 20; i++) Assert.AreEqual("MapB", settings.PickGameMap("MapA", "Fallback"));
+        Assert.AreEqual("Fallback", ScriptableObject.CreateInstance<GameSettingsSO>().PickGameMap(null, "Fallback"));
+        Object.DestroyImmediate(settings);
     }
 
     // ---- 게임 단계 해석(research.md §12 E2) ----

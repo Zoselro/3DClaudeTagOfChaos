@@ -5,7 +5,8 @@
         "Unity.TextMeshPro",
         "Unity.ugui",
         "PhotonUnityNetworking",
-        "PhotonRealtime"
+        "PhotonRealtime",
+        "Unity.Postprocessing.Runtime"
     ],
     "includePlatforms": [
         "Editor"
