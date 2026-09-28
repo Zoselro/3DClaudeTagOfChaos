@@ -981,8 +981,8 @@ MonoBehaviour:
   eyeSocket: {fileID: 5964730739849707578}
   cameraTargetHeight: 2.2
   cameraDistance: 5
-  speed: 10
-  obstructionMask:
+  speed: 8
+  groundLayer:
     serializedVersion: 2
     m_Bits: 1
   grabKillTrigger: {fileID: 8581258624633865784}
