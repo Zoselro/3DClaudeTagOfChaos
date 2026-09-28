@@ -219,6 +219,35 @@ public static class MapCompactor
     // reference 충돌체 윗면이 그 아래 걷는 지형보다 SinkTop 높게 되도록 group 전체를 같이 내린다(크기는 그대로).
     private const float SinkTop = 0.1f;
 
+    // 지면과 같거나 낮은 수면은 지면에 가려 깨져 보이므로 지면 위로 살짝 올린다(분지 안의 물은 그대로).
+    private const float WaterLift = 0.03f;
+
+    private static void LiftWaterAboveGround(Transform mapRoot)
+    {
+        foreach (MeshRenderer mr in mapRoot.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            if (!mr.name.Contains("Water")) continue;
+            Bounds b = mr.bounds;
+            float maxGround = float.NegativeInfinity;
+            int covered = 0, samples = 0;
+            for (int i = 0; i < 5; i++)
+            for (int j = 0; j < 5; j++)
+            {
+                var p = new Vector3(Mathf.Lerp(b.min.x, b.max.x, (i + 0.5f) / 5f), 500f, Mathf.Lerp(b.min.z, b.max.z, (j + 0.5f) / 5f));
+                float ground = float.NegativeInfinity;
+                foreach (RaycastHit h in Physics.RaycastAll(p, Vector3.down, 1000f))
+                    if (h.collider.name.Contains("Terrain_Walkable")) ground = Mathf.Max(ground, h.point.y);
+                if (float.IsNegativeInfinity(ground)) continue;
+                samples++;
+                maxGround = Mathf.Max(maxGround, ground);
+                if (ground >= b.max.y - 0.01f) covered++;
+            }
+            if (samples == 0 || covered * 2 < samples) continue;
+            mr.transform.position += Vector3.up * (maxGround + WaterLift - b.max.y);
+        }
+        Physics.SyncTransforms();
+    }
+
     private static void SinkToGround(Transform mapRoot, Regex group, Regex reference)
     {
         Transform[] all = mapRoot.GetComponentsInChildren<Transform>(true);
@@ -393,6 +422,7 @@ public static class MapCompactor
         ApplyAttachments(ctx, attachments);
         config.PostProcess?.Invoke(ctx.MapRoot);
         SyncGroundFixes(ctx, scene);
+        LiftWaterAboveGround(ctx.MapRoot);
 
         foreach (Transform t in ctx.Removed)
             if (t != null) Object.DestroyImmediate(t.gameObject);
@@ -606,7 +636,7 @@ public static class MapCompactor
             Vector2 m = ctx.Config.MapGlobal(new Vector2(w.x, w.z));
             world[k] = new Vector3(m.x, keepHeight ? w.y : w.y * Ratio, m.y);
         }
-        if (t.name.Contains("Terrain_Walkable")) ctx.Report.Add(LimitSlope(world, mesh, t));
+        if (t.name.Contains("Terrain_Walkable")) ctx.Report.Add(LimitSlope(world, mesh, t, WaterCaps(ctx)));
         for (int k = 0; k < v.Length; k++) v[k] = t.InverseTransformPoint(world[k]);
         mesh.vertices = v;
         mesh.RecalculateNormals();
@@ -619,7 +649,24 @@ public static class MapCompactor
     // (내리지는 않는다). 괴물은 뛰지 못하고 충돌체가 작아(r 0.31 m) 1 m 둑도 넘지 못했다 — 원본 맵에도 있던 문제.
     private const float MaxTerrainSlope = 0.7f; // 약 35°
 
-    private static string LimitSlope(Vector3[] world, Mesh source, Transform t)
+    // 물 표면 아래 바닥은 수면보다 WaterClearance 낮게까지만 올린다(수면과 같은 높이가 되면 물·지면이 겹쳐 깨져 보였다 — 공장 강).
+    private const float WaterClearance = 0.3f;
+
+    private static List<(Rect rect, float y)> WaterCaps(Context ctx)
+    {
+        var caps = new List<(Rect, float)>();
+        Transform water = ctx.MapRoot.Find("Water");
+        if (water == null) return caps;
+        foreach (Renderer r in water.GetComponentsInChildren<Renderer>(true))
+        {
+            Bounds b = r.bounds; // 원본 좌표(물은 지형 다음에 다시 매핑된다)
+            Vector2 a = ctx.Config.MapGlobal(new Vector2(b.min.x, b.min.z)), c = ctx.Config.MapGlobal(new Vector2(b.max.x, b.max.z));
+            caps.Add((Rect.MinMaxRect(a.x, a.y, c.x, c.y), b.max.y * Ratio - WaterClearance));
+        }
+        return caps;
+    }
+
+    private static string LimitSlope(Vector3[] world, Mesh source, Transform t, List<(Rect rect, float y)> waterCaps)
     {
         Vector3[] normals = source.normals;
         var groupOf = new int[world.Length];
@@ -641,6 +688,7 @@ public static class MapCompactor
             groupOf[i] = g;
             if (normals.Length == world.Length && t.TransformDirection(normals[i]).y > 0.2f) top[g] = true;
         }
+        int baseExcluded = ExcludeBaseSlab(world, source, groupOf, heights, top);
 
         var edges = new HashSet<(int, int)>();
         for (int s = 0; s < source.subMeshCount; s++)
@@ -668,9 +716,65 @@ public static class MapCompactor
                 else if (y[b] < y[a] - limit - 0.001f) { y[b] = y[a] - limit; changed = true; }
             }
         }
+        for (int g = 0; g < y.Length; g++)
+            foreach (var (rect, capY) in waterCaps)
+                if (rect.Contains(xz[g]) && y[g] > capY) y[g] = Mathf.Max(heights[g], capY);
         for (int g = 0; g < y.Length; g++) if (y[g] > heights[g] + 0.001f) raised++;
         for (int i = 0; i < world.Length; i++) world[i].y = y[groupOf[i]];
-        return $"terrain slope limit {MaxTerrainSlope}: raised {raised}/{y.Length} vertices in {passes} passes";
+        return $"terrain slope limit {MaxTerrainSlope}: raised {raised}/{y.Length} vertices in {passes} passes (base slab excluded {baseExcluded})";
+    }
+
+    // 걷는 지형 FBX에는 맵 전체(350 m)를 덮는 받침판이 원래 y −6 m에 깔려 있다. 받침판 정점은 옆면과 법선이 평균돼 위를 향한 것(y 0.58~0.71)으로
+    // 보여 경사 제한 대상이 됐고, "수직 벽의 낮은 쪽을 올린다" 규칙에 끌려 윗면 높이까지 올라가 바닥과 같은 높이로 겹쳤다 — 공장 바닥이
+    // z-fighting으로 깨져 보인 원인(다른 맵도 7~20% 지점에서 겹침). 실제 윗면(작고 위를 향한 삼각형)의 최저 높이보다 BaseSlabClearance
+    // 넘게 아래 있는 정점은 지형 윗면이 아니므로 경사 제한에서 뺀다(받침판은 다시 매핑된 높이 −6 × Ratio에 남는다).
+    private const float SurfaceTriangleMaxEdge = 30f;
+    private const float BaseSlabClearance = 1f;
+
+    private static int ExcludeBaseSlab(Vector3[] world, Mesh source, int[] groupOf, List<float> heights, List<bool> top)
+    {
+        // 받침판 높이 = 맵을 가로지르는 큰 수평 삼각형의 최저 높이. 받침판에는 작은 삼각형도 섞여 있어(공장 14개) 크기만으로는 거를 수 없다.
+        float baseY = float.PositiveInfinity;
+        ForEachFlatTriangle(world, source, (a, b, c, edge) =>
+        {
+            if (edge > SurfaceTriangleMaxEdge) baseY = Mathf.Min(baseY, Mathf.Min(world[a].y, Mathf.Min(world[b].y, world[c].y)));
+        });
+        if (float.IsPositiveInfinity(baseY)) return 0;
+
+        // 윗면 최저 높이 = 받침판 높이에 있지 않은 작은 수평 삼각형의 최저 높이.
+        float surfaceMin = float.PositiveInfinity;
+        ForEachFlatTriangle(world, source, (a, b, c, edge) =>
+        {
+            float lowest = Mathf.Min(world[a].y, Mathf.Min(world[b].y, world[c].y));
+            if (edge <= SurfaceTriangleMaxEdge && lowest > baseY + 0.01f) surfaceMin = Mathf.Min(surfaceMin, lowest);
+        });
+        if (float.IsPositiveInfinity(surfaceMin) || baseY > surfaceMin - BaseSlabClearance) return 0; // 받침판이 윗면과 떨어져 있지 않으면 건드리지 않는다
+
+        int excluded = 0;
+        for (int g = 0; g < heights.Count; g++)
+        {
+            if (!top[g] || heights[g] >= surfaceMin - BaseSlabClearance) continue;
+            top[g] = false;
+            excluded++;
+        }
+        return excluded;
+    }
+
+    // 수평에 가까운 삼각형(면 법선 |y| ≥ 0.5 — 가장자리 옆면 제외)마다 (a, b, c, 가장 긴 변)을 넘긴다.
+    private static void ForEachFlatTriangle(Vector3[] world, Mesh source, System.Action<int, int, int, float> visit)
+    {
+        for (int s = 0; s < source.subMeshCount; s++)
+        {
+            int[] tris = source.GetTriangles(s);
+            for (int k = 0; k + 2 < tris.Length; k += 3)
+            {
+                int a = tris[k], b = tris[k + 1], c = tris[k + 2];
+                Vector3 faceNormal = Vector3.Cross(world[b] - world[a], world[c] - world[a]).normalized;
+                if (Mathf.Abs(faceNormal.y) < 0.5f) continue;
+                float edge = Mathf.Max((world[a] - world[b]).magnitude, (world[b] - world[c]).magnitude, (world[c] - world[a]).magnitude);
+                visit(a, b, c, edge);
+            }
+        }
     }
 
     // 기존 에셋이 있으면 GUID를 유지한 채 데이터만 바꾼다(EditorUtility.CopySerialized는 API로 바꾼 정점을 옮기지 못했다).

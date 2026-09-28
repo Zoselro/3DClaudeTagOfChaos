@@ -23,6 +23,10 @@
 > - `GameSettings.asset`, `ProjectSettings.asset`(`activeInputHandler`), `EditorSettings.asset`(Enter Play Mode), `Packages/manifest.json`, `TagManager`(레이어·충돌 행렬), `.git/HEAD`를 확인했다.
 > - 3차 판의 모든 지적 항목을 현재 코드와 다시 대조했다. **이번 판은 정적 분석이다** — Play Mode 재현을 하지 않은 항목은 본문에 “코드 추론”이라고 적었다.
 > - 파일 경로는 따로 적지 않으면 `Assets/02. Scripts/` 기준이다. 줄 번호는 현재 작업 트리 기준이다. 예: `Unit/HideOrSeekPlayer.cs:109`.
+>
+> **보강(2026-09-28, 같은 날 추가 조사)** — 요청 항목 “참조하지 않는 변수나 메서드”를 전수 조사해 **R7**로 추가했고, 이 판에 없던 발견 3건(R4.7-8, R4.11-20, R5-18)을 넣었다.
+> 이 보강은 텍스트 검색이 아니라 **컴파일러와 Roslyn 분석기**로 했다(R7.1). 맵 축소 작업(`MapCompactor`·`MapPassabilityCheck`·`MapPlaytestDriver`, 커밋 `4902d5d`·`9d60d03`)과
+> 지형 받침판 수정(`MapCompactor.ExcludeBaseSlab`, `Plan.md/MapReplacePlan.md` 끝)까지 반영한 작업 트리 기준이다.
 
 ---
 
@@ -34,6 +38,7 @@
 - **R4. 11개 관점 감사** — 관점마다 판정, 근거(file:line), 영향, 권장
 - **R5. 그 밖의 발견 사항**
 - **R6. 권장 로드맵**
+- **R7. 참조하지 않는 변수·메서드** — 조사 방법(컴파일러·Roslyn 분석기·리플렉션), 결과, 오탐 목록
 - **부록** — 교차 도메인 의존성, 전역(static) 상태, 전역 네트워크·엔진 설정을 바꾸는 곳, 마스터 전용 Update 폴링
 
 ---
@@ -82,7 +87,11 @@ EditMode 테스트(`GameScenes_UseSingleSceneCorePrefab`, `GameMaps_MatchEnabled
 | 8 | Event 구독/해제 | ✅ 양호 | 정적 이벤트 1개 짝 맞음. `MonoBehaviourPunCallbacks` 25개 중 OnEnable/OnDisable 재정의 6개 모두 `base` 호출. 🆕 콜백을 전혀 쓰지 않는 상속 4개(비용만 발생) | 동일 |
 | 9 | Object Pool ↔ Instantiate/Destroy 충돌 | ✅ 충돌 없음 | 풀이 없다(PUN `DefaultPool`). 반복 생성·파괴는 대기실 참가자 목록 한 곳(⏸) | 동일 |
 | 10 | Photon Ownership/RPC 구조 무시 | ⚠ 일부 있음 | ✅ 방장 쓰기 응답 대기. ⏸ 그랩/놓기 RPC 검증 없음, 정적 문 캐시. 🆕 RaiseEvent 발신자 미검증 3종 | 1건 해결, 1건 신규 |
-| 11 | 중복 로직 | ⚠ 다수 | ✅ 씬 복제·파괴 판정 중복 해결. ⏸ 스폰 3벌·표시 이름 3벌 등 12건. 🆕 응답 대기 플래그 패턴 9벌, 호출자 0인 `FindLocal<T>` | 개선 |
+| 11 | 중복 로직 | ⚠ 다수 | ✅ 씬 복제·파괴 판정 중복 해결. ⏸ 스폰 3벌·표시 이름 3벌 등 12건. 🆕 응답 대기 플래그 패턴 9벌, 호출자 0인 `FindLocal<T>`, 맵 도구 스폰 배치 2벌(R4.11-20) | 개선 |
+
+**참조하지 않는 코드(R7)**: 컴파일러·Roslyn 분석기 기준 **쓰이지 않는 private 필드·메서드 0개**, 인스펙터에만 있는 직렬화 필드 0개, 붙은 곳 없는 컴포넌트 0개.
+정리 대상은 **호출자 0인 public 멤버 4개**(`FindLocal<T>`·`CharacterGroundDetector.GroundLayer`·`MonsterLobbyWaitController.IsWaiting`·`ColorPaletteSO.GetColorName`),
+**쓰이지 않는 매개변수 4개**(런타임 RPC `withThrow` 1 — 놓을 때마다 전송만 됨, 에디터 3), 빈 확장 지점 1개(`MapConfig.PreProcess`), 참조 없는 프리팹 1개.
 
 ### R1.3 우선 조치 Top 10
 
@@ -538,6 +547,12 @@ GameSceneCore·GameLobbyScene 모두 활성 배치라 지금은 동작한다.
 - 권장: 대기실을 거친 판에서는 동작하지 않도록 조건을 좁힌다(예: `PhotonNetwork.OfflineMode`일 때만, 또는 PlayerTestScene에만 두는 직렬화 플래그 `onlyWithoutLobby`).
   또는 쓰기를 `expectedProperties: { PaintPhaseEndTime: null }` CAS로 보내 이미 값이 있으면 서버가 거절하게 한다.
 
+**R4.7-8 🆕 채팅을 연 채 씬이 내려가면 `OnDisable`이 파괴 중인 입력창의 활성 상태를 바꾼다(코드 추론, 미재현).**
+`GameManager/GameManager.cs:89-93` `OnDisable` → `CloseChat(send: false)` → `InputFdChat.gameObject.SetActive(false)`(`:82`). 씬 전환(뒤로가기·결과 복귀·대기실 → 맵)으로
+GameSceneCore가 파괴될 때도 `OnDisable`이 먼저 불리는데, 이때 같은 계층의 입력창도 파괴 중이라 Unity가 “파괴 중인 GameObject의 활성 상태는 바꿀 수 없다”는 오류를 낼 수 있다.
+억제 해제(`IsGameplaySuppressed = false`)는 그 앞줄이라 기능에는 영향이 없다. 비활성화(괴물 대기) 경로는 Play Mode로 확인했지만(§41), 파괴 경로는 확인하지 않았다.
+- 권장: `OnDisable`에서는 `bEnter = false`와 억제 해제만 하고, 입력창 숨기기는 `gameObject.activeInHierarchy`일 때(일반 닫기)만 한다.
+
 ### R4.8 Event 구독/해제 — ✅ 양호
 
 | 이벤트 | 구독 | 해제 | 평가 |
@@ -648,6 +663,13 @@ GameSceneCore·GameLobbyScene 모두 활성 배치라 지금은 동작한다.
 - 권장: `MasterPropertyWriter.TrySet(key, value, expectedPrevious)` — 내부에서 키별 “대기 중” 상태를 관리하고 `OnRoomPropertiesUpdate`·`OnMasterClientSwitched`로 풀며,
   가능하면 `expectedProperties`로 **서버 CAS**를 건다(방장 교체 경합까지 서버가 막는다). 새 방장 전용 쓰기를 추가할 때 빠뜨릴 여지가 없어진다.
 
+**R4.11-20 🆕 맵 에디터 도구의 스폰·킬존 배치가 두 벌이다.** `Editor/Maps/MapSceneBuilder.cs:1132` `PlaceSpawnsAndKillZone`·`:1160` `FindSpawn`·`SetPosition`과
+`Editor/Maps/MapCompactor.cs:1406` `PlaceSpawnsAndKillZone`·`:1433` `FindSpawn`·`SetPosition`이 같은 기준(주석 “MapSceneBuilder.FindSpawn과 같은 기준”)으로 따로 구현돼 있다.
+빌더는 원본(±172 m) 씬을 만들 때 배치하고, 곧이어 `MapCompactor.OnMapBuilt`(`MapSceneBuilder.cs:131`)가 축소하며 다시 배치하므로 게임에 쓰이는 값은 축소 쪽뿐이다.
+빌더 쪽 `PlaceSpawnsAndKillZone(string map, …)`의 `map` 매개변수는 쓰이지 않는다(R7.3). 킬존 이름 `"VoidKillZone"`도 에디터 도구 4곳(`MapSceneBuilder`·`MapCompactor`·`MapPlaytestDriver`·
+`MapPassabilityCheck` 경유)에 문자열로 흩어져 있다.
+- 권장: `FindSpawn`·`SetPosition`을 `MapCompactor`(또는 공용 `MapSceneUtil`) 한 곳에 두고 빌더는 그것을 호출. `"VoidKillZone"`은 `SceneSpawnPoints`처럼 상수로.
+
 ---
 
 ## R5. 그 밖의 발견 사항
@@ -684,6 +706,13 @@ GameSceneCore·GameLobbyScene 모두 활성 배치라 지금은 동작한다.
 16. **R5-16 🆕 `GameSettings.asset` 직렬화가 코드보다 오래됐다.** 삭제된 필드 `tentacleDashRadius: 0.4`가 남아 있고, 새 필드 `tentacleDashMaxSlope`·`tentacleDashGroundSnap`은 파일에 없다.
     Unity는 없는 필드에 코드 초기값(45°, 0.6m)을 쓰므로 동작은 같지만, 에셋 diff만 보고는 실제 값을 알 수 없고 옛 필드가 혼동을 준다. 인스펙터에서 한 번 저장(또는 `EditorUtility.SetDirty` + `SaveAssets`)하면 정리된다.
 17. **R5-17 🆕 호출자가 없는 공개 API.** `CharacterRegistry.FindLocal<T>()`(`Core/GameCharacter.cs:57`) — 채팅이 `PlayerInput` 억제로 바뀌면서 마지막 호출자가 사라졌다(R4.11-9).
+    같은 성격의 멤버를 전수 조사한 결과는 **R7**.
+18. **R5-18 🆕 맵 검증 도구(`Editor/Maps/MapPlaytestDriver.cs`)가 런타임 내부에 기대는 부분.** 검증 전용 에디터 도구라 게임에는 영향이 없지만 코드가 바뀌면 조용히 깨진다.
+    - 비공개 필드를 문자열로 리플렉션: `typeof(OfflineModeBootstrap).GetField("autoCreateRoom", NonPublic)`(`:94`) — 필드 이름이 바뀌면 `?.SetValue`가 조용히 건너뛰어 방이 만들어지지 않는다.
+    - 캐릭터 조정자(`HideOrSeekPlayer`·`MonsterController`)를 `enabled = false`로 끄는 동안(`:56`) `OnDisable`이 불려 `CharacterRegistry`에서 빠지고 Photon 콜백 등록도 풀린다.
+      검증 도중 관전·상호작용·`FindLocal` 계열이 캐릭터를 찾지 못한다(검증 대상이 이동뿐이라 지금은 무해).
+    - 걷기마다 `new PhysicsMaterial("PlaytestNoFriction")`(`:62`)을 만들고 되돌린 뒤 파괴하지 않는다(에디터 세션 동안 누수, 수량은 작음).
+    - `EditorApplication.update` 구독·해제는 `-=` 후 `+=`, 종료 시 `-=`로 짝이 맞다(✅).
 
 ---
 
@@ -715,6 +744,72 @@ GameSceneCore·GameLobbyScene 모두 활성 배치라 지금은 동작한다.
 - `MasterPropertyWriter`(요청 플래그 + CAS) 하나로 방장 쓰기 통일(R4.11-19) → 이어서 마스터 전용 단계 전이를 `RoundDirector` 하나로(R4.2)
 - 폴더 재배치 `Round/`·`Spectator/`·`World/`·`Cookie/`(R4.1-6), 도메인별 asmdef 분리(부록 A의 순환을 먼저 끊어야 함)
 - 공용 `CharacterBody`(R4.11-5), 문 이벤트를 `DoorStateRouter` 하나로(R4.8), `IsPaintScene` 정적 bool을 카운터/참조로(R4.7-1)
+
+**정리(참조하지 않는 코드, R7 — 각 5분 이내, 기능 변화 없음)**
+- 호출자 0인 public 멤버 4개 제거 또는 사용처 연결(R7.2): `CharacterRegistry.FindLocal<T>`는 `CharacterInteractor.FindLocalCharacter`를 대체하는 데 쓰면 중복(R4.11-9)도 함께 사라진다
+- 쓰이지 않는 RPC 매개변수 `withThrow` 정리(R7.3) — RPC 서명이 바뀌므로 모든 클라이언트를 같은 빌드로 맞춘다
+- 에디터 도구의 미사용 매개변수 3개·빈 확장 지점 `MapConfig.PreProcess` 정리(R7.3·R7.4)
+- 채팅 `OnDisable`의 입력창 숨기기를 활성 상태일 때만(R4.7-8), 맵 도구 스폰 배치 한 벌로(R4.11-20)
+
+---
+
+## R7. 참조하지 않는 변수·메서드
+
+### R7.1 조사 방법
+
+텍스트 검색만으로는 판별이 부정확했다 — 1차로 돌린 이름 빈도 스크립트는 로그용 보간 문자열(`$"{LogTag} …{count}"`) 안의 참조를 놓쳐 **후보 33개가 모두 오탐**이었다.
+그래서 다음 네 가지로 교차 확인했다(저장소 파일은 건드리지 않았다. 분석용 프로젝트·출력은 세션 임시 폴더에만 만들었다).
+
+| # | 방법 | 대상 | 잡는 것 |
+|---|---|---|---|
+| 1 | **C# 컴파일러 경고**: Unity가 만든 `TagOfChaos.EditorTests.csproj`를 `dotnet build`(SDK 9.0.200)로 임시 폴더에 빌드 | 런타임 + 에디터 + 테스트 | CS0169(쓰이지 않는 필드), CS0414(대입만 하고 읽지 않음), CS0219(쓰이지 않는 지역 변수), CS0649(할당되지 않는 필드) |
+| 2 | **Roslyn 분석기**: 같은 소스·같은 참조 DLL(`Library/ScriptAssemblies`)·Unity 전용 분석기(`Microsoft.Unity.Analyzers` — Unity 메시지·`[SerializeField]` 오탐 억제)로 SDK 형식 분석 프로젝트를 임시로 만들어 IDE0051·IDE0052·IDE0060을 경고로 켜고 빌드 | 런타임, 에디터 | IDE0051(쓰이지 않는 private 멤버), IDE0052(읽지 않는 private 멤버), IDE0060(쓰이지 않는 매개변수) |
+| 3 | **리플렉션 + 전체 소스 참조 수**(Unity `execute_code`): `TagOfChaos.Scripts` 어셈블리에 선언된 멤버마다 이름이 주석을 뺀 전체 소스(런타임·에디터)와 씬·프리팹의 UnityEvent(`m_MethodName`)에 몇 번 나오는지 셈. 이름이 여러 클래스에 겹치면 “등장 수 ≤ 선언 수”로 다시 거름 | public 멤버(분석기 2는 public을 보지 않음) | 호출자 0인 public 메서드·프로퍼티·필드 |
+| 4 | **자산 참조**: 모든 MonoBehaviour·ScriptableObject 스크립트 GUID가 씬·프리팹·에셋 YAML에 있는지, `Resources` UI 프리팹이 다른 씬·프리팹의 의존성(`AssetDatabase.GetDependencies`)에 있는지, 직렬화 필드(`[SerializeField]`·public)가 코드에서 한 번이라도 읽히는지 | 클래스·에셋·인스펙터 필드 | 붙은 곳 없는 컴포넌트, 쓰이지 않는 프리팹, 인스펙터에만 있는 필드 |
+
+### R7.2 결과 — 런타임(`Assets/02. Scripts`)
+
+| 분류 | 결과 |
+|---|---|
+| 쓰이지 않는 private 필드·메서드(CS0169·CS0414·CS0219·IDE0051·IDE0052) | **0개** |
+| 인스펙터에만 있고 코드가 읽지 않는 직렬화 필드 | **0개** |
+| 씬·프리팹·에셋에 붙은 곳이 없는 MonoBehaviour·ScriptableObject | **0개**(`CharacterInteractor`는 `RuntimeInitializeOnLoadMethod`로 자동 생성 — 정상) |
+| **호출자 0인 public 멤버** | **4개** — 아래 표 |
+| **쓰이지 않는 매개변수**(IDE0060) | **1개** — R7.3 |
+| 쓰이지 않는 에셋 | 1개 — `Resources/UI/Scene/ColorSelectionPanel/ColorSelectionPanel.prefab`(R5-15와 같음). `InteractionPromptUI.prefab`은 씬 참조는 없지만 `Resources.Load`로 쓰인다(정상) |
+
+**호출자 0인 public 멤버**
+
+| 멤버 | 위치 | 경위 | 권장 |
+|---|---|---|---|
+| `CharacterRegistry.FindLocal<T>()` | `Core/GameCharacter.cs:57` | 채팅 이동 잠금이 쓰던 것. §41에서 채팅이 `PlayerInput` 억제로 바뀌며 호출자 0(R5-17) | `CharacterInteractor.FindLocalCharacter`(`Interaction/CharacterInteractor.cs:64`, 같은 일을 하는 private 복제)를 `FindLocal<IGameCharacter>()`로 바꾸면 사용처가 생기고 중복도 없어진다(R4.11-9) |
+| `CharacterGroundDetector.GroundLayer` | `Core/CharacterGroundDetector.cs:22` | §41에서 감지기를 공용화할 때 넣었지만 아무도 읽지 않는다(괴물은 자기 `groundLayer` 필드로 생성자에 넘김) | 제거 |
+| `MonsterLobbyWaitController.IsWaiting` | `Monster/MonsterLobbyWaitController.cs:30` | 대기 상태 조회용으로 열어 두었으나 외부 사용 없음 | 제거(필요해지면 다시 추가) |
+| `ColorPaletteSO.GetColorName(int)` | `ColorTag/ColorPaletteSO.cs:11` | 옛 4라운드 색상 미니게임의 색 이름 표시용. 지금 UI는 색 이름을 보여 주지 않는다 | 제거하거나, 스와치 툴팁 등으로 쓸 계획이면 유지(데이터 `colorName`은 에셋에 있음) |
+
+### R7.3 쓰이지 않는 매개변수(IDE0060)
+
+| 매개변수 | 위치 | 내용 | 권장 |
+|---|---|---|---|
+| `withThrow` | `Unit/HideOrSeekPlayer.cs:83` `OnReleased(bool withThrow)` ← `Unit/PlayerGrabController.cs:67` `Release(bool withThrow = false)` | 구현되지 않은 “던지며 놓기” 연출의 흔적. 호출하는 곳 3곳(`PlayerGrabController.cs:37, 43`, `HideOrSeekPlayer.cs:130`)이 모두 기본값 `false`로 부르고, 받는 RPC는 값을 쓰지 않는다. **놓을 때마다 RPC로 전송만 된다** | 던지기 연출을 만들 계획이 없으면 RPC와 `Release`에서 매개변수를 뺀다(RPC 서명 변경 — 모든 클라이언트 같은 빌드) |
+| `map` | `Editor/Maps/MapSceneBuilder.cs:1067` `FixGround(string map, …)` | 맵 이름을 쓰지 않는다 | 제거 |
+| `map` | `Editor/Maps/MapSceneBuilder.cs:1132` `PlaceSpawnsAndKillZone(string map, …)` | 위와 같음. 이 함수 자체가 축소 도구에서 다시 실행된다(R4.11-20) | 함수 통합 때 함께 정리 |
+| `groupOf` | `Editor/Maps/MapCompactor.cs:734` `ExcludeBaseSlab(…, int[] groupOf, …)` | 지형 받침판 수정(오늘)에서 판별 방식을 바꾼 뒤 남은 매개변수 | 제거 |
+
+### R7.4 에디터 도구 — 그 밖의 결과
+
+| 분류 | 결과 |
+|---|---|
+| 쓰이지 않는 private 필드·메서드 | **0개**(런타임과 같은 방법 1·2) |
+| CS0649 “할당되지 않는 필드” | 36건 — **1건 제외 모두 오탐**: `MapSceneBuilder.LightingJson`·`DirectionalJson`·`PointJson`·`DoorsJson`·`DoorJson`, `WitchCookiePropsBuilder.LayoutItem`·`Layout`은 `JsonUtility.FromJson`이 리플렉션으로 채우는 데이터 클래스다 |
+| **빈 확장 지점** | `Editor/Maps/MapCompactor.cs:119` `MapConfig.PreProcess` — 호출은 하지만(`:405` `config.PreProcess?.Invoke(...)`) 맵 설정 5개 어디에서도 값을 넣지 않는다(CS0649). 맵별 전처리가 필요 없다면 제거 |
+| 에디터 전용 public API(메뉴·테스트·검증 도구 진입점) | `MapCompactor.CompactAll`, `MapPassabilityCheck.CheckAll`, `MapPlaytestDriver.Prepare`·`StartWalks`·`Walks`, `MapSceneBuilder.BuildAll`, 테스트 메서드 — 메뉴(`[MenuItem]`)·Test Runner·MCP 실행에서 호출되므로 **정상** |
+
+### R7.5 오탐으로 확인한 것(참고)
+
+이름 빈도로는 “참조 없음”처럼 보였지만 실제로는 쓰이는 것: Unity 메시지(`Awake`·`OnCollisionStay` 등), Photon 콜백(`OnRoomPropertiesUpdate` 등 — `MonoBehaviourPunCallbacks`가 호출),
+`[PunRPC]` 메서드(`nameof`로 이름 상수화), UI 버튼 `OnClick`에 연결된 메서드(`OnStartGameButtonClicked`·`OnMakeRoomButtonClicked`·`OnRandomJoinButtonClicked` — 씬·프리팹 YAML의 `m_MethodName`),
+`IJob.Execute`, 에디터 `[MenuItem]`·`AssetPostprocessor` 콜백, 로그 보간 문자열 안에서만 읽히는 지역 변수·상수(`LogTag`, 보고용 카운터 등).
 
 ---
 

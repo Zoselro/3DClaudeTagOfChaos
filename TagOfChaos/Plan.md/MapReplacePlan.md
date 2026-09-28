@@ -115,7 +115,7 @@
 
 ### 테스트(P9)
 - `Assets/Editor/Tests/MapCompactTests.cs`: 맵마다 ① 축소 표시·지형 ±72 m 안·외곽 벽 안쪽 면 70 m·스폰 위치/거리·킬존 ② 통행 검사 통과 ③ 문 틈 폭 ≥ 6.5 m·높이 ≥ 7.4 m·문 자리에 벽·소품 없음 → 15개 모두 통과.
-- 기존 `RuleTests.GameScenes_UseSingleSceneCorePrefab`은 PlayerTestScene의 sceneViewId(기대 2, 실제 4) 때문에 실패 — 이번 작업 전(오늘 09:04) 바뀐 PlayerTestScene 문제이고 맵 씬 5개는 이 검사를 통과한다. 이번 범위 밖이라 고치지 않았다.
+- ~~기존 `RuleTests.GameScenes_UseSingleSceneCorePrefab`은 PlayerTestScene의 sceneViewId(기대 2, 실제 4) 때문에 실패~~ → **해결(2026-09-28)**: 테스트가 씬 파일의 모든 `sceneViewId` 오버라이드를 셌다(PlayerTestScene에 직접 둔 HideOrSeekPlayer·MonsterPlayer 인스턴스의 2·4까지). `GameSceneCore`를 대상으로 한 오버라이드만 세도록 고쳤다. 씬은 바꾸지 않았다.
 
 모든 맵 축소·검사에서 Console 오류·경고 0건. MapSceneBuilder.Build(CandyForest)로 FBX부터 다시 만들어도 같은 결과(자동 축소 연동 확인).
 
@@ -138,5 +138,14 @@
 
 ### 남은 일 / 참고
 - 게임 수치(생존 시간·돌진 등, 결정 Q6)는 플레이 후 결정.
-- `RuleTests.GameScenes_UseSingleSceneCorePrefab` 실패는 PlayerTestScene 문제(맵과 무관, 이번 범위 밖).
+- `RuleTests.GameScenes_UseSingleSceneCorePrefab` 실패는 테스트 결함이었다 — 아래 수정 기록 참고(해결).
 - 맵 FBX를 바꿔 다시 빌드하면 `MapSceneBuilder.Build`가 원본(Assets/Scenes/Maps/Original)을 갱신하고 자동으로 축소한다. 축소만 다시 하려면 Tools/TagOfChaos/Maps/Compact ….
+
+- ✅ Fix: water surfaces at or below the ground (e.g. ChocolateFactory river/spill/sludge) z-fought with the terrain and looked broken. MapCompactor.LiftWaterAboveGround now raises such water to ground + 0.03 m. All 5 maps recompacted; passability still clean.
+
+### 수정: 지형 받침판이 바닥까지 올라와 z-fighting(2026-09-28) ✅
+- **증상**: 공장 바닥(특히 홀 벽돌 바닥)이 가로 줄무늬·번쩍임으로 깨져 보였다. 물 수면 들어올리기(위 항목)와 별개의 문제.
+- **원인**: 걷는 지형 FBX(`*_Terrain_Walkable`)에는 맵 전체(350 m)를 덮는 **받침판이 y −6 m**에 깔려 있다(정점 455~700개). 받침판 정점은 옆면과 법선이 평균돼 위를 향한 것(y 0.58~0.71)으로 보여 `LimitSlope`의 윗면(`normal.y > 0.2`)으로 분류됐고, "수직 벽(길이 0)의 낮은 쪽을 높은 쪽까지 올린다" 규칙에 끌려 **윗면 높이(공장 y 0)까지 올라갔다** → 바닥과 같은 높이로 겹침. 측정(샘플 지점 중 같은 높이로 두 겹인 비율): 공장 **74%**, 캔디숲 7%, 진저브레드 19%, 카니발 18%, 빵집 20% — 5개 맵 모두 해당(공장은 바닥이 평평해 거의 전역, 나머지는 낮은 곳에서 받침판이 겹치거나 뚫고 올라옴).
+- **수정**: `MapCompactor.ExcludeBaseSlab` — 받침판 높이(맵을 가로지르는 큰 수평 삼각형의 최저 높이; 받침판에 작은 삼각형도 섞여 있어 크기만으로는 거를 수 없음)를 구하고, 그 높이가 아닌 작은 수평 삼각형으로 윗면 최저 높이를 잡아 그보다 1 m 넘게 아래의 정점은 경사 제한에서 뺀다(받침판은 −6 × Ratio = −2.44 m에 남는다). 가장자리 옆면(면 법선 |y| < 0.5)은 기준에서 제외.
+- **결과**: 5개 맵 재축소 — 모두 `base slab excluded 700`, 윗면과 겹치는 지점 **0**(받침판은 윗면보다 최소 1.46 m 아래). 진저브레드 개울 둑 보정(raised 497)은 그대로 동작. 킬존은 가장 낮은 지형(이제 받침판) 기준이라 y −10.7 → −12.4(진저브레드 −17.3). EditMode **31/31**(맵 테스트 15 + RuleTests 16), 콘솔 오류·경고 0. 공장 홀 바닥 같은 시점 스크린샷에서 줄무늬 사라짐, Play Mode에서 쿠키가 홀 바닥 y 0.000에 착지·유지.
+- 참고: 공장 탱크 받침 둘레의 톱니 모양 어두운 부분은 톱니바퀴 받침대의 그림자다(겹침 아님).

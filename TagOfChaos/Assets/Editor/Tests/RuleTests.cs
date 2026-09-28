@@ -194,9 +194,10 @@ public class RuleTests
             Assert.AreEqual(1, instances, $"{path} must contain exactly one GameSceneCore instance.");
 
             // PUN은 프리팹 안의 PhotonView를 sceneViewId 0으로 되돌린다 — 씬 인스턴스가 0이 아닌 ID를 오버라이드로 가져야 한다.
+            // GameSceneCore를 대상으로 한 오버라이드만 센다(테스트 씬에 직접 둔 캐릭터 프리팹 등 다른 PhotonView는 제외).
             // 0이면 실행 중 ViewID가 0이 되어 채팅 RPC가 실패했다(Bug-fix-plan.md §41 ㊶ 검증 중 발견).
             var ids = new HashSet<string>();
-            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, @"propertyPath: sceneViewId\s*\n\s*value: (\d+)"))
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, $@"guid: {coreGuid}, type: 3}}\s*\n\s*propertyPath: sceneViewId\s*\n\s*value: (\d+)"))
                 if (m.Groups[1].Value != "0") ids.Add(m.Groups[1].Value);
             Assert.AreEqual(sceneViewCount, ids.Count, $"{path}: every GameSceneCore PhotonView needs a unique non-zero sceneViewId override.");
             foreach (string guid in scriptGuids)
