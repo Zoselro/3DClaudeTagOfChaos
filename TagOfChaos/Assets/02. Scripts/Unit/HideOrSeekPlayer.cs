@@ -80,7 +80,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     }
 
     [PunRPC]
-    private void OnReleased(bool withThrow)
+    private void OnReleased()
     {
         if (!pv.IsMine) return;
         ReleaseFromCarrierLocally();

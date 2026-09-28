@@ -119,9 +119,9 @@ public static class MapSceneBuilder
         BuildDoors(map, report);
 
         Physics.SyncTransforms();
-        FixGround(map, mapRoot, report);
+        FixGround(mapRoot, report);
         ReportMissingColliders(mapRoot, report);
-        PlaceSpawnsAndKillZone(map, report);
+        PlaceSpawnsAndKillZone(report);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
@@ -1064,7 +1064,7 @@ public static class MapSceneBuilder
     // 보이는 지면(지형·배경 지형·바닥재 렌더러)과 밟히는 지면(실제 충돌체)을 격자로 비교해, 밟을 수 없는 보이는 지면에
     // 같은 메시의 non-convex MeshCollider를 붙인다(GameLobbyScene.md §9와 같은 방식). 물 표면은 제외하고 물 아래 바닥이
     // 밟히는지만 본다(D12).
-    private static void FixGround(string map, Transform mapRoot, List<string> report)
+    private static void FixGround(Transform mapRoot, List<string> report)
     {
         Transform fixRoot = NewRoot(RootColliders);
         var candidates = new List<MeshFilter>();
@@ -1129,7 +1129,7 @@ public static class MapSceneBuilder
 
     // ---------------- spawns & kill zone (§3.9) ----------------
 
-    private static void PlaceSpawnsAndKillZone(string map, List<string> report)
+    private static void PlaceSpawnsAndKillZone(List<string> report)
     {
         Vector3 cookie = FindSpawn(new Vector3(0f, 0f, -90f), 2.5f);
         Vector3 monster = FindSpawn(new Vector3(0f, 0f, 90f), 2.5f);

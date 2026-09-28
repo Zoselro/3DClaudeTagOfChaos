@@ -19,8 +19,6 @@ public class CharacterGroundDetector
     private int wallCount;
     private float wallContactsTime = float.NegativeInfinity; // 벽 접촉을 기록한 물리 스텝의 Time.fixedTime
 
-    public LayerMask GroundLayer => groundLayer;
-
     // maxWalkableSlope: 이 각도(도)보다 가파른 접촉면은 벽으로 본다.
     public CharacterGroundDetector(LayerMask groundLayer, float checkDistance, float maxWalkableSlope = 50f)
     {

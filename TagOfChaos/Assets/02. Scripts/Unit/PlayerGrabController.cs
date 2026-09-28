@@ -63,8 +63,7 @@ public class PlayerGrabController : MonoBehaviour
         }
     }
 
-    // withThrow: 놓아줄 때 살짝 앞으로 밀어낼지 여부(선택적 연출, 기본은 그냥 내려놓기)
-    public void Release(bool withThrow = false)
+    public void Release()
     {
         if (!HasCarryReference) return;
 
@@ -72,7 +71,7 @@ public class PlayerGrabController : MonoBehaviour
         {
             var targetPv = carriedPlayer.View;
             if (targetPv != null && targetPv.Owner != null)
-                targetPv.RPC(HideOrSeekPlayer.RpcOnReleased, targetPv.Owner, withThrow);
+                targetPv.RPC(HideOrSeekPlayer.RpcOnReleased, targetPv.Owner);
             StartCoroutine(RestoreCollisionLater(carriedPlayer.gameObject));
         }
 

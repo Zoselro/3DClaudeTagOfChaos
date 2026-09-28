@@ -746,9 +746,9 @@ GameSceneCore가 파괴될 때도 `OnDisable`이 먼저 불리는데, 이때 같
 - 공용 `CharacterBody`(R4.11-5), 문 이벤트를 `DoorStateRouter` 하나로(R4.8), `IsPaintScene` 정적 bool을 카운터/참조로(R4.7-1)
 
 **정리(참조하지 않는 코드, R7 — 각 5분 이내, 기능 변화 없음)**
-- 호출자 0인 public 멤버 4개 제거 또는 사용처 연결(R7.2): `CharacterRegistry.FindLocal<T>`는 `CharacterInteractor.FindLocalCharacter`를 대체하는 데 쓰면 중복(R4.11-9)도 함께 사라진다
-- 쓰이지 않는 RPC 매개변수 `withThrow` 정리(R7.3) — RPC 서명이 바뀌므로 모든 클라이언트를 같은 빌드로 맞춘다
-- 에디터 도구의 미사용 매개변수 3개·빈 확장 지점 `MapConfig.PreProcess` 정리(R7.3·R7.4)
+- ✅ 호출자 0인 public 멤버 4개 **제거 완료**(R7.2, 2026-09-28)
+- ✅ 쓰이지 않는 매개변수 4개 **제거 완료**(R7.3, 2026-09-28) — RPC `OnReleased` 서명이 바뀌었으므로 모든 클라이언트를 같은 빌드로 맞춘다
+- ⏸ 빈 확장 지점 `MapConfig.PreProcess` 정리(R7.4) — 나중에
 - 채팅 `OnDisable`의 입력창 숨기기를 활성 상태일 때만(R4.7-8), 맵 도구 스폰 배치 한 벌로(R4.11-20)
 
 ---
@@ -778,7 +778,8 @@ GameSceneCore가 파괴될 때도 `OnDisable`이 먼저 불리는데, 이때 같
 | **쓰이지 않는 매개변수**(IDE0060) | **1개** — R7.3 |
 | 쓰이지 않는 에셋 | 1개 — `Resources/UI/Scene/ColorSelectionPanel/ColorSelectionPanel.prefab`(R5-15와 같음). `InteractionPromptUI.prefab`은 씬 참조는 없지만 `Resources.Load`로 쓰인다(정상) |
 
-**호출자 0인 public 멤버**
+**호출자 0인 public 멤버 — ✅ 4개 모두 제거(2026-09-28).** `CharacterInteractor.FindLocalCharacter`는 그대로 두었다(자체 구현이 유일한 사용처라 중복 R4.11-9는 해소됨).
+`ColorEntry.colorName` 데이터 필드는 팔레트 에셋에 저장된 값이라 남겼다. 컴파일 오류·경고 0, EditMode 31/31.
 
 | 멤버 | 위치 | 경위 | 권장 |
 |---|---|---|---|
@@ -787,7 +788,10 @@ GameSceneCore가 파괴될 때도 `OnDisable`이 먼저 불리는데, 이때 같
 | `MonsterLobbyWaitController.IsWaiting` | `Monster/MonsterLobbyWaitController.cs:30` | 대기 상태 조회용으로 열어 두었으나 외부 사용 없음 | 제거(필요해지면 다시 추가) |
 | `ColorPaletteSO.GetColorName(int)` | `ColorTag/ColorPaletteSO.cs:11` | 옛 4라운드 색상 미니게임의 색 이름 표시용. 지금 UI는 색 이름을 보여 주지 않는다 | 제거하거나, 스와치 툴팁 등으로 쓸 계획이면 유지(데이터 `colorName`은 에셋에 있음) |
 
-### R7.3 쓰이지 않는 매개변수(IDE0060)
+### R7.3 쓰이지 않는 매개변수(IDE0060) — ✅ 4개 모두 제거(2026-09-28)
+
+`OnReleased()`·`PlayerGrabController.Release()`·`MapSceneBuilder.FixGround(mapRoot, report)`·`PlaceSpawnsAndKillZone(report)`·`MapCompactor.ExcludeBaseSlab(world, source, heights, top)`.
+Play Mode(오프라인, 쿠키 2개)에서 잡기 → 놓기가 새 RPC 서명으로 동작함을 확인(놓은 뒤 들린 쪽 캐리 해제·물리 복원, 콘솔 0).
 
 | 매개변수 | 위치 | 내용 | 권장 |
 |---|---|---|---|

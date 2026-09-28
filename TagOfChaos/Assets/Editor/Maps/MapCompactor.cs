@@ -220,7 +220,7 @@ public static class MapCompactor
     private const float SinkTop = 0.1f;
 
     // 지면과 같거나 낮은 수면은 지면에 가려 깨져 보이므로 지면 위로 살짝 올린다(분지 안의 물은 그대로).
-    private const float WaterLift = 0.03f;
+    //private const float WaterLift = 0.03f;
 
     private static void LiftWaterAboveGround(Transform mapRoot)
     {
@@ -243,7 +243,7 @@ public static class MapCompactor
                 if (ground >= b.max.y - 0.01f) covered++;
             }
             if (samples == 0 || covered * 2 < samples) continue;
-            mr.transform.position += Vector3.up * (maxGround + WaterLift - b.max.y);
+            mr.transform.position += Vector3.up * (maxGround /*+ WaterLift*/ - b.max.y);
         }
         Physics.SyncTransforms();
     }
@@ -688,7 +688,7 @@ public static class MapCompactor
             groupOf[i] = g;
             if (normals.Length == world.Length && t.TransformDirection(normals[i]).y > 0.2f) top[g] = true;
         }
-        int baseExcluded = ExcludeBaseSlab(world, source, groupOf, heights, top);
+        int baseExcluded = ExcludeBaseSlab(world, source, heights, top);
 
         var edges = new HashSet<(int, int)>();
         for (int s = 0; s < source.subMeshCount; s++)
@@ -731,7 +731,7 @@ public static class MapCompactor
     private const float SurfaceTriangleMaxEdge = 30f;
     private const float BaseSlabClearance = 1f;
 
-    private static int ExcludeBaseSlab(Vector3[] world, Mesh source, int[] groupOf, List<float> heights, List<bool> top)
+    private static int ExcludeBaseSlab(Vector3[] world, Mesh source, List<float> heights, List<bool> top)
     {
         // 받침판 높이 = 맵을 가로지르는 큰 수평 삼각형의 최저 높이. 받침판에는 작은 삼각형도 섞여 있어(공장 14개) 크기만으로는 거를 수 없다.
         float baseY = float.PositiveInfinity;

@@ -25,6 +25,7 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
     public const string OpenOutwardStateName = "OpenOut";
     private const float FallbackSwingDuration = 0.6f;
     private const float RequestTimeout = 1.5f;
+    private float leafBottomY; // 상호 작용 기준 높이 - 문짝 바닥 (문턱)
 
     // 방장이 보냈지만 아직 서버 응답이 오지 않은 값. 온라인에서는 SetCustomProperties가 응답 전까지 로컬 캐시에
     // 반영되지 않아, 두 문을 연달아 바꾸면 앞 변경을 덮어쓸 수 있다 — 방장은 이 값을 Props 위에 겹쳐 쓴다.
@@ -58,7 +59,12 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
 
     public string DoorId => string.IsNullOrEmpty(doorId) ? name : doorId;
     public DoorState State => state;
-    public Vector3 InteractionPoint => leafCenter;
+
+    // 수평 위치는 문짝 가운데, 높이는 문짝 바닥. 가운데 높이를 쓰면 높은 문(공장 7.4~8.9m)이
+    // CharacterInteractor의 높이 차 제한(2.5m)에 걸려 상호작용 대상에서 빠졌다.
+    public Vector3 InteractionPoint => new Vector3(leafCenter.x, leafBottomY, leafCenter.z);
+    //public Vector3 InteractionPoint => leafCenter;
+
     public float InteractionRange => interactionRange;
 
     private void Awake()
@@ -251,6 +257,8 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
         Vector3 swing = Quaternion.AngleAxis(inwardOpenAngle, transform.up) * offset - offset;
         inwardNormal = Vector3.Dot(swing, normal) >= 0f ? normal : -normal;
         leafCenter = center;
+
+        leafBottomY = leafCollider != null ? leafCollider.bounds.min.y : transform.position.y;
     }
 
     private float FindClipLength(string keyword, float fallback)

@@ -27,8 +27,6 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
     private bool isWaiting;
     private double departAtLocalTime; // Time.realtimeSinceStartupAsDouble 기준 출발 시각
 
-    public bool IsWaiting => isWaiting;
-
     private void Start()
     {
         if (waitPanelRoot != null) waitPanelRoot.SetActive(false);

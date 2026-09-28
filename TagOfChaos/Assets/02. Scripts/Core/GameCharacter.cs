@@ -33,7 +33,7 @@ public interface IGameCharacter : ICameraFollowTarget
 }
 
 // 현재 씬에 활성화된 캐릭터 목록. 캐릭터가 OnEnable/OnDisable에서 스스로 등록·해제한다 —
-// 관전 대상 탐색이나 로컬 쿠키 찾기에 매번 FindObjectsByType로 씬 전체를 훑지 않게 한다(research.md §12 E12).
+// 관전 대상 탐색이나 로컬 캐릭터 찾기에 매번 FindObjectsByType로 씬 전체를 훑지 않게 한다(research.md §12 E12).
 public static class CharacterRegistry
 {
     private static readonly List<IGameCharacter> characters = new List<IGameCharacter>();
@@ -52,12 +52,4 @@ public static class CharacterRegistry
 
     // 파괴된(Destroy) 오브젝트는 Unity의 null 비교로만 걸러지므로 인터페이스 참조에도 이 검사를 쓴다.
     public static bool IsAlive(IGameCharacter character) => character is Object obj && obj != null;
-
-    // 이 클라이언트가 조종하는 첫 캐릭터(없으면 null).
-    public static T FindLocal<T>() where T : class, IGameCharacter
-    {
-        foreach (IGameCharacter c in characters)
-            if (c is T typed && IsAlive(c) && c.View != null && c.View.IsMine) return typed;
-        return null;
-    }
 }
