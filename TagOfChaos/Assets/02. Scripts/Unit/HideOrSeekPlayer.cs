@@ -2,7 +2,7 @@ using ExitGames.Client.Photon;
 using Photon.Pun;
 using UnityEngine;
 
-// 쿠키 캐릭터 조정자. 이동·점프·회피 물리와 동기화를 맡고, 입력(PlayerInput)·접지(PlayerGroundDetector)·
+// 쿠키 캐릭터 조정자. 이동·점프·회피 물리와 동기화를 맡고, 입력(PlayerInput)·접지(CharacterGroundDetector)·
 // 애니메이션(PlayerAnimationDriver)·캐리 추종(PlayerCarryFollower)은 협력 객체에 맡긴다.
 // 캐릭터 공통 계약(IGameCharacter·IRespawnable)으로 관전·카메라·낙하 복귀가 종류와 무관하게 동작한다.
 public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IRespawnable, IGameCharacter
@@ -34,7 +34,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
 
     private Animator animator;
     private Rigidbody rb;
-    private PlayerGroundDetector groundDetector;
+    private CharacterGroundDetector groundDetector;
     private PlayerAnimationDriver animationDriver;
     private PlayerNetworkSync networkSync;
     private PlayerGrabController grabController;
@@ -46,15 +46,9 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     public const string RpcOnReleased = nameof(OnReleased);
     public const string RpcRequestGrabKill = nameof(RequestGrabKill);
 
-    // 사망/대화/컷신 등 상위 시스템이 이 프로퍼티만 세팅하면 이동이 잠긴다. 파괴·들림 상태는 외부 설정과
-    // 별개로 항상 잠겨 있어야 하므로 계산값으로 합친다 — 예전에는 채팅창을 닫을 때 GameManager가 false를
-    // 대입해 파괴된 쿠키의 잠금까지 풀 수 있었다.
-    private bool externalMovementLock;
-    public bool IsMovementLocked
-    {
-        get => externalMovementLock || IsBroken || (carryFollower != null && carryFollower.IsCarried);
-        set => externalMovementLock = value;
-    }
+    // 이 쿠키 자신의 상태로 이동이 잠겼는지(파괴·들림). 채팅 같은 입력 차단은 캐릭터 종류와 무관하게 PlayerInput.IsGameplaySuppressed가
+    // 맡는다 — 예전에는 채팅이 이 값을 직접 켜 쿠키만 잠겼고, 잠긴 동안 Update가 멈춰 걷기 애니메이션이 남았다(Bug-fix-plan.md §41 ㊵).
+    public bool IsMovementLocked => IsBroken || (carryFollower != null && carryFollower.IsCarried);
 
     // 외부에서 "이 인스턴스가 내 캐릭터인지" 판별할 수단 (GameManager의 채팅 이동잠금이 참조)
     public bool IsMine => pv != null && pv.IsMine;
@@ -67,7 +61,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     // 잡힌 본인처럼 분쇄 연출을 끝까지 보게 한다(Bug-fix-plan.md §38).
     public bool IsSpectatable => pv != null && pv.Owner != null
         && (!RoomState.IsBroken(pv.Owner) || (lifePresenter != null && lifePresenter.IsBeingGrabKilled));
-    public bool CanInteract => !IsMovementLocked; // 파괴·들림·채팅 잠금 중에는 상호작용 불가
+    public bool CanInteract => !IsMovementLocked; // 파괴·들림 중에는 상호작용 불가(채팅 중에는 InteractPressed가 억제된다)
     public float CameraTargetHeight => Camera_Ctrl.CookieTargetHeight;
     public float CameraDistance => -1f; // Camera_Ctrl 인스펙터 기본 거리
 
@@ -159,7 +153,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         networkSync = new PlayerNetworkSync();
         animator = GetComponent<Animator>();
         animationDriver = new PlayerAnimationDriver(animator, jumpFreezeNormalizedTime);
-        groundDetector = new PlayerGroundDetector(groundLayer, groundCheckOffset);
+        groundDetector = new CharacterGroundDetector(groundLayer, groundCheckOffset);
         rb = GetComponent<Rigidbody>();
         grabController = GetComponent<PlayerGrabController>();
         carryFollower = new PlayerCarryFollower(gameObject, rb);
@@ -273,7 +267,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         }
         jumpRequested = false;
 
-        Move();
+        Move(grounded);
 
         // 낙하 최후 방어선은 괴물과 공용인 FallGuard 컴포넌트로 옮겼다(Bug-fix-plan.md §30.4).
     }
@@ -347,8 +341,14 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         rotation = rotation_value;
     }
 
+    // 벽 접촉을 모은다 — 공중에서 벽을 향한 속도를 빼 벽에 붙지 않게 한다(Bug-fix-plan.md §41 ㊴). 물리 소유자만.
+    private void OnCollisionStay(Collision collision)
+    {
+        if (pv.IsMine) groundDetector.RecordContacts(collision);
+    }
+
     // 움직일 때 — 수평 속도만 Rigidbody에 넘기고, 수직 속도(중력/점프)는 물리 엔진이 이미 채운 값을 그대로 보존한다.
-    public void Move()
+    private void Move(bool grounded)
     {
         Vector3 dir;
         float vel;
@@ -375,6 +375,9 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
             rb.MoveRotation(Quaternion.LookRotation(lookDir));
 
         Vector3 horizontal = new Vector3(dir.x * vel, 0f, dir.z * vel);
+        // 공중에서 벽·사물을 향해 계속 밀면 그 수직항력에 비례한 마찰이 중력을 이겨 벽에 붙는다 — 벽을 향한 성분만 뺀다(§41 ㊴).
+        // 땅에서는 그대로 둔다(벽 앞에 서서 미는 것은 문제가 없고, 지면 마찰은 경사에서 미끄러지지 않게 해 준다).
+        if (!grounded) horizontal = groundDetector.RemoveWallPush(horizontal);
         rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z); // y는 물리 엔진(중력/점프)이 채운 값 그대로 보존
     }
 

@@ -5978,3 +5978,462 @@ Blender 5.2를 백그라운드로 실행해 **읽기만** 했다(저장하지 �
 
 ### 40.8 사용자 확인 필요 항목(빌드)
 1. 두 맵의 밝기·네온 세기가 적당한지 — 조정은 `MapSceneBuilder`의 Mood 표(환경광·방향광·Bloom)와 `EmissionScale`(재질별 배율)을 바꾼 뒤 `Tools/TagOfChaos/Maps/Build <Map>`으로 다시 조립한다.
+
+## 41. ㊳ 괴물 촉수 돌진이 경사·굴곡진 면에서 동작하지 않음 / ㊴ 점프 중 벽에 이동 키를 유지하면 벽에 붙음 / ㊵ 채팅 중 괴물은 이동 잠금이 안 걸림 / ㊶~㊺ research.md(2026-09-28) 신규 발견 5건 — 🟢 구현·에디터 검증 완료(K0~K6), 빌드 멀티 확인 대기(41.14) (2026-09-28)
+
+> 이 절은 **소스 파일과 프리팹·씬 YAML·ProjectSettings를 직접 읽고** 쓴 계획이다. 줄 번호는 커밋 `7f8cd38` 기준이다.
+> 파일 경로는 따로 적지 않으면 `Assets/02. Scripts/` 기준이다. 프로젝트 규칙(CLAUDE.md "계획 → 승인 → 작업", 메모리 "작은 수정마다 새 클래스를 만들지 않고 기존 클래스를 확장")을 따른다 —
+> **이 계획은 새 C# 클래스를 하나도 만들지 않는다.** 새로 만드는 것은 프리팹 1개(㊶)와 EditMode 테스트 메서드뿐이다.
+
+### 41.1 한눈에 보기
+
+| # | 증상 | 근본 원인(한 줄) | 수정 위치 | 결정 필요 |
+|---|---|---|---|---|
+| ㊳ | 괴물 Shift 돌진이 평지에선 되지만 경사·굴곡에선 안 됨 | 시작할 때 **발 높이에서 수평으로** 장애물을 한 번 검사해 오르막·요철의 지면을 벽으로 판정, 이동도 **수평 고정 `MovePosition`** | MonsterTentacleDash, MonsterController, PlayerGroundDetector, GameSettingsSO | D1, D2 |
+| ㊴ | 점프 후 벽·사물에 키를 누른 채 있으면 무한히 붙음(괴물도 같은 구조) | 매 물리 스텝 **벽 쪽 수평 속도를 강제 대입** + 캐릭터 콜라이더에 **마찰 재질이 없음**(2026-08-21 커밋 `403f4b6`에서 `PlayerNoFriction` 연결이 사라짐) → 마찰이 중력을 이김 | PlayerGroundDetector, HideOrSeekPlayer, MonsterController | D3, D4 |
+| ㊵ | 채팅 중 괴물은 WASD·Shift 돌진이 그대로 됨 | 채팅이 **쿠키 타입(`HideOrSeekPlayer`)만** 찾아 잠금 | PlayerInput, GameManager, HideOrSeekPlayer | D5 |
+| ㊶ | GameScene을 고쳐도 맵 5개에 반영 안 됨 | 맵 씬이 GameScene의 **1회성 복사본**이라 매니저·HUD 21종이 씬 6개에 따로 직렬화 | 새 프리팹 `GameSceneCore`, MapSceneBuilder | D6 |
+| ㊷ | (잠재) 빌드에서 맵 로드 실패 가능 | 대체 씬 `SceneNames.Game`("GameScene")이 **빌드 목록에서 빠짐** | GameStartAuthority, GameSettingsSO, SceneNames | — |
+| ㊸ | 들고 있던 쿠키가 방을 나가면 드는 쪽 상체가 캐리 자세로 굳음 | Unity 오버로드 `!= null` 때문에 **파괴 감지 분기가 죽은 코드** | PlayerGrabController | — |
+| ㊹ | 승패·강제 도포가 서버 응답 전까지 매 프레임 재전송(강제 도포는 매번 다른 색) | 방장 쓰기에 **요청 대기 플래그가 없음** | GameRuleController, PaintPhaseController, MonsterAssignmentAuthority | D7 |
+| ㊺ | ~~빌드에 있는 맵 2개가 판에서 절대 선택되지 않음~~ **→ 조사 오류로 정정(41.9.4): 실제로는 5개 모두 등록돼 있음** | (에셋 목록 앞 3줄만 읽은 오판) | 회귀 방지 테스트만 | D8(이미 충족) |
+
+---
+
+### 41.2 ㊳ 괴물 촉수 돌진 — 경사·굴곡진 면
+
+#### 41.2.1 증상(사용자 보고)
+괴물이 Shift로 촉수 돌진을 쓰면 평지에서는 정상인데, 굴곡진 면(경사·요철)에서는 제대로 동작하지 않는다.
+
+#### 41.2.2 관련 코드와 실측 값
+| 항목 | 값 / 코드 |
+|---|---|
+| 돌진 시작 | `Monster/MonsterController.cs:196` `tentacleDash.TryStartDash(transform.forward, transform.position, obstructionMask)` — 원점이 **괴물 피벗(발바닥)** |
+| 장애물 검사 | `Monster/MonsterTentacleDash.cs:30-31` `Physics.SphereCast(origin, radius=0.4, forward, 20m, obstructionMask)` → 맞으면 `actualDashDistance = hit.distance - radius` |
+| 돌진 방향 | `MonsterTentacleDash.cs:26` `dashDirection = forward`를 **돌진 내내 고정**. `transform.forward`는 `MoveRotation(LookRotation(수평 입력))`로만 돌아서 항상 **수평**이다 |
+| 이동 방식 | `MonsterController.cs:214-220` `rb.MovePosition(rb.position + step)` — 스텝당 `20m / 0.25s × 0.02s = 1.6m` 수평 순간이동. 속도(`linearVelocity`)는 건드리지 않는다 |
+| `obstructionMask` | `MonsterPlayer.prefab` `m_Bits: 1` = **Default 레이어만** |
+| 맵 지면·사물 레이어 | `MapSceneBuilder`는 레이어를 지정하지 않는다 → 지면(`Map/Ground`, 오목 MeshCollider)·사물 모두 **Default** |
+| 괴물 몸 | 루트 스케일 3.14, CapsuleCollider r 0.1·h 0.35·중심 y 0.175 → 월드 **r 0.31·h 1.10·중심 y 0.55**, 캡슐 바닥 = 피벗 |
+| 설정 | `GameSettings.asset` `tentacleDashDistance 20`, `Duration 0.25`, `Cooldown 15`, `Radius 0.4` |
+
+#### 41.2.3 원인
+1. **오르막·요철을 벽으로 판정한다(주원인, "동작하지 않음").** 검사 구의 중심이 발바닥 높이(피벗)이고 반지름이 0.4m라, 구는 지면 아래 0.4m ~ 위 0.4m를 훑는다.
+   평지에서는 시작 지점에서 이미 겹쳐 있는 지면이 무시되고(PhysX는 시작 시 겹친 면을 보고하지 않는다) 그 앞에도 솟은 지면이 없어 20m가 나온다.
+   오르막이나 발밑보다 조금이라도 높은 요철이 앞에 있으면 **그 지면이 Default 레이어라 장애물로 잡히고**, `hit.distance - 0.4`로 거의 0m까지 잘린다 → 애니메이션만 재생되고 제자리.
+2. **내리막에서는 허공으로 날아간다.** 방향이 수평 고정이라 내리막에서 지면을 떠나 20m 직진한 뒤 떨어진다. 그동안 중력 속도는 계속 쌓인다(`MovePosition`이 속도를 지우지 않음).
+3. **요철을 매 스텝 1.6m씩 파고든다.** 비키네마틱 Rigidbody의 `MovePosition`은 충돌을 풀기 위한 겹침 해소(depenetration)에 맡겨져 튀어 오르거나 걸려 멈춘다.
+   `ContinuousDynamic`은 속도 기반 이동에만 연속 충돌을 적용한다.
+4. **보조 문제**: 시작 검사 구가 몸 높이(1.1m) 중 아래 0.4m만 덮어, 0.4m보다 높은 곳에 걸친 난간·탁자 상판 같은 장애물은 놓치고 `MovePosition`으로 뚫고 갈 수 있다.
+   `hit.distance`는 이미 구 중심의 이동 거리이므로 `- radius`는 0.4m를 한 번 더 빼는 것이다.
+
+> **K0 실측(2026-09-28, Game_CandyForest, 괴물과 같은 Rigidbody·캡슐 대리 물체로 에디터 물리를 스텝 단위 실행)** — 위 가설 1은 **이어진 지형에서는 주원인이 아니었다**.
+> 지면은 `CAN_Terrain_Walkable` 하나의 오목 MeshCollider라, 시작 때 겹쳐 있는 지면 전체를 SphereCast가 보고하지 않는다(오르막 31곳 평균 16.2m, 대부분 잘리지 않음). 실제 원인은 **2·3번(수평 고정 `MovePosition`)**이다.
+>
+> | 경우 | 결과 |
+> |---|---|
+> | 오르막(7~44°) 14회 | **8회가 돌진 끝에 지형 아래**(지표면보다 0.8~12.8m 아래)로 들어가 그대로 추락. 스텝당 1.6m 순간이동이 오목 지형 면을 뚫는다(`MovePosition`에는 연속 충돌 판정이 적용되지 않음) |
+> | 내리막 13회 | 돌진 중 높이가 거의 그대로(−0.36m) → 지면 위 **최대 13.3m 허공**으로 날아갔다가 떨어짐 |
+> | 평지 5회 | 3회 정상(20.8m). 2회는 발 높이의 낮은 장식에 시작 검사가 걸려 **0~0.5m로 잘림**(가설 1은 요철·낮은 사물에서만 해당) |
+>
+> 수정 방향(D1 속도 기반 + 지면 법선 + 붙이기, 시작 검사 제거)은 이 실측으로 그대로 유효하다. 속도 기반 이동은 `ContinuousDynamic` 연속 충돌 판정을 받는다.
+
+#### 41.2.4 결정 사항(추천안 표시)
+| # | 항목 | 선택지 | 추천 |
+|---|---|---|---|
+| D1 | 이동 방식 | (a) **속도 기반**: 매 스텝 `rb.linearVelocity = 지면을 따라 꺾은 방향 × 돌진 속도` / (b) `MovePosition` 유지 + 매 스텝 캡슐 캐스트로 경로 검사 | **(a)**. 걷기와 같은 방식이라 충돌·경사·연속 충돌 판정을 물리 엔진이 맡는다. (b)는 경사 따라가기·밀려남 처리를 직접 다 짜야 한다 |
+| D2 | 너무 가파른 면(최대 경사 초과)을 만났을 때 | (a) 그 자리에서 **돌진 이동 종료**(애니메이션은 끝까지) / (b) 벽을 따라 미끄러지며 계속 | **(a)**. 현재 "벽 앞에서 멈춤" 규칙과 같다 |
+
+#### 41.2.5 수정
+| # | 파일 | 변경 |
+|---|---|---|
+| F1 | `Unit/PlayerGroundDetector.cs` | 기존 `IsGrounded`(단일 레이) 옆에 **지면 법선 조회** `TryGetGround(Vector3 position, float probeRadius, float probeHeight, float maxDistance, out RaycastHit hit)` 추가 — 몸 중심 높이에서 아래로 SphereCast(트리거 무시). 쿠키·괴물 공용으로 쓴다(이름 변경은 41.3 D4) |
+| F2 | `Monster/MonsterController.cs` | `PlayerGroundDetector` 인스턴스와 `groundLayer` 필드 추가(쿠키와 같은 패턴, 기본 Default). 캡슐 치수는 `Start`에서 루트 `CapsuleCollider` × `lossyScale`로 한 번 계산 |
+| F3 | `Monster/MonsterTentacleDash.cs` | `TryStartDash`에서 **발 높이 SphereCast로 거리 자르기 제거**. 방향(수평)·지속시간·쿨다운만 정한다. 새 메서드 `Vector3 DashVelocity(Vector3 groundNormal, bool grounded, float maxSlope)` — 접지 중이고 경사가 `maxSlope` 이하면 `ProjectOnPlane(dashDirection, normal).normalized × (distance/duration)`, 공중이면 수평 방향 그대로. 가파른 면이면 `Vector3.zero` 반환 + 이동 종료(D2) |
+| F4 | `MonsterController.FixedUpdate` 돌진 분기 | `MovePosition` → `rb.linearVelocity = DashVelocity(...)`(D1). **지면 붙이기**: 직전 스텝에 접지였는데 지면이 `groundSnapDistance` 안에서 떨어졌으면(볼록한 언덕 꼭대기) 그 거리를 다음 스텝에 메우는 아래 속도를 더해 떠오르지 않게 한다. 붙이기 거리보다 먼 낭떠러지는 그대로 떨어진다 |
+| F5 | 같은 곳, 막힘 감지 | 실제 이동량(`rb.position` 변화)이 기대 이동량의 30% 미만인 스텝이 2번 이어지면 벽에 막힌 것으로 보고 이동 종료(D2). 0.4m 위 장애물(보조 문제 4)도 이제 몸 캡슐 전체가 물리 충돌로 막는다 |
+| F6 | 돌진 시작·종료 | 시작 때 `linearVelocity`의 y를 0으로(쌓인 낙하 속도 제거). 이동이 끝나는 스텝에 수평 속도를 0으로, y는 `Mathf.Min(y, 0)`(내리막 돌진의 큰 아래 속도·오르막의 위 속도가 이어지지 않게) |
+| F7 | `TryCatchCookieOnDashPath` | 스윕 방향을 고정 수평 `step`이 아니라 **이번 스텝의 실제 속도 × dt**로(경사를 따라 올라가는 경로의 쿠키를 잡도록) |
+| F8 | `Core/GameSettingsSO.cs` Tentacle Dash 항목 | `tentacleDashMaxSlope`(기본 45°), `tentacleDashGroundSnap`(기본 0.6m) 추가. **`tentacleDashRadius`는 쓰는 곳이 사라지므로 제거**(에셋에 남은 값은 Unity가 무시) |
+
+- 걷기 이동(`MonsterController.cs:230`)은 바꾸지 않는다 — 경사 문제 보고가 없고, 걷기는 이미 속도 기반이다.
+- 새 클래스 없음: 지면 조회는 기존 `PlayerGroundDetector`, 돌진 계산은 기존 `MonsterTentacleDash`에 넣는다.
+
+#### 41.2.6 검증
+| # | 항목 | 방법 | 기준 |
+|---|---|---|---|
+| V1 | 수정 전 재현 기록(K0) | CandyForest 오르막·요철에서 `actualDashDistance` 로그 | 20m보다 크게 짧음을 기록 |
+| V2 | 평지 회귀 | PlayerTestScene(오프라인, `SpawnAsMonster`) 평지 돌진 10회 | 이동 거리 20m ± 0.5m, 기존과 같음 |
+| V3 | 경사 | 임시 경사로(씬 저장 안 함) 10°·25°·40° 오르막·내리막, 50° 벽 | 40° 이하 오르막·내리막은 경사를 따라 ≥ 18m, 내리막에서 지면과 떨어진 높이 ≤ 0.1m(붙이기), 50°는 그 앞에서 멈춤 |
+| V4 | 실제 맵 | CandyForest·GingerbreadVillage 언덕, ChocolateFactory 요철 바닥 각 5회 | 제자리 돌진 0회, 벽·사물 관통 0회(캡슐 겹침 검사) |
+| V5 | 돌진 중 처형 | 경사 위 쿠키를 향해 돌진 | 쿠키 앞에서 멈추고 GrabKill 전환(§34 동작 유지) |
+| V6 | 종료 후 | 내리막 돌진 종료 직후 속도 | 수평 0, 착지 후 튕김·미끄러짐 없음 |
+
+#### 41.2.7 구현·검증 — ✅ 완료(2026-09-28)
+- `MonsterTentacleDash`: 시작 때 발 높이 SphereCast로 거리 자르기 **제거**, `TryStartDash(forward)`는 수평 방향·속도(거리/시간)·쿨다운만 정한다. `DashVelocity(nearGround, normal, maxSlope)`(순수 계산 `DirectionOnGround` — 최대 경사 이하면 지면 법선으로 꺾음), `TickDash(dt)`, 막힘 감지 `ReportProgress`(기대 이동량의 30% 미만이 2스텝 연속이면 종료).
+- `MonsterController.FixedUpdateDash`: `MovePosition` → **속도 기반**(D1). 지면 탐침(`CharacterGroundDetector.TryGetGround`, 몸 반지름 0.9배 구, 몸 아래 반구 중심보다 0.05m 위에서 시작)으로 법선·틈을 얻는다. **붙이기 거리 = 여유(설정 0.6m) + 스텝 길이 × tan(최대 경사)**(초속 80m × 0.02초 = 1.6m → 약 2.2m). 거리 안에 지면이 있으면 항상 경사를 따르고 틈만큼 아래 속도를 더하며, 밖이면 중력에 맡기되 위 속도는 남기지 않는다. 돌진이 끝난 첫 스텝은 위 속도를 0으로 자른다. 돌진 경로 처형 스윕은 실제 속도 × dt 방향으로. `obstructionMask` → `groundLayer`(`FormerlySerializedAs`, 프리팹 값 Default 유지 확인). 벽 접촉 기록(41.3)도 같은 감지기로.
+- `GameSettingsSO`: `tentacleDashMaxSlope`(45°)·`tentacleDashGroundSnap`(0.6m) 추가, 쓰지 않게 된 `tentacleDashRadius` 제거.
+- EditMode: `TentacleDash_FollowsWalkableSlope_KeepsHorizontalOnSteepOrAir` 추가 → **15/15 통과**.
+- **구현 중 발견·수정 2건**(1차 측정에서 드러남): ① 고정 붙이기 거리 0.6m는 한 스텝 1.6m 기준 약 20° 경사까지만 따라가 내리막에서 3~4m 떴다 → 스텝 길이에 비례하게. ② "직전 스텝이 접지일 때만 붙이기" 규칙은 초속 80m에서 지형 곡률만으로 한 번 뜨면 끊겨, 오르막 방향 위 속도(+39 m/s)를 가진 채 언덕 꼭대기에서 **8.4m 발사**됐다 → 거리 안이면 항상 붙이고, 공중에서는 위 속도를 남기지 않게.
+- Play Mode(Game_CandyForest 오프라인, 실제 `MonsterController` 돌진 — 같은 시드의 지형 경로 14개 + 벽 1개, 경로에 지형 외 충돌체 없음):
+  | 경로 | 수정 전(K0·1차) | 수정 후 |
+  |---|---|---|
+  | 평지 4 | 20.7~20.8m (발 높이 장식에 잘리면 0~0.5m) | 20.4~20.8m, 지면 위 최대 0.15m |
+  | 오르막 5(12m에 2~3.6m 상승) | 14회 중 8회 **지형 아래 −0.8~−12.8m** / 1차 수정 후 언덕 꼭대기 **8.44m 발사** | 수평 17.2~18.3m(경사를 따라 올라 경로 길이는 약 20m), 지면 위 최대 0.35m, 지형 아래 0회(최저 −0.26m = 접촉 여유) |
+  | 내리막 5 | 지면 위 **최대 13.3m 허공** / 1차 후 3.4~3.9m | 18.5~19.9m, 지면 위 최대 0.16~0.41m, 종료 후 속도 0 |
+  | 벽(평지 8m 앞, 두께 0.6m) | — | **7.4m에서 정지**(벽면 7.7m − 몸 반지름 0.31m), 이동 0.15초에 종료 |
+  | 돌진 중 처형(V5) | — | 평지·오르막(10m 앞, 1.4m 높이) 모두 경로의 쿠키 앞에서 멈추고 GrabKill 전환(`Tentacle dash caught cookie`) |
+  | 콘솔 | | 에러·경고 0 |
+- 40° 이상 인공 경사로 측정(V3의 10°·25°·40°·50° 임시 경사로)은 실제 지형 경로(국소 경사 약 25~30°)와 벽 측정으로 대신했다. 50° 이상은 `DirectionOnGround` 테스트(60° → 수평 유지)와 벽 정지로 확인.
+
+---
+
+### 41.3 ㊴ 점프 중 벽·사물에 키를 유지하면 벽에 붙음(쿠키, 이후 괴물 공통)
+
+#### 41.3.1 증상(사용자 보고)
+플레이어가 점프한 뒤 벽이나 사물에 키보드를 떼지 않고 계속 밀면 벽에 무한히 붙어 있다. 이후 추가될 괴물들에게도 같은 문제가 생길 여지가 있다.
+
+#### 41.3.2 관련 코드와 실측 값
+| 항목 | 값 / 코드 |
+|---|---|
+| 쿠키 수평 속도 | `Unit/HideOrSeekPlayer.cs:378` 매 `FixedUpdate`에 `rb.linearVelocity = (입력 방향 × 속도, 기존 y)` — **공중에서도** 적용(PlayerControllPlan §24 자유 공중 조작) |
+| 괴물 수평 속도 | `Monster/MonsterController.cs:230` 같은 방식(속도 10) |
+| 쿠키 루트 캡슐 재질 | `HideOrSeekPlayer.prefab` CapsuleCollider `m_Material: {fileID: 0}` — **없음** |
+| 괴물 캡슐 재질 | `MonsterPlayer.prefab` `m_Material: {fileID: 0}` — 없음 |
+| 기본 물리 재질 | `ProjectSettings/DynamicsManager.asset` `m_DefaultMaterial: {fileID: 0}` → Unity 기본(동·정마찰 0.6, 결합 Average) |
+| 맵 사물 | 재질 없음(기본 마찰) |
+| 과거 수정 | PlayerControllPlan.md §22에서 `Assets/06. Physics/PlayerNoFriction.physicMaterial`(마찰 0, Minimum)을 쿠키 캡슐에 연결했다. `git log -S`로 추적하면 커밋 `2a8b95b`에 연결이 있고 **커밋 `403f4b6`(2026-08-21 "몬스터 구현진행중")에서 사라졌다** — 쿠키 모델 교체(§25/§26) 무렵 루트 캡슐이 다시 만들어지며 빠진 **회귀**로 보인다. 재질 에셋은 지금 어디에서도 참조되지 않는다(`PlayerNoFriction_tmp`도 미사용) |
+
+#### 41.3.3 원인
+벽을 향해 키를 누르고 있으면 매 스텝 벽 쪽 속도 5m/s(괴물 10m/s)가 다시 대입되고, 물리 엔진은 그 속도를 없애는 **수직항력 충격량**(질량 1 × 5)을 만든다.
+마찰이 버틸 수 있는 세로 충격량은 `0.6 × 5 = 3m/s`인데, 한 스텝(0.02초)에 중력이 더하는 낙하 속도는 `9.81 × 0.02 ≈ 0.2m/s`다.
+마찰이 매 스텝 낙하 속도를 전부 지워 **y 속도가 0에 머문다** → 벽에 붙는다. 키를 떼면 벽 쪽 속도가 없어 수직항력·마찰도 사라져 떨어진다(보고와 일치).
+괴물은 점프가 없지만 난간에서 떨어지거나 돌진 후 공중에 뜬 상태에서 벽을 밀면 같은 일이 생긴다. 이동 코드가 캐릭터마다 같은 패턴이라 **새 괴물도 그대로 물려받는다.**
+
+> **K0 실측(2026-09-28, 쿠키와 같은 캡슐 r 0.46·h 2 대리 물체, 공중 벽 앞, 매 스텝 벽 쪽 5m/s 대입)**
+>
+> | 조건 | 3초 뒤 높이 변화 |
+> |---|---|
+> | 현재(기본 마찰) + 키 유지 | **+0.06m, y 속도 0 — 벽에 붙음(재현)** |
+> | 키를 뗌 | −38.7m(정상 낙하) |
+> | 키 유지 + 벽 방향 성분 제거(D3 추천안) | −35.5m(정상 낙하) |
+> | 키 유지 + 마찰 0 재질 | −35.7m(정상 낙하) |
+> | 20° 경사에 10초 가만히(수평 속도 0 대입): 기본 마찰 / 마찰 0 재질 | **0.00m / 0.76m 미끄러짐** — D3에서 재질 방식을 쓰지 않는 근거 확인 |
+
+#### 41.3.4 결정 사항(추천안 표시)
+| # | 항목 | 선택지 | 추천 |
+|---|---|---|---|
+| D3 | 해결 방식 | (a) `PlayerNoFriction`(마찰 0)을 두 캐릭터 캡슐에 다시 연결 / (b) **코드**: 공중일 때 접촉 중인 벽 방향으로의 속도 성분을 제거 / (c) (a)+(b) | **(b)**. (a)는 한 줄로 끝나지만 **가만히 서 있어도 경사에서 미끄러진다** — 매 스텝 수평 속도를 0으로 대입해도 중력이 경사를 따라 만드는 속도가 남아 약 `0.2 × sinθ m/s`(20° 경사에서 초당 약 7cm)씩 흘러내린다. 숨바꼭질에서 쿠키가 경사에 가만히 서 있는 것은 핵심 플레이라 부작용이 크다. (b)는 벽을 밀지 않게 만들어 수직항력 자체가 생기지 않고, 지면 마찰은 그대로 둔다 |
+| D4 | 공용 코드 위치 | (a) `PlayerGroundDetector`를 그대로 두고 확장 / (b) 확장 + 이름을 `CharacterGroundDetector`로 변경(순수 C# 클래스라 GUID 영향 없음, 파일 이동 `Unit/` → `Core/`) | **(b)**. 쿠키·괴물·이후 괴물이 모두 쓰므로 이름과 위치가 역할과 맞아야 다음 캐릭터 작성자가 찾는다. 새 클래스가 아니라 기존 클래스의 개명이다 |
+
+#### 41.3.5 수정
+| # | 파일 | 변경 |
+|---|---|---|
+| F1 | `PlayerGroundDetector`(→ D4에 따라 `Core/CharacterGroundDetector.cs`) | 접촉 기록 `RecordContacts(Collision)`(`GetContacts` + 재사용 버퍼, 할당 없음), 벽 성분 제거 `Vector3 RemoveWallPush(Vector3 horizontalVelocity)`, `ClearContacts()` 추가. "벽"은 법선의 y가 `cos(최대 경사)` 미만인 접촉 — 바닥·완만한 경사는 제외. 벽 법선의 수평 성분 `n`에 대해 `dot(v, n) < 0`이면 `v -= dot(v, n) × n`(모서리에서 두 벽을 동시에 누르는 경우 순서대로 적용) |
+| F2 | `Unit/HideOrSeekPlayer.cs` | `OnCollisionStay`(IsMine일 때만) → `RecordContacts`. `Move()`(`:378`)에서 **접지가 아닐 때만** 수평 속도에 `RemoveWallPush` 적용, 사용 후 `ClearContacts`. 회피(Dodge) 관성 이동에도 같은 경로를 탄다 |
+| F3 | `Monster/MonsterController.cs` | 같은 두 줄(`OnCollisionStay`, 공중일 때 `RemoveWallPush`). 접지 판정은 41.2 F2에서 넣는 감지기로. 돌진 중(41.2)에는 적용하지 않는다 — 돌진은 막힘 감지(41.2 F5)로 끝낸다 |
+| F4 | 새 캐릭터 체크리스트(41.11) | "수평 속도를 직접 대입하는 캐릭터는 `OnCollisionStay → RecordContacts`, 공중일 때 `RemoveWallPush`" 항목 추가 |
+| F5 | 사용하지 않는 재질 | `PlayerNoFriction_tmp.physicMaterial`은 참조 0이라 삭제 제안(보고만 하고, 삭제는 승인 후) |
+
+- 공중 조작 규칙(§24: 공중에서도 입력에 자유롭게 반응)은 유지된다. 벽을 향한 성분만 빠지고, 벽을 따라 옆으로 미는 입력은 그대로 먹는다.
+- 비용: 접촉 콜백은 이미 물리 엔진이 계산하는 값을 읽기만 한다. 캐릭터당 스텝마다 접촉 수(보통 1~4)만큼 내적 계산.
+
+#### 41.3.6 검증
+| # | 항목 | 방법 | 기준 |
+|---|---|---|---|
+| V1 | 수정 전 재현 | PlayerTestScene에서 쿠키를 벽 옆 공중에 두고 벽 쪽 입력 유지(실행 중 코드로 `rotation` 필드 지정) | 3초간 y 속도 ≈ 0(붙음) 기록 |
+| V2 | 쿠키 | 같은 조건 | 자유 낙하(1초 뒤 y 속도 ≈ −9.8m/s), 착지 후 벽을 밀어도 정상 |
+| V3 | 괴물 | 난간에서 떨어지며 벽 쪽 입력 유지 | 쿠키와 같음 |
+| V4 | 경사 정지 | 10°·20°·30° 경사에 쿠키·괴물을 세워 두고 10초 | 수평 이동 ≤ 0.02m(마찰 유지 확인 — D3에서 (a)를 버린 이유의 회귀 검사) |
+| V5 | 모서리·사물 | 맵의 울타리 모서리, 상자 옆면, 다른 쿠키 몸에 점프해 밀기 | 붙음 0, 벽을 따라 옆으로 미끄러지는 입력은 동작 |
+| V6 | 사물 위 착지 | 상자·탁자 위로 점프 착지 | 정상 착지(바닥 접촉은 벽으로 보지 않음) |
+
+#### 41.3.7 구현·검증 — ✅ 완료(2026-09-28)
+- `Unit/PlayerGroundDetector.cs` → **`Core/CharacterGroundDetector.cs`**(git mv, `.meta` GUID 유지, 새 클래스 아님). 추가: `RecordContacts(Collision)`(재사용 버퍼, 같은 물리 스텝 통지를 모으고 새 스텝이면 비움), `RemoveWallPush(수평 속도)`(직전 스텝의 벽 법선 — y < cos 50° — 을 향한 성분 제거, 기록이 1.5스텝보다 오래되면 무시), `TryGetGround`(41.2용).
+- `HideOrSeekPlayer`: `OnCollisionStay` → 기록(소유자만), `Move(grounded)`에서 **공중일 때만** 벽 성분 제거(`Move`는 외부 호출처가 없어 private으로). `MonsterController`: 같은 규칙(걷기 이동 분기).
+- Play Mode(Game_CandyForest 오프라인, 실제 컴포넌트 — 레거시 입력은 매 프레임 `Application.onBeforeRender`에서 쿠키 `rotation`·괴물 `moveInput`을 벽 쪽으로 채워 "키 유지"를 재현):
+  | # | 결과 |
+  |---|---|
+  | V2 쿠키 | 벽면에 닿은 위치(z 1.04 = 벽면 1.5 − 반지름 0.46)에서 벽 쪽 입력 유지 → **0.2초마다 y 속도 −2 m/s(중력 가속 그대로)로 낙하**, 2.2초에 −21 m/s |
+  | V3 괴물 | 같은 조건 → 짧은 접촉 뒤 1.8초에 −13.7 m/s로 낙하 |
+  | V4 경사 정지 | 코드 변경은 공중일 때만 적용되고 재질은 바꾸지 않았다 — K0 실측(기본 마찰 20° 10초 0.00m)이 그대로 유지된다 |
+  | 콘솔 | 에러·경고 0 |
+- V5(모서리·다른 쿠키)·V6(사물 위 착지)는 같은 법선 규칙(바닥 접촉 제외)을 따르며, 실제 조작 확인은 41.14 항목.
+
+---
+
+### 41.4 ㊵ 채팅 중 괴물 이동 잠금이 걸리지 않음
+
+#### 41.4.1 증상(사용자 보고)
+채팅 입력 중에 괴물은 이동 잠금이 걸리지 않는다(research.md R4.1-1과 같은 문제).
+
+#### 41.4.2 관련 코드
+| 항목 | 코드 |
+|---|---|
+| 채팅 열고 닫기 | `GameManager/GameManager.cs:54-72` — Enter를 뗄 때 `bEnter` 토글 → `SetLocalPlayerMovementLocked(true/false)` |
+| 잠금 대상 | `GameManager.cs:126-135` — `CharacterRegistry.FindLocal<HideOrSeekPlayer>()` → `IsMovementLocked = locked`. **쿠키만** |
+| 괴물 입력 | `MonsterController` Update가 `PlayerInput.CameraRelativeMove`, `PlayerInput.TentacleDashPressed`를 직접 읽음. 잠금 개념 없음 |
+| 레거시 Input | `Core/PlayerInput.cs` — `Input.GetKey*`는 UI 포커스와 무관하게 키를 읽는다 → 채팅에 "wasd"를 치면 이동, Shift를 누르면 돌진 |
+| 그 밖에 새는 입력 | 관전 중 채팅에 Space → 관전 대상 전환(`Monster/SpectatorController.cs:59`). 상호작용은 `CharacterInteractor.IsTypingInUi`(`:96`)가 따로 막고 있다 |
+| 쿠키 잠금의 부작용 | `HideOrSeekPlayer.cs:224, 247` — 잠기면 `Update`·`FixedUpdate`가 일찍 끝나 `Move()`가 불리지 않으므로, 달리던 중 채팅을 열면 **마지막 속도가 남아** 마찰로 멈출 때까지 미끄러지고, 공중이면 그대로 날아간다 |
+| 대기실 괴물 | `MonsterLobbyWaitController.cs:117-119`가 대기 시작 때 GameManager를 `enabled = false`로 끈다 — 채팅이 열린 채 꺼지면 잠금을 풀 사람이 없다(지금은 대기실 쿠키 아바타가 씬 전환으로 사라져 드러나지 않음) |
+
+#### 41.4.3 결정 사항
+| # | 항목 | 선택지 | 추천 |
+|---|---|---|---|
+| D5 | 잠금 위치 | (a) **`PlayerInput` 한 곳**에서 게임플레이 키 입력을 억제 / (b) `IGameCharacter`에 입력 잠금 계약을 추가하고 캐릭터마다 구현 | **(a)**. 게임 입력의 유일한 창구가 이미 `PlayerInput`이라, 한 곳에서 막으면 쿠키·괴물·관전·상호작용·**이후 괴물**이 코드 수정 없이 모두 막힌다. (b)는 새 캐릭터마다 구현을 잊을 수 있다 |
+
+#### 41.4.4 수정
+| # | 파일 | 변경 |
+|---|---|---|
+| F1 | `Core/PlayerInput.cs` | `public static bool IsGameplaySuppressed { get; set; }` 추가. 억제 중에는 `Move`(0)·`RunHeld`·`JumpPressed`·`DodgePressed`·`GrabPressed`·`InteractPressed`·`TentacleDashPressed`·`SpectateNextPressed`가 중립값을 돌려준다. **`ChatSubmitReleased`(채팅을 닫는 키)와 마우스 시점 회전은 억제하지 않는다** |
+| F2 | `GameManager/GameManager.cs` | `SetLocalPlayerMovementLocked`와 `localPlayer` 캐시(쿠키 타입 의존)를 지우고 `PlayerInput.IsGameplaySuppressed = bEnter`로 대체. `OnDisable`·`OnDestroy`에서 채팅을 닫은 상태로 되돌리고 억제를 푼다 — 정적 값이라 씬이 바뀌어도 남으므로 **반드시 필요**(대기실 괴물이 채팅을 연 채 대기에 들어가도 맵에서 움직일 수 있게) |
+| F3 | 같은 파일 | 입력창이 포커스를 잃으면(바깥 클릭) 채팅을 닫은 것으로 처리(research R5-1) — 억제가 풀리지 않은 채 남는 경로를 없앤다 |
+| F4 | `Unit/HideOrSeekPlayer.cs` | `IsMovementLocked`의 외부 잠금(`externalMovementLock`)은 채팅이 더 이상 쓰지 않는다. 세터의 사용처는 `GameManager.cs:134` 하나뿐이라(검색 확인) 세터를 제거하고 계산값(파괴 ∨ 들림)만 남긴다. 채팅 중 쿠키는 입력이 0이 되어 `Move()`가 정상적으로 멈춘다 — 위 "미끄러짐" 부작용도 함께 사라진다 |
+| F4-2 (U2) | `HideOrSeekPlayer`, `MonsterController` | 억제 중에는 입력이 0이므로 두 캐릭터 모두 `Idle`로 전환된다(쿠키는 기존 잠금 경로가 `Update`를 일찍 끝내 **걷기·달리기 애니메이션이 그대로 남던** 문제가 사라짐). 공중·회피 중이면 그 동작이 끝난 뒤 Idle. 검증 V6: 이동 중 채팅을 열면 애니메이터 상태가 Idle |
+| F5 | `Interaction/CharacterInteractor.cs` | `IsTypingInUi` 검사는 `InteractPressed` 억제로 대체되지만 안내 문구 숨김에는 계속 쓴다(유지) |
+
+#### 41.4.5 검증
+| # | 항목 | 기준 |
+|---|---|---|
+| V1 | 괴물 | 채팅 중 W·A·S·D·Shift → 이동·돌진 0, 채팅을 닫으면 즉시 정상 |
+| V2 | 쿠키 | 달리다가 채팅 열기 → 즉시 멈춤(미끄러짐 없음), Space·Ctrl·F·E 무반응 |
+| V3 | 관전 | 채팅에 Space → 관전 대상 유지 |
+| V4 | 포커스 이탈 | 채팅을 연 채 화면 클릭 → 억제 해제, 다음 Enter는 "열기" |
+| V5 | 씬 전환 | 채팅을 연 채 뒤로가기·결과 복귀·(괴물) 대기 시작 → 다음 씬에서 정상 이동 |
+
+#### 41.4.6 구현·검증 — ✅ 완료(2026-09-28)
+- `PlayerInput.IsGameplaySuppressed` — 이동·달리기·점프·회피·그랩·상호작용·촉수 돌진·관전 전환이 중립값. 채팅 닫기 키·마우스는 그대로.
+- `GameManager`: `OpenChat`/`CloseChat(send)`로 정리, 쿠키 타입 의존(`FindLocal<HideOrSeekPlayer>`·`SetLocalPlayerMovementLocked`) 제거. `InputFdChat.onDeselect` → 채팅 닫기(글은 유지, R5-1). `OnDisable`/`OnDestroy`에서 억제 해제.
+- `HideOrSeekPlayer.IsMovementLocked`는 세터 없는 계산값(파괴 ∨ 들림)만 남김. 관련 주석(PlayerGrabController·CharacterInteractor) 정리.
+- Play Mode(Game_CandyForest 오프라인, 쿠키 + 괴물 스폰):
+  | # | 결과 |
+  |---|---|
+  | V1·V2·U2 | 쿠키를 Run, 괴물을 Walk로 둔 채 채팅 열기 → **둘 다 Idle**(코드 상태·Animator 상태 모두), `Move=(0,0)`, `TentacleDashPressed=false` |
+  | V4 | 채팅 연 상태에서 선택 해제(`EventSystem.SetSelectedGameObject(null)`) → 채팅 닫힘·억제 해제 |
+  | V5 | 채팅 연 채 GameManager 비활성화(괴물 대기와 같은 경로) → 억제 해제 |
+  | 콘솔 | 에러·경고 0 |
+- 한계: 레거시 `Input`은 코드로 키를 넣을 수 없어 **실제 W·A·S·D·Shift·Space를 누르는 확인**은 빌드/에디터 수동 확인 항목(41.14). 억제 로직은 입력 API 앞단에서 값을 막으므로 키 종류와 무관하다.
+
+---
+
+### 41.5 ㊶ 게임 매니저·HUD 세트가 씬 6개에 복제됨
+
+#### 41.5.1 문제(research.md R4.3-9, R4.11-15·16)
+`Editor/Maps/MapSceneBuilder.cs:20, 90`이 `Assets/Scenes/GameScene.unity`를 **맵 씬 파일이 없을 때만** 복사하고, 다시 실행하면 맵 부분(`Map`, `MapColliders`, `MapLighting`, `MapDoors`, `PostFX` 루트, `:27-28`)만 새로 만든다.
+그래서 GameScene의 매니저·UI를 고쳐도 맵 5개에는 반영되지 않는다. GameScene은 빌드에서도 빠져 있어 수정 결과를 게임에서 볼 수도 없다.
+
+맵 씬 루트(Game_CandyForest YAML 파싱):
+`VoidKillZone, PostFX, GameManager, MapLighting, Canvas, GameRuleManagers, EventSystem, PlayerSpawnPos, PaintManagers, MapColliders, Main Camera, MonsterSpawnPos, Map, (ConfirmDialog 프리팹 인스턴스)`
+
+#### 41.5.2 결정 사항
+| # | 항목 | 선택지 | 추천 |
+|---|---|---|---|
+| D6 | 공통 부분 묶는 방법 | (a) **프리팹 1개** `GameSceneCore` / (b) 매니저·HUD 프리팹 2개 / (c) 공용 씬을 Additive 로드 | **(a)**. 채팅(GameManager) → Canvas의 입력창·로그, RoomExitController → Back 버튼·ConfirmDialog처럼 **매니저와 HUD 사이 인스펙터 참조가 많아** 둘로 나누면 참조가 끊긴다. (c)는 PUN `LoadLevel`이 Single 전용이라 씬 전환 로직이 커진다 |
+
+#### 41.5.3 수정
+| # | 대상 | 변경 |
+|---|---|---|
+| F1 | 사전 대조(코드 변경 전) | 씬 6개에서 옮길 컴포넌트의 **직렬화 값을 비교**(ResultScreenController `autoReturnDelay`·문구, PhaseCountdownDisplay 포맷, 상태 문구 등). 다른 값이 있으면 목록으로 보고하고 어느 값으로 통일할지 확인받는다 |
+| F2 | 새 프리팹 `Assets/04. Prefabs/Scene/GameSceneCore.prefab` | GameScene의 `GameManager`(PhotonView·GameManager·PlayerSpawner·RoomExitController), `GameRuleManagers`, `PaintManagers`, `Canvas`(ColorSlotPanel·카운트다운 2·결과 화면·이탈 배너·관전 라벨·채팅), `EventSystem`, ConfirmDialog(중첩 프리팹)를 **한 루트 아래** 묶는다 |
+| F3 | 씬에 남는 것 | `Main Camera`(맵마다 조명·후처리·렌더 경로가 다름), `VoidKillZone`·`PlayerSpawnPos`·`MonsterSpawnPos`(빌더가 맵마다 위치를 정함), 맵 루트 5개 |
+| F4 | `Editor/Maps/MapSceneBuilder.cs` | GameScene 복사(`:90`) 대신 **빈 씬을 만들고 `GameSceneCore` 인스턴스 + 카메라·스폰·킬존을 배치**. 이미 있는 맵 씬은 느슨한 매니저·HUD 루트를 지우고 프리팹 인스턴스로 교체하는 이행 단계를 한 번 실행 |
+| F5 | GameScene | 빌드에 없는 복제 원본 역할이 사라진다. 테스트용으로 남긴다면 같은 프리팹 인스턴스로 바꾸고, 아니면 삭제(D6 승인 시 함께 확인) |
+| F6 | PhotonView | GameManager의 씬 PhotonView는 프리팹 안에 있어도 **씬 오브젝트**로 동작한다(씬마다 scene view ID 부여). 이행 후 맵 5개 모두에서 ViewID가 0이 아니고 서로 충돌하지 않는지 확인 |
+| F7 | 회귀 방지 테스트(`Editor/Tests/RuleTests.cs`) | "빌드 맵 씬마다 `GameSceneCore` 인스턴스가 정확히 1개, 그 밖에 GameManager·GameRuleController 등 판 진행 컴포넌트가 씬에 직접 없음" |
+
+#### 41.5.4 검증
+V1 씬 6개 → 맵 5개 모두 오프라인·온라인 한 판(색칠 → 합류 → 처형 → 결과 → 대기실 복귀) / V2 채팅·뒤로가기·확인창·결과 복귀 동작 / V3 PhotonView ID 유효 / V4 프리팹 값 하나를 바꾸면 5개 맵에 모두 반영 / V5 EditMode 테스트 통과.
+
+---
+
+#### 41.5.5 구현·검증 — ✅ 완료(2026-09-28)
+- **F1 사전 대조**: GameScene + 맵 5개에서 옮길 스크립트 컴포넌트 34개(Canvas 하위 HUD·ConfirmDialog·GameManager·GameRuleManagers·PaintManagers)의 직렬화 값을 YAML로 비교 → **6개 씬 모두 차이 0**. 통일할 값 결정이 필요 없었다. 옮길 루트와 씬 나머지 사이의 인스펙터 참조도 양방향 0.
+- **F2** `Assets/04. Prefabs/Scene/GameSceneCore.prefab` — `GameManager`·`GameRuleManagers`·`PaintManagers`·`Canvas`(ConfirmDialog 중첩 프리팹 포함)·`EventSystem`을 한 루트로. **F3** 씬에는 `Main Camera`·`PlayerSpawnPos`·`MonsterSpawnPos`·`VoidKillZone`·맵 루트만 남는다(맵 5개의 `Map` 루트 스케일·문 26/3/22개 불변 확인).
+- **F4** 맵 5개 이행: 느슨한 루트 5개 삭제 → 프리팹 인스턴스(씬 파일 합계 약 3만9천 줄 감소). `MapSceneBuilder`: 복제 원본을 PlayerTestScene으로 바꾸고 테스트 전용 루트(`TestBootstrap`)는 지우며, 새 `EnsureSceneCore`가 옛 형식 루트를 인스턴스로 바꾼다(재실행해도 변화 없음). 커밋된 옛 ChocolateFactory 씬 사본으로 이행을 실행해 루트 5개 → 인스턴스 1개, 두 번째 호출 변화 0 확인(사본은 저장하지 않고 삭제).
+- **F5 = U1**: 기존 `PlayerTestScene.unity`와 그 폴더(NavMesh 데이터)를 삭제하고, `GameScene.unity`를 `PlayerTestScene.unity`로 개명(GUID 유지, 빌드 목록 항목은 비활성 그대로 새 GUID로 교체). 예전 테스트 씬의 `TestBootstrap`(OfflineModeBootstrap `autoCreateRoom=0`·`spawnAsMonster=0` 값 그대로 + MonsterTestSpawner)을 옮겨 붙였다. 이제 테스트 씬도 실제 게임과 같은 `GameSceneCore`를 쓰므로 `GamePhaseStarter`(대기실을 거치지 않는 경로의 색칠 시작)가 원래 목적대로 동작한다(research R5-2 해소).
+- **F6 — 검증 중 발견·수정**: PUN의 `PhotonViewHandler`는 **프리팹 에셋 안의 PhotonView를 sceneViewId 0으로 되돌린다.** 이행 직후 Play Mode에서 GameManager·GameRuleManagers의 런타임 ViewID가 0이 되어 채팅 RPC가 `Illegal view ID:0`으로 실패했다. PUN 관례대로 프리팹은 0, **각 씬 인스턴스가 오버라이드로 1·3**(이행 전 모든 씬이 쓰던 값)을 갖게 고쳤다. `MapSceneBuilder.AssignSceneViewIds`가 새 인스턴스에 씬에서 쓰지 않는 번호를 준다.
+- **F7** EditMode `GameScenes_UseSingleSceneCorePrefab` — PlayerTestScene·빌드 맵 씬마다 인스턴스 정확히 1개, 판 진행 컴포넌트(GameManager·GameRuleController·MonsterJoinController·PaintPhaseController·ResultScreenController·ColorSelectionPanel)를 씬에 직접 직렬화하지 않음, **씬 뷰 ID 오버라이드가 0이 아닌 고유값**(F6 회귀 방지). → 16/16 통과.
+- **추가 수정(U1 검증 중 발견)**: 새 PlayerTestScene은 오프라인 모드로 시작해 방을 만들기 전 몇 프레임 동안 PUN이 `IsMasterClient=true`·`CurrentRoom=null`을 돌려준다 → `PaintPhaseController.Update`가 `CurrentRoom.CustomProperties`에서 NullReferenceException. 방 확인(`RoomState.IsInRoom()`)을 앞에 추가했다(다른 방장 전용 Update는 이미 RoomState/InRoom 검사를 거침).
+- 검증:
+  | # | 결과 |
+  |---|---|
+  | V4 전파 | 씬 6개 인스턴스의 오버라이드 = 루트 이름·위치(11개) + 씬 뷰 ID 2개뿐, 추가 컴포넌트·오브젝트 0 → 프리팹을 고치면 모든 맵에 반영 |
+  | V1·V2·V3 맵 5개 Play Mode(오프라인) | 5개 모두: 쿠키 스폰(ViewID 1001), **씬 뷰 ID GameManager=1·GameRuleManagers=3**, 색칠 종료 → 강제 도포 → 괴물 합류(Hunt) → 쿠키 파괴 → `MonsterWins`·결과 화면 표시(Result), **채팅 RPC 로그 추가**, 뒤로가기 → 확인창 표시. 문이 있는 3개 맵은 문 하나를 상호작용해 `DoorStates` 기록·열림(ChocolateFactory OpenOutward·CursedCandyCarnival OpenInward·HauntedBakery OpenOutward). 콘솔 에러·경고 0 |
+  | U1 PlayerTestScene | 오프라인 부트스트랩 동작, 쿠키 스폰, `GamePhaseStarter`가 PaintPhaseEndTime 기록(Paint), 색칠 패널 표시, `PlayerPaintCanvas.Local` 설정, 콘솔 0 |
+
+### 41.6 ㊷ 빌드에 없는 `GameScene`을 대체 씬으로 사용
+
+#### 41.6.1 문제(research.md R4.4-7)
+- `Lobby/GameStartAuthority.cs:62` `settings.PickGameMap(lastMap, SceneNames.Game)` — 맵 목록이 비면 "GameScene".
+- `Lobby/GameStartAuthority.cs:85` `CurrentMapScene()` — `GameMapScene` 키가 없으면 "GameScene". 대기실 괴물은 이 값으로 `LoadLevel`(`MonsterLobbyWaitController`).
+- `EditorBuildSettings.asset`에서 GameScene이 빠졌다(커밋 `7f8cd38`). 에디터에서는 빌드 목록에 없는 씬도 로드될 수 있어 **빌드에서만** 실패한다.
+
+#### 41.6.2 수정
+| # | 파일 | 변경 |
+|---|---|---|
+| F1 | `Core/GameSettingsSO.cs` | `PickGameMap(previous)`에서 fallback 인자를 없애고, 목록이 비면 `null` 반환. `OnValidate`에서 목록이 비었거나 빈 문자열이 있으면 경고 |
+| F2 | `Lobby/GameStartAuthority.cs` | `TryStart`: 맵이 `null`이면 시작하지 않고 `Result.NotReady` + 오류 로그("GameSettings.gameMapScenes is empty"). `CurrentMapScene()`: 키가 없으면 **목록의 첫 맵**, 그것도 없으면 오류 로그 후 `null`(호출부는 로드하지 않음) |
+| F3 | `Core/SceneNames.cs` | `Game` 상수 제거 — 남은 사용처가 컴파일 오류로 드러나게 한다(현재 사용처는 위 두 곳뿐, 검색 확인) |
+| F4 | `Editor/Tests/RuleTests.cs` | "`gameMapScenes`의 모든 이름이 **활성화된** 빌드 씬에 있다" 테스트 추가(`EditorBuildSettings.scenes`) |
+
+검증: 목록을 임시로 비운 설정으로 시작 버튼 → 시작되지 않고 오류 로그, 원래 설정으로 한 판 정상 / 테스트 통과.
+
+#### 41.6.3 구현·검증 — ✅ 완료(2026-09-28)
+- `GameSettingsSO.PickGameMap(previous)`(대체 인자 제거, 비면 `null`) + `FirstGameMap` + `OnValidate` 경고. `GameStartAuthority.TryStart`는 맵이 없으면 `NotReady` + 오류, `CurrentMapScene()`은 키가 없으면 `FirstGameMap`. `MonsterLobbyWaitController`는 갈 맵이 없으면 로드하지 않고 멈춘 메시지 큐를 되돌린다. `SceneNames.Game` 제거(남은 사용처 0 — 컴파일 통과로 확인).
+- EditMode: `GameMap_PicksFromListExcludingPrevious`(빈 목록 → null) 수정, **`GameMaps_AreEnabledBuildScenes` 추가** → 14/14 통과.
+- Play Mode(Game_CandyForest 오프라인 방): 맵 키가 없는 방에서 `CurrentMapScene()` = `Game_CandyForest`(경고 1회), 콘솔 에러 0.
+
+---
+
+### 41.7 ㊸ 들고 있던 쿠키가 사라지면 드는 쪽 캐리 자세가 굳음
+
+#### 41.7.1 문제(research.md R4.7-5)
+```csharp
+// Unit/PlayerGrabController.cs:32
+if (carriedPlayer != null && (!carriedPlayer || IsOwnerBroken(carriedPlayer)))
+    Release();
+// :66
+if (carriedPlayer == null) return;
+```
+`carriedPlayer`는 `HideOrSeekPlayer`(UnityEngine.Object)라 `!= null`/`== null`이 Unity의 오버로드 비교다. 오브젝트가 **파괴되면 `!= null`이 false**가 되어
+파괴 감지(`!carriedPlayer`)에 절대 도달하지 않고, `Release()`도 첫 줄에서 빠진다.
+재현: A가 B를 든다 → B가 방을 나간다 → A의 로컬 Animator Carry 레이어 가중치가 1로 남는다(`IsCarrying`은 false라 원격 화면은 정상, 본인 화면만 굳음).
+
+#### 41.7.2 수정(`Unit/PlayerGrabController.cs`만)
+| # | 변경 |
+|---|---|
+| F1 | 참조 존재는 `!ReferenceEquals(carriedPlayer, null)`, 생존은 `carriedPlayer`(Unity bool)로 구분 — `CharacterRegistry.IsAlive`와 같은 방식 |
+| F2 | `Release()`: 참조가 있으면 **항상** `carriedPlayer = null`과 캐리 가중치 0을 수행하고, RPC·충돌 복구만 살아 있을 때 한다(코드 주석이 원래 의도한 동작) |
+| F3 | 같은 파일 `self?.SetCarryLayerWeight`(`:58, 77`)의 `?.`를 Unity null 비교로(research R4.7-3) |
+
+검증: 2클라이언트(에디터 + 빌드)에서 A가 B를 든 채 B가 방을 나감 → A 상체 즉시 기본 자세, 다음 F로 정상 그랩. 파괴된 쿠키를 들고 있던 경우(기존 `IsOwnerBroken` 경로)도 그대로 동작.
+
+#### 41.7.3 구현·검증 — ✅ 완료(2026-09-28)
+- `HasCarryReference`(`ReferenceEquals`)로 파괴 감지 분기를 살림. `Release()`는 참조가 있으면 항상 상태·Carry 가중치를 정리하고, RPC·충돌 복구는 살아 있을 때만. `self?.` 2곳을 Unity null 비교로. 중복 판정 `IsOwnerBroken` 삭제 → `RoomState.IsBroken`(research R4.11-6).
+- Play Mode(오프라인): 쿠키 A가 B를 든 상태(Carry 가중치 1)에서 B 오브젝트를 파괴 → **다음 프레임 참조 정리, Carry 가중치 0**. 2클라이언트 실제 퇴장은 빌드 멀티 확인 항목(41.14).
+
+---
+
+### 41.8 ㊹ 방장 쓰기가 서버 응답 전까지 매 프레임 재전송됨
+
+#### 41.8.1 문제(research.md R4.10-6, 부록 D)
+PUN 기본(`BroadcastPropsChangeToAll=true`)에서 `SetCustomProperties`는 서버 응답 전까지 로컬 캐시에 반영되지 않는다. 다른 방장 컴포넌트는 `joinRequested` 같은 플래그로 막는데 세 곳이 빠졌다.
+
+| 위치 | 증상 |
+|---|---|
+| `Monster/GameRuleController.cs:20, 26, 44` | 승패가 나면 왕복 시간 동안 매 프레임 `GameResult` 재전송(60fps·RTT 100ms ≈ 6회). "마지막 쿠키 파괴"와 "시간 종료"가 한 RTT 안에 겹치면 **서로 다른 결과**가 연달아 가서 나중 값이 이기는데, 결과 화면은 첫 통지만 표시(`isShown`) → 화면과 Room Prop이 어긋날 수 있다 |
+| `ColorTag/PaintPhaseController.cs` Update | 처리 여부를 `ContainsKey(ForcedPaintActorNumbers)`로만 판단 → 응답 전 매 프레임 `ResolvePaintPhase()`가 **매번 다른 무작위 색**을 보냄. 대상 쿠키는 통지마다 강제 도포를 다시 해 색이 잠깐씩 바뀌고, 슬롯 보고·ForceFill 이벤트가 그만큼 나간다 |
+| `Monster/MonsterAssignmentAuthority.cs:52` | 정원 미달 때 `MonsterSelectDeadline = null` 반복 전송(영향 작음) |
+
+#### 41.8.2 결정 사항
+| # | 항목 | 선택지 | 추천 |
+|---|---|---|---|
+| D7 | 막는 방법 | (a) **요청 플래그**(다른 컴포넌트와 같은 패턴) / (b) Photon CAS(`SetCustomProperties(props, expectedProperties)`) | **(a)**. 코드 전체와 같은 방식이고 확실하다. (b)는 "키가 아직 없음"을 기대값으로 표현하는 방법을 PUN 소스로 확인해야 해서, 필요하면 후속으로 검토 |
+
+#### 41.8.3 수정
+| # | 파일 | 변경 |
+|---|---|---|
+| F1 | `GameRuleController.cs` | `resultRequested` 플래그. `Finish`에서 세우고, `OnRoomPropertiesUpdate`로 `GameResult`를 받거나 `OnMasterClientSwitched`(새 방장은 캐시로 다시 판단)에서 정리. 한 번 보낸 판에서는 **다른 결과를 다시 보내지 않는다** |
+| F2 | `PaintPhaseController.cs` | `resolveRequested` 플래그(같은 규칙). 방장 교체 시 새 방장은 캐시에 키가 있으면 건너뛰는 기존 동작 유지 |
+| F3 | `MonsterAssignmentAuthority.cs:52` | 기한 삭제 요청 플래그(기존 `deadlineRequested`와 같은 방식) |
+
+검증: 방장 클라이언트에 Photon 전송 로그(또는 `OnRoomPropertiesUpdate` 수신 횟수 카운트)를 붙여 승패·강제 도포 각 **1회**, 강제 도포 대상 쿠키 색이 끝까지 한 번만 바뀜 / 방장이 결과 직전에 나가는 경우 새 방장이 이어서 1회만 기록.
+
+#### 41.8.4 구현·검증 — ✅ 완료(2026-09-28)
+- `GameRuleController.resultRequested`, `PaintPhaseController.resolveRequested`(둘 다 `OnMasterClientSwitched`에서 해제 → 새 방장은 캐시로 재판단), `MonsterAssignmentAuthority.deadlineClearRequested`. 덧붙여 빈 팔레트 방어(research R5-3): `PaintPhaseController`는 팔레트가 비면 오류 1회 후 중단, `ColorPaletteSO.Count`는 null 배열에 0.
+- Play Mode(오프라인): 색칠 종료 → 강제 도포 배정 1회(`resolveRequested=true`, 대상 1명·색 1개) → 합류 → 쿠키 파괴 → `MonsterWins` 기록·`resultRequested=true`·단계 Result. 콘솔 에러 0.
+- 한계: 오프라인 방은 `SetCustomProperties`가 즉시 캐시에 반영돼 **수정 전에도 중복 전송이 재현되지 않는다** — 온라인 RTT 동안의 1회 전송은 빌드 멀티 확인 항목(41.14).
+
+---
+
+### 41.9 ㊺ 빌드에 있는데 선택되지 않는 맵 2개
+
+#### 41.9.1 문제(research.md R5-10)
+`ProjectSettings/EditorBuildSettings.asset`에는 맵 5개가 모두 활성인데 `Assets/Resources/GameSettings.asset`의 `gameMapScenes`는
+`Game_CandyForest, Game_GingerbreadVillage, Game_ChocolateFactory` 3개뿐이다. `Game_CursedCandyCarnival`·`Game_HauntedBakery`(문 3개·22개, §40에서 조명까지 손본 맵)는 판에서 절대 선택되지 않는다.
+
+#### 41.9.2 결정 사항
+| # | 선택지 | 추천 |
+|---|---|---|
+| D8 | (a) 두 맵을 `gameMapScenes`에 추가 / (b) 아직 미완성이면 빌드 목록에서 비활성화 | **사용자 확인 필요.** §39(충돌체)·§40(조명)을 거쳐 문까지 검증된 상태라 (a)가 자연스러워 보이지만, 의도적으로 뺀 것인지는 코드로 알 수 없다 |
+
+#### 41.9.3 수정·검증(계획 당시)
+- 결정에 따라 `GameSettings.asset` 또는 빌드 목록 한 곳만 바꾼다.
+- 41.6 F4 테스트를 "`gameMapScenes` ⊆ 활성 빌드 맵 씬"에 더해 "활성 빌드 맵 씬 ⊆ `gameMapScenes`"(= 두 목록 일치)로 확장해 다시 어긋나지 않게 한다. 맵 씬 판별은 `Assets/Scenes/Maps/` 경로로 한다.
+
+---
+
+#### 41.9.4 구현·검증 — ✅ 완료(2026-09-28) — **조사 오류 정정**
+- K4에서 에셋에 두 맵을 추가하려고 열어 보니 `Assets/Resources/GameSettings.asset`의 `gameMapScenes`에는 **커밋 `7f8cd38` 시점부터 5개가 모두 들어 있었다.** research.md 작성 때 `grep -A3`으로 목록의 앞 3줄만 읽고 "3개뿐"이라고 판단한 **조사 오류**다. 두 맵은 원래부터 판에서 선택될 수 있었다.
+- 조치: 잘못 추가해 중복된 두 줄을 `git checkout`으로 되돌려 에셋은 **변경 없음**. research.md R2.1·R2.3·R4.4-7·R5-10·R6의 해당 서술을 정정 표시.
+- 사용자 결정 D8("두 맵을 gameMapScenes에 추가")은 이미 충족된 상태다. 다시 어긋나지 않도록 테스트만 강화: `GameMaps_MatchEnabledBuildMapScenes` — 목록 ⊆ 활성 빌드 씬, 그리고 활성 빌드 맵 씬(`Assets/Scenes/Maps/`) ⊆ 목록.
+
+### 41.10 구현 순서
+
+| 단계 | 내용 | 이유 |
+|---|---|---|
+| K0 | ㊳·㊴ 수정 전 재현값 기록(41.2.6 V1, 41.3.6 V1) | 원인 가설을 실측으로 확정한 뒤 고친다 |
+| K1 | ㊸ → ㊹ → ㊷ | 각 파일 1~2곳, 서로 독립, 위험 낮음 |
+| K2 | ㊵ | `PlayerInput`에 억제를 넣어 두면 K3의 공중·돌진 테스트 중 입력 간섭도 통제된다 |
+| K3 | ㊴ → ㊳ | ㊳이 ㊴에서 확장한 지면 감지기(`TryGetGround`, 접촉 기록)를 쓴다 |
+| K4 | ㊺(D8 결정 후) + 목록 일치 테스트 | |
+| K5 | ㊶ | 씬 6개를 건드리는 가장 큰 작업이라 코드 수정이 모두 끝난 뒤 한 번에 이행한다(이행 뒤에 인스펙터 값을 또 고칠 일이 없게) |
+| K6 | 전체 회귀: 맵 5개 × (쿠키 이동·점프·그랩·색칠·채팅 / 괴물 이동·돌진·처형 / 결과·복귀), EditMode 전체, 콘솔 에러·경고 0 | |
+
+### 41.13.1 K6 전체 회귀 — ✅ 완료(2026-09-28)
+- EditMode **16/16**(이번에 추가: `GameMaps_MatchEnabledBuildMapScenes`, `TentacleDash_FollowsWalkableSlope_KeepsHorizontalOnSteepOrAir`, `GameScenes_UseSingleSceneCorePrefab`; 수정: `GameMap_PicksFromListExcludingPrevious`).
+- Play Mode: 맵 5개·PlayerTestScene(41.5.5), GameLobbyScene(오프라인: 쿠키 스폰, 방장 정책 컴포넌트 동작, 채팅 열기/닫기 억제, 채팅 연 채 GameManager 비활성 시 억제 해제), K1~K3 항목별 검증(각 절). 콘솔 에러·경고 0(재컴파일 때 PUN이 남기는 "Disconnecting PUN due to recompile"과 테스트 러너 안내 로그 제외).
+- 테스트 부산물 정리: Play Mode에서 채워진 동적 폰트 아틀라스(`Assets/Fonts/NotoSansKR SDF.asset`)와 물리 설정 재저장(`ProjectSettings/DynamicsManager.asset`, 줄바꿈만 변경)은 `git checkout`으로 되돌렸다.
+
+### 41.11 새 캐릭터(괴물) 추가 체크리스트 — ㊳·㊴·㊵ 재발 방지
+
+1. 입력은 **`PlayerInput`으로만** 읽는다(`Input.*` 직접 호출 금지) → 채팅 억제(㊵)가 자동 적용.
+2. 수평 속도를 직접 대입한다면 `OnCollisionStay → RecordContacts`, **공중일 때 `RemoveWallPush`**(㊴).
+3. 지면을 따라가야 하는 이동 스킬은 `TryGetGround`의 법선으로 방향을 꺾고, 발 높이 수평 캐스트로 거리를 자르지 않는다(㊳).
+4. `IGameCharacter`·`IRespawnable` 구현, `FallGuard` 부착(기존 규칙).
+
+### 41.12 결정 요약(승인 요청)
+
+| # | 내용 | 추천 |
+|---|---|---|
+| D1 | ㊳ 돌진 이동 방식 | 속도 기반 + 지면 법선으로 꺾기 |
+| D2 | ㊳ 가파른 면을 만나면 | 이동 종료(애니메이션은 끝까지) |
+| D3 | ㊴ 해결 방식 | 코드로 공중일 때 벽 방향 성분 제거(마찰 0 재질은 경사 미끄러짐 때문에 쓰지 않음) |
+| D4 | ㊴ 공용 코드 | `PlayerGroundDetector` 확장 + `Core/CharacterGroundDetector`로 개명 |
+| D5 | ㊵ 잠금 위치 | `PlayerInput` 한 곳 |
+| D6 | ㊶ 묶는 방법 | 프리팹 1개 `GameSceneCore` |
+| D7 | ㊹ 막는 방법 | 요청 플래그 |
+| D8 | ㊺ 두 맵 | **사용자 결정: (a) `gameMapScenes`에 추가** |
+
+**사용자 승인(2026-09-28)**: D1~D7 추천안대로, D8은 두 맵 추가. 추가 요구 2건:
+- **U1** GameScene은 더 이상 쓰지 않는다 → **기존 PlayerTestScene을 삭제하고 GameScene을 PlayerTestScene으로 대체**한다(41.5 F5 확정: GameScene 파일을 `PlayerTestScene.unity`로 개명해 오프라인 테스트 씬으로 쓰고, `GameSceneCore` 인스턴스 + 오프라인 부트스트랩을 둔다).
+- **U2** 움직이던 중 채팅을 치면 **애니메이션도 멈춰야** 한다(㊵ 범위에 추가 — 41.4.4 F4-2).
+
+### 41.13 진행 현황
+| 단계 | 상태 |
+|---|---|
+| 계획 작성 | ✅ 2026-09-28 |
+| 승인(D1~D8) | ✅ 2026-09-28 |
+| K0 수정 전 재현 | ✅ 2026-09-28 — ㊳ 원인 정정(41.2.3), ㊴ 재현·D3 근거 확인(41.3.3) |
+| K1 ㊸·㊹·㊷ | ✅ 2026-09-28 — 41.7.3·41.8.4·41.6.3 |
+| K2 ㊵(+U2) | ✅ 2026-09-28 — 41.4.6 |
+| K3 ㊴·㊳ | ✅ 2026-09-28 — 41.3.7·41.2.7 |
+| K4 ㊺ | ✅ 2026-09-28 — 조사 오류 정정, 테스트만 추가(41.9.4) |
+| K5 ㊶(+U1) | ✅ 2026-09-28 — 41.5.5 |
+| K6 전체 회귀 | ✅ 2026-09-28 — 41.13.1 |
+
+### 41.14 사용자 확인 필요 항목(빌드·실제 조작)
+레거시 `Input`은 코드로 키를 넣을 수 없고 오프라인 방은 네트워크 지연이 없어, 아래는 에디터 자동 검증으로 대신할 수 없다.
+1. **㊳** 실제 맵 언덕·내리막·요철에서 Shift 돌진 — 경사를 따라가는지, 튀어 오르거나 지형을 뚫지 않는지. 돌진 체감 거리(오르막에서 수평 거리가 약간 짧아지는 것은 경사를 따라 올라가기 때문).
+2. **㊴** 점프해서 벽·울타리·상자 옆면에 키를 누른 채 붙어 보기(쿠키), 괴물로 난간에서 떨어지며 벽 밀기. 경사에 가만히 서 있을 때 미끄러지지 않는지.
+3. **㊵·U2** 쿠키·괴물로 움직이며 Enter → 채팅에 w·a·s·d·Shift·Space·E·F 입력 → 캐릭터가 멈춰 Idle, 돌진·점프·그랩·상호작용 없음. 관전 중 채팅에 Space → 관전 대상 유지. 입력창 바깥 클릭 → 채팅 닫힘.
+4. **㊸** 2클라이언트: A가 B를 든 채 B가 방을 나감 → A 상체 즉시 기본 자세.
+5. **㊹** 빌드 멀티: 결과·강제 도포가 한 번만 기록되는지(강제 도포 대상 쿠키 색이 한 번만 바뀜).
+6. **㊶** 맵 5개 모두 한 판 진행(채팅·뒤로가기·결과 복귀). `GameSceneCore.prefab`의 값 하나(예: 결과 화면 `autoReturnDelay`)를 바꾸면 5개 맵 모두 바뀌는지.
+
+### 41.15 이번 작업 중 발견한 범위 밖 문제(수정하지 않음 — 결정 필요)
+1. **맵 5개 모두 스폰 지점 아래에 지형이 없다(심각).** 커밋 `7f8cd38`의 맵 씬은 `Map` 루트 스케일이 (0.3, 1, 0.3)(GingerbreadVillage는 (0.3, 3, 0.3))인데, `MapSceneBuilder`가 스케일 1 기준으로 둔 스폰 지점(z ±90~97)과 낙하 영역은 그대로다. 걷는 지형은 이제 ±52.5m라 **쿠키·괴물 스폰 지점 10곳 모두 아래에 지형이 없다**(에디터 측정). 이대로 판을 시작하면 캐릭터가 떨어지고 → 킬존(y −16)에서 같은 스폰 지점으로 복귀하기를 반복한다. 선택지: (a) 스폰 지점·킬존을 줄어든 지형 안으로 옮기기(빌더 `PlaceSpawnsAndKillZone`의 목표를 스케일에 맞게), (b) 스케일을 1로 되돌리기. 또 `MapSceneBuilder`로 맵을 다시 조립하면 `Map` 루트를 새로 만들어 **이 스케일이 1로 돌아간다** — 스케일이 의도라면 빌더에 반영해야 한다. 참고로 XZ만 0.3배라 경사가 약 3.3배 가팔라져, ㊳ 같은 경사 관련 증상이 원래보다 자주 드러났을 가능성이 높다.
+2. `Resources/UI/Scene/ColorSelectionPanel.prefab`은 삭제된 옛 PlayerTestScene만 쓰던 프리팹이라 이제 **참조 0**이다. `GameSceneCore` 안의 ColorSlotPanel이 유일한 정의다. 삭제하거나, UI 프리팹 폴더 규칙에 맞게 ColorSlotPanel을 이 프리팹으로 옮겨 중첩할지 결정 필요.
+3. research.md R5-10("맵 2개가 선택되지 않음")은 조사 오류였다(41.9.4) — 해당 보고서에 정정 표시함.
+

@@ -1,5 +1,6 @@
 using Photon.Pun;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 // 괴물 전용 이동 컨트롤러(GameRule.md §6.2). 원래 1인칭(마우스로 몸통 회전 + 몸 기준 이동)으로
 // 설계됐으나, 사용자 결정으로 쿠키와 같은 3인칭 궤도 카메라(Camera_Ctrl, 우클릭 드래그 회전) + 카메라
@@ -16,7 +17,8 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     [SerializeField] private float cameraTargetHeight = 2.2f; // eyeSocket이 비어 있을 때만 쓰는 대체값
     [SerializeField] private float cameraDistance = 4.5f;
     [SerializeField] private float speed = 4f;
-    [SerializeField] private LayerMask obstructionMask;
+    [Tooltip("딛고 설 수 있는 면의 레이어(접지·돌진 지면 따라가기·벽 판정). 예전 obstructionMask(돌진 시작 장애물 검사)의 값을 이어받는다.")]
+    [SerializeField, FormerlySerializedAs("obstructionMask")] private LayerMask groundLayer = 1;
     [SerializeField] private MonsterGrabKillTrigger grabKillTrigger;
     [SerializeField] private Animator animator;
 
@@ -38,6 +40,16 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
 
     private Rigidbody rb;
     private Vector3 moveInput; // Update()에서 입력만 기록, 실제 적용은 FixedUpdate에서
+    private CharacterGroundDetector groundDetector; // 접지·지면 법선·벽 접촉(쿠키와 공용, Bug-fix-plan.md §41 ㊳·㊴)
+
+    // 돌진 물리 스텝 상태(Bug-fix-plan.md §41 ㊳)
+    private const float GroundCheckDistance = 0.3f;
+    private const float GroundProbeLift = 0.05f; // 지면 탐침 구를 몸 아래 반구 중심보다 이만큼 올려 시작 겹침을 피한다
+    private const float GroundedGap = 0.1f;      // 발밑 지면까지 이 거리 안이면 접지로 본다
+    private float bodyRadius = 0.3f;
+    private bool wasDashing;
+    private Vector3 lastDashPosition;
+    private float lastDashExpected;
     private readonly MonsterTentacleDash tentacleDash = new MonsterTentacleDash();
     private readonly NetworkTransformSync<MonsterMoveState> networkSync = new NetworkTransformSync<MonsterMoveState>();
     private MonsterMoveState currentState = MonsterMoveState.Idle;
@@ -113,6 +125,7 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
 
     private void Awake()
     {
+        groundDetector = new CharacterGroundDetector(groundLayer, GroundCheckDistance);
         if (!pv.IsMine) return;
 
         // HideOrSeekPlayer.Awake()와 동일한 "Main Camera에 나를 넘긴다" 패턴 — 쿠키용 3인칭 궤도
@@ -138,6 +151,13 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic; // TentacleDash 고속 이동 대비
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.constraints = RigidbodyConstraints.FreezeRotation; // 회전은 FixedUpdate()에서 rb.MoveRotation으로 직접 제어
+        }
+
+        var capsule = GetComponent<CapsuleCollider>();
+        if (capsule != null)
+        {
+            Vector3 s = transform.lossyScale;
+            bodyRadius = capsule.radius * Mathf.Max(Mathf.Abs(s.x), Mathf.Abs(s.z));
         }
 
         grabKillDuration = FindClipLength(GrabKillClipKeyword, FallbackGrabKillDuration);
@@ -193,7 +213,7 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
 
         // 입력 키는 좌Shift로 확정(사용자 확인, GameRule.md v3.4) — InputBindings의 TentacleDashKey에서 바꿀 수 있다.
         // 쿠키의 Shift(질주)와는 서로 다른 캐릭터 클래스에서 각자 로컬로 읽는 입력이라 충돌 없음.
-        if (PlayerInput.TentacleDashPressed && tentacleDash.TryStartDash(transform.forward, transform.position, obstructionMask))
+        if (PlayerInput.TentacleDashPressed && tentacleDash.TryStartDash(transform.forward))
         {
             tentacleDashAnimRemaining = Mathf.Max(tentacleDashAnimDuration, GameSettings.Current.TentacleDashDuration);
             ChangeState(MonsterMoveState.TentacleDash);
@@ -209,26 +229,90 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     {
         if (!pv.IsMine) return;
 
-        if (tentacleDash.IsDashing)
+        if (tentacleDash.IsDashing && FixedUpdateDash()) return;
+
+        float verticalVelocity = rb.linearVelocity.y;
+        if (wasDashing)
         {
-            // 순간이동에 가까운 고정 변위라 속도(velocity)가 아니라 rb.MovePosition으로 직접
-            // 이동시킨다 — 기본 이동(rb.linearVelocity)과 방식이 다른 것은 의도적.
-            Vector3 step = tentacleDash.TickDash(Time.deltaTime);
-            if (TryCatchCookieOnDashPath(step, out float travel))
-                rb.MovePosition(rb.position + step.normalized * travel); // 쿠키 앞에서 멈추고 GrabKill로 전환됨
-            else
-                rb.MovePosition(rb.position + step);
+            // 돌진이 끝난 첫 스텝: 오르막 돌진의 위 속도가 이어져 튀어 오르지 않게 한다(아래 속도는 중력에 맡긴다).
+            wasDashing = false;
+            verticalVelocity = Mathf.Min(verticalVelocity, 0f);
+        }
+
+        // transform.rotation 직접 대입 대신 rb.MoveRotation — Rigidbody 보간이 인식하는 회전만 갱신해야
+        // 매 물리 스텝마다 회전이 튀지 않는다(쿠키에서 고친 Bug-fix-plan.md §13과 같은 이유).
+        if (moveInput != Vector3.zero)
+            rb.MoveRotation(Quaternion.LookRotation(moveInput));
+
+        Vector3 horizontal = moveInput * speed;
+        // 공중에서 벽을 향해 밀면 마찰로 벽에 붙는다 — 쿠키와 같은 규칙으로 벽을 향한 성분을 뺀다(§41 ㊴).
+        if (!groundDetector.IsGrounded(transform.position)) horizontal = groundDetector.RemoveWallPush(horizontal);
+        rb.linearVelocity = new Vector3(horizontal.x, verticalVelocity, horizontal.z);
+    }
+
+    // 돌진 한 물리 스텝(Bug-fix-plan.md §41 ㊳). 지면 법선을 따라 꺾은 속도로 움직이고(오르막·내리막·요철), 볼록한 언덕 꼭대기에서는
+    // 지면에 붙이며, 벽에 막히면 이동을 끝낸다. 충돌·연속 충돌 판정은 물리 엔진이 맡는다(예전 MovePosition은 지형을 뚫었다).
+    // 이번 스텝을 돌진으로 처리했으면 true, 막혀서 방금 끝났으면 false(호출부가 일반 이동으로 이어서 처리).
+    private bool FixedUpdateDash()
+    {
+        Vector3 position = rb.position;
+        if (wasDashing) tentacleDash.ReportProgress(lastDashExpected, Vector3.Distance(position, lastDashPosition));
+        if (!tentacleDash.IsDashing) return false;
+        wasDashing = true;
+
+        GameSettingsSO settings = GameSettings.Current;
+        float dt = Time.fixedDeltaTime;
+        // 한 스텝에 돌진 속도(초당 80m)로 1.6m를 가므로, 최대 경사의 내리막·언덕 꼭대기에서는 한 스텝 사이에 지면이
+        // "스텝 길이 × tan(최대 경사)"만큼 떨어질 수 있다. 붙이기 거리를 그만큼 늘려야 경사를 따라 내려간다(고정 0.6m로는 약 20°까지만 따라가
+        // 실측에서 3~8m 떠올랐다). 그보다 급한 낙차(낭떠러지)는 붙이지 않고 떨어진다.
+        float snapDistance = settings.TentacleDashGroundSnap + tentacleDash.DashSpeed * dt * Mathf.Tan(settings.TentacleDashMaxSlope * Mathf.Deg2Rad);
+        bool nearGround = TryProbeGround(position, snapDistance, out float gap, out Vector3 groundNormal);
+
+        Vector3 velocity = tentacleDash.DashVelocity(nearGround, groundNormal, settings.TentacleDashMaxSlope);
+        if (nearGround)
+        {
+            // 경사를 따르되, 발밑과 지면 사이가 벌어졌으면(초속 80m라 지형 곡률만으로도 한 스텝에 0.1~0.5m 뜬다) 그 틈을
+            // 이번 스텝에 메우는 아래 속도를 더한다. 예전에는 "직전 스텝이 접지일 때만" 붙여서, 한 번 뜨면 경사 방향의 위 속도를
+            // 그대로 가진 채 언덕 꼭대기에서 8m 넘게 튀어 올랐다.
+            if (gap > GroundedGap) velocity.y -= gap / dt;
         }
         else
         {
-            // transform.rotation 직접 대입 대신 rb.MoveRotation — Rigidbody 보간이 인식하는 회전만 갱신해야
-            // 매 물리 스텝마다 회전이 튀지 않는다(쿠키에서 고친 Bug-fix-plan.md §13과 같은 이유).
-            if (moveInput != Vector3.zero)
-                rb.MoveRotation(Quaternion.LookRotation(moveInput));
-
-            Vector3 horizontal = moveInput * speed;
-            rb.linearVelocity = new Vector3(horizontal.x, rb.linearVelocity.y, horizontal.z);
+            // 낭떠러지 등 붙이기 거리 밖: 중력에 맡기되 위 속도는 남기지 않는다(돌진이 발사대가 되지 않게).
+            velocity.y = Mathf.Min(rb.linearVelocity.y, 0f);
         }
+
+        if (TryCatchCookieOnDashPath(velocity * dt, out float travel))
+            velocity = velocity.normalized * (travel / dt); // 쿠키 앞까지만 움직이고 GrabKill로 전환된다(돌진은 PlayGrabKill이 끊음)
+
+        rb.linearVelocity = velocity;
+        lastDashPosition = position;
+        lastDashExpected = velocity.magnitude * dt;
+        tentacleDash.TickDash(dt);
+        return true;
+    }
+
+    // 발밑 지면까지의 거리와 법선. 몸 아래 반구 중심보다 조금 위에서 몸보다 작은 구를 내려 훑는다(시작 겹침 방지).
+    private bool TryProbeGround(Vector3 feet, float snapDistance, out float gap, out Vector3 normal)
+    {
+        float probeRadius = bodyRadius * 0.9f;
+        float lift = bodyRadius + GroundProbeLift;
+        float startClearance = lift - probeRadius; // 탐침 구 바닥과 발바닥 사이
+        if (groundDetector.TryGetGround(feet + Vector3.up * lift, probeRadius, startClearance + snapDistance, out RaycastHit hit))
+        {
+            gap = Mathf.Max(0f, hit.distance - startClearance);
+            normal = hit.normal;
+            return true;
+        }
+        gap = float.PositiveInfinity;
+        normal = Vector3.up;
+        return false;
+    }
+
+    // 벽 접촉을 모은다(공중에서 벽에 붙지 않게, §41 ㊴). 물리 소유자만.
+    private void OnCollisionStay(Collision collision)
+    {
+        if (pv.IsMine) groundDetector.RecordContacts(collision);
     }
 
     // 이번 물리 스텝의 돌진 이동 경로를 처형 판정 범위(MonsterGrabKillTrigger의 구)로 훑어 살아 있는 쿠키가 있으면
@@ -282,6 +366,7 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
 
         tentacleDash.Cancel();
         tentacleDashAnimRemaining = 0f;
+        wasDashing = false;
         rb.linearVelocity = Vector3.zero;
         // 비키네마틱 Rigidbody는 transform만 바꾸면 다음 물리 스텝에 되돌아가므로 rb.position도 함께 바꾼다.
         rb.position = respawnPos;

@@ -89,7 +89,15 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
         if (remaining > 0) return;
 
         isWaiting = false;
-        PhotonNetwork.LoadLevel(GameStartAuthority.CurrentMapScene()); // 방장이 고른 이번 판 맵. 방장이 아니므로 혼자만 로드, 로드 후 큐 자동 재개
+        string map = GameStartAuthority.CurrentMapScene(); // 방장이 고른 이번 판 맵
+        if (string.IsNullOrEmpty(map))
+        {
+            // 갈 씬이 없으면 멈춘 큐라도 되돌려 방 상태(대기실 복귀 등)를 받게 한다.
+            Debug.LogError("[MonsterLobbyWait] No game map to load. Resuming the message queue in the lobby.");
+            PhotonNetwork.IsMessageQueueRunning = true;
+            return;
+        }
+        PhotonNetwork.LoadLevel(map); // 방장이 아니므로 혼자만 로드, 로드 후 큐 자동 재개
     }
 
     // 다른 플레이어들은 이미 GameScene으로 떠나 이 오브젝트들은 더 이상 갱신되지 않는다(대기실에 굳은 채

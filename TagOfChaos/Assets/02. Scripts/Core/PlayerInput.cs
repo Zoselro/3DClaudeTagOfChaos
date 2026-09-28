@@ -25,8 +25,15 @@ public static class PlayerInput
         }
     }
 
+    // 채팅 입력 중처럼 키보드가 게임 조작이 아닌 곳에 쓰이는 동안 true(Bug-fix-plan.md §41 ㊵). 게임플레이 키 입력이 모두 중립값을
+    // 돌려주므로 쿠키·괴물·관전·상호작용, 그리고 이후 추가될 캐릭터도 따로 잠그지 않아도 멈추고 Idle로 돌아간다. 채팅을 닫는 키와
+    // 마우스(시점 회전·색칠)는 막지 않는다. 정적 값이라 켠 쪽(GameManager)이 비활성·파괴될 때 반드시 되돌린다.
+    public static bool IsGameplaySuppressed { get; set; }
+
     // 이동 입력(x=좌우, y=앞뒤), 각 축 -1~1.
-    public static Vector2 Move => new Vector2(Input.GetAxisRaw(Bindings.HorizontalAxis), Input.GetAxisRaw(Bindings.VerticalAxis));
+    public static Vector2 Move => IsGameplaySuppressed
+        ? Vector2.zero
+        : new Vector2(Input.GetAxisRaw(Bindings.HorizontalAxis), Input.GetAxisRaw(Bindings.VerticalAxis));
 
     // 카메라가 바라보는 방향 기준의 수평 이동 방향(정규화, 입력이 없으면 0). 쿠키·괴물 공용(3인칭 궤도 카메라 전제).
     public static Vector3 CameraRelativeMove(Transform cameraTransform)
@@ -38,13 +45,13 @@ public static class PlayerInput
         return (forward * move.y + right * move.x).normalized;
     }
 
-    public static bool RunHeld => Input.GetKey(Bindings.RunKey);
-    public static bool JumpPressed => Input.GetKeyDown(Bindings.JumpKey);
-    public static bool DodgePressed => Input.GetKeyDown(Bindings.DodgeKey);
-    public static bool GrabPressed => Input.GetKeyDown(Bindings.GrabKey);
-    public static bool InteractPressed => Input.GetKeyDown(Bindings.InteractKey);
-    public static bool TentacleDashPressed => Input.GetKeyDown(Bindings.TentacleDashKey);
-    public static bool SpectateNextPressed => Input.GetKeyDown(Bindings.SpectateNextKey);
+    public static bool RunHeld => !IsGameplaySuppressed && Input.GetKey(Bindings.RunKey);
+    public static bool JumpPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.JumpKey);
+    public static bool DodgePressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DodgeKey);
+    public static bool GrabPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.GrabKey);
+    public static bool InteractPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.InteractKey);
+    public static bool TentacleDashPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.TentacleDashKey);
+    public static bool SpectateNextPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.SpectateNextKey);
     public static bool ChatSubmitReleased => Input.GetKeyUp(Bindings.ChatSubmitKey);
 
     public static Vector2 PointerPosition => Input.mousePosition;

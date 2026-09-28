@@ -10,14 +10,18 @@ using UnityEngine.Rendering.PostProcessing;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-// 맵 5종(Assets/Maps)을 게임 씬으로 조립하는 도구(Plan.md/GameScenePlan.md). GameScene을 복제해 게임 규칙·UI·카메라 배선을
-// 그대로 쓰고, 환경만 맵 FBX로 바꾼다. 조명(맵 조명 JSON + 분위기 조정), 후처리(Bloom·색 보정), 충돌체 정책, 상호작용 문,
+// 맵 5종(Assets/Maps)을 게임 씬으로 조립하는 도구(Plan.md/GameScenePlan.md). 게임 규칙·UI는 프리팹 GameSceneCore 하나를
+// 인스턴스로 두고(Bug-fix-plan.md §41 ㊶ — 예전에는 GameScene을 한 번 복제해 매니저·HUD가 씬마다 따로 직렬화됐다), 카메라·스폰
+// 지점·낙하 영역은 PlayerTestScene에서 복제한 뒤 환경만 맵 FBX로 바꾼다. 조명(맵 조명 JSON + 분위기 조정), 후처리(Bloom·색 보정), 충돌체 정책, 상호작용 문,
 // 회전 연출, 스폰·낙하 영역, 지면 뚫림 검사까지 한 번에 하고 스스로 검증한다. 다시 실행하면 씬의 맵 부분만 새로 만든다.
 public static class MapSceneBuilder
 {
     private const string LogTag = "[MapScene]";
     private const string MenuRoot = "Tools/TagOfChaos/Maps/";
-    private const string TemplateScene = "Assets/Scenes/GameScene.unity";
+    // 새 맵 씬의 시작점(카메라·스폰 지점·낙하 영역·GameSceneCore 인스턴스). 예전 원본 GameScene은 쓰지 않게 되어 PlayerTestScene으로
+    // 바뀌었다(§41 U1) — 복제한 뒤 테스트 전용 루트와 시험용 환경은 지운다.
+    private const string TemplateScene = "Assets/Scenes/PlayerTestScene.unity";
+    private const string SceneCorePrefab = "Assets/04. Prefabs/Scene/GameSceneCore.prefab";
     private const string SceneFolder = "Assets/Scenes/Maps";
     private const string MapsRoot = "Assets/Maps";
     private const string DoorAssetFolder = "Assets/Maps/Common/Doors";
@@ -26,8 +30,10 @@ public static class MapSceneBuilder
     // 씬 루트 이름(다시 빌드할 때 이 루트들만 지우고 새로 만든다)
     private const string RootMap = "Map", RootColliders = "MapColliders", RootLighting = "MapLighting",
         RootDoors = "MapDoors", RootPostFx = "PostFX";
-    private static readonly string[] OwnedRoots = { RootMap, RootColliders, RootLighting, RootDoors, RootPostFx };
-    private static readonly string[] TemplateEnvironmentRoots = { "Ground", "Directional Light" };
+    private static readonly string[] OwnedRoots = { RootMap, RootColliders, RootLighting, RootDoors, RootPostFx, MapCompactor.MarkerRoot };
+    private static readonly string[] TemplateEnvironmentRoots = { "Ground", "Directional Light", "TestBootstrap" };
+    // GameSceneCore로 옮겨 간 예전 씬 루트(프리팹 도입 전에 만든 맵 씬을 다시 열 때 프리팹 인스턴스로 바꾼다)
+    private static readonly string[] LegacySceneCoreRoots = { "GameManager", "GameRuleManagers", "PaintManagers", "Canvas", "EventSystem" };
 
     private static readonly string[] Categories =
         { "Ground", "Terrain", "MainStructures", "GameplayProps", "Decoration", "Background", "Lighting", "Effects", "Water" };
@@ -98,6 +104,7 @@ public static class MapSceneBuilder
             if (OwnedRoots.Contains(go.name) || TemplateEnvironmentRoots.Contains(go.name)) Object.DestroyImmediate(go);
 
         var report = new List<string>();
+        if (!EnsureSceneCore(scene, report)) return;
         Transform mapRoot = NewRoot(RootMap);
         var instances = PlaceModels(map, mapRoot, report);
         ApplyColliderPolicy(instances, report);
@@ -119,6 +126,52 @@ public static class MapSceneBuilder
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log($"{LogTag} {map} built -> {path}\n  " + string.Join("\n  ", report));
+
+        // 방금 만든 원본 크기(±172 m) 씬을 원본으로 보관하고 ±70 m로 축소해 같은 경로에 저장한다(Plan.md/MapReplacePlan.md v2).
+        MapCompactor.OnMapBuilt(map);
+    }
+
+    // 씬에 GameSceneCore 인스턴스가 정확히 하나 있게 한다. 프리팹 도입 전 형식(매니저·HUD 루트가 씬에 직접 있음)이면 그 루트를 지우고
+    // 인스턴스로 바꾼다 — 씬 6개가 같은 값을 따로 들고 있어 한 곳만 고치면 어긋나던 문제(§41 ㊶)가 다시 생기지 않게 한다.
+    public static bool EnsureSceneCore(Scene scene, List<string> report)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(SceneCorePrefab);
+        if (prefab == null) { Debug.LogError($"{LogTag} {SceneCorePrefab} not found."); return false; }
+
+        int instances = 0, removed = 0;
+        foreach (GameObject go in scene.GetRootGameObjects())
+        {
+            if (PrefabUtility.GetCorrespondingObjectFromSource(go) == prefab) { instances++; continue; }
+            if (LegacySceneCoreRoots.Contains(go.name)) { Object.DestroyImmediate(go); removed++; }
+        }
+        if (instances == 0)
+        {
+            var core = (GameObject)PrefabUtility.InstantiatePrefab(prefab, scene);
+            core.transform.SetSiblingIndex(0);
+            AssignSceneViewIds(scene, core);
+        }
+        report?.Add($"scene core: {(instances == 0 ? "instantiated" : "kept")} GameSceneCore, removed {removed} legacy roots");
+        return true;
+    }
+
+    // PUN은 프리팹 에셋 안의 PhotonView를 항상 sceneViewId 0으로 되돌리므로(PhotonViewHandler) 씬 PhotonView의 ID는 씬 인스턴스의
+    // 오버라이드로 가져야 한다. 0으로 남으면 실행 중 ViewID가 0이 되어 채팅 RPC 등이 "Illegal view ID:0"으로 실패했다(§41 ㊶ 검증 중 발견).
+    // 씬 안에서 쓰지 않는 가장 작은 번호부터 준다.
+    private static void AssignSceneViewIds(Scene scene, GameObject core)
+    {
+        var used = new HashSet<int>();
+        foreach (GameObject root in scene.GetRootGameObjects())
+            foreach (var view in root.GetComponentsInChildren<Photon.Pun.PhotonView>(true))
+                if (!view.transform.IsChildOf(core.transform) && view.sceneViewId > 0) used.Add(view.sceneViewId);
+
+        int next = 1;
+        foreach (var view in core.GetComponentsInChildren<Photon.Pun.PhotonView>(true))
+        {
+            while (used.Contains(next)) next++;
+            view.sceneViewId = next;
+            used.Add(next);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(view);
+        }
     }
 
     private static Transform NewRoot(string name)
@@ -1147,10 +1200,11 @@ public static class MapSceneBuilder
 
     public static void ApplyBuildSettingsAndMapList()
     {
-        var scenes = EditorBuildSettings.scenes.Where(s => s.path != TemplateScene && !s.path.StartsWith(SceneFolder)).ToList();
+        // 테스트 씬(PlayerTestScene)과 로비 씬들의 항목·활성 여부는 그대로 두고 맵 씬만 다시 채운다.
+        var scenes = EditorBuildSettings.scenes.Where(s => !s.path.StartsWith(SceneFolder)).ToList();
         foreach (string map in MapNames)
             if (File.Exists(ScenePath(map))) scenes.Add(new EditorBuildSettingsScene(ScenePath(map), true));
-        EditorBuildSettings.scenes = scenes.ToArray(); // GameScene은 빌드에서 빼고 파일은 보관(D2)
+        EditorBuildSettings.scenes = scenes.ToArray();
 
         var settings = Resources.Load<GameSettingsSO>("GameSettings");
         if (settings != null)

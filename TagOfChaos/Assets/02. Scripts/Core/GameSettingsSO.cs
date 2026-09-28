@@ -39,8 +39,10 @@ public class GameSettingsSO : ScriptableObject
     [SerializeField, Min(0f)] private float tentacleDashDistance = 20f;
     [SerializeField, Min(0.01f)] private float tentacleDashDuration = 0.25f;
     [SerializeField, Min(0f)] private float tentacleDashCooldown = 15f;
-    [Tooltip("돌진 경로 장애물 검사(SphereCast) 반경 — 괴물 몸 두께 정도.")]
-    [SerializeField, Min(0f)] private float tentacleDashRadius = 0.4f;
+    [Tooltip("돌진이 따라 올라가거나 내려가는 최대 경사(도). 더 가파른 면은 벽처럼 막혀 돌진 이동이 끝난다(Bug-fix-plan.md §41 ㊳).")]
+    [SerializeField, Range(0f, 89f)] private float tentacleDashMaxSlope = 45f;
+    [Tooltip("돌진 중 지면 붙이기 여유(m). 한 스텝 동안 최대 경사(TentacleDashMaxSlope)로 떨어질 수 있는 높이에 이 값을 더한 거리 안에 지면이 있으면 붙이고(언덕 꼭대기·내리막), 더 먼 낭떠러지는 그대로 떨어진다.")]
+    [SerializeField, Min(0f)] private float tentacleDashGroundSnap = 0.6f;
 
     [Header("Network Load (research.md §12.4)")]
     [Tooltip("캐릭터 위치 동기화 횟수(초당, PhotonNetwork.SerializationRate). PUN 기본 10.")]
@@ -72,7 +74,8 @@ public class GameSettingsSO : ScriptableObject
     public float TentacleDashDistance => tentacleDashDistance;
     public float TentacleDashDuration => tentacleDashDuration;
     public float TentacleDashCooldown => tentacleDashCooldown;
-    public float TentacleDashRadius => tentacleDashRadius;
+    public float TentacleDashMaxSlope => tentacleDashMaxSlope;
+    public float TentacleDashGroundSnap => tentacleDashGroundSnap;
     public int CharacterSyncRate => characterSyncRate;
     public float CookieSpawnRange => cookieSpawnRange;
     public float MonsterSpawnRange => monsterSpawnRange;
@@ -90,8 +93,9 @@ public class GameSettingsSO : ScriptableObject
 
     public System.Collections.Generic.IReadOnlyList<string> GameMapScenes => gameMapScenes;
 
-    // 이번 판 맵(GameScenePlan.md D1): 목록에서 무작위, 직전 판 맵은 제외. 목록이 비면 fallback.
-    public string PickGameMap(string previousMap, string fallback)
+    // 이번 판 맵(GameScenePlan.md D1): 목록에서 무작위, 직전 판 맵은 제외. 목록이 비면 null — 빌드에 없는 기본 씬으로
+    // 대신 가지 않도록 호출부가 시작을 막는다(Bug-fix-plan.md §41 ㊷).
+    public string PickGameMap(string previousMap)
     {
         var candidates = new System.Collections.Generic.List<string>();
         foreach (string scene in gameMapScenes)
@@ -99,7 +103,18 @@ public class GameSettingsSO : ScriptableObject
         if (candidates.Count == 0)
             foreach (string scene in gameMapScenes)
                 if (!string.IsNullOrEmpty(scene)) candidates.Add(scene);
-        return candidates.Count > 0 ? candidates[Random.Range(0, candidates.Count)] : fallback;
+        return candidates.Count > 0 ? candidates[Random.Range(0, candidates.Count)] : null;
+    }
+
+    // 맵 키를 받지 못했을 때 쓰는 대체 맵(목록의 첫 유효 항목, 없으면 null).
+    public string FirstGameMap
+    {
+        get
+        {
+            foreach (string scene in gameMapScenes)
+                if (!string.IsNullOrEmpty(scene)) return scene;
+            return null;
+        }
     }
 
     // 현재 방 인원에서 실제로 뽑을 괴물 수 — 쿠키가 최소 1명 남도록 제한한다.
@@ -108,5 +123,10 @@ public class GameSettingsSO : ScriptableObject
     private void OnValidate()
     {
         monsterCount = Mathf.Clamp(monsterCount, 1, Mathf.Max(1, maxPlayers - 1));
+#if UNITY_EDITOR
+        // 저장된 설정 에셋만 검사한다(테스트가 만드는 빈 임시 인스턴스는 제외).
+        if (FirstGameMap == null && UnityEditor.EditorUtility.IsPersistent(this))
+            Debug.LogWarning($"[GameSettings] gameMapScenes is empty on {name}. Games cannot start.", this);
+#endif
     }
 }

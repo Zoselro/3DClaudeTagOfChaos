@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-8014011640347378858
+--- !u!114 &-5336689692093554475
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -60,9 +60,9 @@ MonoBehaviour:
   m_Name: CandyForest_PostFX
   m_EditorClassIdentifier: 
   settings:
-  - {fileID: -8014011640347378858}
-  - {fileID: 240026839972926670}
---- !u!114 &240026839972926670
+  - {fileID: -5336689692093554475}
+  - {fileID: 7624031032227434135}
+--- !u!114 &7624031032227434135
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}

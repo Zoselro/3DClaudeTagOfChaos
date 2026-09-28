@@ -9,9 +9,13 @@ public enum GameResult { CookiesWin, MonsterWins }
 
 public class GameRuleController : MonoBehaviourPunCallbacks
 {
+    // 온라인에서는 SetCustomProperties가 서버 응답 전까지 로컬 캐시에 반영되지 않는다. 응답 전 프레임마다 결과를 다시 보내거나,
+    // 그 사이 다른 결과(파괴 완료 → 시간 종료)를 보내 나중 값이 이기지 않도록 한 판에 한 번만 보낸다(Bug-fix-plan.md §41 ㊹).
+    private bool resultRequested;
+
     private void Update()
     {
-        if (!PhotonNetwork.IsMasterClient) return;
+        if (!PhotonNetwork.IsMasterClient || resultRequested) return;
         if (!RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters)) return;
         if (GamePhaseState.Current != GamePhase.Hunt) return; // 괴물 합류 전이거나 이미 판정됨
 
@@ -39,8 +43,16 @@ public class GameRuleController : MonoBehaviourPunCallbacks
         return true;
     }
 
+    // 결과가 도착하면(내가 보낸 것이든 이전 방장이 보낸 것이든) 단계 판정이 Result가 되므로 플래그는 그대로 둔다.
+    // 방장이 바뀌면 새 방장은 캐시(GamePhaseState)로 다시 판단한다 — 응답 전에 이전 방장이 나갔으면 다시 보낸다.
+    public override void OnMasterClientSwitched(Player newMasterClient)
+    {
+        resultRequested = false;
+    }
+
     private void Finish(GameResult result)
     {
+        resultRequested = true;
         PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.GameResult, (int)result } });
     }
 }

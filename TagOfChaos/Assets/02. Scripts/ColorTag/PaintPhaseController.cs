@@ -18,6 +18,10 @@ public class PaintPhaseController : MonoBehaviourPunCallbacks
     [SerializeField] private ColorPaletteSO palette;
     private readonly System.Random rng = new System.Random();
 
+    // 서버 응답 전 프레임마다 다시 배정하면 매번 다른 무작위 색이 전송돼 대상 쿠키 색이 잠깐씩 바뀌었다(Bug-fix-plan.md §41 ㊹).
+    // 한 번만 보내고, 방장이 바뀌면 새 방장은 Room Prop 캐시로 다시 판단한다.
+    private bool resolveRequested;
+
     private void Awake()
     {
         IsPaintScene = true;
@@ -30,7 +34,8 @@ public class PaintPhaseController : MonoBehaviourPunCallbacks
 
     private void Update()
     {
-        if (!PhotonNetwork.IsMasterClient) return;
+        // 오프라인 모드는 방을 만들기 전에도 IsMasterClient가 true라 방 확인을 먼저 한다(PlayerTestScene, Bug-fix-plan.md §41 U1 검증 중 발견).
+        if (!PhotonNetwork.IsMasterClient || resolveRequested || !RoomState.IsInRoom()) return;
         // 처리 여부를 로컬 플래그가 아니라 Room Prop으로 판단한다 — 방장이 바뀐 뒤 새 방장이 강제 도포 색을 다시
         // 무작위로 뽑아 게임 도중 쿠키 색이 바뀌던 문제를 막는다(Bug-fix-plan.md §26.8.3 ③). 이 키는 대기실
         // 초기화(RoundStateResetter)에서 지워지므로 판마다 한 번만 기록된다.
@@ -41,8 +46,20 @@ public class PaintPhaseController : MonoBehaviourPunCallbacks
         ResolvePaintPhase();
     }
 
+    public override void OnMasterClientSwitched(Player newMasterClient)
+    {
+        resolveRequested = false;
+    }
+
     private void ResolvePaintPhase()
     {
+        if (palette == null || palette.Count == 0)
+        {
+            Debug.LogError("[PaintPhaseController] Palette is empty. Forced paint cannot assign colors.");
+            resolveRequested = true; // 매 프레임 같은 오류를 반복하지 않는다
+            return;
+        }
+        resolveRequested = true;
         var zeroSlotPlayers = new List<Player>();
         foreach (Player p in PhotonNetwork.PlayerList)
         {

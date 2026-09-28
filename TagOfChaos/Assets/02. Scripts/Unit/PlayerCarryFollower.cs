@@ -2,7 +2,7 @@ using Photon.Pun;
 using UnityEngine;
 
 // 들린 쿠키(로컬 소유자) 쪽의 캐리 추종 — HideOrSeekPlayer에서 분리한 협력 클래스(research.md §12 E6).
-// PlayerGroundDetector/PlayerAnimationDriver와 같은 "조정자(MonoBehaviour)가 소유하는 순수 C# 클래스" 스타일이다.
+// CharacterGroundDetector/PlayerAnimationDriver와 같은 "조정자(MonoBehaviour)가 소유하는 순수 C# 클래스" 스타일이다.
 // 소유권 이전 없이 자기 PhotonView를 유지한 채, 드는 쪽 CarrySocket 위치를 매 물리 스텝 로컬로 따라간다(GameRule.md §4.1).
 public class PlayerCarryFollower
 {

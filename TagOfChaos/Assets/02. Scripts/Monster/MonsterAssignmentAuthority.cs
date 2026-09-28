@@ -18,6 +18,7 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
     private bool deadlineRequested;
     private bool confirmRequested;
     private bool resetRequested;
+    private bool deadlineClearRequested; // 정원 미달 때 기한 삭제를 응답 전 매 프레임 다시 보내지 않도록(Bug-fix-plan.md §41 ㊹)
 
     public void OnEvent(EventData photonEvent)
     {
@@ -49,10 +50,15 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
         {
             // 정원이 다시 줄면 대기 시간을 처음부터 다시 잰다.
             deadlineRequested = false;
-            if (hasDeadline) room.SetCustomProperties(new Hashtable { { NetKeys.MonsterSelectDeadline, null } });
+            if (hasDeadline && !deadlineClearRequested)
+            {
+                deadlineClearRequested = true;
+                room.SetCustomProperties(new Hashtable { { NetKeys.MonsterSelectDeadline, null } });
+            }
             return;
         }
 
+        deadlineClearRequested = false;
         if (!hasDeadline)
         {
             if (!deadlineRequested)

@@ -24,16 +24,20 @@ public class PlayerGrabController : MonoBehaviour
     public Transform CarrySocket => carrySocket;
     public bool IsCarrying => carriedPlayer != null;
 
+    // 들고 있던 쿠키가 방을 나가 파괴되면 Unity의 == null 비교는 true가 되지만 참조는 남아 있다. 정리가 필요한지는
+    // 참조 존재(ReferenceEquals)로, 살아 있는지는 Unity bool로 구분한다(Bug-fix-plan.md §41 ㊸).
+    private bool HasCarryReference => !ReferenceEquals(carriedPlayer, null);
+
     private void Update()
     {
         if (!pv.IsMine) return;
 
         // 들고 있던 쿠키가 파괴됐거나 방을 나가 사라졌으면 캐리 상태를 정리한다.
-        if (carriedPlayer != null && (!carriedPlayer || IsOwnerBroken(carriedPlayer)))
+        if (HasCarryReference && (!carriedPlayer || RoomState.IsBroken(carriedPlayer.View.Owner)))
             Release();
 
         if (!PlayerInput.GrabPressed) return;
-        if (self != null && (self.IsBroken || self.IsMovementLocked)) return; // 파괴·들림·채팅 중에는 그랩 불가
+        if (self != null && (self.IsBroken || self.IsMovementLocked)) return; // 파괴·들림 중에는 그랩 불가(채팅 중에는 GrabPressed가 억제된다)
 
         if (carriedPlayer == null) TryGrab();
         else Release();
@@ -46,16 +50,15 @@ public class PlayerGrabController : MonoBehaviour
         {
             var target = overlapBuffer[i].GetComponentInParent<HideOrSeekPlayer>();
             if (target == null || target.gameObject == gameObject) continue;
-            if (IsOwnerBroken(target)) continue;
-
-            var targetPv = target.GetComponent<PhotonView>();
+            var targetPv = target.View;
             if (targetPv == null || targetPv.Owner == null) continue;
+            if (RoomState.IsBroken(targetPv.Owner)) continue;
 
             targetPv.RPC(HideOrSeekPlayer.RpcOnGrabbedByOwner, targetPv.Owner, pv.ViewID);
             carriedPlayer = target;
             // 들고 있는 쿠키(이 클라이언트에서는 원격·키네마틱)가 내 몸을 밀어내지 않도록 서로의 충돌을 무시한다.
             SetCollisionIgnored(gameObject, target.gameObject, true);
-            self?.SetCarryLayerWeight(1f);
+            if (self != null) self.SetCarryLayerWeight(1f);
             return;
         }
     }
@@ -63,18 +66,18 @@ public class PlayerGrabController : MonoBehaviour
     // withThrow: 놓아줄 때 살짝 앞으로 밀어낼지 여부(선택적 연출, 기본은 그냥 내려놓기)
     public void Release(bool withThrow = false)
     {
-        if (carriedPlayer == null) return;
+        if (!HasCarryReference) return;
 
-        if (carriedPlayer) // 방을 나가 파괴된 경우에는 RPC/충돌 복구를 건너뛴다
+        if (carriedPlayer) // 방을 나가 파괴된 경우에는 RPC/충돌 복구를 건너뛰고, 캐리 상태·자세만 정리한다
         {
-            var targetPv = carriedPlayer.GetComponent<PhotonView>();
+            var targetPv = carriedPlayer.View;
             if (targetPv != null && targetPv.Owner != null)
                 targetPv.RPC(HideOrSeekPlayer.RpcOnReleased, targetPv.Owner, withThrow);
             StartCoroutine(RestoreCollisionLater(carriedPlayer.gameObject));
         }
 
         carriedPlayer = null;
-        self?.SetCarryLayerWeight(0f);
+        if (self != null) self.SetCarryLayerWeight(0f);
     }
 
     private IEnumerator RestoreCollisionLater(GameObject released)
@@ -82,14 +85,6 @@ public class PlayerGrabController : MonoBehaviour
         yield return new WaitForSeconds(RestoreCollisionDelay);
         if (released != null && carriedPlayer == null) // 그 사이 다시 들었다면 무시 상태를 유지한다
             SetCollisionIgnored(gameObject, released, false);
-    }
-
-    private static bool IsOwnerBroken(HideOrSeekPlayer player)
-    {
-        var targetPv = player.GetComponent<PhotonView>();
-        return targetPv != null && targetPv.Owner != null
-            && targetPv.Owner.CustomProperties.TryGetValue(NetKeys.HitCount, out object v)
-            && v is int hitCount && hitCount >= 2;
     }
 
     // 두 캐릭터의 모든 콜라이더 쌍에 대해 충돌 무시 여부를 설정한다(들린 쪽/드는 쪽 양쪽에서 사용).

@@ -124,9 +124,106 @@ public class RuleTests
         list.GetArrayElementAtIndex(1).stringValue = "MapB";
         so.ApplyModifiedPropertiesWithoutUndo();
 
-        for (int i = 0; i < 20; i++) Assert.AreEqual("MapB", settings.PickGameMap("MapA", "Fallback"));
-        Assert.AreEqual("Fallback", ScriptableObject.CreateInstance<GameSettingsSO>().PickGameMap(null, "Fallback"));
+        for (int i = 0; i < 20; i++) Assert.AreEqual("MapB", settings.PickGameMap("MapA"));
+        Assert.AreEqual("MapA", settings.FirstGameMap);
+
+        var empty = ScriptableObject.CreateInstance<GameSettingsSO>();
+        Assert.IsNull(empty.PickGameMap(null), "An empty map list must not fall back to a scene outside the build.");
+        Assert.IsNull(empty.FirstGameMap);
         Object.DestroyImmediate(settings);
+        Object.DestroyImmediate(empty);
+    }
+
+    // 판에서 고르는 맵은 모두 활성화된 빌드 씬이어야 한다 — 빌드에서 빠진 씬을 고르면 빌드에서만 로드가 실패한다(Bug-fix-plan.md §41 ㊷).
+    [Test]
+    public void GameMaps_MatchEnabledBuildMapScenes()
+    {
+        var settings = Resources.Load<GameSettingsSO>("GameSettings");
+        Assert.IsNotNull(settings, "Resources/GameSettings is missing.");
+        Assert.IsNotNull(settings.FirstGameMap, "gameMapScenes is empty.");
+
+        var enabled = new HashSet<string>();
+        foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
+            if (scene.enabled) enabled.Add(System.IO.Path.GetFileNameWithoutExtension(scene.path));
+
+        foreach (string map in settings.GameMapScenes)
+            Assert.IsTrue(enabled.Contains(map), $"Game map '{map}' is not an enabled build scene.");
+
+        // 반대 방향: 빌드에 들어간 맵 씬(Assets/Scenes/Maps/)은 모두 판에서 선택될 수 있어야 한다 — 예전에는 두 맵이 빌드에만 있고
+        // 목록에 없어 절대 선택되지 않았다(Bug-fix-plan.md §41 ㊺).
+        var listed = new HashSet<string>(settings.GameMapScenes);
+        foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
+        {
+            if (!scene.enabled || !scene.path.StartsWith("Assets/Scenes/Maps/")) continue;
+            string name = System.IO.Path.GetFileNameWithoutExtension(scene.path);
+            Assert.IsTrue(listed.Contains(name), $"Build map scene '{name}' is missing from GameSettings.gameMapScenes.");
+        }
+    }
+
+    // ---- 게임 씬 공통 구성(Bug-fix-plan.md §41 ㊶) ----
+
+    // 게임 규칙·HUD는 프리팹 GameSceneCore 하나에만 있어야 한다. 예전에는 GameScene을 복제한 맵 씬 6개가 같은 매니저·UI를 각자
+    // 직렬화해, 한 씬만 고치면 특정 맵에서만 다르게 동작했다. 씬 파일을 직접 읽어 검사한다(씬을 열지 않음).
+    [Test]
+    public void GameScenes_UseSingleSceneCorePrefab()
+    {
+        string coreGuid = AssetDatabase.AssetPathToGUID("Assets/04. Prefabs/Scene/GameSceneCore.prefab");
+        Assert.IsNotEmpty(coreGuid, "GameSceneCore prefab is missing.");
+
+        var sceneOwnedTypes = new[] { "GameManager", "GameRuleController", "MonsterJoinController", "PaintPhaseController", "ResultScreenController", "ColorSelectionPanel" };
+        var scriptGuids = new List<string>();
+        foreach (string type in sceneOwnedTypes)
+        {
+            string[] found = AssetDatabase.FindAssets($"t:MonoScript {type}", new[] { "Assets/02. Scripts" });
+            foreach (string guid in found)
+                if (System.IO.Path.GetFileNameWithoutExtension(AssetDatabase.GUIDToAssetPath(guid)) == type) scriptGuids.Add(guid);
+        }
+        Assert.AreEqual(sceneOwnedTypes.Length, scriptGuids.Count, "Could not resolve every scene-core script.");
+
+        var corePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/04. Prefabs/Scene/GameSceneCore.prefab");
+        int sceneViewCount = corePrefab.GetComponentsInChildren<Photon.Pun.PhotonView>(true).Length;
+
+        var paths = new List<string> { "Assets/Scenes/PlayerTestScene.unity" };
+        foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
+            if (scene.path.StartsWith("Assets/Scenes/Maps/")) paths.Add(scene.path);
+
+        foreach (string path in paths)
+        {
+            string text = System.IO.File.ReadAllText(path);
+            int instances = System.Text.RegularExpressions.Regex.Matches(text, $"m_SourcePrefab: {{fileID: 100100000, guid: {coreGuid}").Count;
+            Assert.AreEqual(1, instances, $"{path} must contain exactly one GameSceneCore instance.");
+
+            // PUN은 프리팹 안의 PhotonView를 sceneViewId 0으로 되돌린다 — 씬 인스턴스가 0이 아닌 ID를 오버라이드로 가져야 한다.
+            // 0이면 실행 중 ViewID가 0이 되어 채팅 RPC가 실패했다(Bug-fix-plan.md §41 ㊶ 검증 중 발견).
+            var ids = new HashSet<string>();
+            foreach (System.Text.RegularExpressions.Match m in System.Text.RegularExpressions.Regex.Matches(text, @"propertyPath: sceneViewId\s*\n\s*value: (\d+)"))
+                if (m.Groups[1].Value != "0") ids.Add(m.Groups[1].Value);
+            Assert.AreEqual(sceneViewCount, ids.Count, $"{path}: every GameSceneCore PhotonView needs a unique non-zero sceneViewId override.");
+            foreach (string guid in scriptGuids)
+                StringAssert.DoesNotContain($"m_Script: {{fileID: 11500000, guid: {guid}", text,
+                    $"{path} serializes a scene-core component directly ({AssetDatabase.GUIDToAssetPath(guid)}). Edit GameSceneCore.prefab instead.");
+        }
+    }
+
+    // ---- 괴물 촉수 돌진 지면 따라가기(Bug-fix-plan.md §41 ㊳) ----
+
+    [Test]
+    public void TentacleDash_FollowsWalkableSlope_KeepsHorizontalOnSteepOrAir()
+    {
+        Vector3 forward = Vector3.forward;
+        Vector3 uphill = Quaternion.AngleAxis(-30f, Vector3.right) * Vector3.up;   // 앞으로 올라가는 30° 경사의 법선
+        Vector3 downhill = Quaternion.AngleAxis(30f, Vector3.right) * Vector3.up;  // 앞으로 내려가는 30° 경사
+        Vector3 cliff = Quaternion.AngleAxis(-60f, Vector3.right) * Vector3.up;    // 60° — 최대 경사(45°) 초과
+
+        Vector3 up = MonsterTentacleDash.DirectionOnGround(forward, true, uphill, 45f);
+        Vector3 down = MonsterTentacleDash.DirectionOnGround(forward, true, downhill, 45f);
+        Assert.AreEqual(30f, Vector3.Angle(forward, up), 0.01f);
+        Assert.Greater(up.y, 0f, "Uphill dash must climb the slope instead of tunneling into it.");
+        Assert.Less(down.y, 0f, "Downhill dash must follow the slope instead of flying off it.");
+        Assert.AreEqual(1f, up.magnitude, 1e-4f);
+
+        Assert.AreEqual(forward, MonsterTentacleDash.DirectionOnGround(forward, true, cliff, 45f));
+        Assert.AreEqual(forward, MonsterTentacleDash.DirectionOnGround(forward, false, uphill, 45f));
     }
 
     // ---- 게임 단계 해석(research.md §12 E2) ----

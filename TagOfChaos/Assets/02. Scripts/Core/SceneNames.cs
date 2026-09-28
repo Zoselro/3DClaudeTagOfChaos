@@ -4,5 +4,5 @@ public static class SceneNames
 {
     public const string Lobby = "LobbyScene";
     public const string GameLobby = "GameLobbyScene";
-    public const string Game = "GameScene";
+    // 게임 씬은 판마다 GameSettings.gameMapScenes에서 고른다(예전 상수 Game = "GameScene"은 빌드에서 빠져 제거, Bug-fix-plan.md §41 ㊷).
 }
