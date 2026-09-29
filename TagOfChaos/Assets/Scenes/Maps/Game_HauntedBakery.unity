@@ -2699,7 +2699,7 @@ Light:
   serializedVersion: 11
   m_Type: 1
   m_Color: {r: 0.7, g: 0.62, b: 0.9, a: 1}
-  m_Intensity: 0.35
+  m_Intensity: 1
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -6786,7 +6786,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5339022491852889337, guid: c0cd857b0c1e55349854fe72f2ffb461, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8052397660952729119, guid: c0cd857b0c1e55349854fe72f2ffb461, type: 3}
       propertyPath: m_LocalPosition.x
@@ -7508,10 +7508,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 5179119818963898928, guid: cccfc236a33ad40479d03c3e11a6467c, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 0}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: cccfc236a33ad40479d03c3e11a6467c, type: 3}
 --- !u!1 &1584447481
 GameObject:
@@ -10253,13 +10250,25 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 6569508599742982020, guid: 036873d64572a75459a7013d48a9507b, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6569508599742982020, guid: 036873d64572a75459a7013d48a9507b, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6569508599742982020, guid: 036873d64572a75459a7013d48a9507b, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6678276900660726872, guid: 036873d64572a75459a7013d48a9507b, type: 3}
       propertyPath: m_Name
       value: GameSceneCore
       objectReference: {fileID: 0}
     - target: {fileID: 7069671766014662854, guid: 036873d64572a75459a7013d48a9507b, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -189.99965
+      value: -189.99998
       objectReference: {fileID: 0}
     - target: {fileID: 8451625545258373567, guid: 036873d64572a75459a7013d48a9507b, type: 3}
       propertyPath: m_LocalPosition.x
