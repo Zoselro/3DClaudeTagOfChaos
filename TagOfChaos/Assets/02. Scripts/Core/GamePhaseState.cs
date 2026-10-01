@@ -23,7 +23,8 @@ public static class GamePhaseState
             bool hasPaintEnd = RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double paintEnd);
             bool monsterJoined = RoomState.TryGetInt(NetKeys.MonsterJoined, out _);
             bool hasResult = RoomState.TryGetInt(NetKeys.GameResult, out _);
-            bool spyEscaped = RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _);
+            // 타임어택은 로켓이 떠났고 남은 쿠키가 있을 때만(타임어택 끝 시각이 기록된 경우, EscapePlan.md D10)
+            bool spyEscaped = RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out _);
             return Evaluate(hasPaintEnd, paintEnd, monsterJoined, hasResult, PhotonNetwork.Time, spyEscaped);
         }
     }

@@ -66,7 +66,7 @@ public class GameRuleController : MonoBehaviourPunCallbacks
         RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double timeAttackEnd);
 
         switch (EscapeRules.Evaluate(escapePlayers, timeAttack, PhotonNetwork.Time, gameEnd, hasEnd, timeAttackEnd,
-                     struck ? Time.time - witchStruckAt : -1f))
+                     struck ? Time.time - witchStruckAt : -1f, EscapeManager.Instance.IsDeparting(PhotonNetwork.Time)))
         {
             case EscapeRules.Decision.StrikeWitch:
                 if (!witchRequested)

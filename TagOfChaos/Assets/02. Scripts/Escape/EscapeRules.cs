@@ -24,9 +24,12 @@ public static class EscapeRules
     public const float WitchSlamSeconds = 2.5f; // 내리치는 연출을 보여준 뒤 결과
 
     // timeAttack: 스파이가 떠났는가. witchStruckFor: 마녀가 내리친 뒤 지난 시간(초, 안 내리쳤으면 음수).
+    // departing: 쿠키 탈것이 출발 연출 중 — 연출이 끝날 때까지 끝 판정을 미룬다(EscapeVisualPlan.md §4.3).
     public static Decision Evaluate(IReadOnlyList<PlayerInfo> players, bool timeAttack, double now, double gameEnd, bool hasGameEnd,
-        double timeAttackEnd, float witchStruckFor)
+        double timeAttackEnd, float witchStruckFor, bool departing = false)
     {
+        if (departing && witchStruckFor < 0f) return Decision.None;
+
         int activeCookies = 0, activeSpies = 0;
         foreach (PlayerInfo p in players)
         {

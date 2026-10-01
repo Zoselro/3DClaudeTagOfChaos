@@ -244,7 +244,10 @@ def export_map(name, guids):
             groups['Water'] = water
         groups[cat] = objs
     for key, objs in groups.items():
-        if not objs:
+        if not objs:                                      # nothing left in this group: drop a stale FBX from older builds
+            for stale in (os.path.join(folder, f'{name}_{key}.fbx'), os.path.join(folder, f'{name}_{key}.fbx.meta')):
+                if os.path.exists(stale):
+                    os.remove(stale)
             continue
         bpy.ops.object.select_all(action='DESELECT')
         for o in objs:

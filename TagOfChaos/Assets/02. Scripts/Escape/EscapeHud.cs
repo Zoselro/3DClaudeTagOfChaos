@@ -23,12 +23,15 @@ public class EscapeHud : MonoBehaviour
     private CanvasGroup toastGroup;
     private Canvas hudCanvas;
     private RectTransform hotbar;
+    private CanvasGroup hotbarGroup;
+    private const float LockedHotbarAlpha = 0.4f;
     private const float HotbarY = 150f;
     private const float HotbarYAbovePalette = 290f; // 변장 단계에는 아래쪽 색 팔레트와 겹치지 않게 위로 올린다
     private TMP_Text toastText;
     private Coroutine toastRoutine;
     private GameObject spyBadge;
     private TMP_Text timeAttackText;
+    private TMP_Text boardingText;
     private PlayerInventory boundInventory;
     private bool spyNoticeShown;
     private static Sprite whiteSprite;
@@ -111,6 +114,8 @@ public class EscapeHud : MonoBehaviour
         // 아래 가운데 인벤토리 4칸
         var bar = NewRect("Hotbar", transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, HotbarY), new Vector2(4 * 96f, 90f));
         hotbar = bar;
+        hotbarGroup = bar.gameObject.AddComponent<CanvasGroup>();
+        hotbarGroup.blocksRaycasts = false;
         for (int i = 0; i < slots.Length; i++)
         {
             var cell = NewRect("Slot" + (i + 1), bar, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(48f + i * 96f, 0f), new Vector2(86f, 86f));
@@ -152,6 +157,13 @@ public class EscapeHud : MonoBehaviour
         spyBadge.SetActive(false);
 
         // 타임어택 타이머(가운데 위, 빨강)
+        // 탑승 인원(가운데 위, 탈출 장치가 완성된 뒤, EscapeVisualPlan.md §4.3)
+        boardingText = NewText("Boarding", transform, 34f, TextAlignmentOptions.Center);
+        boardingText.rectTransform.anchorMin = new Vector2(0.5f, 1f); boardingText.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+        boardingText.rectTransform.anchoredPosition = new Vector2(0f, -235f); boardingText.rectTransform.sizeDelta = new Vector2(600f, 50f);
+        boardingText.color = new Color(1f, 0.9f, 0.45f);
+        boardingText.gameObject.SetActive(false);
+
         timeAttackText = NewText("TimeAttack", transform, 44f, TextAlignmentOptions.Center);
         timeAttackText.rectTransform.anchorMin = new Vector2(0.5f, 1f); timeAttackText.rectTransform.anchorMax = new Vector2(0.5f, 1f);
         timeAttackText.rectTransform.anchoredPosition = new Vector2(0f, -110f); timeAttackText.rectTransform.sizeDelta = new Vector2(400f, 60f);
@@ -167,8 +179,11 @@ public class EscapeHud : MonoBehaviour
         bool showHud = GamePhaseState.Current != GamePhase.Result;
         if (hudCanvas.enabled != showHud) hudCanvas.enabled = showHud;
         if (!showHud) return;
-        float barY = GamePhaseState.Current == GamePhase.Paint ? HotbarYAbovePalette : HotbarY;
+        bool painting = GamePhaseState.Current == GamePhase.Paint;
+        float barY = painting ? HotbarYAbovePalette : HotbarY;
         if (!Mathf.Approximately(hotbar.anchoredPosition.y, barY)) hotbar.anchoredPosition = new Vector2(0f, barY);
+        float barAlpha = painting ? LockedHotbarAlpha : 1f; // 변장 시간에는 아이템을 쓸 수 없음을 흐리게 보여준다(§1.3)
+        if (!Mathf.Approximately(hotbarGroup.alpha, barAlpha)) hotbarGroup.alpha = barAlpha;
 
         if (boundInventory != PlayerInventory.Local)
         {
@@ -187,6 +202,8 @@ public class EscapeHud : MonoBehaviour
             ShowToast(texts.youAreSpy, 4f);
         }
 
+        RefreshBoarding();
+
         bool timeAttack = RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double end) && GamePhaseState.Current == GamePhase.TimeAttack;
         if (timeAttackText.gameObject.activeSelf != timeAttack) timeAttackText.gameObject.SetActive(timeAttack);
         if (timeAttack)
@@ -194,6 +211,28 @@ public class EscapeHud : MonoBehaviour
             int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(end - PhotonNetwork.Time)));
             timeAttackText.text = string.Format(texts.timeAttackFormat, seconds / 60, seconds % 60);
         }
+    }
+
+    // "탑승 2 / 4": 탄 쿠키 / 살아 있는 쿠키(스파이 제외). 출발하면 "출발!".
+    private void RefreshBoarding()
+    {
+        EscapeState s = manager != null ? manager.State : null;
+        bool show = s != null && s.CompletedAt > 0 && (s.DepartedAt <= 0 || manager.IsDeparting(PhotonNetwork.Time));
+        if (boardingText.gameObject.activeSelf != show) boardingText.gameObject.SetActive(show);
+        if (!show) return;
+        if (s.DepartedAt > 0)
+        {
+            boardingText.text = texts.departing;
+            return;
+        }
+        int alive = 0;
+        foreach (Photon.Realtime.Player p in PhotonNetwork.PlayerList)
+        {
+            int actor = p.ActorNumber;
+            if (RoomState.IsMonster(actor) || RoomState.IsSpy(actor) || RoomState.IsBroken(p)) continue;
+            alive++;
+        }
+        boardingText.text = string.Format(texts.boardingFormat, s.Waiting.Count, alive);
     }
 
     private void RefreshHotbar()

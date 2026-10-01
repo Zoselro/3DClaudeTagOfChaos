@@ -31,6 +31,10 @@ public class EscapeTextsSO : ScriptableObject
 
     [Header("Timers")]
     public string timeAttackFormat = "{0:00}:{1:00}";
+    [Tooltip("{0} = 탄 쿠키 수, {1} = 살아 있는 쿠키 수(스파이 제외)")]
+    public string boardingFormat = "Boarded {0} / {1}";
+    public string departing = "Departing!";
+    public string boardingLocked = "Wait until it is ready";
 
     private static EscapeTextsSO cached;
 

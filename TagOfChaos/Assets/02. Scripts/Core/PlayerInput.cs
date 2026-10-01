@@ -28,7 +28,15 @@ public static class PlayerInput
     // 채팅 입력 중처럼 키보드가 게임 조작이 아닌 곳에 쓰이는 동안 true(Bug-fix-plan.md §41 ㊵). 게임플레이 키 입력이 모두 중립값을
     // 돌려주므로 쿠키·괴물·관전·상호작용, 그리고 이후 추가될 캐릭터도 따로 잠그지 않아도 멈추고 Idle로 돌아간다. 채팅을 닫는 키와
     // 마우스(시점 회전·색칠)는 막지 않는다. 정적 값이라 켠 쪽(GameManager)이 비활성·파괴될 때 반드시 되돌린다.
-    public static bool IsGameplaySuppressed { get; set; }
+    public static bool IsGameplaySuppressed
+    {
+        get => chatSuppressed || IsMenuOpen;
+        set => chatSuppressed = value;
+    }
+    private static bool chatSuppressed;
+
+    // ESC 메뉴(나가기 확인창 포함)가 열려 있는 동안 true(EscapeVisualPlan.md §1.2). 키 입력에 더해 시점 회전도 막는다.
+    public static bool IsMenuOpen { get; set; }
 
     // 이동 입력(x=좌우, y=앞뒤), 각 축 -1~1.
     public static Vector2 Move => IsGameplaySuppressed
@@ -76,9 +84,9 @@ public static class PlayerInput
     public static float BrushSizeDelta => Input.mouseScrollDelta.y;
 
     public static bool CameraRotateHeld => Input.GetMouseButton(Bindings.CameraRotateButton);
-    public static bool CameraRotatePressed => Input.GetMouseButtonDown(Bindings.CameraRotateButton);
+    public static bool CameraRotatePressed => !IsMenuOpen && Input.GetMouseButtonDown(Bindings.CameraRotateButton);
     public static bool CameraRotateReleased => Input.GetMouseButtonUp(Bindings.CameraRotateButton);
-    public static Vector2 CameraRotateDelta => new Vector2(Input.GetAxis(Bindings.MouseXAxis), Input.GetAxis(Bindings.MouseYAxis));
+    public static Vector2 CameraRotateDelta => IsMenuOpen ? Vector2.zero : new Vector2(Input.GetAxis(Bindings.MouseXAxis), Input.GetAxis(Bindings.MouseYAxis));
 
     // 1인칭 시점 회전(GameFixPlan.md F6): 우클릭 없이 마우스 이동만으로 돌린다. 채팅 중에는 멈춘다.
     public static Vector2 LookDelta => IsGameplaySuppressed ? Vector2.zero : CameraRotateDelta;

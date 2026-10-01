@@ -1,5 +1,5 @@
 # CandyForest blockout. Needs maplib namespace (exec'd first).
-# Layout (radius from centre): plaza r<=40 | inner ring path r=70 | outer ring path r=130 | dense forest r>=150
+# Layout (radius from centre): plaza r<=40 with the escape cake in the middle | inner ring path r=70 | outer ring path r=130 | dense forest r>=150
 import math
 
 
@@ -28,27 +28,14 @@ def build():
         m.cyl('Trail_Pocket', 'Ground', 'M_Cookie_Light', (cx, cy, 0), 7, 0.04, seg=24)
         m.blockers.append(((cx, cy), 7))
 
-    # ---- Landmark: giant lollipop tree (centre) ----
-    # reference 사탕숲: huge pink/white swirl lollipop on a striped candy stick.
-    # Four swirl discs around the stick so the swirl reads from every direction (no knife-edge silhouette).
-    def _landmark(g, rnd):
-        g.tube([(0, 0, 0), (0, 0, 46)], [3.0, 2.2], 'M_Candy_White', seg=20,
-               ringmat=lambda i: 'M_Candy_White' if (i // 4) % 2 == 0 else 'M_Candy_Pink')
-        for a in (0, math.pi / 2):
-            _swirl_disc(g, (0, 0, 60), 15, 'M_Candy_Pink', 'M_Candy_White', 3.2, face_rot=(math.pi / 2, 0, a))
-        g.blob('M_Magic_Gem', (0, 0, 76.5), 2.4, seg=16)
-    ASSETS['Landmark_LollipopTree'] = _landmark
-    place(m, 'Landmark_LollipopTree', 'MainStructures', 0, 0, math.pi / 4)
-    # mid-height beacons: the default game camera (pitch 25, vFOV 60) sees ~2.9 + 0.087*d m high at distance d,
-    # so glowing bands at 10-17 m read from across the map even when the candy crown is out of frame
-    m.torus('GiantLollipopTree_RuneBand', 'Lighting', 'M_Magic_Rune', (0, 0, 10), 3.0, 0.7, seg=24, tseg=8)
-    m.torus('GiantLollipopTree_RuneBand', 'Lighting', 'M_Neon_Teal', (0, 0, 17), 2.8, 0.7, seg=24, tseg=8)
-    m.blockers.append(((0, 0), 12))
-    # plaza cover: candy rocks + lollipops ring (r 22-32)
+    # ---- Centre: kept empty for the giant escape cake (EscapeVisualPlan.md §5.1) ----
+    # The old giant lollipop tree landmark is gone; Unity's EscapeMapSetup puts the ~16 m cake (escape device) in the
+    # middle of the plaza after compaction. The plaza cover ring moved out to r 37 (~15 m after compaction) so the
+    # monster still has a 3.6 m lane around the cake.
+    m.blockers.append(((0, 0), 30))
     for k in range(8):
         a = math.radians(k * 45 + 22)
-        r = 26 + (k % 2) * 5
-        x, y = r * math.cos(a), r * math.sin(a)
+        x, y = 37 * math.cos(a), 37 * math.sin(a)
         nm = ('Lollipop_GiantPink', 'Marshmallow_Stack', 'Macaron_Rock', 'CakeSlice')[k % 4]
         place(m, nm, 'GameplayProps', x, y, a + math.pi / 2, (0.55, 1.4, 1.3, 1.6)[k % 4])
 
@@ -125,7 +112,7 @@ def build():
 
     # ---- Lighting ----
     m.light('Moon', 'SUN', (0, 0, 120), (0.70, 0.78, 1.0), 1.5, rot=(math.radians(50), 0, math.radians(35)))
-    m.light('Landmark_Glow', 'POINT', (0, 0, 60), (1.0, 0.45, 0.75), 60000, 6)
+    m.light('Cake_Glow', 'POINT', (0, 0, 30), (1.0, 0.45, 0.75), 50000, 6)   # warm pink light over the escape cake
     m.light('Grove_Glow', 'POINT', (gx, gy, 12), (0.75, 0.35, 1.0), 40000, 8)
     m.light('Pond_Glow', 'POINT', (px, py, 8), (0.25, 0.9, 0.85), 15000, 6)
 

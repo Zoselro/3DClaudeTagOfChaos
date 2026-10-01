@@ -44,7 +44,8 @@ public class WitchPresenter : MonoBehaviour
 
     private void Update()
     {
-        if (!RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double escapedAt))
+        // 타임어택이 있을 때만 나타난다(남은 쿠키가 없으면 로켓만 떠나고 마녀는 없다, D10)
+        if (!RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double escapedAt) || !RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out _))
         {
             if (model.gameObject.activeSelf) model.gameObject.SetActive(false);
             return;

@@ -719,26 +719,14 @@ public static class MapSceneBuilder
 
         if (map == "HauntedBakery")
         {
+            // 마법 오븐 문은 아무나 열 수 없다(EscapeVisualPlan.md §5.3): 탈출 기계가 완성될 때 OvenSequence가 굴려서 연다.
             Transform door = FindDeep(mapRoot, "HAU_MagicOven_Door");
             if (door != null)
             {
                 ClearStatic(door.gameObject);
-                float openAngle = Mathf.DeltaAngle(0f, door.localEulerAngles.y); // 모델의 반쯤 열린 각도(약 109°)
-                door.localRotation = Quaternion.identity;                          // 판 시작은 닫힘
-                AnimationClip open = WriteDoorAngleClip("MagicOven_Door_Open", "", 0f, openAngle, 1.0f, easeOut: true);
-                AnimationClip close = WriteDoorAngleClip("MagicOven_Door_Close", "", openAngle, 0f, 1.2f, easeOut: false);
-                AnimatorController controller = WriteSingleDoorController("MagicOven_Door", open, close);
-                SetupDoorBody(door.gameObject, controller);
-                var mc = door.GetComponent<MeshCollider>();
-                MakeConvexIfFits(mc);
-                var interactable = door.gameObject.AddComponent<InteractableDoor>();
-                var so = new SerializedObject(interactable);
-                so.FindProperty("doorId").stringValue = "HAU_MagicOven_Door";
-                so.FindProperty("inwardOpenAngle").floatValue = openAngle;
-                so.FindProperty("leafCollider").objectReferenceValue = mc;
-                so.FindProperty("interactionRange").floatValue = 9f;
-                so.ApplyModifiedPropertiesWithoutUndo();
-                report.Add($"magic oven door: interactable, 0° <-> {openAngle:F1}°");
+                door.localRotation = Quaternion.identity; // 닫힘
+                MakeConvexIfFits(door.GetComponent<MeshCollider>());
+                report.Add("magic oven door: closed, opened only by the escape machine");
             }
         }
     }

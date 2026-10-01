@@ -43,3 +43,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7d376c6670741634ab2cf05253c8342f, type: 2}
   - {fileID: 11400000, guid: 8525455d2c9fa2a4792469865254179c, type: 2}
   hammersPerCookie: 0.5
+  passengerModel: {fileID: 919132149155446097, guid: 31dbe311b4f0e0e45ba19387847dc847, type: 3}
+  jarModel: {fileID: 919132149155446097, guid: 653091ba224def64c827011f161be866, type: 3}
+  jarCookieModel: {fileID: 919132149155446097, guid: 2404403b270534c449950b66f78bacc5, type: 3}

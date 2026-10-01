@@ -255,7 +255,13 @@ public static class MapPassabilityCheck
         foreach (RaycastHit h in hits.OrderBy(h => h.point.y))
         {
             if (h.normal.y < MinWalkNormal) continue;
-            if (list.Count > 0 && h.point.y - list[list.Count - 1].Y < 0.5f) continue;
+            bool ground = first;
+            if (list.Count > 0 && h.point.y - list[list.Count - 1].Y < 0.5f)
+            {
+                // 0.5 m 안에 겹친 두 면에서는 위의 면에 선다(얇은 경사 발판 끝이 아래 바닥에 가려 길이 끊기지 않게)
+                ground = list[list.Count - 1].Ground;
+                list.RemoveAt(list.Count - 1);
+            }
             Vector3 f = h.point;
             var node = new Node
             {
@@ -263,8 +269,8 @@ public static class MapPassabilityCheck
                 Cookie = Free(f, CookieRadius * 0.9f, CookieHeight),
                 Monster = Free(f, MonsterRadius, MonsterHeight),
             };
-            node.Ground = first;
-            if (first) node.Covered = hits.Any(o => o.point.y > f.y + 0.5f && !IsWalkableGround(o.collider));
+            node.Ground = ground;
+            if (ground) node.Covered = hits.Any(o => o.point.y > f.y + 0.5f && !IsWalkableGround(o.collider));
             first = false;
             if ((node.Cookie || node.Monster) && !InsideSolid(f)) list.Add(node);
             if (list.Count >= MaxLayers) break;
@@ -300,7 +306,10 @@ public static class MapPassabilityCheck
     {
         Vector3 a = feet + Vector3.up * (radius + 0.15f);
         Vector3 b = feet + Vector3.up * Mathf.Max(radius + 0.15f, height - radius);
-        int count = Physics.OverlapCapsuleNonAlloc(a, b, radius, overlapBuffer, ~0, QueryTriggerInteraction.Ignore);
+        // 길이 0인 캡슐은 PhysX가 메시 경사면에 닿는다고 잘못 보는 일이 있어(5 cm 이상 떨어져도) 구로 잰다
+        int count = (b - a).sqrMagnitude < 1e-6f
+            ? Physics.OverlapSphereNonAlloc(a, radius, overlapBuffer, ~0, QueryTriggerInteraction.Ignore)
+            : Physics.OverlapCapsuleNonAlloc(a, b, radius, overlapBuffer, ~0, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < count; i++)
             if (!IsWalkableGround(overlapBuffer[i])) return false;
         return true;

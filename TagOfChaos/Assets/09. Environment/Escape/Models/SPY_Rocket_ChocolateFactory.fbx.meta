@@ -112,8 +112,58 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: ME_Cookie_Dark
+    second: {fileID: 2100000, guid: 051069328cbe20a49a0c79b5d84bf794, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Cookie_Gold
+    second: {fileID: 2100000, guid: 0aba68347d81caa4cad63c74d08ac93c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: ME_Cream
     second: {fileID: 2100000, guid: 617a427a3ddd55a42a6c374721eede6d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Glass
+    second: {fileID: 2100000, guid: 312077b3e41a22449837411f642efd7d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Glow_Orange
+    second: {fileID: 2100000, guid: c88eadadc632a734d843668f2ee6e53f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Glow_Purple
+    second: {fileID: 2100000, guid: e79baa3df0fbde44d8cbda2072997b6e, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Glow_Teal
+    second: {fileID: 2100000, guid: acd7bd9c256bbc7439227e37515b26e3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Glow_White
+    second: {fileID: 2100000, guid: 928a19d4a80c6e64baa1dd1887049a7d, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Gold
+    second: {fileID: 2100000, guid: 75c99f9a280ffc947a8008845cfbac73, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Gray_Dark
+    second: {fileID: 2100000, guid: 762787730da4eab4c98dfce99652db63, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Gray_Light
+    second: {fileID: 2100000, guid: e161cb07c0236b04fba551d350112070, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
@@ -137,8 +187,33 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: ME_Orange_Warm
+    second: {fileID: 2100000, guid: a613c0104a38eb14880b6e56141f2790, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Pink
+    second: {fileID: 2100000, guid: 8c9157a17b7281449be3db6616f73253, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Purple_Deep
+    second: {fileID: 2100000, guid: 65b3edb8f34060043a291af19d84aea4, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Purple_Light
+    second: {fileID: 2100000, guid: 25b47a55ddc361348b2f2b562d45ac2c, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: ME_Rail
     second: {fileID: 2100000, guid: a23da02fd523ec5468bff8514e32d054, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Red_Button
+    second: {fileID: 2100000, guid: e548432fda65a9a488a4a86eea59da53, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
@@ -184,6 +259,11 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: ME_Stun_Spark
     second: {fileID: 2100000, guid: 9ce7315d50becf44e8a43ebaf6d48ba7, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Teal
+    second: {fileID: 2100000, guid: 9d4166193d29e4048a610a6a744f96ba, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
@@ -419,6 +499,16 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: M_Pine_Dark
     second: {fileID: 2100000, guid: 73d0f4d170af47f9a5e916619485cb56, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_REF_Cookie
+    second: {fileID: 2100000, guid: ab7ae6f5c4174c118fa1100540e834e2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_REF_Monster
+    second: {fileID: 2100000, guid: f1bfa2e4dde74be7bc23969de9eccb2c, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule

@@ -196,14 +196,15 @@ public class EscapeTests
         Assert.NotNull(device, "device");
         Assert.NotNull(device.GetComponent<EscapeDevice>());
         Assert.NotNull(device.Find("Body"), "device model");
-        Assert.NotNull(device.Find("Slot_00"), "device slot");
+        Assert.NotNull(EscapeSequence.FindDeep(device, "Slot_00"), "device slot"); // 탈것 칸은 차 아래에 있다
         Assert.Greater(device.GetComponentsInChildren<Collider>(true).Length, 0, "device collider");
 
         Transform rocket = root.transform.Find($"SPY_Rocket_{map}_Root");
         Assert.NotNull(rocket, "rocket");
         Assert.NotNull(rocket.GetComponent<SpyRocket>());
-        Assert.NotNull(rocket.Find("Slot_00"));
-        Assert.NotNull(rocket.Find("Slot_01"));
+        for (int i = 0; i < 2; i++) // 칸 위치: 빈 앵커(Slot_nn) 또는 빈/채움 모양(Slot_nn_Empty·Filled)
+            Assert.IsTrue(rocket.Find($"Slot_{i:00}") != null
+                          || (rocket.Find($"Slot_{i:00}_Empty") != null && rocket.Find($"Slot_{i:00}_Filled") != null), $"rocket slot {i}");
 
         int chests = 0;
         foreach (Transform t in root.transform)
@@ -231,8 +232,25 @@ public class EscapeTests
         EditorSceneManager.OpenScene(MapSceneBuilder.ScenePath(map), OpenSceneMode.Single);
         Vector3 spawn = GameObject.Find(SceneSpawnPoints.Cookie).transform.position;
         GameObject root = GameObject.Find(EscapeMapSetup.RootName);
-        Assert.IsTrue(ReachableNear(spawn, root.transform.Find($"ESC_{map}_Root").position, 3.5f), "device");
+        // 큰 장치(케이크·오븐)는 중심이 몸 안이라 재료를 끼우는 칸 자리에서 잰다
+        Transform device = root.transform.Find($"ESC_{map}_Root");
+        Transform slot = EscapeSequence.FindDeep(device, "Slot_00");
+        Assert.IsTrue(ReachableNear(spawn, device.position, 3.5f) || (slot != null && ReachableNear(spawn, slot.position, 1.5f)), "device");
         Assert.IsTrue(ReachableNear(spawn, root.transform.Find($"SPY_Rocket_{map}_Root").position, 2.2f), "rocket");
+    }
+
+    // EscapeVisualPlan.md §5.3: 쿠키가 경사 발판을 올라 오븐 문 앞(탑승 지점)까지 갈 수 있다
+    [Test]
+    public void Bakery_RampReachesOvenDoor()
+    {
+        EditorSceneManager.OpenScene(MapSceneBuilder.ScenePath("HauntedBakery"), OpenSceneMode.Single);
+        Vector3 spawn = GameObject.Find(SceneSpawnPoints.Cookie).transform.position;
+        Transform device = GameObject.Find(EscapeMapSetup.RootName).transform.Find("ESC_HauntedBakery_Root");
+        Transform board = EscapeSequence.FindDeep(device, "Board");
+        Assert.NotNull(board);
+        Assert.Greater(board.position.y, 2f, "board is up on the oven ledge");
+        Assert.NotNull(MapPassabilityCheck.FindPath(spawn, board.position, cookie: true), "ramp path");
+        Assert.IsNull(GameObject.Find("HAU_MagicOven_Door").GetComponent<InteractableDoor>(), "oven door is not a normal door");
     }
 
     private static bool ReachableNear(Vector3 from, Vector3 target, float radius)
@@ -243,5 +261,33 @@ public class EscapeTests
             if (MapPassabilityCheck.FindPath(from, p, cookie: true) != null) return true;
         }
         return false;
+    }
+
+    // EscapeVisualPlan.md §4.3: 탈것이 출발 연출 중이면 끝 판정을 미루고, 연출이 끝나면 정상 판정
+    [Test]
+    public void Rules_HoldEndWhileVehicleDeparts()
+    {
+        var players = new List<EscapeRules.PlayerInfo>
+        {
+            new EscapeRules.PlayerInfo { IsMonster = true },
+            new EscapeRules.PlayerInfo { Escaped = true },
+        };
+        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(players, false, 10, 100, true, 0, -1f, departing: true));
+        Assert.AreEqual(EscapeRules.Decision.EndAllResolved, EscapeRules.Evaluate(players, false, 10, 100, true, 0, -1f, departing: false));
+    }
+
+    // 상태 형식 2: 탑승 대기·완성 시각·출발 시각도 그대로 오간다
+    [Test]
+    public void State_EncodeDecode_KeepsBoardingFields()
+    {
+        var s = new EscapeState { RequiredCount = 2, CompletedAt = 12.5, DepartedAt = 30.25 };
+        s.Waiting.Add(3); s.Waiting.Add(5);
+        s.Escaped.Add(3);
+        EscapeState d = EscapeState.Decode(s.Encode());
+        Assert.NotNull(d);
+        CollectionAssert.AreEqual(new[] { 3, 5 }, d.Waiting);
+        CollectionAssert.AreEqual(new[] { 3 }, d.Escaped);
+        Assert.AreEqual(12.5, d.CompletedAt, 1e-9);
+        Assert.AreEqual(30.25, d.DepartedAt, 1e-9);
     }
 }

@@ -20,6 +20,8 @@ public static class EscapeModelBuilder
         { "ME_Rune_Blue", 1f }, { "ME_Rune_Yellow", 1f }, { "ME_Cell_Red", 0.6f }, { "ME_Cell_Orange", 0.6f },
         { "ME_Cell_Yellow", 0.6f }, { "ME_Cell_Green", 0.6f }, { "ME_Stun_Spark", 4f }, { "ME_Rocket_Window", 1.5f },
         { "ME_Rocket_Flame", 4f }, { "ME_Altar_Glow", 4f }, { "ME_Witch_Eye", 6f },
+        { "ME_Glow_Teal", 2f }, { "ME_Glow_Orange", 2f }, { "ME_Glow_Purple", 2f }, { "ME_Glow_White", 3f },
+        { "ME_Red_Button", 0.5f },
     };
 
     [MenuItem("Tools/TagOfChaos/Escape/Build Models (after Blender export)")]
@@ -43,6 +45,7 @@ public static class EscapeModelBuilder
             if (EscapeModelImportPostprocessor.RemapMaterials(importer)) importer.SaveAndReimport();
         }
         FixEmission();
+        FixGlass();
 
         int linked = 0;
         var missing = new List<string>();
@@ -57,6 +60,7 @@ public static class EscapeModelBuilder
             EditorUtility.SetDirty(item);
             linked++;
         }
+        LinkCatalogModels();
         AssetDatabase.SaveAssets();
 
         if (rebuildScenes) EscapeMapSetup.SetupAll();
@@ -138,6 +142,45 @@ public static class EscapeModelBuilder
             m.EnableKeyword("_EMISSION");
             m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
             m.SetColor("_EmissionColor", m.color * e.Value);
+            EditorUtility.SetDirty(m);
+        }
+    }
+
+    // 탈것 탑승 인형·결과 화면 유리병(EscapeVisualPlan.md §3.3, §4.3).
+    private static void LinkCatalogModels()
+    {
+        EscapeCatalogSO catalog = EscapeCatalogSO.Current;
+        if (catalog == null) return;
+        var so = new SerializedObject(catalog);
+        so.FindProperty("passengerModel").objectReferenceValue = Model("PASSENGER");
+        so.FindProperty("jarModel").objectReferenceValue = Model("JAR");
+        so.FindProperty("jarCookieModel").objectReferenceValue = Model("JAR_Cookie");
+        so.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(catalog);
+    }
+
+    public static GameObject Model(string unit) =>
+        AssetDatabase.LoadAssetAtPath<GameObject>($"{EscapeModelImportPostprocessor.ModelFolder}/{unit}.fbx");
+
+    // 이름에 Glass가 들어간 머티리얼은 반투명 유리(Standard Fade 모드)로 만든다(유리병·원유 병·연료통 창).
+    private static void FixGlass()
+    {
+        foreach (string guid in AssetDatabase.FindAssets("t:Material", new[] { EscapeModelImportPostprocessor.MaterialFolder }))
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
+            if (m == null || !m.name.Contains("Glass")) continue;
+            Color c = m.color;
+            c.a = 0.35f;
+            m.color = c;
+            m.SetFloat("_Mode", 2f);
+            m.SetFloat("_Glossiness", 0.85f);
+            m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.SetInt("_ZWrite", 0);
+            m.DisableKeyword("_ALPHATEST_ON");
+            m.EnableKeyword("_ALPHABLEND_ON");
+            m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            m.renderQueue = 3000;
             EditorUtility.SetDirty(m);
         }
     }

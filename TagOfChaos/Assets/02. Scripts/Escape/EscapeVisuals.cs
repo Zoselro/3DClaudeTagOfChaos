@@ -37,6 +37,34 @@ public static class EscapeVisuals
         return go;
     }
 
+    private static Material softParticle;
+
+    // 연기·빛 입자용: 가운데가 진하고 가장자리로 갈수록 투명한 둥근 점(64×64, 코드로 한 번 만든다).
+    public static Material SoftParticleMaterial()
+    {
+        if (softParticle != null) return softParticle;
+        const int size = 64;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+        var pixels = new Color32[size * size];
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            float dx = (x + 0.5f) / size * 2f - 1f, dy = (y + 0.5f) / size * 2f - 1f;
+            float a = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy));
+            pixels[y * size + x] = new Color32(255, 255, 255, (byte)(a * a * 255f));
+        }
+        tex.SetPixels32(pixels);
+        tex.Apply();
+        softParticle = new Material(Shader.Find("Particles/Standard Unlit")) { mainTexture = tex };
+        softParticle.SetFloat("_Mode", 2f); // Fade
+        softParticle.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        softParticle.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        softParticle.SetInt("_ZWrite", 0);
+        softParticle.EnableKeyword("_ALPHABLEND_ON");
+        softParticle.renderQueue = 3000;
+        return softParticle;
+    }
+
     public static void Tint(GameObject go, Color color, float emission)
     {
         if (baseMaterial == null)

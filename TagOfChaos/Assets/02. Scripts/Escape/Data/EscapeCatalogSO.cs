@@ -16,6 +16,14 @@ public class EscapeCatalogSO : ScriptableObject
     [Tooltip("일반 상자에 넣는 뿅망치 수 = 쿠키 수 × 이 비율(올림).")]
     [SerializeField, Range(0f, 1f)] private float hammersPerCookie = 0.5f;
 
+    [Header("Shared models (EscapeVisualPlan.md §3)")]
+    [Tooltip("탈것에 타는 순간·좌석에 앉은 쿠키 인형")]
+    [SerializeField] private GameObject passengerModel;
+    [Tooltip("괴물 승리 결과의 쿠키 유리병(3D)")]
+    [SerializeField] private GameObject jarModel;
+    [Tooltip("유리병 안에 쌓이는 작은 쿠키")]
+    [SerializeField] private GameObject jarCookieModel;
+
     private Dictionary<string, ItemSO> byId;
     private static EscapeCatalogSO cached;
 
@@ -23,6 +31,9 @@ public class EscapeCatalogSO : ScriptableObject
     public ItemSO Hammer => hammer;
     public IReadOnlyList<ItemSO> SpyChestTools => spyChestTools;
     public float HammersPerCookie => hammersPerCookie;
+    public GameObject PassengerModel => passengerModel;
+    public GameObject JarModel => jarModel;
+    public GameObject JarCookieModel => jarCookieModel;
 
     public static EscapeCatalogSO Current
     {

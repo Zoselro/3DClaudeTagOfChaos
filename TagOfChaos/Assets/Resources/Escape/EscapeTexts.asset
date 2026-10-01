@@ -31,3 +31,6 @@ MonoBehaviour:
   deviceComplete: "\uD0C8\uCD9C\uAD6C\uAC00 \uC5F4\uB838\uC2B5\uB2C8\uB2E4!"
   witchComing: "\uB9C8\uB140\uAC00 \uB3CC\uC544\uC11C\uACE0 \uC788\uC2B5\uB2C8\uB2E4..."
   timeAttackFormat: '{0:00}:{1:00}'
+  boardingFormat: "\uD0D1\uC2B9 {0} / {1}"
+  departing: "\uCD9C\uBC1C!"
+  boardingLocked: "\uC900\uBE44 \uC911\uC785\uB2C8\uB2E4"

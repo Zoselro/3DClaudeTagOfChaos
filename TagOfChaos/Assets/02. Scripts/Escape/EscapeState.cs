@@ -16,7 +16,7 @@ public enum ItemLocation : byte
 // 문(DoorStates)과 같은 "방장만 쓴다" 방식이다. 재료·상자에는 PhotonView가 없다(최적화, §5.2).
 public sealed class EscapeState
 {
-    public const byte FormatVersion = 1;
+    public const byte FormatVersion = 2; // 2: 완성·출발 시각, 탑승 대기(EscapeVisualPlan.md §4)
 
     public struct Item
     {
@@ -53,7 +53,10 @@ public sealed class EscapeState
     public readonly List<Chest> Chests = new List<Chest>();
     public readonly List<Slot> DeviceSlots = new List<Slot>();
     public readonly List<Slot> RocketSlots = new List<Slot>();
-    public readonly List<int> Escaped = new List<int>(); // 탈출구로 나간 쿠키
+    public readonly List<int> Escaped = new List<int>(); // 탈출한 쿠키(탈것이 출발한 순간 Waiting에서 옮겨진다)
+    public readonly List<int> Waiting = new List<int>(); // 탈것에 타서 출발을 기다리는 쿠키(EscapeVisualPlan.md §4.3)
+    public double CompletedAt;  // 장치가 완성된 시각(PhotonNetwork.Time, 0 = 아직). 맵 연출의 기준
+    public double DepartedAt;   // 탈것이 출발한 시각(0 = 아직). 출발 연출의 기준
     public readonly List<int> Boarded = new List<int>(); // 로켓에 탄 스파이
 
     public bool DeviceComplete
@@ -130,6 +133,9 @@ public sealed class EscapeState
             WriteSlots(w, RocketSlots);
             WriteInts(w, Escaped);
             WriteInts(w, Boarded);
+            WriteInts(w, Waiting);
+            w.Write(CompletedAt);
+            w.Write(DepartedAt);
             w.Flush();
             return ms.ToArray();
         }
@@ -166,6 +172,9 @@ public sealed class EscapeState
                 ReadSlots(r, s.RocketSlots);
                 ReadInts(r, s.Escaped);
                 ReadInts(r, s.Boarded);
+                ReadInts(r, s.Waiting);
+                s.CompletedAt = r.ReadDouble();
+                s.DepartedAt = r.ReadDouble();
                 return s;
             }
         }

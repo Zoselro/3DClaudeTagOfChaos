@@ -50,7 +50,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     // 맡는다 — 예전에는 채팅이 이 값을 직접 켜 쿠키만 잠겼고, 잠긴 동안 Update가 멈춰 걷기 애니메이션이 남았다(Bug-fix-plan.md §41 ㊵).
     // 탈출·로켓 탑승한 몸은 숨겨지고 물리가 멈추므로(EscapeCharacterState) 이동도 잠근다.
     public bool IsMovementLocked => IsBroken || (carryFollower != null && carryFollower.IsCarried) || (stun != null && stun.IsStunned)
-                                    || (pv != null && pv.Owner != null && RoomState.HasEscaped(pv.Owner));
+                                    || (pv != null && pv.Owner != null && (RoomState.HasEscaped(pv.Owner) || EscapeManager.IsWaiting(pv.Owner.ActorNumber)));
     private StunReceiver stun; // 도구에 맞아 기절(EscapePlan.md §1.8)
 
     // 외부에서 "이 인스턴스가 내 캐릭터인지" 판별할 수단 (GameManager의 채팅 이동잠금이 참조)
@@ -63,6 +63,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     // 괴물에게 붙잡혀 부서지는 중인 쿠키도 부서지는 순간까지 관전 대상으로 남긴다 — 파괴 판정은 잡힌 즉시 기록되지만 관전자도
     // 잡힌 본인처럼 분쇄 연출을 끝까지 보게 한다(Bug-fix-plan.md §38).
     public bool IsSpectatable => pv != null && pv.Owner != null && !RoomState.HasEscaped(pv.Owner) // 탈출한 쿠키는 숨겨진다
+        && !EscapeManager.IsWaiting(pv.Owner.ActorNumber)                                           // 탈것에 탄 쿠키도 숨겨진다
         && (!RoomState.IsBroken(pv.Owner) || (lifePresenter != null && lifePresenter.IsBeingGrabKilled));
     public bool CanInteract => !IsMovementLocked; // 파괴·들림 중에는 상호작용 불가(채팅 중에는 InteractPressed가 억제된다)
     public float CameraTargetHeight => Camera_Ctrl.CookieTargetHeight;

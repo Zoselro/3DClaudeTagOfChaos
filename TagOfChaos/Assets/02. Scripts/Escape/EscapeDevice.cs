@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Photon.Pun;
 using UnityEngine;
 
 // 쿠키 탈출 장치(EscapePlan.md §1.6, §5.5): 재료 칸 표시, 설치, 스파이 훔치기, 완성 뒤 쿠키 탈출구.
@@ -19,10 +20,56 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
     private bool complete;
     private Transform glow;
     private Renderer[] glowRenderers = new Renderer[0];
+    private readonly HashSet<int> seenWaiting = new HashSet<int>();
+    private readonly List<Transform> anchorCache = new List<Transform>();
 
-    public Vector3 InteractionPoint => transform.position;
+    // 맵별 탈출 연출(있으면). 완성되면 타는 곳(Board)이 상호작용 위치가 된다.
+    public EscapeSequence Sequence { get; private set; }
+
+    public Vector3 InteractionPoint => complete && Sequence != null ? Sequence.BoardPoint.position : NearestSlotToLocalPlayer();
+
+    // 설치는 장치 둘레의 칸 자리에서 한다(큰 장치는 중심이 멀다). 로컬 쿠키에 가장 가까운 칸을 상호작용 위치로 쓴다.
+    private Vector3 NearestSlotToLocalPlayer()
+    {
+        Vector3 me = transform.position;
+        foreach (IGameCharacter c in CharacterRegistry.All)
+            if (c.View != null && c.View.IsMine && c.Role == CharacterRole.Cookie) { me = c.gameObject.transform.position; break; }
+        Vector3 best = transform.position;
+        float bestDist = Flat(best - me);
+        foreach (GameObject socket in slotSockets)
+        {
+            if (socket == null || !socket.transform.parent.gameObject.activeInHierarchy) continue;
+            float d = Flat(socket.transform.parent.position - me);
+            if (d < bestDist) { bestDist = d; best = socket.transform.parent.position; }
+        }
+        return best;
+    }
+
+    // 장치까지의 수평 거리(중심과 칸 자리 중 가장 가까운 곳). 방장이 설치·훔치기 거리를 잴 때 쓴다.
+    public float DistanceTo(Vector3 p)
+    {
+        float best = Flat(transform.position - p);
+        for (int i = 0; i < 16; i++)
+        {
+            Transform anchor = SlotAnchor(i);
+            if (anchor == null) break;
+            best = Mathf.Min(best, Flat(anchor.position - p));
+        }
+        return best;
+    }
+
+    // 칸 자리(모델의 Slot_nn). 탈것 칸은 움직이는 차 아래에 있어서 깊이 찾고, 찾은 결과는 기억한다.
+    private Transform SlotAnchor(int i)
+    {
+        while (anchorCache.Count <= i) anchorCache.Add(EscapeSequence.FindDeep(transform, $"Slot_{anchorCache.Count:00}"));
+        return anchorCache[i];
+    }
+
+    private static float Flat(Vector3 v) => new Vector2(v.x, v.z).magnitude;
     public float InteractionRange => interactionRange;
     public bool IsComplete => complete;
+
+    private void Awake() => Sequence = GetComponent<EscapeSequence>();
 
     private void OnEnable() => SetRegistered(true);
     private void OnDisable() => SetRegistered(false);
@@ -52,13 +99,43 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         if (nowComplete != complete)
         {
             complete = nowComplete;
-            EscapeExitFx.SetComplete(transform, owner.Recipe.ExitKind, complete);
+            if (Sequence == null) EscapeExitFx.SetComplete(transform, owner.Recipe.ExitKind, complete); // 맵 연출이 없을 때의 빛 기둥
         }
+        PlayBoardingForNewPassengers(s);
+    }
+
+    // 새로 탄 쿠키마다 타는 연출을 한 번씩(모든 클라이언트). 그 쿠키 몸은 같은 순간 숨겨지므로 마지막 위치에서 시작한다.
+    private void PlayBoardingForNewPassengers(EscapeState s)
+    {
+        if (s.Waiting.Count == 0) { seenWaiting.Clear(); return; }
+        foreach (int actor in s.Waiting)
+        {
+            if (!seenWaiting.Add(actor)) continue;
+            Vector3 from = BoardPositionOf(actor);
+            if (Sequence != null) Sequence.OnCookieBoarded(from);
+            else BoardingFx.Play(from, transform.position, BoardingFx.Style.Hop);
+        }
+    }
+
+    private Vector3 BoardPositionOf(int actor)
+    {
+        foreach (IGameCharacter c in CharacterRegistry.All)
+            if (c.Role == CharacterRole.Cookie && c.View != null && c.View.Owner != null && c.View.Owner.ActorNumber == actor)
+                return c.gameObject.transform.position + Vector3.up;
+        return InteractionPoint + Vector3.back * 2f;
     }
 
     private void Update()
     {
-        if (complete) EscapeExitFx.Tick(transform, manager != null ? manager.Recipe.ExitKind : EscapeExitKind.CakeRocket);
+        if (Sequence != null) Sequence.Tick(manager != null ? manager.State : null, PhotonNetwork.Time);
+        else if (complete) EscapeExitFx.Tick(transform, manager != null ? manager.Recipe.ExitKind : EscapeExitKind.CakeRocket);
+    }
+
+    // 완성 뒤 연출이 탈 수 있는 단계에 도착했고, 아직 출발하지 않았는지.
+    private bool BoardingOpen()
+    {
+        EscapeState s = manager != null ? manager.State : null;
+        return s != null && s.CompletedAt > 0 && s.DepartedAt <= 0 && PhotonNetwork.Time >= s.CompletedAt + manager.BoardReadySeconds;
     }
 
     private void EnsureSlots(int count)
@@ -66,7 +143,7 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         while (slotSockets.Count < count)
         {
             int i = slotSockets.Count;
-            Transform anchor = transform.Find($"Slot_{i:00}");
+            Transform anchor = SlotAnchor(i);
             modelAnchors.Add(anchor != null);
             if (anchor == null)
             {
@@ -74,6 +151,7 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
                 anchor.SetParent(transform, false);
                 float angle = (count <= 1 ? 0f : i * 360f / count);
                 anchor.localPosition = Quaternion.Euler(0f, angle, 0f) * Vector3.forward * slotRingRadius + Vector3.up * slotHeight;
+                anchorCache[i] = anchor;
             }
             var socket = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             DestroyImmediate(socket.GetComponent<Collider>());
@@ -104,8 +182,9 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
 
     public bool CanInteract(IGameCharacter character)
     {
+        if (!EscapeManager.ActionsAllowed) return false; // 변장 시간(§1.3)
         if (manager == null || manager.State == null || character.Role != CharacterRole.Cookie) return false; // 괴물 X(D33)
-        if (complete) return true; // 쿠키는 탈출, 스파이는 "들어갈 수 없음"(같은 아이콘 — 정체가 드러나지 않게, D35)
+        if (complete) return BoardingOpen(); // 쿠키는 탑승, 스파이는 "들어갈 수 없음"(같은 아이콘 — 정체가 드러나지 않게, D35)
         PlayerInventory inv = PlayerInventory.Local;
         if (inv == null) return false;
         if (FindInstallSlot(inv.HeldItem) >= 0) return true;
@@ -131,7 +210,7 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         if (steal >= 0) manager.Request(EscapeOp.Steal, steal);
     }
 
-    public string GetLabel(IGameCharacter viewer) => complete ? EscapeTextsSO.Current.escapeDevice : null;
+    public string GetLabel(IGameCharacter viewer) => complete && BoardingOpen() ? EscapeTextsSO.Current.escapeDevice : null;
 
     private int FindInstallSlot(ItemSO held)
     {

@@ -12,6 +12,7 @@ public class EscapeCharacterState : MonoBehaviourPunCallbacks
     private HideOrSeekPlayer cookie;
     private bool hidden;
     private bool escapeHandled;
+    private bool spectating;
     private bool witchHandled;
 
     public void Init(EscapeManager escape, HideOrSeekPlayer owner)
@@ -32,13 +33,24 @@ public class EscapeCharacterState : MonoBehaviourPunCallbacks
 
     private void OnStateChanged()
     {
-        if (manager.State == null || escapeHandled || !cookie.IsMine) return;
+        ApplyHidden(); // 모든 화면: 탈것에 타서 기다리거나 탈출한 쿠키는 숨긴다
+        if (manager.State == null || !cookie.IsMine) return;
         int actor = Actor;
-        if (!manager.State.Escaped.Contains(actor) && !manager.State.Boarded.Contains(actor)) return;
+        bool waiting = manager.State.Waiting.Contains(actor);
+        bool escaped = manager.State.Escaped.Contains(actor) || manager.State.Boarded.Contains(actor);
 
-        escapeHandled = true;
-        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.Escaped, 1 } });
-        GetComponent<SpectatorController>()?.EnterSpectatorMode(); // 다른 쿠키 시점으로 관전(D36)
+        // 탔으면(출발 전이어도) 다른 쿠키 시점으로 관전(D36, EscapeVisualPlan.md §4.3)
+        if ((waiting || escaped) && !spectating)
+        {
+            spectating = true;
+            GetComponent<SpectatorController>()?.EnterSpectatorMode();
+        }
+        // 탈것이 출발한 순간(또는 쿠키 탈출구·스파이 로켓) 탈출 성공을 본인 속성에 쓴다
+        if (escaped && !escapeHandled)
+        {
+            escapeHandled = true;
+            PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.Escaped, 1 } });
+        }
     }
 
     public override void OnPlayerPropertiesUpdate(Player target, Hashtable changed)
@@ -53,7 +65,8 @@ public class EscapeCharacterState : MonoBehaviourPunCallbacks
 
     private void ApplyHidden()
     {
-        if (hidden || cookie.View == null || !RoomState.HasEscaped(cookie.View.Owner)) return;
+        if (hidden || cookie.View == null || cookie.View.Owner == null) return;
+        if (!RoomState.HasEscaped(cookie.View.Owner) && !EscapeManager.IsWaiting(cookie.View.Owner.ActorNumber)) return;
         hidden = true;
         foreach (Renderer r in GetComponentsInChildren<Renderer>(true)) r.enabled = false;
         foreach (Collider c in GetComponentsInChildren<Collider>(true)) c.enabled = false;

@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!114 &-535418328054182578
+--- !u!114 &-8547581235984496111
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -60,10 +60,10 @@ MonoBehaviour:
   m_Name: HauntedBakery_PostFX
   m_EditorClassIdentifier: 
   settings:
-  - {fileID: -535418328054182578}
-  - {fileID: 5332123500551738199}
-  - {fileID: 2109244540036715264}
---- !u!114 &2109244540036715264
+  - {fileID: -8547581235984496111}
+  - {fileID: 7517307125328431611}
+  - {fileID: 1212256733609053437}
+--- !u!114 &1212256733609053437
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -107,7 +107,7 @@ MonoBehaviour:
   opacity:
     overrideState: 0
     value: 1
---- !u!114 &5332123500551738199
+--- !u!114 &7517307125328431611
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}

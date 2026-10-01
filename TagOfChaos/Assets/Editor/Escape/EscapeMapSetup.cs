@@ -21,6 +21,7 @@ public static class EscapeMapSetup
     private const float RocketClearance = 5f;    // 로켓 날개 반지름(1.4 m) + 괴물 통로 폭
     private const float ChestClearance = 2.5f;
     private const float MinChestSpacing = 9f;
+    private const float CoasterEdgeMin = 16f, CoasterEdgeMax = 34f; // 롤러코스터 자리에서 외곽 벽까지(레일이 벽을 넘는 높이)
     private const float WitchDistance = MapCompactor.NewHalf + 85f;
 
     [MenuItem("Tools/TagOfChaos/Escape/Setup Open Map Scene")]
@@ -63,10 +64,26 @@ public static class EscapeMapSetup
         }
 
         var rng = new System.Random(map.GetHashCode());
-        Vector3? device = ground.Where(p => Far(p, avoid, 10f) && IsClear(p, DeviceClearance))
-            .OrderBy(p => Flat(p).magnitude).Cast<Vector3?>().FirstOrDefault();
+        Vector3? device = FixedDeviceSpot(map, out Vector3? deviceForward);
+        if (device == null && exitKind == EscapeExitKind.RollerCoaster)
+        {
+            device = CoasterSpot(ground, avoid, out Vector3 forward);
+            if (device == null) return $"[EscapeMapSetup] {map}: no open spot for the roller coaster.";
+            deviceForward = forward;
+        }
+        if (device == null)
+            device = ground.Where(p => Far(p, avoid, 10f) && IsClear(p, DeviceClearance))
+                .OrderBy(p => Flat(p).magnitude).Cast<Vector3?>().FirstOrDefault();
         if (device == null) return $"[EscapeMapSetup] {map}: no open spot for the escape device.";
         avoid.Add(device.Value);
+        if (exitKind == EscapeExitKind.RollerCoaster && deviceForward != null) // 레일 아래에는 로켓·상자를 두지 않는다
+            for (float s = -6f; s < CoasterEdgeMax + 6f; s += 4f) avoid.Add(device.Value + deviceForward.Value * s);
+        if (exitKind == EscapeExitKind.BakeryMachine && deviceForward != null) // 오븐 앞 경사 발판·기계 칸 앞은 비운다
+        {
+            Vector3 right = Vector3.Cross(Vector3.up, deviceForward.Value);
+            for (float x = -22f; x <= 22f; x += 4f)
+                for (float z = 13f; z <= 29f; z += 4f) avoid.Add(device.Value + deviceForward.Value * z + right * x);
+        }
 
         Vector3? rocket = ground.Where(p => Far(p, avoid, 12f) && IsClear(p, RocketClearance))
             .OrderByDescending(p => Mathf.Min(Dist(p, device.Value), avoid.Min(a => Dist(p, a)) * 1.5f)).Cast<Vector3?>().FirstOrDefault();
@@ -94,7 +111,7 @@ public static class EscapeMapSetup
         SceneManager.MoveGameObjectToScene(root, scene);
         var manager = root.AddComponent<EscapeManager>();
 
-        EscapeDevice deviceComp = BuildDevice(root.transform, map, exitKind, device.Value);
+        EscapeDevice deviceComp = BuildDevice(root.transform, map, exitKind, device.Value, avoid.Count > 0 ? avoid[0] : Vector3.back * 50f, deviceForward);
         SpyRocket rocketComp = BuildRocket(root.transform, map, rocket.Value, device.Value);
         var anchors = new Transform[chests.Count];
         for (int i = 0; i < chests.Count; i++) anchors[i] = BuildChest(root.transform, i, chests[i], device.Value);
@@ -111,6 +128,90 @@ public static class EscapeMapSetup
         manager.EditorBind(anchors, deviceComp, rocketComp, witchComp);
         return $"[EscapeMapSetup] {map}: device {Fmt(device.Value)}, rocket {Fmt(rocket.Value)} ({Dist(device.Value, rocket.Value):F0} m apart), " +
                $"chest slots {chests.Count}/{ChestSlotCount} from {chestCandidates.Count} candidates, witch {Fmt(witch.transform.position)}";
+    }
+
+    // 맵의 주인공인 장치는 정해진 자리에 놓는다(EscapeVisualPlan.md §5): 캔디숲 케이크 = 광장 한가운데(랜드마크를 비운 자리),
+    // 베이커리 = 마법 오븐 랜드마크 그 자체(모델이 오븐 기준 좌표로 만들어져 있다).
+    private static Vector3? FixedDeviceSpot(string map, out Vector3? forward)
+    {
+        forward = null;
+        if (map == "CandyForest")
+            return TryWalkable(0f, 0f, out float y, out _) ? new Vector3(0f, y, 0f) : (Vector3?)null;
+        if (map == "HauntedBakery")
+        {
+            GameObject oven = GameObject.Find("HAU_Landmark_MagicOven");
+            if (oven == null) return null;
+            forward = oven.transform.forward;
+            return oven.transform.position;
+        }
+        return null;
+    }
+
+    // 맵별 탈출 연출(EscapeSequence)을 장치에 붙인다.
+    private static void AddSequence(GameObject device, EscapeExitKind kind)
+    {
+        switch (kind)
+        {
+            case EscapeExitKind.CakeRocket: device.AddComponent<CakeRocketSequence>(); break;
+            case EscapeExitKind.RollerCoaster: device.AddComponent<CoasterSequence>(); break;
+            case EscapeExitKind.BakeryMachine: device.AddComponent<OvenSequence>(); break;
+        }
+    }
+
+    // 롤러코스터(§5.2)는 레일이 맵 밖으로 나가야 한다: 외곽 벽까지 CoasterEdgeMin~Max m인 평평한 곳에서 벽 쪽을 보고,
+    // 승강장 둘레(괴물 통로 포함)와 레일이 지나갈 길(그 자리의 레일 높이 기준)이 비어 있는 곳. 벽 가까이·가장자리 가운데를 고른다.
+    private static Vector3? CoasterSpot(List<Vector3> ground, List<Vector3> avoid, out Vector3 forward)
+    {
+        forward = Vector3.forward;
+        Vector3? best = null;
+        float bestScore = float.MaxValue;
+        foreach (Vector3 dir in new[] { Vector3.forward, Vector3.back, Vector3.right, Vector3.left })
+            foreach (Vector3 p in ground)
+            {
+                float edge = MapCompactor.NewHalf - Vector3.Dot(p, dir);
+                if (edge < CoasterEdgeMin || edge > CoasterEdgeMax) continue;
+                float lateral = Mathf.Abs(Vector3.Dot(p, Vector3.Cross(Vector3.up, dir)));
+                float score = Mathf.Abs(edge - 22f) + 0.15f * lateral;
+                if (score >= bestScore || !Far(p, avoid, 15f) || !CoasterFits(p, dir, edge)) continue;
+                best = p;
+                bestScore = score;
+                forward = dir;
+            }
+        return best;
+    }
+
+    private static bool CoasterFits(Vector3 p, Vector3 dir, float edge)
+    {
+        Quaternion rot = Quaternion.LookRotation(dir);
+        // 승강장: 모델 기준 x -4.6~2.3(발판은 왼쪽), z -6~9에 괴물 통로 2 m를 더한 상자. 바닥도 평평해야 한다.
+        if (Blocked(p + rot * new Vector3(-1.15f, 3.3f, 1.5f), new Vector3(5.5f, 3f, 9.5f), rot)) return false;
+        foreach (float x in new[] { -4.6f, 0f, 1.2f })
+            foreach (float z in new[] { -6f, 0f, 9f })
+            {
+                Vector3 q = p + rot * new Vector3(x, 0f, z);
+                if (!TryWalkable(q.x, q.z, out float y, out _) || Mathf.Abs(y - p.y) > 0.5f) return false;
+            }
+        // 레일: 벽을 넘을 때까지 레일 높이에서 차가 지나갈 단면이 비어 있어야 한다
+        for (float s = 10f; s < edge + 4f; s += 2f)
+            if (Blocked(p + dir * s + Vector3.up * (CoasterHeight(s) + 1.6f), new Vector3(1.6f, 1.9f, 1f), rot)) return false;
+        return true;
+    }
+
+    // escape_devices.py coaster_height(-s)와 같은 레일 높이(승강장 → 오르막 → 꼭대기 → 내리막 → 직선).
+    private static float CoasterHeight(float s)
+    {
+        if (s < 9f) return 0f;
+        if (s < 37f) return 14f * Mathf.SmoothStep(0f, 1f, (s - 9f) / 28f);
+        if (s < 55f) return 14f + 0.6f * Mathf.Sin(Mathf.PI * (s - 37f) / 18f);
+        if (s < 70f) return 14f - 10f * Mathf.SmoothStep(0f, 1f, (s - 55f) / 15f);
+        return 4f;
+    }
+
+    private static bool Blocked(Vector3 center, Vector3 half, Quaternion rot)
+    {
+        foreach (Collider c in Physics.OverlapBox(center, half, rot, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (!c.name.Contains("Terrain") && !c.name.Contains("Ground") && !c.name.Contains("COL_Boundary")) return true;
+        return false;
     }
 
     // ---------------- sampling ----------------
@@ -164,18 +265,26 @@ public static class EscapeMapSetup
 
     // ---------------- placeholder visuals ----------------
 
-    private static EscapeDevice BuildDevice(Transform parent, string map, EscapeExitKind kind, Vector3 pos)
+    private static EscapeDevice BuildDevice(Transform parent, string map, EscapeExitKind kind, Vector3 pos, Vector3 faceToward, Vector3? forward)
     {
         GameObject model = InstantiateModel($"ESC_{map}", parent, $"ESC_{map}_Root");
         if (model != null)
         {
             model.transform.position = pos;
-            foreach (string hidden in new[] { "ESC_Glow", "ESC_Cake_Rocket" })
+            // 앞(타는 곳·칸)이 쿠키 출발 지점 쪽을 보게 한다
+            // (탈것처럼 나가는 방향이 정해진 장치는 그 방향을 본다)
+            Vector3 face = forward ?? Flat(faceToward - pos);
+            if (face.sqrMagnitude > 1e-4f) model.transform.rotation = Quaternion.LookRotation(face.normalized);
+            foreach (string hidden in new[] { "ESC_Glow", "Cake_Cracks", "Oven_Light" })
             {
                 Transform t = model.transform.Find(hidden);
-                if (t != null) t.gameObject.SetActive(false); // 완성되면 EscapeExitFx가 켠다
+                if (t != null) t.gameObject.SetActive(false); // 완성 연출이 켠다
             }
-            AddMeshColliders(model, "Body", "ESC_Cake_Intact", "ESC_Cake_Rocket"); // 케이크가 부서진 뒤에는 로켓이 막는다
+            foreach (Transform t in model.transform)
+                if (t.name.StartsWith("Cake_Shard_") || t.name.StartsWith("Bulb_")) t.gameObject.SetActive(false);
+            // 케이크가 부서진 뒤에는 로켓이 막는다. 롤러코스터 차는 승강장에 있는 동안 막는다(레일 오르막은 그림만).
+            AddMeshColliders(model, "Body", "Ramp", "Cake_Intact", "Cake_Rocket", "Car_0", "Car_1", "Car_2");
+            AddSequence(model, kind);
             return model.AddComponent<EscapeDevice>();
         }
 
@@ -220,9 +329,9 @@ public static class EscapeMapSetup
             Vector3 toDevice = Flat(device - pos);
             if (toDevice.sqrMagnitude > 0.01f) model.transform.rotation = Quaternion.LookRotation(toDevice.normalized); // 끼우는 칸(앞면)이 맵 안쪽을 본다
             var capsule = model.AddComponent<CapsuleCollider>();
-            capsule.center = new Vector3(0f, 2.1f, 0f);
+            capsule.center = new Vector3(0f, 2.5f, 0f);
             capsule.radius = 1f;
-            capsule.height = 4.2f;
+            capsule.height = 5f;
             return model.AddComponent<SpyRocket>();
         }
 

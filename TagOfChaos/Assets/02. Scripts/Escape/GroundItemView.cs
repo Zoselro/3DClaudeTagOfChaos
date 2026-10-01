@@ -61,6 +61,7 @@ public class GroundItemView : MonoBehaviour, IInteractable, IInteractionLabel
 
     public bool CanInteract(IGameCharacter character)
     {
+        if (!EscapeManager.ActionsAllowed) return false; // 변장 시간(§1.3)
         if (itemIndex < 0 || character.Role != CharacterRole.Cookie) return false; // 괴물은 줍지 못한다(D33)
         PlayerInventory inv = PlayerInventory.Local;
         return inv != null && inv.CanPickUp(shownItem);

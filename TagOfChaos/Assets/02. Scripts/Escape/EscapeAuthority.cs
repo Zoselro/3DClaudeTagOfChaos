@@ -124,6 +124,7 @@ public sealed class EscapeAuthority
     public void Handle(EscapeRequest r)
     {
         if (State == null) return;
+        if (!EscapeManager.ActionsAllowed) return; // 변장 시간에 온 요청(늦게 도착했거나 조작된 것 포함)은 받지 않는다
         bool changed;
         switch (r.Op)
         {
@@ -190,7 +191,7 @@ public sealed class EscapeAuthority
 
     private bool Install(int actor, int invSlot)
     {
-        if (!IsActiveEscaper(actor) || !IsNear(actor, manager.DevicePosition, InteractReach)) return false;
+        if (!IsActiveEscaper(actor) || !IsNearDevice(actor)) return false;
         int item = State.HeldItemAt(actor, invSlot);
         if (item < 0) return false;
         EscapeState.Item it = State.Items[item];
@@ -204,7 +205,11 @@ public sealed class EscapeAuthority
             it.A = s;
             it.StolenFromDevice = false;
             State.Items[item] = it;
-            if (State.DeviceComplete) Notice(EscapeNoticeKind.DeviceComplete, null);
+            if (State.DeviceComplete && State.CompletedAt <= 0)
+            {
+                State.CompletedAt = PhotonNetwork.Time; // 맵 연출(시동·문 열림·케이크 부서짐)의 기준 시각
+                Notice(EscapeNoticeKind.DeviceComplete, null);
+            }
             return true;
         }
         return false;
@@ -214,9 +219,10 @@ public sealed class EscapeAuthority
     private bool Steal(int actor, int deviceSlot)
     {
         if (!RoomState.IsSpy(actor) || !IsActiveEscaper(actor)) return false;
-        if (deviceSlot < 0 || deviceSlot >= State.DeviceSlots.Count || !IsNear(actor, manager.DevicePosition, InteractReach)) return false;
+        if (deviceSlot < 0 || deviceSlot >= State.DeviceSlots.Count || !IsNearDevice(actor)) return false;
         EscapeState.Slot slot = State.DeviceSlots[deviceSlot];
         if (slot.Prefilled || slot.ItemIndex < 0) return false;
+        if (State.CompletedAt > 0) return false; // 작동을 시작한 장치에서는 뺄 수 없다(탑승이 시작된 뒤 판이 꼬이지 않게)
         int item = slot.ItemIndex;
         if (!RocketNeeds(State.Items[item].Id) || !CanPickUp(actor, item)) return false;
 
@@ -259,13 +265,33 @@ public sealed class EscapeAuthority
         return true;
     }
 
+    // 쿠키가 탈것에 타서 기다린다(EscapeVisualPlan.md §4.3). 살아 있는 쿠키(스파이 제외)가 모두 타면 한 번에 출발한다.
     private bool Exit(int actor)
     {
         if (RoomState.IsSpy(actor) || RoomState.IsMonster(actor) || !IsActiveEscaper(actor)) return false; // 탈출구는 쿠키만(D35)
-        if (!State.DeviceComplete || !IsNear(actor, manager.DevicePosition, InteractReach)) return false;
-        DropAll(actor, manager.DevicePosition);
-        State.Escaped.Add(actor);
+        if (!State.DeviceComplete || State.DepartedAt > 0 || !BoardingOpen()) return false;
+        if (!IsNear(actor, manager.BoardPosition, InteractReach)) return false;
+        DropAll(actor, manager.BoardPosition);
+        State.Waiting.Add(actor);
+        TryDepart();
         return true;
+    }
+
+    // 맵 연출이 탈 수 있는 단계에 도착했는지(예: 오븐 문이 다 열림, 케이크 로켓이 다 솟아오름).
+    private bool BoardingOpen() =>
+        State.CompletedAt > 0 && PhotonNetwork.Time >= State.CompletedAt + manager.BoardReadySeconds;
+
+    // 탑승·잡힘·나감 때마다 부른다. 밖에 남은 살아 있는 쿠키(스파이 제외)가 없고 탄 쿠키가 있으면 출발한다.
+    // 출발한 순간 탄 쿠키 모두 탈출 성공이다(출발 연출이 끝나기 전에 시간이 끝나도 성공).
+    public void TryDepart()
+    {
+        if (State == null || State.Waiting.Count == 0 || State.DepartedAt > 0) return;
+        foreach (Player p in PhotonNetwork.PlayerList)
+            if (!RoomState.IsSpy(p.ActorNumber) && IsActiveEscaper(p.ActorNumber)) return;
+        State.DepartedAt = PhotonNetwork.Time;
+        foreach (int actor in State.Waiting)
+            if (!State.Escaped.Contains(actor)) State.Escaped.Add(actor);
+        Debug.Log($"[EscapeAuthority] Vehicle departed with {State.Waiting.Count} cookie(s).");
     }
 
     private bool ToolUse(EscapeRequest r)
@@ -294,7 +320,9 @@ public sealed class EscapeAuthority
         if (State == null || player == null) return;
         Vector3 pos = lastPositions.TryGetValue(player.ActorNumber, out Vector3 p) ? p : manager.DevicePosition;
         bool changed = DropAll(player.ActorNumber, pos); // 나간 쿠키·스파이의 모든 아이템을 그 자리에(D28)
-        if (changed) Commit();
+        bool wasWaiting = State.DepartedAt <= 0;
+        TryDepart(); // 나간 사람을 빼고 다시 센다
+        if (changed || (wasWaiting && State.DepartedAt > 0)) Commit();
         TryLaunchRocket();
     }
 
@@ -302,6 +330,11 @@ public sealed class EscapeAuthority
     public void OnPlayerBroken(Player player)
     {
         if (player != null && RoomState.IsSpy(player.ActorNumber)) Notice(EscapeNoticeKind.SpyCaught, null);
+        if (State != null && State.DepartedAt <= 0)
+        {
+            TryDepart(); // 밖에 남은 마지막 쿠키가 잡히면 기다리던 쿠키들이 출발한다
+            if (State.DepartedAt > 0) Commit();
+        }
         TryLaunchRocket();
     }
 
@@ -316,15 +349,13 @@ public sealed class EscapeAuthority
             if (p == null || RoomState.IsBroken(p)) continue; // 나갔거나 잡힌 스파이는 뺀다
             if (!State.Boarded.Contains(spy)) return;
         }
-        if (!AnyCookieStillPlaying()) return; // 쿠키가 모두 끝났으면 타임어택 없이 판이 끝난다(D10 — GameRuleController가 판정)
-
         double now = PhotonNetwork.Time;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
-        {
-            { NetKeys.SpyEscapedAt, now },
-            { NetKeys.TimeAttackEndTime, now + RoomState.TimeAttackSeconds() },
-        });
-        Debug.Log("[EscapeAuthority] Rocket launched. Time attack started.");
+        var props = new Hashtable { { NetKeys.SpyEscapedAt, now } }; // 로켓 발사(연출 기준) — 늘 기록한다
+        // 쿠키가 모두 끝났으면 타임어택 없이 판이 끝난다(D10 — GameRuleController가 발사 연출 뒤에 판정). 타임어택이 없으면 마녀도 없다.
+        bool timeAttack = AnyCookieStillPlaying();
+        if (timeAttack) props[NetKeys.TimeAttackEndTime] = now + RoomState.TimeAttackSeconds();
+        PhotonNetwork.CurrentRoom.SetCustomProperties(props);
+        Debug.Log(timeAttack ? "[EscapeAuthority] Rocket launched. Time attack started." : "[EscapeAuthority] Rocket launched. No cookies left: no time attack.");
     }
 
     // ---------------- helpers ----------------
@@ -339,7 +370,7 @@ public sealed class EscapeAuthority
     // 괴물이 아니고, 탈출·탑승하지 않았고, 잡히지 않은 참가자.
     private bool IsActiveEscaper(int actor)
     {
-        if (RoomState.IsMonster(actor) || State.Escaped.Contains(actor) || State.Boarded.Contains(actor)) return false;
+        if (RoomState.IsMonster(actor) || State.Escaped.Contains(actor) || State.Boarded.Contains(actor) || State.Waiting.Contains(actor)) return false;
         Player p = FindPlayer(actor);
         return p != null && !RoomState.IsBroken(p);
     }
@@ -440,6 +471,13 @@ public sealed class EscapeAuthority
         // 요청 위치가 그 사람에게서 너무 멀면(조작) 그 사람 발밑으로.
         if (lastPositions.TryGetValue(actor, out Vector3 at) && Vector3.Distance(at, requested) > PickUpReach) return at;
         return requested;
+    }
+
+    // 장치 근처: 큰 장치(캔디숲 케이크)는 중심이 멀어 가장 가까운 칸 자리로 잰다.
+    private bool IsNearDevice(int actor)
+    {
+        if (!lastPositions.TryGetValue(actor, out Vector3 at)) return true;
+        return manager.DistanceToDevice(at) <= InteractReach;
     }
 
     private bool IsNear(int actor, Vector3 target, float reach)

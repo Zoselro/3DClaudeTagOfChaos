@@ -8,37 +8,37 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Candy_Pink
-    second: {fileID: 2100000, guid: 03b8d57f49204f3190c8910b1e509aae, type: 2}
+    second: {fileID: 2100000, guid: 09587a94fa53b344dbdcf76590b42a4e, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Candy_Purple
-    second: {fileID: 2100000, guid: fc5dbd96b9f84155a0df7e37224b9f0f, type: 2}
+    second: {fileID: 2100000, guid: a711e6c626ec4a2448558f71e0e0d46b, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Candy_Red
-    second: {fileID: 2100000, guid: 8773a87ae7d84e919f5f632a65a81617, type: 2}
+    second: {fileID: 2100000, guid: 6cfeebec343f17444ac90ab491418922, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Candy_Teal
-    second: {fileID: 2100000, guid: e4d38722934048ddb90512a9b4d3dde4, type: 2}
+    second: {fileID: 2100000, guid: 97e2d54a9c1dd87488d0a6fbfcf87f7b, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Candy_White
-    second: {fileID: 2100000, guid: f327fd784f464b3db51c85c3051b1be0, type: 2}
+    second: {fileID: 2100000, guid: 9dca39b92c6533b42a2b93967883bb14, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Cookie_Light
-    second: {fileID: 2100000, guid: d21ef56eb835447982ec8efc634886bd, type: 2}
+    second: {fileID: 2100000, guid: 2350d9bc8a5f9af4d8e32afbd3f4567f, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Icing_Pink
-    second: {fileID: 2100000, guid: 2d978dd8b45b4e489d2ccc25b9a9f796, type: 2}
+    second: {fileID: 2100000, guid: 40d326e4176237a4d8f8d8830e04a40b, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
@@ -53,7 +53,7 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Lantern_Glow
-    second: {fileID: 2100000, guid: 375a5abfc76347f8aedde52a7415ff02, type: 2}
+    second: {fileID: 2100000, guid: 9c56d094758e7e24f90dabc10b67a0a1, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
@@ -93,7 +93,7 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Rock
-    second: {fileID: 2100000, guid: 0f410b7f73fc43c491bebd484de83de6, type: 2}
+    second: {fileID: 2100000, guid: a1597b0b564a6cc4687115bf81d2fad5, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule

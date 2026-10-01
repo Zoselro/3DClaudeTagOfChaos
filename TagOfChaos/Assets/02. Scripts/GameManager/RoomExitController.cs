@@ -18,10 +18,17 @@ public class RoomExitController : MonoBehaviourPunCallbacks
     private void Start()
     {
         if (m_BackBtn != null)
-            m_BackBtn.onClick.AddListener(OnClickBackButtonPressed);
+            m_BackBtn.onClick.AddListener(OnBackButton);
     }
 
-    // Back 버튼 클릭 시: 곧바로 나가지 않고 확인창부터 띄운다
+    // 화면 왼쪽 위 뒤로가기 버튼: ESC 메뉴가 있으면 그 메뉴를 연다(나가기는 메뉴 안에서, EscapeVisualPlan.md §1.2).
+    private void OnBackButton()
+    {
+        if (EscMenu.Instance != null) EscMenu.Instance.Open();
+        else OnClickBackButtonPressed();
+    }
+
+    // 나가기: 곧바로 나가지 않고 확인창부터 띄운다
     public void OnClickBackButtonPressed()
     {
         if (confirmDialog != null)

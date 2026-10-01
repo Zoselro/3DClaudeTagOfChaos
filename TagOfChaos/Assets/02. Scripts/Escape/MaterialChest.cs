@@ -54,7 +54,7 @@ public class MaterialChest : MonoBehaviour, IInteractable, IInteractionLabel
     }
 
     public bool CanInteract(IGameCharacter character) =>
-        chestIndex >= 0 && !data.Opened && character.Role == CharacterRole.Cookie;
+        EscapeManager.ActionsAllowed && chestIndex >= 0 && !data.Opened && character.Role == CharacterRole.Cookie;
 
     public void Interact(IGameCharacter character)
     {

@@ -36,12 +36,39 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     public event System.Action StateChanged;
 
     public Vector3 DevicePosition => device != null ? device.transform.position : transform.position;
+
+    // 장치까지의 수평 거리: 장치 중심과 칸 자리(Slot_nn) 중 가장 가까운 곳(큰 장치는 둘레에 칸이 있다).
+    public float DistanceToDevice(Vector3 p) => device != null ? device.DistanceTo(p) : Flat(p - transform.position);
+
+    private static float Flat(Vector3 v) => new Vector2(v.x, v.z).magnitude;
+
+    // 맵별 탈출 연출(EscapeVisualPlan.md §4). 연출이 없으면(임시 도형) 완성 즉시 탈 수 있고 출발 연출도 없다.
+    public EscapeSequence Sequence => device != null ? device.Sequence : null;
+    public Vector3 BoardPosition => Sequence != null ? Sequence.BoardPoint.position : DevicePosition;
+    public float BoardReadySeconds => Sequence != null ? Sequence.BoardReadySeconds : 0f;
+    public float DepartureSeconds => Sequence != null ? Sequence.DepartureSeconds : 0f;
+
+    // 탈것에 타서 출발을 기다리는 쿠키인지(몸 숨김·이동 잠금·관전 대상에서 빼기).
+    public static bool IsWaiting(int actor) => Instance != null && Instance.State != null && Instance.State.Waiting.Contains(actor) && !Instance.State.Escaped.Contains(actor);
+
+    // 출발 연출이 아직 진행 중인지(게임 끝 판정을 미룬다).
+    public bool IsDeparting(double now) =>
+        (State != null && State.DepartedAt > 0 && now < State.DepartedAt + DepartureSeconds) || IsRocketLaunchingWithoutTimeAttack(now);
+
+    // 쿠키가 모두 끝나 타임어택 없이 스파이 로켓만 떠나는 경우(D10): 발사 연출이 보이도록 잠시 끝 판정을 미룬다.
+    public const float RocketLaunchShowSeconds = 6f;
+    private static bool IsRocketLaunchingWithoutTimeAttack(double now) =>
+        RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double at) && !RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out _)
+        && now < at + RocketLaunchShowSeconds;
     public Vector3 RocketPosition => rocket != null ? rocket.transform.position : transform.position;
     public Vector3 ChestPosition(int anchor) => anchor >= 0 && anchor < chestAnchors.Length ? chestAnchors[anchor].position : transform.position;
     public Vector3 ChestFront(int anchor) =>
         anchor >= 0 && anchor < chestAnchors.Length ? chestAnchors[anchor].position + chestAnchors[anchor].forward * 1.2f : transform.position;
 
     public static bool IsActive => Instance != null && Instance.isActiveAndEnabled;
+
+    // 변장(색칠) 시간에는 상자 열기·줍기·도구·설치·로켓·탈출을 모두 막는다(EscapeVisualPlan.md §1.3).
+    public static bool ActionsAllowed => GamePhaseState.Current != GamePhase.Paint;
 
     // ---------------- lifecycle ----------------
 
