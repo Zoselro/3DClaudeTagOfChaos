@@ -23,6 +23,9 @@ public abstract class EscapeSequence : MonoBehaviour
         }
     }
 
+    // 탄 쿠키의 카메라가 기다리는 동안·출발할 때 따라 볼 곳(움직이는 탈것 본체, 오븐 입구, 포탈). 기본은 타는 곳.
+    public virtual Transform DepartureFocus => BoardPoint;
+
     // 매 프레임(모든 클라이언트). state는 null일 수 있다(판 시작 전).
     public abstract void Tick(EscapeState state, double now);
 

@@ -37,8 +37,15 @@ def build():
     # gingerbread clock tower (reference 과자마을 style: cookie walls, white icing trims, waffle roof with snow,
     # candy-cane corners, glowing windows). Clock faces at 17 m + rune band at 10 m read from afar.
     def _clocktower(g, rnd):
-        g.rbox('M_Cookie_Stone', (0, 0, 0), (14, 14, 1.0), 0.3)                         # plinth
-        g.rbox('M_Cookie_Wall', (0, 0, 1.0), (12, 12, 9.0), 0.5)                         # base
+        # EscapeVisualPlan.md §5.5: the base is hollow with a 5 m door on the south (-Y) side; inside, the escape
+        # model (escape_devices.py device_gingerbread) adds the round room and the spiral ramp down to the ruins.
+        for x0, x1, y0, y1 in ((-7, 7, 5, 7), (-7, -5, -5, 5), (5, 7, -5, 5), (-7, -2.5, -7, -5), (2.5, 7, -7, -5)):
+            g.rbox('M_Cookie_Stone', ((x0 + x1) / 2, (y0 + y1) / 2, 0), (x1 - x0, y1 - y0, 1.0), 0.3)   # plinth frame
+        for x0, x1, y0, y1, z0, z1 in ((-6, 6, 5, 6, 1, 10), (-6, -5, -5, 5, 1, 10), (5, 6, -5, 5, 1, 10),
+                                       (-6, -2.5, -6, -5, 1, 10), (2.5, 6, -6, -5, 1, 10), (-2.5, 2.5, -6, -5, 7, 10)):
+            g.rbox('M_Cookie_Wall', ((x0 + x1) / 2, (y0 + y1) / 2, z0), (x1 - x0, y1 - y0, z1 - z0), 0.15)  # base walls
+        g.tube([(-2.7, -6.15, 0.0), (-2.7, -6.15, 7.0)] + [(-2.7 * math.cos(math.pi * i / 10), -6.15, 7.0 + 0.8 * math.sin(math.pi * i / 10))
+                for i in range(1, 10)] + [(2.7, -6.15, 7.0), (2.7, -6.15, 0.0)], 0.22, 'M_Sugar_White', seg=6)  # door icing
         g.rbox('M_Magic_Rune', (0, 0, 9.6), (12.6, 12.6, 0.9), 0.3)                      # glowing rune band
         g.rbox('M_Gingerbread_Dark', (0, 0, 10.4), (10, 10, 15), 0.45)                   # clock storey
         for k in range(4):
@@ -57,10 +64,11 @@ def build():
                    'M_Chocolate_Dark', seg=6)
             g.tube([(fx * 1.08, fy * 1.08, 17.5), (fx * 1.08 + ca * 1.9, fy * 1.08 - sa * 1.9, 17.9)], 0.2,
                    'M_Chocolate_Dark', seg=6)
-            # arched glowing windows on the base + icing arch
-            g.rbox('M_Window_Yellow', (-sa * 6.05, -ca * 6.05, 3.0), (2.4, 0.2, 3.2), 0.1, rotz=-a)
-            g.tube([(-sa * 6.1 + ca * x, -ca * 6.1 - sa * x, 6.3 + 1.1 * math.sin(math.pi * (x + 1.4) / 2.8))
-                    for x in [i * 0.2 - 1.4 for i in range(15)]], 0.18, 'M_Sugar_White', seg=6)
+            # arched glowing windows on the base + icing arch (the south face has the door instead)
+            if k != 0:
+                g.rbox('M_Window_Yellow', (-sa * 6.05, -ca * 6.05, 3.0), (2.4, 0.2, 3.2), 0.1, rotz=-a)
+                g.tube([(-sa * 6.1 + ca * x, -ca * 6.1 - sa * x, 6.3 + 1.1 * math.sin(math.pi * (x + 1.4) / 2.8))
+                        for x in [i * 0.2 - 1.4 for i in range(15)]], 0.18, 'M_Sugar_White', seg=6)
             # wavy icing drips under the clock storey and under the roof
             for zz, r0 in ((10.3, 6.35), (25.3, 5.25)):
                 g.tube([(-sa * r0 + ca * x, -ca * r0 - sa * x, zz - 0.25 * abs(math.sin(x * 1.4)))
@@ -158,7 +166,8 @@ def build():
         h = rnd.choice((rnd.uniform(5, 7), rnd.uniform(7, 11)))      # mix of cottages and tall houses
         rotz += math.radians(rnd.uniform(-6, 6))
         # cookie ruins (EscapePlan.md P2): about two thirds of the ordinary houses have collapsed
-        ruined = not cursed and ruin_rnd.random() < 0.65
+        # EscapeVisualPlan.md §5.5 (decision Q3): the village above ground is whole again; the ruins moved underground
+        ruined = ruin_rnd.random() < 0.0
         hx, hy = x + rnd.uniform(-1.5, 1.5), y + rnd.uniform(-1.5, 1.5)
         house(m, hx, hy, w, d, h, rotz,
               roof=rnd.choice(('M_Chocolate_Dark', 'M_Chocolate_Milk', 'M_Icing_Purple' if cursed else 'M_Icing_Pink')),

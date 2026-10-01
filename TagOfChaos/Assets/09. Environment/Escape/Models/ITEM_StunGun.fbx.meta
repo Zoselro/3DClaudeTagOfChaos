@@ -272,6 +272,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: ME_Tunnel_Dark
+    second: {fileID: 2100000, guid: d957a99c56da3a745bf756b88d5b70fe, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: ME_Witch_Eye
     second: {fileID: 2100000, guid: 76373654c14202c42bcff27e6287c8b1, type: 2}
   - first:

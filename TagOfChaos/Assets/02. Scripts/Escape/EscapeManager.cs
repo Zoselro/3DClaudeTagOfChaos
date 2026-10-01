@@ -49,6 +49,10 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     public float DepartureSeconds => Sequence != null ? Sequence.DepartureSeconds : 0f;
 
     // 탈것에 타서 출발을 기다리는 쿠키인지(몸 숨김·이동 잠금·관전 대상에서 빼기).
+    // 탈것에 탔거나(기다림·출발) 탈출했거나 스파이 로켓에 탄 쿠키인지 — 맵에서 몸이 사라진 상태.
+    public static bool HasLeftMap(int actor) => Instance != null && Instance.State != null
+        && (Instance.State.Waiting.Contains(actor) || Instance.State.Escaped.Contains(actor) || Instance.State.Boarded.Contains(actor));
+
     public static bool IsWaiting(int actor) => Instance != null && Instance.State != null && Instance.State.Waiting.Contains(actor) && !Instance.State.Escaped.Contains(actor);
 
     // 출발 연출이 아직 진행 중인지(게임 끝 판정을 미룬다).

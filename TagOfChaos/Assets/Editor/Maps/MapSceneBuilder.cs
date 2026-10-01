@@ -398,7 +398,8 @@ public static class MapSceneBuilder
 
     private static bool IsWalkOver(string name) =>
         name.Contains("Floor") || name.Contains("Ramp") || name.Contains("Stair") || name.Contains("Bridge")
-        || name.Contains("Platform") || name.Contains("Terrain") || name.Contains("Road") || name.Contains("Path");
+        || name.Contains("Platform") || name.Contains("Terrain") || name.Contains("Road") || name.Contains("Path")
+        || name.Contains("ClockTower"); // 시계탑은 1층 문으로 들어가는 속 빈 건물(EscapeVisualPlan.md §5.5) — convex면 문이 막힌다
 
     // 아치·정문처럼 "양쪽 가장자리는 막혀 있고 가운데로 지나갈 수 있는" 구조물인지. 경계 상자 가운데를 수평으로 가로지르는 광선은
     // 오목 충돌체를 통과하고, 양쪽 가장자리(폭의 8%·92%) 광선은 막혀야 한다 — 가지 사이로 광선이 빠지는 나무를 통과형으로 오판하지

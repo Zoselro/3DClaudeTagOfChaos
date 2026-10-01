@@ -82,6 +82,11 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
     private void Update()
     {
         if (!isWaiting) return;
+        if (!PhotonNetwork.InRoom || PhotonNetwork.NetworkClientState == Photon.Realtime.ClientState.Leaving)
+        {
+            isWaiting = false; // 기다리다 나가기를 눌렀으면 맵으로 떠나지 않는다
+            return;
+        }
 
         double remaining = departAtLocalTime - Time.realtimeSinceStartupAsDouble;
         if (countdownText != null)

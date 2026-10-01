@@ -239,6 +239,37 @@ public class EscapeTests
         Assert.IsTrue(ReachableNear(spawn, root.transform.Find($"SPY_Rocket_{map}_Root").position, 2.2f), "rocket");
     }
 
+    // EscapeVisualPlan.md §5.5: 시계탑 나선 경사로로 쿠키·괴물 모두 지하 유적의 제단까지 내려가고, 추락 처리는 지하보다 아래다
+    [Test]
+    public void Gingerbread_UndergroundAltarReachable()
+    {
+        EditorSceneManager.OpenScene(MapSceneBuilder.ScenePath("GingerbreadVillage"), OpenSceneMode.Single);
+        Transform device = GameObject.Find(EscapeMapSetup.RootName).transform.Find("ESC_GingerbreadVillage_Root");
+        Transform board = EscapeSequence.FindDeep(device, "Board");
+        Assert.NotNull(board);
+        Assert.Less(board.position.y, -5f, "altar is underground");
+        Assert.NotNull(MapPassabilityCheck.FindPath(GameObject.Find(SceneSpawnPoints.Cookie).transform.position, board.position, cookie: true), "cookie path");
+        Assert.NotNull(MapPassabilityCheck.FindPath(GameObject.Find(SceneSpawnPoints.Monster).transform.position, board.position + Vector3.left * 2f, cookie: false), "monster path");
+        Assert.Less(GameObject.Find("VoidKillZone").transform.position.y, -25f, "kill zone below the ruins");
+    }
+
+    // 다른 층의 칸에는 닿지 않는다: 지상에서 지하 제단 칸을 만질 수 없다
+    [Test]
+    public void Device_DistanceIgnoresOtherFloors()
+    {
+        var root = new GameObject("DeviceTest");
+        try
+        {
+            var slot = new GameObject("Slot_00").transform;
+            slot.SetParent(root.transform, false);
+            slot.localPosition = new Vector3(0f, -10f, 0f);
+            var device = root.AddComponent<EscapeDevice>();
+            Assert.Greater(device.DistanceTo(new Vector3(0.5f, 0f, 0f)), 100f, "from the surface");
+            Assert.Less(device.DistanceTo(new Vector3(0.5f, -10f, 0f)), 1f, "on the same floor");
+        }
+        finally { Object.DestroyImmediate(root); }
+    }
+
     // EscapeVisualPlan.md §5.3: 쿠키가 경사 발판을 올라 오븐 문 앞(탑승 지점)까지 갈 수 있다
     [Test]
     public void Bakery_RampReachesOvenDoor()

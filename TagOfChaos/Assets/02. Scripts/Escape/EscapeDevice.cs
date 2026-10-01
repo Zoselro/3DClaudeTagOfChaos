@@ -34,8 +34,8 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         Vector3 me = transform.position;
         foreach (IGameCharacter c in CharacterRegistry.All)
             if (c.View != null && c.View.IsMine && c.Role == CharacterRole.Cookie) { me = c.gameObject.transform.position; break; }
-        Vector3 best = transform.position;
-        float bestDist = Flat(best - me);
+        Vector3 best = transform.position; // 칸이 하나도 없을 때만 중심(큰 장치는 중심이 몸 안이다)
+        float bestDist = float.MaxValue;
         foreach (GameObject socket in slotSockets)
         {
             if (socket == null || !socket.transform.parent.gameObject.activeInHierarchy) continue;
@@ -45,17 +45,23 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         return best;
     }
 
-    // 장치까지의 수평 거리(중심과 칸 자리 중 가장 가까운 곳). 방장이 설치·훔치기 거리를 잴 때 쓴다.
+    // 칸 자리와 이만큼 넘게 높이가 다르면 닿지 않는다(시계탑 지하 유적의 제단을 지상에서 만지지 못하게).
+    public const float MaxReachHeight = 4f;
+
+    // 장치까지의 수평 거리(칸 자리 중 가장 가까운 곳, 칸 자리가 없으면 중심). 방장이 설치·훔치기 거리를 잴 때 쓴다.
     public float DistanceTo(Vector3 p)
     {
-        float best = Flat(transform.position - p);
+        float best = float.MaxValue;
+        bool anyAnchor = false;
         for (int i = 0; i < 16; i++)
         {
             Transform anchor = SlotAnchor(i);
             if (anchor == null) break;
+            anyAnchor = true;
+            if (Mathf.Abs(anchor.position.y - p.y) > MaxReachHeight) continue;
             best = Mathf.Min(best, Flat(anchor.position - p));
         }
-        return best;
+        return anyAnchor ? best : Flat(transform.position - p);
     }
 
     // 칸 자리(모델의 Slot_nn). 탈것 칸은 움직이는 차 아래에 있어서 깊이 찾고, 찾은 결과는 기억한다.

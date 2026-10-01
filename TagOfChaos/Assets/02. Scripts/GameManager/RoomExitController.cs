@@ -41,6 +41,10 @@ public class RoomExitController : MonoBehaviourPunCallbacks
     {
         if (m_BackBtn != null) m_BackBtn.interactable = false;
 
+        // 술래가 대기실에서 기다리는 동안에는 메시지 큐가 멈춰 있어(MonsterLobbyWaitController) 퇴장 완료(OnLeftRoom)를
+        // 받지 못하고, 맵으로 넘어갈 때에야 나가졌다. 나가기로 했으면 큐를 다시 돌린다(쌓인 판 이벤트는 로비로 가며 버려진다).
+        if (!PhotonNetwork.IsMessageQueueRunning) PhotonNetwork.IsMessageQueueRunning = true;
+
         // 방 CustomProperties는 마지막 사람이 나가면 방과 함께 사라지므로 따로 지우지 않는다(예전의
         // CurrentRoom.CustomProperties.Clear()는 로컬 사본만 지워 아무 효과가 없었다, research.md §8.12).
         pv.RPC(GameManager.RpcLogMsg, RpcTarget.All, string.Format(leaveLogFormat, PhotonNetwork.LocalPlayer.NickName), false);

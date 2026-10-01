@@ -484,6 +484,7 @@ public sealed class EscapeAuthority
     {
         if (!lastPositions.TryGetValue(actor, out Vector3 at)) return true; // 위치를 아직 모르면 막지 않는다(입장 직후)
         Vector3 d = at - target;
+        if (Mathf.Abs(d.y) > EscapeDevice.MaxReachHeight) return false; // 다른 층(지상 ↔ 지하 유적)에서는 닿지 않는다
         d.y = 0f;
         return d.magnitude <= reach;
     }

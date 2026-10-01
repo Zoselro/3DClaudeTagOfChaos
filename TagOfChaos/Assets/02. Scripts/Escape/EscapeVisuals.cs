@@ -40,8 +40,13 @@ public static class EscapeVisuals
     private static Material softParticle;
 
     // 연기·빛 입자용: 가운데가 진하고 가장자리로 갈수록 투명한 둥근 점(64×64, 코드로 한 번 만든다).
+    // 빌드에는 씬·에셋이 쓰는 셰이더만 들어가서 Shader.Find로 만든 파티클 재질은 분홍색으로 깨진다 — Resources의 재질 에셋을 쓴다.
+    public const string SoftParticleResource = "Escape/SoftParticle";
+
     public static Material SoftParticleMaterial()
     {
+        if (softParticle != null) return softParticle;
+        softParticle = Resources.Load<Material>(SoftParticleResource);
         if (softParticle != null) return softParticle;
         const int size = 64;
         var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
@@ -55,7 +60,9 @@ public static class EscapeVisuals
         }
         tex.SetPixels32(pixels);
         tex.Apply();
-        softParticle = new Material(Shader.Find("Particles/Standard Unlit")) { mainTexture = tex };
+        // 셰이더가 빌드에서 빠졌으면 항상 포함되는 Sprites/Default로 대신한다 — null 셰이더로 만들면 예외가 나서 연출 전체가 멈춘다
+        Shader shader = Shader.Find("Particles/Standard Unlit") ?? Shader.Find("Sprites/Default");
+        softParticle = new Material(shader) { mainTexture = tex };
         softParticle.SetFloat("_Mode", 2f); // Fade
         softParticle.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
         softParticle.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);

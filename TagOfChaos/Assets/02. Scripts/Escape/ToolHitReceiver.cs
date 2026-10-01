@@ -13,6 +13,27 @@ public static class ToolHitReceiver
         ItemSO item = manager != null ? manager.Catalog.Find(itemId) : null;
         if (item == null || !item.IsTool) return;
 
+        // 던진·쏜 사람 손에서 날아가는 모습. 물풍선은 떨어진 순간에 명중 처리를 한다.
+        Vector3? from = HandOf(d[1] is int sender ? sender : -1);
+        if (item.Tool.Kind == ToolKind.WaterBalloon && from.HasValue)
+        {
+            ToolShotFx.ThrowBalloon(item, from.Value, point, () => Apply(item, targets, point, color));
+            return;
+        }
+        if (item.Tool.Kind == ToolKind.StunGun && from.HasValue) ToolShotFx.Beam(from.Value, point, new Color(0.55f, 1f, 0.95f, 1f));
+        Apply(item, targets, point, color);
+    }
+
+    private static Vector3? HandOf(int actor)
+    {
+        foreach (IGameCharacter c in CharacterRegistry.All)
+            if (c.View != null && c.View.Owner != null && c.View.Owner.ActorNumber == actor)
+                return c.gameObject.transform.position + Vector3.up * 1.2f + c.gameObject.transform.forward * 0.4f;
+        return null;
+    }
+
+    private static void Apply(ItemSO item, int[] targets, Vector3 point, int color)
+    {
         ToolFx.Play(item.Tool.Kind, point, item.Tint);
 
         foreach (int viewId in targets)

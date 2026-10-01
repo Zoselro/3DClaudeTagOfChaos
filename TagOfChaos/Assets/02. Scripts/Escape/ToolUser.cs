@@ -4,6 +4,7 @@ using UnityEngine;
 // 손에 든 도구 쓰기(EscapePlan.md §1.8). 맞힌 대상은 쓰는 사람 화면에서 고르고, 방장이 횟수·쿨다운을 확인해
 // 모두에게 명중(ToolHit)을 알린다 — 기절·떨어뜨리기·색칠은 맞은 사람 본인이 처리한다(ToolHitReceiver).
 // - 뿅망치: 앞쪽 가까운 대상 / 스턴건: 카메라가 보는 방향 사거리 안 첫 대상 / 물풍선: 던진 지점 주변 범위.
+// - 스턴건은 우클릭을 누르고 있는 동안만 조준(조준점 + 약간 확대)되고, 그때 좌클릭해야 쏜다(사거리 ToolSO, 15 m).
 // 괴물은 충돌 캡슐(반지름 약 0.31 m)이 몸 겉모습보다 훨씬 작으므로, 몸 크기의 트리거(잡기 범위 구)도 맞힘 판정에 넣는다.
 public class ToolUser : MonoBehaviour
 {
@@ -11,6 +12,14 @@ public class ToolUser : MonoBehaviour
     private EscapeManager manager;
     private float readyAt;
     private readonly Collider[] overlap = new Collider[16];
+    private const float AimZoom = 0.72f;          // 조준 중 시야각 배율(약간 확대)
+    private const float AimZoomSpeed = 8f;
+    private float baseFov = -1f;
+    private float zoom = 1f;
+    private GameObject crosshair;
+
+    // 로컬 플레이어가 스턴건을 조준하는 중인지.
+    public static bool Aiming { get; private set; }
 
     public void Init(PlayerInventory owner, EscapeManager escape)
     {
@@ -18,10 +27,66 @@ public class ToolUser : MonoBehaviour
         manager = escape;
     }
 
+    private void Update()
+    {
+        if (inventory == null || PlayerInventory.Local != inventory) return;
+        ItemSO held = inventory.HeldItem;
+        bool canAim = held != null && held.IsTool && held.Tool.Kind == ToolKind.StunGun
+                      && !PlayerInput.IsGameplaySuppressed && GamePhaseState.Current != GamePhase.Paint;
+        Aiming = canAim && PlayerInput.CameraRotateHeld; // 우클릭(시점 회전 버튼)을 누르고 있는 동안
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            if (baseFov < 0f) baseFov = cam.fieldOfView;
+            zoom = Mathf.MoveTowards(zoom, Aiming ? AimZoom : 1f, AimZoomSpeed * Time.deltaTime);
+            cam.fieldOfView = baseFov * zoom;
+        }
+        if (Aiming && crosshair == null) crosshair = CreateCrosshair();
+        if (crosshair != null && crosshair.activeSelf != Aiming) crosshair.SetActive(Aiming);
+    }
+
+    private void OnDestroy()
+    {
+        if (crosshair != null) Destroy(crosshair);
+        Camera cam = Camera.main;
+        if (cam != null && baseFov > 0f) cam.fieldOfView = baseFov;
+        Aiming = false;
+    }
+
+    // 화면 가운데 조준점(작은 점 + 네 갈래 선). 조준하는 동안만 보인다.
+    private static GameObject CreateCrosshair()
+    {
+        var root = new GameObject("StunGunCrosshair", typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler));
+        var canvas = root.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 80;
+        var color = new Color(0.55f, 1f, 0.95f, 0.95f);
+        void Bar(Vector2 pos, Vector2 size)
+        {
+            var go = new GameObject("Bar", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            go.transform.SetParent(root.transform, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            var img = go.GetComponent<UnityEngine.UI.Image>();
+            img.color = color;
+            img.raycastTarget = false;
+        }
+        Bar(Vector2.zero, new Vector2(5f, 5f));
+        Bar(new Vector2(0f, 16f), new Vector2(3f, 12f));
+        Bar(new Vector2(0f, -16f), new Vector2(3f, 12f));
+        Bar(new Vector2(16f, 0f), new Vector2(12f, 3f));
+        Bar(new Vector2(-16f, 0f), new Vector2(12f, 3f));
+        root.SetActive(false);
+        return root;
+    }
+
     public void Use(int slot, ItemSO item)
     {
         if (Time.time < readyAt || item == null || !item.IsTool) return;
         ToolSO tool = item.Tool;
+        if (tool.Kind == ToolKind.StunGun && !Aiming) return; // 스턴건은 우클릭으로 조준한 상태에서만 쏜다
         readyAt = Time.time + tool.CooldownSeconds;
 
         Vector3 origin = transform.position + Vector3.up * 1.1f;
@@ -62,6 +127,13 @@ public class ToolUser : MonoBehaviour
                 float camOffset = cam != null ? Vector3.Distance(cam.transform.position, origin) : 0f;
                 point = Physics.Raycast(ray, out RaycastHit hit, tool.Range + camOffset, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
                     ? hit.point : ray.origin + ray.direction * (tool.Range + camOffset);
+                // 앞쪽 사거리(10 m) 안에서 땅에 떨어진다: 너무 멀면 당기고, 허공이면 그 아래 땅으로
+                Vector3 flat = point - origin;
+                flat.y = 0f;
+                if (flat.magnitude > tool.Range) point = new Vector3(origin.x, point.y, origin.z) + flat.normalized * tool.Range;
+                if (Physics.Raycast(point + Vector3.up * 2f, Vector3.down, out RaycastHit ground, 30f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
+                    && ground.point.y < point.y + 0.1f)
+                    point = ground.point;
                 CollectInSphere(point, tool.HitRadius, targets, 8);
                 break;
             }

@@ -12,13 +12,20 @@ public class EscMenu : MonoBehaviour
     [SerializeField] private Button exitButton;
     [SerializeField] private RoomExitController roomExit;
     [SerializeField] private GameObject confirmDialog;
+    [Header("Room settings (GameLobbyScene, host only)")]
+    [SerializeField] private Button settingsButton;
+    [SerializeField] private RoomSettingsMenu roomSettings; // 대기실에만 연결된다 — 없으면 설정 버튼을 숨긴다
+    [SerializeField] private RectTransform box;             // 버튼이 하나 늘면 상자를 키운다
+    [SerializeField, Min(0f)] private float settingsRowHeight = 70f;
+    private float baseBoxHeight = -1f;
 
     public static EscMenu Instance { get; private set; }
 
     // 메뉴나 나가기 확인창이 떠 있으면 true.
     public static bool IsOpen => Instance != null && Instance.Visible;
 
-    private bool Visible => (panel != null && panel.activeSelf) || (confirmDialog != null && confirmDialog.activeSelf);
+    private bool Visible => (panel != null && panel.activeSelf) || (confirmDialog != null && confirmDialog.activeSelf)
+                            || (roomSettings != null && roomSettings.IsOpen);
 
     private void Awake()
     {
@@ -26,6 +33,13 @@ public class EscMenu : MonoBehaviour
         if (panel != null) panel.SetActive(false);
         if (resumeButton != null) resumeButton.onClick.AddListener(Close);
         if (exitButton != null) exitButton.onClick.AddListener(OnExitClicked);
+        if (settingsButton != null) settingsButton.onClick.AddListener(OnSettingsClicked);
+        if (roomSettings != null)
+        {
+            roomSettings.gameObject.SetActive(false);
+            roomSettings.Closed += Open; // 설정 창에서 뒤로 → 메뉴
+        }
+        if (box != null) baseBoxHeight = box.sizeDelta.y;
     }
 
     private void OnDestroy()
@@ -49,12 +63,24 @@ public class EscMenu : MonoBehaviour
     public void Open()
     {
         if (panel != null) panel.SetActive(true);
+        // 방 설정은 대기실의 방장만(로비에서 정한 값을 다시 바꾼다)
+        bool canSet = roomSettings != null && Photon.Pun.PhotonNetwork.IsMasterClient;
+        if (settingsButton != null) settingsButton.gameObject.SetActive(canSet);
+        if (box != null && baseBoxHeight > 0f) box.sizeDelta = new Vector2(box.sizeDelta.x, baseBoxHeight + (canSet ? settingsRowHeight : 0f));
     }
 
     public void Close()
     {
         if (panel != null) panel.SetActive(false);
         if (confirmDialog != null) confirmDialog.SetActive(false);
+        if (roomSettings != null && roomSettings.IsOpen) roomSettings.gameObject.SetActive(false);
+    }
+
+    private void OnSettingsClicked()
+    {
+        if (roomSettings == null) return;
+        if (panel != null) panel.SetActive(false);
+        roomSettings.Open();
     }
 
     private void OnExitClicked()

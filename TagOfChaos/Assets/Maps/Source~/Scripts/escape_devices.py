@@ -199,9 +199,9 @@ def device_bakery():
         for x in (9.0, 11.0, 13.0):
             g.rbox('ME_Gray_Dark', (x, -12.2, 0.6), (1.2, 0.45, 1.5), bevel=0.12)
             g.rbox('ME_Teal', (x, -12.45, 0.65), (0.9, 0.1, 1.2), bevel=0.05)
-        g.tube([(14.8, -12.45, 2.4), (23.0, -12.45, 2.4)], 0.32, 'ME_Gray_Light', seg=12)
+        g.tube([(14.8, -12.45, 1.5), (23.0, -12.45, 1.5)], 0.32, 'ME_Gray_Light', seg=12)   # below the camera line
         for x in (16.0, 18.5, 21.0):
-            torus(g, 'ME_Orange_Warm', (x, -12.45, 2.4), 0.36, 0.1, seg=14, rot=(0, math.pi / 2, 0))
+            torus(g, 'ME_Orange_Warm', (x, -12.45, 1.5), 0.36, 0.1, seg=14, rot=(0, math.pi / 2, 0))
     mesh_obj(u, 'Body', body)
 
     def gear(R, teeth):
@@ -224,50 +224,347 @@ def device_bakery():
     empty(u, 'Mouth', (0, -10.4, 7.5))
     empty(u, 'Board', (0, OVEN_FRONT - 0.9, OVEN_LEDGE))
     slots = [(4.3, -12.75, 2.05), (6.6, -12.5, 1.4), (9.0, -12.55, 1.25), (11.0, -12.55, 1.25), (13.0, -12.55, 1.25),
-             (16.0, -12.85, 2.4), (18.5, -12.85, 2.4), (21.0, -12.85, 2.4)]
+             (16.0, -12.85, 1.5), (18.5, -12.85, 1.5), (21.0, -12.85, 1.5)]
     for i, p in enumerate(slots):
         empty(u, f'Slot_{i:02d}', p)
 
 
-def device_factory():    # chocolate train: wheels are the wheel slots
+# ---------------- ChocolateFactory: chocolate steam train that leaves the map (EscapeVisualPlan.md §5.4) ----------------
+# Travel direction = -Y (Unity +Z): EscapeMapSetup points it at the nearest map edge, like the roller coaster. Rails are
+# flat; the station rails have colliders (low enough to step over), the rails beyond are visual only. Platform on +X.
+# Slots (recipe order): macaron wheel x2 (front axle), cookie wheel x2 (rear axle), chocolate oil x2 (tanks on the
+# boiler), gear x2 (side gearboxes). Wheel/gear anchors are turned so the part's axle points sideways; Unity spins them.
+TRAIN_RAIL = 0.14
+TRAIN_LOCO_Y, TRAIN_COACH_Y = -2.6, 3.4
+
+
+def device_factory():
     u = 'ESC_ChocolateFactory'
 
     def body(g):
-        for y in (-0.75, 0.75):
-            g.rbox('ME_Rail', (0, y, 0.0), (6.0, 0.16, 0.12), bevel=0.03)
-        g.rbox('M_Chocolate_Dark', (0.4, 0, 0.55), (4.2, 1.4, 0.4), bevel=0.08)        # chassis
-        cyl(g, 'M_Chocolate_Milk', (-0.4, 0, 1.45), 0.75, 2.4, seg=24, rot=(0, math.pi / 2, 0))  # boiler
-        g.rbox('M_Chocolate_Milk', (1.6, 0, 0.95), (1.5, 1.5, 1.7), bevel=0.15)       # cab
-        g.rbox('M_Chocolate_Dark', (1.6, 0, 2.6), (1.8, 1.7, 0.18), bevel=0.06)
-        cyl(g, 'M_Chocolate_Dark', (-1.5, 0, 2.0), 0.28, 0.9, seg=16, r2=0.38)          # chimney
-        g.rbox('M_Gold', (-2.0, 0, 0.6), (0.3, 1.5, 0.5), bevel=0.06)                   # cow catcher
+        frustum(g, 'ME_Gray_Dark', 1.6, 4.6, -6.0, 7.0, 0.3, 0.9)                       # platform, ramped edges
+        for k in range(13):
+            g.rbox('ME_Cookie_Gold', (3.1, -5.5 + k, 0.3), (2.8, 0.08, 0.02), bevel=0.0)
+        for x in (-0.6, 0.6):                                                           # station rails (low)
+            g.rbox('ME_Gray_Light', (x, 0.0, 0.0), (0.16, 20.0, TRAIN_RAIL), bevel=0.03)
+        for k in range(14):
+            g.rbox('ME_Cookie_Dark', (0, 9.5 - k * 1.5, 0.0), (1.7, 0.3, 0.07), bevel=0.02)
+        for y in (-4.0, 5.5):                                                           # canopy posts (outer edge)
+            cyl(g, 'ME_Purple_Deep', (4.3, y, 0.3), 0.22, 4.0, seg=12)
+        g.rbox('ME_Teal', (3.1, 0.75, 4.2), (3.6, 11.5, 0.3), bevel=0.12)              # canopy roof (4.2 m up)
+        g.rbox('ME_Gold', (3.1, 0.75, 4.15), (3.7, 11.6, 0.08), bevel=0.03)
+        g.rbox('ME_Purple_Deep', (4.75, 0.75, 3.6), (0.15, 3.6, 0.6), bevel=0.05)     # station sign
+        for k in range(3):
+            star_prism(g, 'ME_Orange_Warm', (4.85, -0.45 + k * 1.2, 3.9), 0.22, 0.1, 0.08, rot=(0, 0, math.pi / 2))
     mesh_obj(u, 'Body', body)
-    # macaron x2 + cookie x2 (wheels), oil x2 (tanks on top), gear x2 (side gearbox)
-    slots = [(-1.2, -0.85, 0.45), (1.2, -0.85, 0.45), (-1.2, 0.85, 0.45), (1.2, 0.85, 0.45),
-             (-0.9, 0.0, 2.35), (0.1, 0.0, 2.35), (0.4, -0.85, 1.25), (0.4, 0.85, 1.25)]
-    for i, p in enumerate(slots):
-        empty(u, f'Slot_{i:02d}', p)
+
+    def track(g):    # rails from the station to the tunnel: 20 m, Unity stretches it to the tunnel distance
+        for x in (-0.6, 0.6):
+            g.rbox('ME_Gray_Light', (x, -10.0, 0.0), (0.16, 20.0, TRAIN_RAIL), bevel=0.03)
+        for k in range(14):
+            g.rbox('ME_Cookie_Dark', (0, -0.7 - k * 1.4, 0.0), (1.7, 0.3, 0.07), bevel=0.02)
+    mesh_obj(u, 'Track', track, loc=(0, -10.0, 0))
+
+    def tunnel(g):   # chocolate-rock tunnel the train disappears into (origin = mouth centre on the ground, runs to -Y)
+        for x in (-2.6, 2.6):                                                           # side walls
+            g.rbox('ME_Cookie_Dark', (x, -5.0, 0), (1.2, 10.0, 4.4), bevel=0.25)
+        g.rbox('ME_Cookie_Dark', (0, -5.0, 4.2), (6.4, 10.0, 1.4), bevel=0.4)           # roof
+        g.rbox('ME_Cookie_Dark', (0, -9.6, 0), (4.2, 0.8, 4.4), bevel=0.1)              # closed back
+        for x in (-1.98, 1.98):                                                         # dark lining inside
+            g.rbox('ME_Tunnel_Dark', (x, -5.0, 0), (0.04, 9.6, 4.2), bevel=0.0)
+        g.rbox('ME_Tunnel_Dark', (0, -5.0, 4.18), (3.96, 9.6, 0.04), bevel=0.0)
+        g.rbox('ME_Tunnel_Dark', (0, -9.18, 0), (3.96, 0.04, 4.2), bevel=0.0)
+        g.tube([(-2.4, 0.15, 0), (-2.4, 0.15, 3.6)] + [(2.4 * math.cos(math.pi - t * math.pi / 8), 0.15,
+               3.6 + 1.3 * math.sin(t * math.pi / 8)) for t in range(1, 8)] + [(2.4, 0.15, 3.6), (2.4, 0.15, 0)],
+               0.35, 'ME_Purple_Deep', seg=10)                                          # portal arch
+        g.blob('ME_Gold', (0, 0.3, 5.0), 0.45, sz=(1, 0.5, 1), seg=12)                  # keystone
+        for x in (-2.4, 2.4):
+            g.blob('ME_Glow_Orange', (x, 0.5, 3.0), 0.25, seg=10)                       # lanterns
+    mesh_obj(u, 'Tunnel', tunnel, loc=(0, -30.0, 0))
+
+    def loco(g):     # local: origin at rail top under the middle, front = -Y
+        g.rbox('ME_Gray_Dark', (0, 0, 0.12), (1.6, 5.4, 0.35), bevel=0.1)                  # chassis
+        cyl(g, 'ME_Cookie_Dark', (0, -3.0, 1.55), 0.95, 3.3, seg=24, rot=(-math.pi / 2, 0, 0))  # chocolate boiler
+        for y in (-2.6, -1.6, -0.6):
+            torus(g, 'ME_Gold', (0, y, 1.55), 0.97, 0.07, seg=24, rot=(math.pi / 2, 0, 0))
+        cyl(g, 'ME_Gray_Dark', (0, -3.0, 1.55), 0.85, 0.25, seg=24, rot=(math.pi / 2, 0, 0))   # smokebox face
+        g.blob('ME_Glow_Orange', (0, -3.28, 1.75), 0.32, sz=(1, 0.5, 1), seg=14)                # headlamp
+        cyl(g, 'ME_Gray_Dark', (0, -2.3, 2.3), 0.32, 1.1, seg=14, r2=0.55)                     # chimney
+        torus(g, 'ME_Gold', (0, -2.3, 3.4), 0.55, 0.08, seg=16)
+        g.blob('ME_Gold', (0, -1.1, 2.45), 0.42, sz=(1, 1, 0.9), seg=14)                       # steam dome
+        for x in (-0.5, 0.5):                                                                  # oil tank cradles
+            g.rbox('ME_Gray_Dark', (x, -0.05, 2.35), (0.6, 0.6, 0.18), bevel=0.05)
+        g.rbox('ME_Purple_Deep', (0, 1.55, 0.45), (1.9, 2.0, 2.3), bevel=0.2)                  # cab
+        g.rbox('ME_Teal', (0, 1.55, 2.75), (2.2, 2.3, 0.25), bevel=0.1)
+        for x in (-0.96, 0.96):
+            g.rbox('ME_Glow_Orange', (x, 1.55, 1.55), (0.05, 0.9, 0.7), bevel=0.02)               # lit cab windows
+        bm = g.bm                                                                              # cow catcher wedge
+        v = [bm.verts.new(p) for p in ((-0.8, -3.0, 0.05), (0.8, -3.0, 0.05), (0, -3.9, 0.05),
+                                       (-0.8, -3.0, 0.75), (0.8, -3.0, 0.75))]
+        mi = g.mi('ME_Gold')
+        for f in ((v[0], v[2], v[1]), (v[3], v[4], v[2]), (v[0], v[1], v[4], v[3]), (v[1], v[2], v[4]), (v[0], v[3], v[2])):
+            bm.faces.new(f).material_index = mi
+        for y in (-1.9, -0.2):                                                                 # wheel sockets (dark hubs)
+            for x in (-0.82, 0.82):
+                cyl(g, 'ME_Gray_Dark', (x, y, 0.32), 0.14, 0.1, seg=10, rot=(0, math.pi / 2 * (1 if x > 0 else -1), 0))
+    lo = mesh_obj(u, 'Loco', loco, loc=(0, TRAIN_LOCO_Y, TRAIN_RAIL))
+    turn = (0, 0, math.pi / 2)                                                                 # part axle -> sideways
+    for i, (x, y) in enumerate(((0.98, -1.9), (-0.98, -1.9), (0.98, -0.2), (-0.98, -0.2))):    # wheels
+        empty(u, f'Slot_{i:02d}', (x, y, 0.3), parent=lo, rot=turn)
+    for i, x in enumerate((0.5, -0.5)):                                                        # oil tanks
+        empty(u, f'Slot_{4 + i:02d}', (x, -0.05, 2.8), parent=lo)
+    for i, x in enumerate((1.05, -1.05)):                                                      # gearboxes
+        empty(u, f'Slot_{6 + i:02d}', (x, -1.05, 0.95), parent=lo, rot=turn)
+    empty(u, 'Smoke', (0, -2.3, 3.55), parent=lo)
+    mesh_obj(u, 'Whistle', lambda g: g.blob('ME_Glow_White', (0, 0, 0), 0.22, sz=(1, 1, 1.4), seg=12),
+             loc=(0, 0.75, 3.15), parent=lo)
+
+    def coach(g):    # open-window coach: walls are built around the windows so seated cookies show through
+        g.rbox('ME_Gray_Dark', (0, 0, 0.1), (1.7, 4.6, 0.4), bevel=0.1)                        # underframe
+        g.rbox('ME_Purple_Deep', (0, 0, 0.5), (2.0, 4.8, 0.7), bevel=0.12)                     # lower body + floor
+        for x in (-0.95, 0.95):
+            for y in (-2.25, -0.75, 0.75, 2.25):                                               # window pillars
+                g.rbox('ME_Purple_Deep', (x, y, 1.2), (0.12, 0.3, 0.75), bevel=0.04)
+        g.rbox('ME_Purple_Deep', (0, 0, 1.95), (2.0, 4.8, 0.45), bevel=0.1)                    # upper band
+        for y in (-2.38, 2.38):
+            g.rbox('ME_Purple_Deep', (0, y, 1.2), (2.0, 0.08, 0.75), bevel=0.02)               # end walls
+        g.rbox('ME_Cookie_Gold', (0, 0, 2.4), (2.25, 5.1, 0.3), bevel=0.14)                    # roof
+        g.rbox('ME_Orange_Warm', (0, 0, 1.12), (2.04, 4.84, 0.1), bevel=0.04)                  # stripe
+        for y in (-1.6, 1.6):
+            for x in (-0.82, 0.82):
+                cyl(g, 'ME_Gray_Light', (x, y, 0.3), 0.3, 0.14, seg=14, rot=(0, math.pi / 2 * (1 if x > 0 else -1), 0))
+        g.blob('ME_Gold', (0, -2.6, 0.45), 0.16, seg=8)                                        # coupling
+    co = mesh_obj(u, 'Coach', coach, loc=(0, TRAIN_COACH_Y, TRAIN_RAIL))
+    for k in range(6):                                                                         # seats seen through the windows
+        empty(u, f'Seat_{k:02d}', ((-0.45, 0.45)[k % 2], -1.5 + (k // 2) * 1.5, 0.85), parent=co)
+    empty(u, 'Board', (2.4, TRAIN_COACH_Y, 0.3))
 
 
-def device_gingerbread():    # rune altar in the ruins
+# ---------------- GingerbreadVillage: clock tower -> spiral ramp -> underground cookie ruins -> rune altar portal ----------------
+# (EscapeVisualPlan.md §5.5) Built in the clock tower's frame (origin = tower centre on the ground, door on -Y).
+# Unity places the root on GIN_Landmark_ClockTower after the map is compacted and cuts the ground under the tower.
+#   tower room: round (CornerFill), door threshold + small landing at z 0
+#   spiral ramp: r 0.6..5, -90 deg (door) -> 720 deg, 10 m down (pitch 4.4 m per turn, 1:4 on the walking line)
+#   tunnel east (+X) 5 m wide, 6.5 m high -> hall 40 x 40 m, floor -10, ceiling -1 (stays under the ground)
+GIN_DEPTH = 10.0
+GIN_R0, GIN_R1 = 0.6, 5.0
+GIN_T0, GIN_T1 = -90.0, 720.0
+GIN_HALL = (14.0, 54.0, -20.0, 20.0)       # x0, x1, y0, y1
+GIN_ALTAR = (34.0, 0.0)
+GIN_FLOOR_LIFT = 0.06                     # tower room floor above the ground plane
+
+
+def gin_z(t):
+    return -(t - GIN_T0) / (GIN_T1 - GIN_T0) * GIN_DEPTH
+
+
+def helix(g, mat, t0, t1, ztop, zbot, r0=GIN_R0, r1=GIN_R1, step=4.0):
+    """Ramp sector between angles t0..t1 (deg): top surface ztop(t), underside zbot(t)."""
+    bm = g.bm
+    n = max(1, int(math.ceil((t1 - t0) / step)))
+    rows = []
+    for k in range(n + 1):
+        t = t0 + (t1 - t0) * k / n
+        a = math.radians(t)
+        c, si = math.cos(a), math.sin(a)
+        rows.append([bm.verts.new((r * c, r * si, z)) for r, z in ((r0, ztop(t)), (r1, ztop(t)), (r1, zbot(t)), (r0, zbot(t)))])
+    mi = g.mi(mat)
+    for A, B in zip(rows[:-1], rows[1:]):
+        for i in range(4):
+            bm.faces.new((A[i], B[i], B[(i + 1) % 4], A[(i + 1) % 4])).material_index = mi
+    bm.faces.new(list(reversed(rows[0]))).material_index = mi
+    bm.faces.new(rows[-1]).material_index = mi
+
+
+def ring_wall(g, mat, t0, t1, z0, z1, r0, r1, step=6.0):
+    helix(g, mat, t0, t1, lambda t: z1, lambda t: z0, r0, r1, step)
+
+
+def slab(g, mat, x0, x1, y0, y1, z0, z1):
+    g.rbox(mat, ((x0 + x1) / 2, (y0 + y1) / 2, z0), (x1 - x0, y1 - y0, z1 - z0), bevel=0.0)
+
+
+def wedge_ring(g, mat, t0, t1, z0, z1, outer, step=5.0):
+    """Prisms from the r 5 circle out to outer(t) (distance along the ray) for t0..t1."""
+    bm = g.bm
+    mi = g.mi(mat)
+    t = t0
+    while t < t1 - 1e-6:
+        ta, tb = t, min(t1, t + step)
+        pts = []
+        for tt, r in ((ta, GIN_R1), (tb, GIN_R1), (tb, outer(tb)), (ta, outer(ta))):
+            a = math.radians(tt)
+            pts.append((r * math.cos(a), r * math.sin(a)))
+        if outer(ta) - GIN_R1 > 0.02 or outer(tb) - GIN_R1 > 0.02:
+            lo = [bm.verts.new((x, y, z0)) for x, y in pts]
+            hi = [bm.verts.new((x, y, z1)) for x, y in pts]
+            bm.faces.new(list(reversed(lo))).material_index = mi
+            bm.faces.new(hi).material_index = mi
+            for i in range(4):
+                bm.faces.new((lo[i], lo[(i + 1) % 4], hi[(i + 1) % 4], hi[i])).material_index = mi
+        t = tb
+
+
+def ruin_house(body, decor, cx, cy, w, d, h, rotz, rnd):
+    """Abandoned cookie house: solid tilted walls + sagging roof (colliders), boarded windows, cracks, fallen door."""
+    def at(x, y):
+        c, s_ = math.cos(rotz), math.sin(rotz)
+        return cx + x * c - y * s_, cy + x * s_ + y * c
+    body.rbox('ME_Cookie_Dark', (cx, cy, -GIN_DEPTH), (w, d, h), bevel=0.3, rot=(0.0, 0.04, rotz))
+    rx, ry = at(0.3, 0.2)
+    body.rbox('ME_Purple_Deep', (rx, ry, -GIN_DEPTH + h - 0.4), (w + 0.8, d + 0.6, 0.6), bevel=0.2, rot=(0.22, -0.12, rotz))
+    fx, fy = at(0, -d / 2 - 0.06)
+    for k, ox in enumerate((-w * 0.3, w * 0.3)):                                      # boarded windows
+        x, y = at(ox, -d / 2 - 0.06)
+        decor.rbox('ME_Tunnel_Dark', (x, y, -GIN_DEPTH + 1.5), (1.4, 0.1, 1.3), bevel=0.0, rotz=rotz)
+        for sgn in (1, -1):
+            decor.rbox('ME_Cookie_Gold', (x, y, -GIN_DEPTH + 1.55 + 0.25 * sgn), (1.7, 0.16, 0.22), bevel=0.04,
+                       rot=(0, sgn * 0.35, rotz))
+    decor.rbox('ME_Tunnel_Dark', (fx, fy, -GIN_DEPTH), (1.4, 0.1, 2.4), bevel=0.0, rotz=rotz)   # empty doorway
+    dx, dy = at(0.6, -d / 2 - 1.6)
+    decor.rbox('ME_Cookie_Gold', (dx, dy, -GIN_DEPTH), (1.3, 2.3, 0.12), bevel=0.04, rotz=rotz + 0.4)  # fallen door
+    for k in range(3):                                                                # cracks
+        x0 = rnd.uniform(-w / 2 + 0.6, w / 2 - 0.6)
+        pts = []
+        for j in range(5):
+            x, y = at(x0 + rnd.uniform(-0.3, 0.3), -d / 2 - 0.08)
+            pts.append((x, y, -GIN_DEPTH + h - 0.3 - j * h * 0.18))
+        decor.tube(pts, 0.06, 'ME_Tunnel_Dark', seg=5)
+    for k in range(4):                                                                # icing remnants
+        x, y = at(rnd.uniform(-w / 2, w / 2), -d / 2 - 0.1)
+        decor.blob('ME_Cream', (x, y, -GIN_DEPTH + h - 0.5), 0.22, sz=(1, 0.5, 1.6), seg=8)
+
+
+def cobweb(g, corner, dirx, diry, z, size):
+    cx, cy = corner
+    spokes = [(cx + dirx * size * math.cos(a), cy + diry * size * math.sin(a)) for a in [i * math.pi / 8 for i in range(5)]]
+    for x, y in spokes:
+        g.tube([(cx, cy, z), (x, y, z - size * 0.35)], 0.04, 'ME_Cream', seg=4)
+    for f in (0.35, 0.65, 0.95):
+        g.tube([(cx + (x - cx) * f, cy + (y - cy) * f, z - size * 0.35 * f) for x, y in spokes], 0.035, 'ME_Cream', seg=4, cap=False)
+
+
+def device_gingerbread():
     u = 'ESC_GingerbreadVillage'
+    hx0, hx1, hy0, hy1 = GIN_HALL
+    ax, ay = GIN_ALTAR
+    floor = -GIN_DEPTH
 
-    # sloped mound (walkable for the monster too) with a slim rune pillar; cracked edge stones give the ruin look
     def body(g):
-        rnd = random.Random(11)
-        g.lathe([(0, 0), (2.6, 0), (1.6, 0.45), (0, 0.45)], 'M_Cookie_Stone', seg=8,
-                radial=lambda a: 1 + 0.05 * math.sin(a * 5))
-        g.lathe([(0, 0.45), (0.65, 0.45), (0.5, 1.15), (0.7, 1.35), (0, 1.4)], 'M_Rock', seg=8)
-        for k in range(6):                                                               # flat rubble chips
-            a = rnd.uniform(0, 6.28)
-            g.rbox('M_Cookie_Stone', (math.cos(a) * 2.2, math.sin(a) * 2.2, 0.0), (0.5, 0.35, 0.1), bevel=0.03, rotz=a)
+        # ---- tower room + spiral ramp ----
+        sq = lambda t: GIN_R1 / max(abs(math.cos(math.radians(t))), abs(math.sin(math.radians(t))))
+        wedge_ring(g, 'ME_Cookie_Dark', -58.7, 238.7, -0.6, 9.6, sq)                          # round room
+        # door threshold + landing sit 6 cm above the ground so they never share a plane with the terrain (z-fighting)
+        wedge_ring(g, 'ME_Cookie_Gold', -121.3, -58.7, -0.3, GIN_FLOOR_LIFT,
+                   lambda t: 6.4 / max(0.2, abs(math.sin(math.radians(t)))))                    # door threshold
+        helix(g, 'ME_Cookie_Gold', -115.0, GIN_T0, lambda t: GIN_FLOOR_LIFT, lambda t: -0.3)    # landing
+        helix(g, 'ME_Cookie_Gold', GIN_T0, 360.0, gin_z, lambda t: gin_z(t) - 0.3)             # upper turn (thin)
+        helix(g, 'ME_Cookie_Gold', 360.0, GIN_T1, gin_z, lambda t: floor - 0.3)                # lower turn (solid)
+        helix(g, 'ME_Cookie_Gold', GIN_T1, GIN_T1 + 30, lambda t: floor, lambda t: floor - 0.3)  # bottom landing
+        cyl(g, 'ME_Cookie_Gold', (0, 0, floor - 0.3), GIN_R0, GIN_DEPTH + 9.9, seg=16)            # centre column
+        ring_wall(g, 'ME_Gray_Dark', 31.3, 328.7, floor - 0.3, 0.0, GIN_R1, GIN_R1 + 0.6)        # shaft wall
+        ring_wall(g, 'ME_Gray_Dark', -31.3, 31.3, -3.5, 0.0, GIN_R1, GIN_R1 + 0.6)               # over the tunnel
+        g.lathe([(0, floor - 0.3), (GIN_R1 + 0.6, floor - 0.3), (GIN_R1 + 0.6, floor - 0.25), (0, floor - 0.25)],
+                'ME_Gray_Dark', seg=32)                                                            # shaft floor
+        # ---- tunnel ----
+        slab(g, 'ME_Gray_Dark', 4.0, hx0 + 0.5, -2.6, 2.6, floor - 0.3, floor)
+        for y0, y1 in ((-3.2, -2.6), (2.6, 3.2)):
+            slab(g, 'ME_Gray_Dark', 4.8, hx0, y0, y1, floor, -3.5)
+        slab(g, 'ME_Gray_Dark', 4.8, hx0, -3.2, 3.2, -3.5, -3.0)
+        # ---- hall ----
+        slab(g, 'ME_Cookie_Dark', hx0, hx1, hy0, hy1, floor - 0.3, floor)
+        slab(g, 'ME_Gray_Dark', hx0 - 0.6, hx0, hy0 - 0.6, -2.6, floor, -1.0)
+        slab(g, 'ME_Gray_Dark', hx0 - 0.6, hx0, 2.6, hy1 + 0.6, floor, -1.0)
+        slab(g, 'ME_Gray_Dark', hx0 - 0.6, hx0, -2.6, 2.6, -3.5, -1.0)
+        slab(g, 'ME_Gray_Dark', hx1, hx1 + 0.6, hy0 - 0.6, hy1 + 0.6, floor, -1.0)
+        for y0, y1 in ((hy0 - 0.6, hy0), (hy1, hy1 + 0.6)):
+            slab(g, 'ME_Gray_Dark', hx0, hx1, y0, y1, floor, -1.0)
+        slab(g, 'ME_Gray_Dark', hx0 - 0.6, hx1 + 0.6, hy0 - 0.6, hy1 + 0.6, -1.0, -0.55)
+        # cracked cookie columns (one broken)
+        for k, (x, y) in enumerate(((24, -8), (24, 8), (44, -8), (44, 8))):
+            cyl(g, 'ME_Gray_Light', (x, y, floor), 0.9, 3.2 if k == 3 else 9.0, seg=14)
+        # rune altar: walkable mound (1:3) with a stout rune pillar
+        g.lathe([(0, floor), (5.5, floor), (2.6, floor + 0.95), (0, floor + 0.95)], 'ME_Gray_Light', seg=32,
+                loc=(ax, ay, 0))
+        g.lathe([(0, floor + 0.95), (0.6, floor + 0.95), (0.45, floor + 2.3), (0.65, floor + 2.5), (0, floor + 2.6)],
+                'ME_Purple_Deep', seg=16, loc=(ax, ay, 0))
+        # ruined houses in the corners and on the east wall (front towards the altar)
+        rnd = random.Random(12)
+        for cx, cy, w, d, h, rz in ((hx0 + 4, hy0 + 3, 8, 6, 4.6, 0.0), (hx0 + 4, hy1 - 3, 8, 6, 5.2, math.pi),
+                                    (hx1 - 4, hy0 + 3, 8, 6, 4.2, 0.0), (hx1 - 4, hy1 - 3, 8, 6, 5.0, math.pi),
+                                    (hx1 - 3, 0.0, 8, 6, 4.8, -math.pi / 2)):
+            ruin_house(g, DECOR, cx, cy, w, d, h, rz, rnd)
+    DECOR = G()
     mesh_obj(u, 'Body', body)
 
-    def glow(g):
-        torus(g, 'ME_Altar_Glow', (0, 0, 1.45), 0.8, 0.08)
-        g.lathe([(0.5, 1.4), (0.6, 4.5), (0.0, 5.2)], 'ME_Altar_Glow', seg=16, cap=False)
-    mesh_obj(u, 'ESC_Glow', glow)
-    empty(u, 'Slot_00', (0, 0, 1.5))
+    def decor(g):
+        # the shared decor kit collected by ruin_house, plus rubble, furniture, webs, wall runes, lantern posts
+        g.bm = DECOR.bm
+        g.mats = DECOR.mats
+        rnd = random.Random(5)
+        for k in range(26):                                                               # flat rubble chips
+            x, y = rnd.uniform(hx0 + 2, hx1 - 2), rnd.uniform(hy0 + 2, hy1 - 2)
+            if math.hypot(x - ax, y - ay) < 6.5:
+                continue
+            g.rbox(rnd.choice(('ME_Cookie_Dark', 'ME_Gray_Dark', 'ME_Cookie_Gold')), (x, y, floor),
+                   (rnd.uniform(0.5, 1.4), rnd.uniform(0.4, 1.0), rnd.uniform(0.08, 0.2)), bevel=0.05, rotz=rnd.uniform(0, 6.3))
+        for x, y in ((44.6, -8.6), (45.4, -7.2), (43.0, -9.4)):                            # broken column pieces
+            g.rbox('ME_Gray_Light', (x, y, floor), (1.2, 0.8, 0.35), bevel=0.15, rotz=rnd.uniform(0, 6.3))
+        for k, (x, y) in enumerate(((24, -8), (24, 8), (44, 8))):                          # column cracks
+            g.tube([(x + 0.92 * math.cos(1.2 * k), y + 0.92 * math.sin(1.2 * k), floor + z) for z in (1.0, 2.5, 4.0, 5.5)],
+                   0.07, 'ME_Tunnel_Dark', seg=5)
+        # tipped table + broken chair
+        g.rbox('ME_Cookie_Gold', (28, -15, floor + 0.1), (1.8, 1.0, 0.12), bevel=0.04, rot=(0.0, 1.2, 0.4))
+        g.rbox('ME_Cookie_Gold', (29.2, -14.2, floor), (0.5, 0.5, 0.1), bevel=0.03, rotz=0.8)
+        g.tube([(29.0, -13.6, floor + 0.05), (29.8, -13.0, floor + 0.05)], 0.06, 'ME_Cookie_Dark', seg=5)
+        # cobwebs in the hall corners and over the tunnel mouth
+        for cx, cy, dx, dy in ((hx0, hy0, 1, 1), (hx0, hy1, 1, -1), (hx1, hy0, -1, 1), (hx1, hy1, -1, -1)):
+            cobweb(g, (cx, cy), dx, dy, -1.1, 2.6)
+        cobweb(g, (hx0 + 0.1, 2.6), 1, -1, -3.6, 1.6)
+        for x, y, rz in ((hx0 + 0.05, 9.0, math.pi / 2), (hx0 + 0.05, -9.0, math.pi / 2), (hx1 - 0.05, 9.0, -math.pi / 2),
+                         (34.0, hy1 - 0.05, math.pi), (24.0, hy0 + 0.05, 0.0)):                     # faint wall runes
+            star_prism(g, 'ME_Glow_Purple', (x, y, -4.5), 0.5, 0.2, 0.06, points=4, rot=(0, 0, rz))
+        for x, y in LANTERNS:                                                               # lantern posts
+            cyl(g, 'ME_Gray_Dark', (x, y, floor), 0.09, 2.6, seg=8)
+            g.rbox('ME_Gray_Dark', (x, y, floor + 2.55), (0.45, 0.45, 0.1), bevel=0.03)
+            g.blob('ME_Glow_Orange', (x, y, floor + 2.9), 0.2, sz=(1, 1, 1.3), seg=10)
+            g.lathe([(0.3, 0), (0.05, 0.3), (0, 0.32)], 'ME_Gray_Dark', seg=4, loc=(x, y, floor + 3.1))
+        for k in range(5):                                                                  # bands on the shaft column
+            torus(g, 'ME_Purple_Deep', (0, 0, -9.0 + k * 3.8), GIN_R0 + 0.02, 0.09, seg=16)
+    LANTERNS = [(hx0 + 2.5, -4.5), (hx0 + 2.5, 4.5), (26.0, 0.0), (42.0, 0.0), (34.0, -15.0), (34.0, 15.0), (9.0, -2.0)]
+    mesh_obj(u, 'Decor', decor)
+    for i, (x, y) in enumerate(LANTERNS):
+        empty(u, f'Lantern_{i:02d}', (x, y, floor + 2.9))
+    empty(u, f'Lantern_{len(LANTERNS):02d}', (2.6, 0.0, -3.0))                              # in the shaft
+
+    def altar_glow(g):    # recolored to cycling rainbow by Unity once all runes are in
+        torus(g, 'ME_Glow_Purple', (ax, ay, floor + 0.97), 2.5, 0.09, seg=32)
+        torus(g, 'ME_Glow_Purple', (ax, ay, floor + 2.55), 0.62, 0.08, seg=16)
+        for k in range(4):
+            a = k * math.pi / 2 + math.pi / 4
+            g.tube([(ax + 0.62 * math.cos(a), ay + 0.62 * math.sin(a), floor + 1.0),
+                    (ax + 0.5 * math.cos(a), ay + 0.5 * math.sin(a), floor + 2.3)], 0.06, 'ME_Glow_Purple', seg=5)
+    mesh_obj(u, 'Altar_Glow', altar_glow)
+
+    pz = floor + 5.6                                                                        # portal above the pillar, facing -X
+    mesh_obj(u, 'Portal_Ring', lambda g: torus(g, 'ME_Glow_White', (0, 0, 0), 2.6, 0.24, seg=40, rot=(0, math.pi / 2, 0)),
+             loc=(ax, ay, pz))
+
+    def swirl(g):
+        g.lathe([(0, -0.03), (2.45, -0.03), (2.45, 0.03), (0, 0.03)], 'ME_Glow_Purple', seg=40, rot=(0, math.pi / 2, 0))
+        for k in range(4):                                                                   # spiral arms
+            a0 = k * math.pi / 2
+            g.tube([(-0.06, 2.3 * (i / 12) * math.cos(a0 + i * 0.35), 2.3 * (i / 12) * math.sin(a0 + i * 0.35))
+                    for i in range(13)], 0.1, 'ME_Glow_White', seg=5)
+    mesh_obj(u, 'Portal_Swirl', swirl, loc=(ax, ay, pz))
+    for i, (yy, zz) in enumerate([(0, 0)] + [(1.4 * math.cos(k * math.pi / 3), 1.4 * math.sin(k * math.pi / 3)) for k in range(6)]):
+        empty(u, f'Float_{i:02d}', (ax - 0.4, ay + yy, pz + zz - 0.6))
+    for i in range(8):                                                                      # rune sockets round the pillar
+        t = 2 * math.pi * i / 8
+        empty(u, f'Slot_{i:02d}', (ax + 1.05 * math.cos(t), ay + 1.05 * math.sin(t), floor + 1.75),
+              rot=(0, 0, t + math.pi / 2))
+    empty(u, 'Board', (ax - 3.2, ay, floor + 0.95))
+    empty(u, 'Mouth', (ax, ay, pz))
 
 
 # ---------------- CandyForest: giant cake that breaks open into a candy rocket (EscapeVisualPlan.md §5.1) ----------------

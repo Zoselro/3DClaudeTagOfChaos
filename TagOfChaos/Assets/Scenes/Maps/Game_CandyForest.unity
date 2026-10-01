@@ -6982,7 +6982,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &351716773
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -17101,6 +17101,10 @@ PrefabInstance:
       propertyPath: m_AnchorMin.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1381786078901452463, guid: 036873d64572a75459a7013d48a9507b, type: 3}
+      propertyPath: m_AdditionalShaderChannelsFlag
+      value: 25
+      objectReference: {fileID: 0}
     - target: {fileID: 1468823973348009942, guid: 036873d64572a75459a7013d48a9507b, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -17239,7 +17243,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7069671766014662854, guid: 036873d64572a75459a7013d48a9507b, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0.000015258789
+      value: -189.99998
       objectReference: {fileID: 0}
     - target: {fileID: 8451625545258373567, guid: 036873d64572a75459a7013d48a9507b, type: 3}
       propertyPath: m_LocalPosition.x

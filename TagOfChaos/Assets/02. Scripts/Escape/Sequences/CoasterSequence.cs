@@ -30,6 +30,7 @@ public class CoasterSequence : EscapeSequence
 
     public override float BoardReadySeconds => StartupSeconds + 0.2f;
     public override float DepartureSeconds => 7f;
+    public override Transform DepartureFocus => cars.Count > 0 ? cars[0] : BoardPoint;
 
     private void Awake()
     {

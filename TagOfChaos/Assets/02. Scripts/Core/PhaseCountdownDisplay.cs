@@ -32,6 +32,8 @@ public class PhaseCountdownDisplay : MonoBehaviour
 
     private void Update()
     {
+        if (GamePhaseState.Current == GamePhase.Result) { SetVisible(false); return; } // 결과 화면 뒤로 남은 시간이 비치지 않게
+
         // 타임어택 중에는 방의 제한시간이 멈춘다(EscapePlan.md D15) — 스파이가 떠난 순간의 남은 시간을 그대로 보여준다.
         if (phase == CountdownPhase.Survival && GamePhaseState.Current == GamePhase.TimeAttack
             && RoomState.TryGetDouble(NetKeys.GameEndTime, out double frozenEnd) && RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double escapedAt))

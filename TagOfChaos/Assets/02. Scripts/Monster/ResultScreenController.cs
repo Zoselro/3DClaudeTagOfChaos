@@ -83,8 +83,7 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         }
 
         CanvasGroupVisibility.Set(rootGroup, true);
-        if (monsterWinBanner != null) monsterWinBanner.SetActive(result == GameResult.MonsterWins);
-        if (cookieWinBanner != null) cookieWinBanner.SetActive(result == GameResult.CookiesWin);
+        HideWinBanners();
 
         RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters);
         int aliveCount = 0;
@@ -151,8 +150,7 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         }
 
         bool monsterWins = escapedCookies == 0 && totalCatches > 0;
-        if (monsterWinBanner != null) monsterWinBanner.SetActive(monsterWins);
-        if (cookieWinBanner != null) cookieWinBanner.SetActive(!monsterWins && escapedCookies > 0);
+        HideWinBanners();
         if (monsterWins) MonsterJarTrophy.Build(root.transform, jarEntries); // 괴물이 쿠키 유리병을 들고 선다(추천안)
         if (remainingCountText != null) remainingCountText.text = $"{escapedCookies} / {cookieCount}";
         StartCoroutine(AutoReturnCountdown());
@@ -184,5 +182,12 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         StopAllCoroutines();
         if (PhotonNetwork.IsMasterClient)
             RoomSceneTransition.LoadLevelForRoom(SceneNames.GameLobby); // 방 재개방은 대기실의 RoundStateResetter가 한다(§26.3)
+    }
+
+    // "괴물 승!"·"쿠키 승!" 제목은 보여 주지 않는다(사용자 요청). 결과는 목록·유리병·쿠키 수로 알 수 있다.
+    private void HideWinBanners()
+    {
+        if (monsterWinBanner != null) monsterWinBanner.SetActive(false);
+        if (cookieWinBanner != null) cookieWinBanner.SetActive(false);
     }
 }

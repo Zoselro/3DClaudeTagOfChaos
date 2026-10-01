@@ -32,6 +32,7 @@ public class OvenSequence : EscapeSequence
 
     public override float BoardReadySeconds => WarmupSeconds + DoorSeconds + 0.2f;
     public override float DepartureSeconds => FlashAt + FlashSeconds + 0.6f;
+    public override Transform DepartureFocus => mouth != null ? mouth : BoardPoint;
 
     private void Awake()
     {

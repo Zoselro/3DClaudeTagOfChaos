@@ -5,6 +5,7 @@ using UnityEngine.UI;
 
 // 괴물 승리 결과 화면의 쿠키 유리병 트로피(EscapePlan.md §1.3 추천안). 괴물마다 유리병 하나를 그리고, 잡은 쿠키 수만큼 병 안에
 // 쿠키가 들어 있다. 괴물이 둘 이상이면 가장 많이 잡은 괴물이 가운데에 서고 왕관(MVP)이 붙는다. 프리팹 없이 코드로 만든다.
+// 유리병은 3D 모델을 전용 카메라로 찍어 보여 준다(MonsterJarStage, EscapeVisualPlan.md §3.3). 모델이 없으면 2D로 그린다.
 public static class MonsterJarTrophy
 {
     public struct Entry
@@ -53,21 +54,32 @@ public static class MonsterJarTrophy
     private static void BuildJar(RectTransform root, Entry entry, float x, bool isMvp)
     {
         RectTransform jar = Rect("Jar_" + entry.Name, root, new Vector2(x, -40f), new Vector2(JarWidth, JarHeight));
-        Img(jar, new Color(0.75f, 0.9f, 1f, 0.25f));                                          // 유리
-        Img(Rect("Lid", jar, new Vector2(0f, JarHeight / 2f + 10f), new Vector2(JarWidth * 0.8f, 20f)), new Color(0.5f, 0.35f, 0.2f));
-
-        // 잡힌 쿠키: 병 안에 줄지어 쌓인다(최대 12개까지 그린다).
-        int count = Mathf.Min(entry.Catches, 12);
-        for (int i = 0; i < count; i++)
+        bool model = MonsterJarStage.Available;
+        if (model)
         {
-            int col = i % 3, row = i / 3;
-            var cookie = Rect("Cookie" + i, jar, new Vector2(-40f + col * 40f, -JarHeight / 2f + 28f + row * 38f), new Vector2(34f, 34f));
-            Img(cookie, new Color(0.78f, 0.55f, 0.3f));
+            RectTransform view = Rect("Jar3D", jar, Vector2.zero, new Vector2(JarWidth * 1.3f, JarHeight * 1.3f));
+            view.gameObject.AddComponent<RawImage>();
+            view.gameObject.AddComponent<MonsterJarStage>().Init(entry.Catches, view.sizeDelta);
+        }
+        else
+        {
+            Img(jar, new Color(0.75f, 0.9f, 1f, 0.25f));                                      // 유리
+            Img(Rect("Lid", jar, new Vector2(0f, JarHeight / 2f + 10f), new Vector2(JarWidth * 0.8f, 20f)), new Color(0.5f, 0.35f, 0.2f));
+
+            // 잡힌 쿠키: 병 안에 줄지어 쌓인다(최대 12개까지 그린다).
+            int count = Mathf.Min(entry.Catches, 12);
+            for (int i = 0; i < count; i++)
+            {
+                int col = i % 3, row = i / 3;
+                var cookie = Rect("Cookie" + i, jar, new Vector2(-40f + col * 40f, -JarHeight / 2f + 28f + row * 38f), new Vector2(34f, 34f));
+                Img(cookie, new Color(0.78f, 0.55f, 0.3f));
+            }
         }
 
         TMP_Text name = Text(jar, entry.Name, new Vector2(0f, -JarHeight / 2f - 26f), 24f);
         name.color = Color.white;
-        TMP_Text count2 = Text(jar, "x" + entry.Catches, new Vector2(0f, 0f), 40f);
+        // 3D 병은 쿠키가 보이도록 숫자를 오른쪽 위에 둔다
+        TMP_Text count2 = Text(jar, "x" + entry.Catches, model ? new Vector2(JarWidth / 2f, JarHeight / 2f - 10f) : Vector2.zero, model ? 34f : 40f);
         count2.color = new Color(1f, 1f, 1f, 0.9f);
         if (isMvp)
         {

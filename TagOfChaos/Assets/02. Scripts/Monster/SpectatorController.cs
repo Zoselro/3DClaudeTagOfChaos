@@ -56,6 +56,24 @@ public class SpectatorController : MonoBehaviourPunCallbacks
     {
         if (!pv.IsMine || !isSpectating || camCtrl == null) return;
 
+        // 탈것에 탄 쿠키는 기다리는 동안·출발하는 동안 자기가 탄 탈것을 본다(EscapeVisualPlan.md §4.3)
+        Transform vehicle = VehicleFocus();
+        if (vehicle != null)
+        {
+            if (camCtrl.FollowTarget != vehicle.gameObject)
+            {
+                currentTarget = null;
+                camCtrl.SetFollowTarget(vehicle.gameObject, VehicleTargetHeight, VehicleCameraDistance, keepRotation: true);
+                SpectateTargetChanged?.Invoke(null);
+            }
+            return;
+        }
+        if (currentTarget == null && camCtrl.FollowTarget != null && Time.unscaledTime >= nextEmptyRetryTime)
+        {
+            SwitchToNext(); // 탈것을 보다가 끝났으면 다시 다른 쿠키를 본다
+            nextEmptyRetryTime = Time.unscaledTime + EmptyRetryInterval;
+        }
+
         if (PlayerInput.SpectateNextPressed)
         {
             SwitchToNext(); // 수동 전환(키는 InputBindings)
@@ -65,6 +83,26 @@ public class SpectatorController : MonoBehaviourPunCallbacks
             SwitchToNext(); // 보던 대상이 파괴·퇴장했으면 자동 전환(대상이 없으면 0.5초마다 재시도)
             if (currentTarget == null) nextEmptyRetryTime = Time.unscaledTime + EmptyRetryInterval;
         }
+    }
+
+    private const float VehicleTargetHeight = 2f;
+    private const float VehicleCameraDistance = 13f;
+
+    // 로컬 쿠키가 탈것에 타서 기다리는 중이거나 그 탈것이 출발하는 중이면 따라 볼 곳, 아니면 null.
+    // 스파이 로켓에 탄 스파이는 로켓이 날아오르는 동안 로켓을 본다.
+    private static Transform VehicleFocus()
+    {
+        EscapeManager manager = EscapeManager.Instance;
+        if (manager == null || manager.State == null || PhotonNetwork.LocalPlayer == null) return null;
+        int actor = PhotonNetwork.LocalPlayer.ActorNumber;
+        if (manager.Rocket != null && manager.State.Boarded.Contains(actor)
+            && RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double launchedAt)
+            && PhotonNetwork.Time < launchedAt + EscapeManager.RocketLaunchShowSeconds + 1f)
+            return manager.Rocket.transform;
+        if (manager.Sequence == null || !manager.State.Waiting.Contains(actor)) return null;
+        bool departed = manager.State.DepartedAt > 0;
+        if (departed && !manager.IsDeparting(PhotonNetwork.Time)) return null;
+        return manager.Sequence.DepartureFocus;
     }
 
     private void OnDestroy()

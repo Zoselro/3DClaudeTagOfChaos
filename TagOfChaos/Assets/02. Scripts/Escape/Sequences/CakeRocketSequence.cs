@@ -27,6 +27,7 @@ public class CakeRocketSequence : EscapeSequence
 
     public override float BoardReadySeconds => RocketRiseStart + RocketRiseSeconds + 0.3f;
     public override float DepartureSeconds => 7f;
+    public override Transform DepartureFocus => rocket != null ? rocket : BoardPoint;
 
     private void Awake()
     {

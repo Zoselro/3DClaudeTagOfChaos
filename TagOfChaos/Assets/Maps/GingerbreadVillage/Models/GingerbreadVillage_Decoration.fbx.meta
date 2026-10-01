@@ -52,21 +52,6 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
-      name: M_Cookie_Stone
-    second: {fileID: 2100000, guid: 2635a255f16dcdf46aea7018a2370295, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: M_Cookie_Wall
-    second: {fileID: 2100000, guid: 34db771dc111929429ead6f8393e0efc, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: M_Gingerbread_Dark
-    second: {fileID: 2100000, guid: 3190e78b1f1631848bd1a1f87fb9600d, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
       name: M_Glow_Cyan
     second: {fileID: 2100000, guid: 5090b858a01243afa359b41f81ae29e3, type: 2}
   - first:
@@ -104,11 +89,6 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: M_Sugar_White
     second: {fileID: 2100000, guid: 1b8907c0bb4c4ceb8a973f294d833b39, type: 2}
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: M_Waffle
-    second: {fileID: 2100000, guid: caf8f457ffed4990af6252f7ba17f0be, type: 2}
   materials:
     materialImportMode: 1
     materialName: 0

@@ -65,7 +65,8 @@ public class LobbyController : MonoBehaviourPunCallbacks
         userIdInput.text = "Player" + Random.Range(1000, 10000); // 기본값, 직접 수정 가능
 
         // 지역을 고르지 않고 접속하면 PC마다 핑이 좋은 지역에 따로 붙어 서로의 방이 보이지 않는다(문제 2). 늘 고른 지역으로 접속한다.
-        string region = CurrentRegion ?? PhotonRegions.Saved;
+        // 지역 선택 UI가 없으면(지금 기본 구성) 모두 기본 지역(한국)에서 만난다 — 각자 다른 지역에 붙으면 방이 안 보인다.
+        string region = viewRegion != null ? CurrentRegion ?? PhotonRegions.Saved : PhotonRegions.Default;
         if (viewRegion != null)
         {
             viewRegion.SetCode(region);

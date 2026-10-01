@@ -35,11 +35,18 @@ public class PlayerGrabController : MonoBehaviour
         // 들고 있던 쿠키가 파괴됐거나 방을 나가 사라졌으면 캐리 상태를 정리한다.
         if (HasCarryReference && (!carriedPlayer || RoomState.IsBroken(carriedPlayer.View.Owner)))
             Release();
+        // 탈것에 타거나 탈출하면(몸이 숨겨진다) 들고 있던 쿠키를 그 자리에 내려놓는다 — 들린 채로 남아 아무것도 못 하게 되지 않게
+        if (HasCarryReference && pv.Owner != null && EscapeManager.HasLeftMap(pv.Owner.ActorNumber))
+            Release();
 
         if (!PlayerInput.GrabPressed) return;
         if (self != null && (self.IsBroken || self.IsMovementLocked)) return; // 파괴·들림 중에는 그랩 불가(채팅 중에는 GrabPressed가 억제된다)
 
-        if (carriedPlayer == null) TryGrab();
+        if (carriedPlayer == null)
+        {
+            if (PlayerInventory.Local != null && PlayerInventory.Local.HeldItem != null) return; // 물건을 든 손으로는 쿠키를 들 수 없다
+            TryGrab();
+        }
         else Release();
     }
 

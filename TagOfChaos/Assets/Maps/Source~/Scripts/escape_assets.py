@@ -37,6 +37,7 @@ PAL.update({
     'ME_Glow_Purple': ((0.78, 0.45, 1.0), 2.0), 'ME_Glow_White': ((1.0, 0.97, 0.88), 3.0),
     'ME_Glass': ((0.75, 0.90, 1.0), 0),          # Unity makes every *Glass* material transparent
     'ME_Red_Button': ((0.92, 0.12, 0.16), 0.5), 'ME_Pink': ((1.0, 0.55, 0.72), 0),
+    'ME_Tunnel_Dark': ((0.03, 0.02, 0.03), 0),
     # --- per-item colours ---
     'ME_Oil_Choco': ((0.26, 0.12, 0.05), 0), 'ME_Macaron_Pink': ((1.0, 0.62, 0.76), 0),
     'ME_Rune_Red': ((1.0, 0.15, 0.20), 1), 'ME_Rune_Pink': ((1.0, 0.35, 0.80), 1),
