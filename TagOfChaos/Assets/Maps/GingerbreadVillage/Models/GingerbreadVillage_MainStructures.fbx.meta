@@ -8,42 +8,42 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Candy_Purple
-    second: {fileID: 2100000, guid: fc5dbd96b9f84155a0df7e37224b9f0f, type: 2}
+    second: {fileID: 2100000, guid: a711e6c626ec4a2448558f71e0e0d46b, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Candy_Red
-    second: {fileID: 2100000, guid: 8773a87ae7d84e919f5f632a65a81617, type: 2}
+    second: {fileID: 2100000, guid: 6cfeebec343f17444ac90ab491418922, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Candy_White
-    second: {fileID: 2100000, guid: f327fd784f464b3db51c85c3051b1be0, type: 2}
+    second: {fileID: 2100000, guid: 9dca39b92c6533b42a2b93967883bb14, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Chocolate_Dark
-    second: {fileID: 2100000, guid: bfded46a8f0346a7be221d235dd25f59, type: 2}
+    second: {fileID: 2100000, guid: 4c17bbb25354f40438ec8f397e699bfe, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Chocolate_Milk
-    second: {fileID: 2100000, guid: 66885707d67147bdbfbbd94cef552d63, type: 2}
+    second: {fileID: 2100000, guid: 2a52f43d3f13c214c8d4577fa3b3c2af, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Cookie_Stone
-    second: {fileID: 2100000, guid: 7c745141b46746c98cb71a5bdd653a46, type: 2}
+    second: {fileID: 2100000, guid: 2635a255f16dcdf46aea7018a2370295, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Cookie_Wall
-    second: {fileID: 2100000, guid: 4883cbcae42c4766b3ecaadd1e1b815e, type: 2}
+    second: {fileID: 2100000, guid: 34db771dc111929429ead6f8393e0efc, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Gingerbread_Dark
-    second: {fileID: 2100000, guid: 35957a41320b496eaf78fc97d8a5a615, type: 2}
+    second: {fileID: 2100000, guid: 3190e78b1f1631848bd1a1f87fb9600d, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
@@ -93,7 +93,12 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: M_Wood_Dark
-    second: {fileID: 2100000, guid: a0225fa080ae41d39c0cf783ab0d03e5, type: 2}
+    second: {fileID: 2100000, guid: 1baff0a568bfc1648a964a712c23cb1a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: M_Wood_Light
+    second: {fileID: 2100000, guid: 99ba8de9151f48a382a8bd5768526a59, type: 2}
   materials:
     materialImportMode: 1
     materialName: 0

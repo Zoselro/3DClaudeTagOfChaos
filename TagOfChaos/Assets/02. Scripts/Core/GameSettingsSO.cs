@@ -1,5 +1,12 @@
 using UnityEngine;
 
+// 괴물 시점(GameFixPlan.md F6). 테스트를 위해 두 방식 모두 남긴다.
+public enum MonsterViewMode
+{
+    FirstPerson,
+    ThirdPerson,
+}
+
 // 게임 규칙 수치를 한 곳에 모은 전역 설정(CLAUDE.md 폴더 규칙: 전역 SO → Assets/Resources/GameSettings).
 // 인원·괴물 수·시간·색 슬롯 수가 여러 클래스에 상수로 흩어져 있어(4명, 60초, 600초, 30초, 슬롯 4개 …)
 // 인원을 늘리려면 코드를 여러 곳 고쳐야 했다. 이제 이 에셋의 값만 바꾸면 된다(Bug-fix-plan.md §27).
@@ -7,8 +14,22 @@ using UnityEngine;
 public class GameSettingsSO : ScriptableObject
 {
     [Header("Room")]
-    [Tooltip("방 최대 인원. 방을 만들 때 RoomOptions.MaxPlayers로 쓰이며, 시작 조건은 '정원이 모두 찼을 때'다.")]
-    [SerializeField, Min(2)] private int maxPlayers = 4;
+    [Tooltip("방 최대 인원(방 만들기에서 고를 수 있는 최댓값, EscapePlan.md §1.7). 시작 조건은 '정원이 모두 찼을 때'다.")]
+    [SerializeField, Min(2)] private int maxPlayers = 8;
+    [Tooltip("방 만들기에서 고를 수 있는 최소 인원.")]
+    [SerializeField, Min(2)] private int minPlayers = 4;
+    [Tooltip("방 만들기의 기본 인원.")]
+    [SerializeField, Min(2)] private int defaultPlayers = 4;
+
+    [Tooltip("총 인원별 괴물·스파이 수(EscapePlan.md §1.1). 표에 없는 인원은 monsterCount와 스파이 0명을 쓴다.")]
+    [SerializeField] private RoleRow[] roleTable =
+    {
+        new RoleRow(4, 1, 0),
+        new RoleRow(5, 1, 1),
+        new RoleRow(6, 1, 1),
+        new RoleRow(7, 2, 1),
+        new RoleRow(8, 2, 1),
+    };
 
     [Tooltip("한 판의 괴물 수. 항상 (현재 인원 - 1) 이하로 제한된다(쿠키가 최소 1명은 있어야 함).")]
     [SerializeField, Min(1)] private int monsterCount = 1;
@@ -30,6 +51,14 @@ public class GameSettingsSO : ScriptableObject
     [Tooltip("판마다 무작위로 고르는 게임 맵 씬 이름(빌드 목록에 있어야 함). 비어 있으면 GameScene을 쓴다. 직전 판 맵은 다시 고르지 않는다(맵이 2개 이상일 때).")]
     [SerializeField] private string[] gameMapScenes = new string[0];
 
+    [Header("Room Time Settings (EscapePlan.md §1.7, 분 단위)")]
+    [SerializeField, Min(1)] private int minTimeLimitMinutes = 10;
+    [SerializeField, Min(1)] private int maxTimeLimitMinutes = 40;
+    [SerializeField, Min(1)] private int defaultTimeLimitMinutes = 10;
+    [SerializeField, Min(1)] private int minTimeAttackMinutes = 1;
+    [SerializeField, Min(1)] private int maxTimeAttackMinutes = 10;
+    [SerializeField, Min(1)] private int defaultTimeAttackMinutes = 1;
+
     [Header("Survival")]
     [SerializeField, Min(1f)] private float survivalDuration = 600f;
     [Tooltip("괴물이 전원 나간 뒤 대기실로 돌아가기까지의 경고 시간(초).")]
@@ -43,6 +72,18 @@ public class GameSettingsSO : ScriptableObject
     [SerializeField, Range(0f, 89f)] private float tentacleDashMaxSlope = 45f;
     [Tooltip("돌진 중 지면 붙이기 여유(m). 한 스텝 동안 최대 경사(TentacleDashMaxSlope)로 떨어질 수 있는 높이에 이 값을 더한 거리 안에 지면이 있으면 붙이고(언덕 꼭대기·내리막), 더 먼 낭떠러지는 그대로 떨어진다.")]
     [SerializeField, Min(0f)] private float tentacleDashGroundSnap = 0.6f;
+
+    [Header("Monster Grab (GameFixPlan.md F1)")]
+    [Tooltip("괴물 몸 앞면에서 조준한 쿠키를 잡을 수 있는 거리(m). 몸 앞면은 중심에서 약 1.87m(MonsterPlayer 프리팹 측정).")]
+    [SerializeField, Min(0.5f)] private float grabReachFromFront = 2f;
+    [Tooltip("조준 판정 구의 반지름(m). 조준이 조금 빗나가도 잡히게 한다.")]
+    [SerializeField, Min(0.05f)] private float grabAimRadius = 0.4f;
+
+    [Header("Monster View (GameFixPlan.md F6)")]
+    [Tooltip("괴물이 판을 시작할 때의 시점.")]
+    [SerializeField] private MonsterViewMode monsterDefaultView = MonsterViewMode.FirstPerson;
+    [Tooltip("true면 괴물이 전환 키(InputBindings.ToggleViewKey)로 1인칭/3인칭을 바꿀 수 있다(테스트용). 출시 전에 끌 수 있다.")]
+    [SerializeField] private bool allowMonsterViewToggle = true;
 
     [Header("Network Load (research.md §12.4)")]
     [Tooltip("캐릭터 위치 동기화 횟수(초당, PhotonNetwork.SerializationRate). PUN 기본 10.")]
@@ -63,6 +104,14 @@ public class GameSettingsSO : ScriptableObject
     [SerializeField] private float fallRespawnHeight = -100f;
 
     public int MaxPlayers => maxPlayers;
+    public int MinPlayers => minPlayers;
+    public int DefaultPlayers => defaultPlayers;
+    public int MinTimeLimitMinutes => minTimeLimitMinutes;
+    public int MaxTimeLimitMinutes => maxTimeLimitMinutes;
+    public int DefaultTimeLimitMinutes => defaultTimeLimitMinutes;
+    public int MinTimeAttackMinutes => minTimeAttackMinutes;
+    public int MaxTimeAttackMinutes => maxTimeAttackMinutes;
+    public int DefaultTimeAttackMinutes => defaultTimeAttackMinutes;
     public int MonsterCount => monsterCount;
     public float MonsterSelectTimeout => monsterSelectTimeout;
     public float PaintPhaseDuration => paintPhaseDuration;
@@ -77,6 +126,10 @@ public class GameSettingsSO : ScriptableObject
     public float TentacleDashMaxSlope => tentacleDashMaxSlope;
     public float TentacleDashGroundSnap => tentacleDashGroundSnap;
     public int CharacterSyncRate => characterSyncRate;
+    public float GrabReachFromFront => grabReachFromFront;
+    public float GrabAimRadius => grabAimRadius;
+    public MonsterViewMode MonsterDefaultView => monsterDefaultView;
+    public bool AllowMonsterViewToggle => allowMonsterViewToggle;
     public float CookieSpawnRange => cookieSpawnRange;
     public float MonsterSpawnRange => monsterSpawnRange;
     public float FallRespawnHeight => fallRespawnHeight;
@@ -117,12 +170,47 @@ public class GameSettingsSO : ScriptableObject
         }
     }
 
-    // 현재 방 인원에서 실제로 뽑을 괴물 수 — 쿠키가 최소 1명 남도록 제한한다.
-    public int MonsterCountFor(int playerCount) => Mathf.Clamp(monsterCount, 1, Mathf.Max(1, playerCount - 1));
+    // 현재 방 인원에서 실제로 뽑을 괴물 수(EscapePlan.md §1.1 인원표). 표에 없는 인원(오프라인 개발 방 등)은
+    // monsterCount를 쓰되 쿠키가 최소 1명 남도록 제한한다.
+    public int MonsterCountFor(int playerCount) =>
+        TryGetRoleRow(playerCount, out RoleRow row) ? row.monsters : Mathf.Clamp(monsterCount, 1, Mathf.Max(1, playerCount - 1));
+
+    // 현재 방 인원에서 뽑을 스파이 수(인원표). 표에 없는 인원은 0명.
+    public int SpyCountFor(int playerCount) => TryGetRoleRow(playerCount, out RoleRow row) ? row.spies : 0;
+
+    private bool TryGetRoleRow(int playerCount, out RoleRow row)
+    {
+        if (roleTable != null)
+            foreach (RoleRow r in roleTable)
+                if (r.players == playerCount) { row = r; return true; }
+        row = default;
+        return false;
+    }
+
+    [System.Serializable]
+    public struct RoleRow
+    {
+        public int players;
+        public int monsters;
+        public int spies;
+
+        public RoleRow(int players, int monsters, int spies)
+        {
+            this.players = players;
+            this.monsters = monsters;
+            this.spies = spies;
+        }
+    }
 
     private void OnValidate()
     {
         monsterCount = Mathf.Clamp(monsterCount, 1, Mathf.Max(1, maxPlayers - 1));
+        minPlayers = Mathf.Clamp(minPlayers, 2, maxPlayers);
+        defaultPlayers = Mathf.Clamp(defaultPlayers, minPlayers, maxPlayers);
+        maxTimeLimitMinutes = Mathf.Max(minTimeLimitMinutes, maxTimeLimitMinutes);
+        defaultTimeLimitMinutes = Mathf.Clamp(defaultTimeLimitMinutes, minTimeLimitMinutes, maxTimeLimitMinutes);
+        maxTimeAttackMinutes = Mathf.Max(minTimeAttackMinutes, maxTimeAttackMinutes);
+        defaultTimeAttackMinutes = Mathf.Clamp(defaultTimeAttackMinutes, minTimeAttackMinutes, maxTimeAttackMinutes);
 #if UNITY_EDITOR
         // 저장된 설정 에셋만 검사한다(테스트가 만드는 빈 임시 인스턴스는 제외).
         if (FirstGameMap == null && UnityEditor.EditorUtility.IsPersistent(this))

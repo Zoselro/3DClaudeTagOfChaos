@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9903aee712ef7914c8906e1582517cd8, type: 3}
+  m_Name: EscapeTexts
+  m_EditorClassIdentifier: 
+  materialChest: "\uC7AC\uB8CC \uC0C1\uC790"
+  spyChest: "\uC2A4\uD30C\uC774 \uC0C1\uC790"
+  locked: "\uC7A0\uACA8 \uC788\uC74C"
+  escapeDevice: "\uD0C8\uCD9C"
+  spyRocket: "\uB85C\uCF13"
+  cannotEnter: "\uB4E4\uC5B4\uAC08 \uC218 \uC5C6\uC74C"
+  inventoryFull: "\uC778\uBCA4\uD1A0\uB9AC\uAC00 \uAC00\uB4DD \uCC3C\uC2B5\uB2C8\uB2E4"
+  handsFull: "\uB4E4\uACE0 \uC788\uB294 \uAC83\uC744 \uBA3C\uC800 \uB0B4\uB824\uB193\uC73C\uC138\uC694"
+  spyCaught: "\uC2A4\uD30C\uC774\uAC00 \uC7A1\uD614\uC2B5\uB2C8\uB2E4"
+  stolenToRocketWithFinal: "\uC2A4\uD30C\uC774\uAC00 {0}\uC744 \uD6D4\uCCD0 \uB85C\uCF13\uC5D0
+    \uB07C\uC6CC\uB123\uC5C8\uC2B5\uB2C8\uB2E4"
+  stolenToRocketNoFinal: "\uC2A4\uD30C\uC774\uAC00 {0}\uB97C \uD6D4\uCCD0 \uB85C\uCF13\uC5D0
+    \uB07C\uC6CC\uB123\uC5C8\uC2B5\uB2C8\uB2E4"
+  youAreSpy: "\uB2F9\uC2E0\uC740 \uC2A4\uD30C\uC774\uC785\uB2C8\uB2E4! \uBAB0\uB798
+    \uB85C\uCF13\uC744 \uC644\uC131\uD574 \uD63C\uC790 \uD0C8\uCD9C\uD558\uC138\uC694"
+  spyBadge: "\uC2A4\uD30C\uC774"
+  deviceComplete: "\uD0C8\uCD9C\uAD6C\uAC00 \uC5F4\uB838\uC2B5\uB2C8\uB2E4!"
+  witchComing: "\uB9C8\uB140\uAC00 \uB3CC\uC544\uC11C\uACE0 \uC788\uC2B5\uB2C8\uB2E4..."
+  timeAttackFormat: '{0:00}:{1:00}'

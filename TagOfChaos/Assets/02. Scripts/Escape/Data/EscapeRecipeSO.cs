@@ -1,0 +1,91 @@
+using UnityEngine;
+
+// 맵별 탈출 방식(EscapePlan.md §1.6). 칸 모드(놀이공원·베이커리·공장)는 고정 재료 + 무작위 칸, 개수 모드(진저브레드 룬·
+// 캔디숲 전지)는 필요 재료 수만큼 칸을 만든다. 스파이 로켓 칸(2개)도 여기 둔다. 코드는 맵과 상관없이 하나다.
+public enum RecipeMode
+{
+    Slots,   // 종류별 칸 묶음. 고정 칸 + 필요한 수만큼 무작위 칸, 고르지 않은 칸은 채워진 상태로 시작
+    Counter, // 필요 재료 수만큼 칸. 재료 종류는 counterItems 중에서 무작위(모양만 다름)
+}
+
+public enum EscapeExitKind
+{
+    RollerCoaster,
+    BakeryMachine,
+    ChocolateTrain,
+    RuneAltar,
+    CakeRocket,
+}
+
+[CreateAssetMenu(menuName = "TagOfChaos/Escape/Recipe", fileName = "Recipe_")]
+public class EscapeRecipeSO : ScriptableObject
+{
+    [System.Serializable]
+    public class SlotGroup
+    {
+        public ItemSO item;
+        [Tooltip("오른쪽 위 표시 이름. 비우면 아이템 이름(예: 공구상자 칸은 '수리').")]
+        public string label;
+        [Min(1)] public int slotCount = 1;
+        [Tooltip("항상 필요한 칸 수(처음부터 비어 있음).")]
+        [Min(0)] public int fixedRequired;
+    }
+
+    [System.Serializable]
+    public class RocketSlot
+    {
+        public string label;
+        public ItemSO[] accepts;
+    }
+
+    [SerializeField] private string mapName;
+    [SerializeField] private EscapeExitKind exitKind;
+    [SerializeField] private RecipeMode mode = RecipeMode.Slots;
+    [SerializeField] private SlotGroup[] groups = new SlotGroup[0];
+    [Tooltip("개수 모드: 칸 이름(예: 룬).")]
+    [SerializeField] private string counterLabel;
+    [Tooltip("개수 모드: 칸마다 무작위로 고르는 재료(예: 알사탕 전지 4색).")]
+    [SerializeField] private ItemSO[] counterItems = new ItemSO[0];
+    [SerializeField] private RocketSlot[] rocketSlots = new RocketSlot[0];
+    [Tooltip("스파이 1명당 일반 상자에 더 넣는 공구상자(D18). 공구상자가 탈출 재료가 아닌 맵에서 쓴다.")]
+    [SerializeField] private ItemSO spyToolbox;
+    [SerializeField, Min(0)] private int extraToolboxesPerSpy = 1;
+
+    public string MapName => mapName;
+    public EscapeExitKind ExitKind => exitKind;
+    public RecipeMode Mode => mode;
+    public SlotGroup[] Groups => groups;
+    public string CounterLabel => counterLabel;
+    public ItemSO[] CounterItems => counterItems;
+    public RocketSlot[] RocketSlots => rocketSlots;
+    public ItemSO SpyToolbox => spyToolbox;
+    public int ExtraToolboxesPerSpy => extraToolboxesPerSpy;
+
+    // 늘어나는 칸 전체 수(고정 제외) — 필요 재료 수가 이 범위 안이어야 한다.
+    public int MaxRequired
+    {
+        get
+        {
+            if (mode == RecipeMode.Counter) return int.MaxValue;
+            int total = 0;
+            foreach (SlotGroup g in groups) total += g.slotCount;
+            return total;
+        }
+    }
+
+#if UNITY_EDITOR
+    public void EditorSetup(string map, EscapeExitKind exit, RecipeMode recipeMode, SlotGroup[] slotGroups, string counterName,
+        ItemSO[] counters, RocketSlot[] rocket, ItemSO toolbox, int toolboxesPerSpy)
+    {
+        mapName = map;
+        exitKind = exit;
+        mode = recipeMode;
+        groups = slotGroups ?? new SlotGroup[0];
+        counterLabel = counterName;
+        counterItems = counters ?? new ItemSO[0];
+        rocketSlots = rocket ?? new RocketSlot[0];
+        spyToolbox = toolbox;
+        extraToolboxesPerSpy = toolboxesPerSpy;
+    }
+#endif
+}

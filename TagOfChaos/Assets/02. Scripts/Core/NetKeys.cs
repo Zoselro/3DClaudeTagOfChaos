@@ -34,10 +34,27 @@ public static class NetKeys
     // 이번 판 맵 씬 이름(string) — 시작 때 방장이 고르고, 대기실에 남은 괴물도 이 씬으로 간다(GameScenePlan.md §3.2)
     public const string GameMapScene = "GameMapScene";
 
+    // 방 설정(EscapePlan.md §1.7) — 방을 만들 때 방장이 정한다(초, int). 판이 바뀌어도 유지된다.
+    public const string RoomTimeLimit = "RoomTimeLimit";
+    public const string TimeAttackDuration = "TimeAttackDuration";
+
+    // 탈출 모드(EscapePlan.md §5.2)
+    public const string SpyActorNumbers = "SpyActorNumbers";   // int[] — 시작 버튼 때 방장이 뽑는다
+    public const string EscapeState = "EscapeState";           // byte[] — EscapeState.Encode(방장만 쓴다)
+    public const string SpyEscapedAt = "SpyEscapedAt";         // double — 로켓이 떠난 시각(타임어택 시작)
+    public const string TimeAttackEndTime = "TimeAttackEndTime"; // double
+    public const string WitchStrike = "WitchStrike";           // int 1 — 마녀가 내리쳤다
+    public const string EscapeEndReason = "EscapeEndReason";   // int — EscapeEndReason
+    public const string RevealedSpies = "RevealedSpies";       // int[] — 게임이 끝난 뒤 결과 화면용으로 공개
+
     // Player CustomProperties (GameRule.md §4.4 — hitCount는 0 또는 2만 실제로 쓰임, v3.6)
     public const string HitCount = "HitCount";
     public const string RegisteredSlotCount = "RegisteredSlotCount"; // GameRule.md §3.2
     public const string SkinIndex = "SkinIndex"; // int — SkinCatalogSO 인덱스, GameRule.md §1.5 (판이 바뀌어도 유지)
+    public const string SelectedSlot = "SelectedSlot"; // int — 인벤토리에서 고른 칸(본인만 쓴다, EscapePlan.md §1.9)
+    public const string Escaped = "Escaped";           // int 1 — 쿠키 탈출구 또는 스파이 로켓으로 탈출했다
+    public const string CatchCount = "CatchCount";     // int — 괴물이 잡은 횟수(괴물 본인이 쓴다)
+    public const string DeathCause = "DeathCause";     // int — DeathCause(1 괴물, 2 마녀)
 
     public enum Target { Room, Player }
 
@@ -76,9 +93,22 @@ public static class NetKeys
         new Scope(GameResult, Target.Room, Lifetime.Round),
         new Scope(DoorStates, Target.Room, Lifetime.Round),
         new Scope(GameMapScene, Target.Room, Lifetime.Round),
+        new Scope(RoomTimeLimit, Target.Room, Lifetime.Session),
+        new Scope(TimeAttackDuration, Target.Room, Lifetime.Session),
+        new Scope(SpyActorNumbers, Target.Room, Lifetime.Round),
+        new Scope(EscapeState, Target.Room, Lifetime.Round),
+        new Scope(SpyEscapedAt, Target.Room, Lifetime.Round),
+        new Scope(TimeAttackEndTime, Target.Room, Lifetime.Round),
+        new Scope(WitchStrike, Target.Room, Lifetime.Round),
+        new Scope(EscapeEndReason, Target.Room, Lifetime.Round),
+        new Scope(RevealedSpies, Target.Room, Lifetime.Round),
         new Scope(HitCount, Target.Player, Lifetime.Round),
         new Scope(RegisteredSlotCount, Target.Player, Lifetime.Round),
         new Scope(SkinIndex, Target.Player, Lifetime.Session),
+        new Scope(SelectedSlot, Target.Player, Lifetime.Round),
+        new Scope(Escaped, Target.Player, Lifetime.Round),
+        new Scope(CatchCount, Target.Player, Lifetime.Round),
+        new Scope(DeathCause, Target.Player, Lifetime.Round),
     };
 
     // 한 판이 끝나 GameLobbyScene으로 돌아올 때 초기화해야 하는 키 목록(RoundStateResetter, research.md §8.7).

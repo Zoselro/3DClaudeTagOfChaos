@@ -1,0 +1,144 @@
+using System.Collections.Generic;
+using UnityEditor;
+using UnityEngine;
+
+// 탈출 모드 데이터 에셋을 만든다(EscapePlan.md §5.1): 아이템·도구(Assets/03. SO/Escape), 맵별 레시피, 카탈로그·문구
+// (Assets/Resources/Escape). 이미 있는 에셋은 값만 다시 맞춘다(GUID 유지 — 씬·프리팹 참조가 깨지지 않게).
+// 표시 이름은 여기서 영문 기본값만 넣는다(코드에 한글 금지). 한글 문구는 에셋에서 입력한다.
+public static class EscapeAssetsBuilder
+{
+    private const string MenuPath = "Tools/TagOfChaos/Escape/Build Data Assets";
+    private const string SoRoot = "Assets/03. SO/Escape";
+    private const string ResourcesRoot = "Assets/Resources/Escape";
+
+    [MenuItem(MenuPath)]
+    public static void Build()
+    {
+        EnsureFolder("Assets/03. SO", "Escape");
+        EnsureFolder(SoRoot, "Items");
+        EnsureFolder(SoRoot, "Tools");
+        EnsureFolder(SoRoot, "Recipes");
+        EnsureFolder("Assets/Resources", "Escape");
+
+        // 도구(D23 — 첫 기본값, 플레이해 보고 조정)
+        ToolSO hammerTool = Tool("Tool_Hammer", ToolKind.Hammer, 3, 2f, 1.2f, 1.5f, 1f, 3f, false);
+        ToolSO stunTool = Tool("Tool_StunGun", ToolKind.StunGun, 3, 8f, 0.35f, 2f, 1.5f, 3f, false);
+        ToolSO balloonTool = Tool("Tool_WaterBalloon", ToolKind.WaterBalloon, 3, 12f, 1.5f, 1f, 0.8f, 3f, true);
+
+        var items = new List<ItemSO>();
+        ItemSO Mat(string id, string name, Color c, bool anyRocket = false)
+        {
+            ItemSO it = Item("Item_" + id, id, name, c, HoldType.TwoHanded, ItemCategory.Material, null, anyRocket);
+            items.Add(it);
+            return it;
+        }
+        ItemSO ToolItem(string id, string name, Color c, ToolSO t)
+        {
+            ItemSO it = Item("Item_" + id, id, name, c, HoldType.OneHanded, ItemCategory.Tool, t, false);
+            items.Add(it);
+            return it;
+        }
+
+        ItemSO redButton = Mat("RedButton", "Red Button", new Color(0.9f, 0.1f, 0.1f));
+        ItemSO seatbelt = Mat("Seatbelt", "Seatbelt", new Color(0.35f, 0.45f, 0.6f));
+        ItemSO battery = Mat("Battery", "Battery", new Color(0.55f, 0.85f, 0.2f));
+        ItemSO toolbox = Mat("Toolbox", "Toolbox", new Color(0.85f, 0.35f, 0.15f), anyRocket: true);
+        ItemSO gear = Mat("Gear", "Gear", new Color(0.75f, 0.75f, 0.8f));
+        ItemSO macaronWheel = Mat("MacaronWheel", "Macaron Wheel", new Color(1f, 0.6f, 0.75f));
+        ItemSO cookieWheel = Mat("CookieWheel", "Cookie Wheel", new Color(0.8f, 0.55f, 0.3f));
+        ItemSO oil = Mat("ChocolateOil", "Chocolate Oil", new Color(0.3f, 0.15f, 0.08f));
+        ItemSO[] runes =
+        {
+            Mat("Rune_Red", "Rune", new Color(1f, 0.15f, 0.2f)),
+            Mat("Rune_Blue", "Rune", new Color(0.2f, 0.45f, 1f)),
+            Mat("Rune_Yellow", "Rune", new Color(1f, 0.9f, 0.15f)),
+            Mat("Rune_Pink", "Rune", new Color(1f, 0.35f, 0.8f)),
+        };
+        ItemSO[] cells =
+        {
+            Mat("CandyCell_Red", "Candy Cell", new Color(1f, 0.15f, 0.15f)),
+            Mat("CandyCell_Orange", "Candy Cell", new Color(1f, 0.55f, 0.1f)),
+            Mat("CandyCell_Yellow", "Candy Cell", new Color(1f, 0.9f, 0.15f)),
+            Mat("CandyCell_Green", "Candy Cell", new Color(0.3f, 0.95f, 0.3f)),
+        };
+        ItemSO hammer = ToolItem("Hammer", "Toy Hammer", new Color(1f, 0.4f, 0.6f), hammerTool);
+        ItemSO stunGun = ToolItem("StunGun", "Stun Gun", new Color(0.3f, 0.7f, 1f), stunTool);
+        ItemSO balloon = ToolItem("WaterBalloon", "Water Balloon", new Color(0.3f, 0.85f, 1f), balloonTool);
+
+        var recipes = new List<EscapeRecipeSO>
+        {
+            Recipe("CursedCandyCarnival", EscapeExitKind.RollerCoaster, RecipeMode.Slots,
+                new[] { G(redButton, 1, 1), G(seatbelt, 1, 1), G(battery, 3, 0), G(toolbox, 3, 0, "Repair") }, null, null,
+                new[] { R(seatbelt), R(battery) }, toolbox),
+            Recipe("HauntedBakery", EscapeExitKind.BakeryMachine, RecipeMode.Slots,
+                new[] { G(redButton, 1, 1), G(gear, 1, 1), G(battery, 3, 0), G(toolbox, 3, 0, "Repair") }, null, null,
+                new[] { R(gear), R(battery) }, toolbox),
+            Recipe("ChocolateFactory", EscapeExitKind.ChocolateTrain, RecipeMode.Slots,
+                new[] { G(macaronWheel, 2, 1), G(cookieWheel, 2, 1), G(oil, 2, 0), G(gear, 2, 0) }, null, null,
+                new[] { R(oil), R(gear) }, toolbox),
+            Recipe("GingerbreadVillage", EscapeExitKind.RuneAltar, RecipeMode.Counter, null, "Rune", runes,
+                new[] { R(runes), R(runes) }, toolbox),
+            Recipe("CandyForest", EscapeExitKind.CakeRocket, RecipeMode.Counter, null, "Candy Cell", cells,
+                new[] { R(cells), R(cells) }, toolbox),
+        };
+
+        var catalog = LoadOrCreate<EscapeCatalogSO>(ResourcesRoot + "/EscapeCatalog.asset");
+        catalog.EditorSetup(items.ToArray(), recipes.ToArray(), hammer, new[] { stunGun, balloon });
+        EditorUtility.SetDirty(catalog);
+        LoadOrCreate<EscapeTextsSO>(ResourcesRoot + "/EscapeTexts.asset");
+
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[EscapeAssets] items={items.Count} recipes={recipes.Count} catalog={AssetDatabase.GetAssetPath(catalog)}");
+    }
+
+    private static EscapeRecipeSO.SlotGroup G(ItemSO item, int slots, int fixedRequired, string label = null) =>
+        new EscapeRecipeSO.SlotGroup { item = item, slotCount = slots, fixedRequired = fixedRequired, label = label };
+
+    private static EscapeRecipeSO.RocketSlot R(params ItemSO[] accepts) =>
+        new EscapeRecipeSO.RocketSlot { label = accepts[0].DisplayName, accepts = accepts };
+
+    private static ItemSO Item(string file, string id, string name, Color color, HoldType hold, ItemCategory category, ToolSO tool, bool anyRocket)
+    {
+        var item = LoadOrCreate<ItemSO>($"{SoRoot}/Items/{file}.asset");
+        // 이미 입력한 표시 이름(한글 등)은 덮어쓰지 않는다.
+        string keepName = string.IsNullOrEmpty(item.DisplayName) ? name : item.DisplayName;
+        item.EditorSetup(id, keepName, color, hold, category, tool, anyRocket);
+        EditorUtility.SetDirty(item);
+        return item;
+    }
+
+    private static ToolSO Tool(string file, ToolKind kind, int charges, float range, float radius, float cookieStun, float monsterStun, float cooldown, bool paints)
+    {
+        var tool = LoadOrCreate<ToolSO>($"{SoRoot}/Tools/{file}.asset");
+        if (!EditorPrefs.GetBool("EscapeAssets.ToolsTuned." + file, false)) // 밸런스 조정 값은 한 번만 기본값으로 넣는다
+        {
+            tool.EditorSetup(kind, charges, range, radius, cookieStun, monsterStun, cooldown, paints);
+            EditorPrefs.SetBool("EscapeAssets.ToolsTuned." + file, true);
+        }
+        EditorUtility.SetDirty(tool);
+        return tool;
+    }
+
+    private static EscapeRecipeSO Recipe(string map, EscapeExitKind exit, RecipeMode mode, EscapeRecipeSO.SlotGroup[] groups, string counterLabel,
+        ItemSO[] counterItems, EscapeRecipeSO.RocketSlot[] rocket, ItemSO toolbox)
+    {
+        var recipe = LoadOrCreate<EscapeRecipeSO>($"{SoRoot}/Recipes/Recipe_{map}.asset");
+        recipe.EditorSetup(map, exit, mode, groups, counterLabel, counterItems, rocket, toolbox, 1);
+        EditorUtility.SetDirty(recipe);
+        return recipe;
+    }
+
+    private static T LoadOrCreate<T>(string path) where T : ScriptableObject
+    {
+        var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+        if (asset != null) return asset;
+        asset = ScriptableObject.CreateInstance<T>();
+        AssetDatabase.CreateAsset(asset, path);
+        return asset;
+    }
+
+    private static void EnsureFolder(string parent, string name)
+    {
+        if (!AssetDatabase.IsValidFolder(parent + "/" + name)) AssetDatabase.CreateFolder(parent, name);
+    }
+}

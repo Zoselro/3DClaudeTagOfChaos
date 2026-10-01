@@ -10,6 +10,7 @@ public enum GamePhase
     Paint,           // 쿠키 변장(색칠) 시간
     AwaitingMonster, // 색칠이 끝나고 괴물 합류 확정 전(짧은 전환 구간)
     Hunt,            // 괴물 합류 후 쿠키 생존 시간
+    TimeAttack,      // 스파이가 로켓으로 떠난 뒤 마녀 타임어택(EscapePlan.md §1.2) — 방의 제한시간은 멈춘다
     Result,          // 승패 판정 완료
 }
 
@@ -22,16 +23,18 @@ public static class GamePhaseState
             bool hasPaintEnd = RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double paintEnd);
             bool monsterJoined = RoomState.TryGetInt(NetKeys.MonsterJoined, out _);
             bool hasResult = RoomState.TryGetInt(NetKeys.GameResult, out _);
-            return Evaluate(hasPaintEnd, paintEnd, monsterJoined, hasResult, PhotonNetwork.Time);
+            bool spyEscaped = RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _);
+            return Evaluate(hasPaintEnd, paintEnd, monsterJoined, hasResult, PhotonNetwork.Time, spyEscaped);
         }
     }
 
     public static bool IsPaintActive => Current == GamePhase.Paint;
 
     // 네트워크 상태와 분리한 순수 해석(테스트용).
-    public static GamePhase Evaluate(bool hasPaintEnd, double paintEndTime, bool monsterJoined, bool hasResult, double now)
+    public static GamePhase Evaluate(bool hasPaintEnd, double paintEndTime, bool monsterJoined, bool hasResult, double now, bool spyEscaped = false)
     {
         if (hasResult) return GamePhase.Result;
+        if (spyEscaped) return GamePhase.TimeAttack;
         if (monsterJoined) return GamePhase.Hunt;
         if (hasPaintEnd) return now < paintEndTime ? GamePhase.Paint : GamePhase.AwaitingMonster;
         return GamePhase.Lobby;
@@ -46,6 +49,7 @@ public static class GamePhaseState
         {
             case GamePhase.Paint: return RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out endTime);
             case GamePhase.Hunt: return RoomState.TryGetDouble(NetKeys.GameEndTime, out endTime);
+            case GamePhase.TimeAttack: return RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out endTime);
             default: return false;
         }
     }

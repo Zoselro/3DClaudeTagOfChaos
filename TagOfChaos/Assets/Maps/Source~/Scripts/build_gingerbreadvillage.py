@@ -1,4 +1,4 @@
-# GingerbreadVillage blockout. Needs maplib namespace.
+# GingerbreadVillage blockout (cookie ruins village, EscapePlan.md P2). Needs maplib namespace.
 # Plaza 60x60 + clock tower | cross main roads (12 m) | square ring road at +-100 (10 m)
 # house lots on a 20 m grid (houses <= 15 m -> alleys >= 5 m) | chocolate stream y = -131 with bridges
 import math
@@ -122,6 +122,7 @@ def build():
     shops = {(40, 40), (-40, -40), (43, -60)}
     POND_LOTS = {(-122, 120): 'M_Water_Purple', (143, -60): 'M_Water_Teal', (-61, -160): '',
                  (-83, 60): '', (157, 140): 'M_Water_Chocolate'}
+    ruin_rnd = random.Random(77)     # own stream: the ruin choice must not shift the other lots' random layout
     for x, y in lots:
         k = rnd.random()
         # facing: door toward the nearest main road / ring road
@@ -156,12 +157,19 @@ def build():
         w, d = rnd.uniform(8, 13), rnd.uniform(8, 12)
         h = rnd.choice((rnd.uniform(5, 7), rnd.uniform(7, 11)))      # mix of cottages and tall houses
         rotz += math.radians(rnd.uniform(-6, 6))
-        house(m, x + rnd.uniform(-1.5, 1.5), y + rnd.uniform(-1.5, 1.5), w, d, h, rotz,
+        # cookie ruins (EscapePlan.md P2): about two thirds of the ordinary houses have collapsed
+        ruined = not cursed and ruin_rnd.random() < 0.65
+        hx, hy = x + rnd.uniform(-1.5, 1.5), y + rnd.uniform(-1.5, 1.5)
+        house(m, hx, hy, w, d, h, rotz,
               roof=rnd.choice(('M_Chocolate_Dark', 'M_Chocolate_Milk', 'M_Icing_Purple' if cursed else 'M_Icing_Pink')),
-              wall=rnd.choice(('M_Cookie_Wall', 'M_Gingerbread_Dark', 'M_Cookie_Light')), cursed=cursed)
+              wall=rnd.choice(('M_Cookie_Wall', 'M_Gingerbread_Dark', 'M_Cookie_Light')), cursed=cursed, ruined=ruined)
+        if ruined:                    # fallen pieces in front of the house (decoration, no collider)
+            dx, dy = rot2(ruin_rnd.uniform(-w / 3, w / 3), -d / 2 - 2.4, rotz)
+            place(m, 'RuinRubble', 'Decoration', hx + dx, hy + dy, ruin_rnd.uniform(0, 6.28), ruin_rnd.uniform(0.8, 1.2))
         if cursed:
             m.empty('FX_CurseMist', 'Effects', (x, y, 1), 6)
-        if rnd.random() < 0.35:
+        smoke = rnd.random() < 0.35
+        if smoke and not ruined:
             m.empty('FX_ChimneySmoke', 'Effects', (x, y, h + 4), 2)
 
     # ---- small-square fountains at ring corners ----

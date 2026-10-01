@@ -6,7 +6,9 @@
 # Unity position of a Blender point (x, y, z) = (-x, z, -y).
 import bpy, os, json, uuid, math, re, shutil
 
-PROJ = r"F:\3DClaudeTagOfChaos\TagOfChaos"
+# project root = four folders up from this script (Assets/Maps/Source~/Scripts); fallback for exec without __file__
+PROJ = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', '..')) \
+    if '__file__' in globals() else r"E:\3DClaudeTagOfChaos\TagOfChaos"
 ASSETS = os.path.join(PROJ, 'Assets')
 MAPS = os.path.join(ASSETS, 'Maps')
 COMMON = os.path.join(MAPS, 'Common')
@@ -154,7 +156,9 @@ def fbx_meta(fbx_path, mat_guids, colliders):
                   f"      name: {n}\n    second: {{fileID: 2100000, guid: {g}, type: 2}}\n"
                   for n, g in sorted(mat_guids.items()))
     t = re.sub(r'guid: [0-9a-f]{32}', f'guid: {guid}', t, count=1)
-    t = re.sub(r'  externalObjects:\n(?:  - first:\n(?:.*\n){4})*', '  externalObjects:\n' + ext, t)
+    # no materials (e.g. Effects): an empty mapping must be written as {} or Unity reports a YAML error
+    t = re.sub(r'  externalObjects:(?: \{\})?\n(?:  - first:\n(?:.*\n){4})*',
+               ('  externalObjects:\n' + ext) if ext else '  externalObjects: {}\n', t)
     t = t.replace('    addColliders: 0', f'    addColliders: {1 if colliders else 0}')
     t = t.replace('  animationType: 2', '  animationType: 0')
     with open(fbx_path + '.meta', 'w', encoding='utf-8', newline='\n') as f:

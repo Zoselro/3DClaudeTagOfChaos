@@ -71,6 +71,7 @@ public static class GameStartAuthority
         {
             { NetKeys.PaintPhaseEndTime, PhotonNetwork.Time + settings.SceneLoadGrace + settings.PaintPhaseDuration },
             { NetKeys.GameMapScene, map },
+            { NetKeys.SpyActorNumbers, PickSpies(settings.SpyCountFor(PhotonNetwork.CurrentRoom.PlayerCount)) },
         });
 
         PhotonNetwork.CurrentRoom.IsOpen = false; // 씬 전환 도중 새로 입장하는 걸 방지(대기실 복귀 시 RoundStateResetter가 다시 연다)
@@ -81,6 +82,22 @@ public static class GameStartAuthority
 
     // 직전 판 맵(이 클라이언트가 방장으로 시작한 판). 판이 끝나면 Room의 맵 키는 지워지므로 여기서 기억한다.
     private static string lastMap;
+
+    // 괴물이 아닌 사람 중에서 스파이를 무작위로 뽑는다(EscapePlan.md §1.1). 0명이면 빈 배열.
+    private static int[] PickSpies(int count)
+    {
+        var candidates = new System.Collections.Generic.List<int>();
+        foreach (Player p in PhotonNetwork.PlayerList)
+            if (!RoomState.IsMonster(p.ActorNumber)) candidates.Add(p.ActorNumber);
+        var spies = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < count && candidates.Count > 1; i++) // 쿠키가 최소 1명은 남는다
+        {
+            int pick = Random.Range(0, candidates.Count);
+            spies.Add(candidates[pick]);
+            candidates.RemoveAt(pick);
+        }
+        return spies.ToArray();
+    }
 
     // 이번 판 맵 씬 — 대기실에 남은 괴물이 이 씬으로 간다. 값이 없으면 설정의 첫 맵, 그것도 없으면 null(Bug-fix-plan.md §41 ㊷ —
     // 예전 대체값 GameScene은 빌드 목록에서 빠졌다).

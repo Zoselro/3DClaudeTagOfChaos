@@ -11,6 +11,32 @@ public class PlayerResultRow : MonoBehaviour
     [SerializeField] private string aliveLabel = "O Alive";
     [SerializeField] private string brokenLabel = "X Broken";
 
+    [Header("Escape mode (EscapePlan.md §1.3)")]
+    [SerializeField] private string cookieRoleLabel = "(Cookie)";
+    [SerializeField] private string spyRoleLabel = "(Spy)";
+    [SerializeField] private string monsterRoleLabel = "(Monster)";
+    [SerializeField] private string escapedLabel = "Escaped";
+    [SerializeField] private string failedLabel = "Failed to escape";
+    [SerializeField] private string catchFormat = "Caught {0}";
+    [SerializeField] private string witchKilledLabel = "Killed by the witch";
+    [SerializeField] private string statusSeparator = " / ";
+
+    // 닉네임(쿠키) 탈출 성공 / 탈출 실패, 닉네임(스파이) 탈출 성공 / 탈출 실패
+    public void SetEscaper(string nickname, bool isSpy, bool escaped)
+    {
+        if (nameText != null) nameText.text = nickname + (isSpy ? spyRoleLabel : cookieRoleLabel);
+        if (statusText != null) statusText.text = escaped ? escapedLabel : failedLabel;
+    }
+
+    // 닉네임(괴물) 잡은 횟수 n회 / 마녀에 의해 사망
+    public void SetMonster(string nickname, int catches, bool killedByWitch)
+    {
+        if (nameText != null) nameText.text = nickname + monsterRoleLabel;
+        if (statusText == null) return;
+        string caught = string.Format(catchFormat, catches);
+        statusText.text = killedByWitch ? caught + statusSeparator + witchKilledLabel : caught;
+    }
+
     public void SetMonster(string nickname)
     {
         if (nameText != null) nameText.text = nickname;

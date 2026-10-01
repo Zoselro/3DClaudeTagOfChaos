@@ -48,6 +48,7 @@ public static class CauldronBuilder
         EnsureFolder(CauldronImportPostprocessor.MaterialFolder);
         EnsureFolder(AnimFolder);
         ExtractMaterials();
+        ConfigureLiquidGlowMaterials();
 
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(CauldronImportPostprocessor.ModelPath);
         if (model == null)
@@ -78,6 +79,7 @@ public static class CauldronBuilder
             AddColliders(instance.transform);
             AddSplashTrigger(instance.transform, animator);
             AddFireLight(instance.transform);
+            AddLiquidGlow(root, instance.transform);
             MarkStatic(instance.transform, "Cauldron_Body", "Cauldron_Runes", "Fire_Logs", "Colliders");
 
             PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out bool saved);
@@ -374,6 +376,69 @@ public static class CauldronBuilder
         light.intensity = 1.2f;
         light.shadows = LightShadows.None;
         light.lightmapBakeType = LightmapBakeType.Realtime;
+    }
+
+    // ---------------- liquid glow (GameFixPlan.md F5) ----------------
+
+    private const string LiquidGlowLightName = "LiquidGlowLight";
+    private static readonly Color LiquidEmission = new Color(0.55f, 0.15f, 0.9f) * 2f;
+    private static readonly Color FoamEmission = new Color(0.55f, 0.15f, 0.9f) * 0.6f;
+
+    // 액체(Standard 셰이더)의 발광을 켠다. 맥동은 CauldronGlow가 MaterialPropertyBlock으로 한다 — 키워드는 머티리얼에 켜 둬야 한다.
+    private static void ConfigureLiquidGlowMaterials()
+    {
+        SetEmission($"{CauldronImportPostprocessor.MaterialFolder}/M_Liquid.mat", LiquidEmission);
+        SetEmission($"{CauldronImportPostprocessor.MaterialFolder}/M_LiquidFoam.mat", FoamEmission);
+    }
+
+    private static void SetEmission(string path, Color color)
+    {
+        var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (material == null)
+        {
+            Debug.LogWarning($"{LogTag} Material not found: {path}");
+            return;
+        }
+        material.EnableKeyword("_EMISSION");
+        material.SetColor("_EmissionColor", color);
+        material.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None; // 실시간 발광만(베이크 없음)
+        EditorUtility.SetDirty(material);
+    }
+
+    // 액체 위 보라색 조명 + 맥동 컴포넌트. 조명은 액체 윗면 조금 위에 두고 그림자는 끈다(최적화).
+    private static void AddLiquidGlow(GameObject root, Transform model)
+    {
+        var liquids = new List<Renderer>();
+        foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true))
+            if (r.name == "Liquid_Body" || r.name == "Liquid_Surface") liquids.Add(r);
+        if (liquids.Count == 0)
+        {
+            Debug.LogWarning($"{LogTag} Liquid renderers not found. Liquid glow skipped.");
+            return;
+        }
+
+        Bounds bounds = liquids[0].bounds;
+        foreach (Renderer r in liquids) bounds.Encapsulate(r.bounds);
+
+        var go = new GameObject(LiquidGlowLightName);
+        go.transform.SetParent(model, false);
+        go.transform.position = new Vector3(bounds.center.x, bounds.max.y + 0.4f, bounds.center.z);
+        var light = go.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = new Color(0.62f, 0.25f, 1f);
+        light.range = Mathf.Max(4f, bounds.size.x * 3f);
+        light.intensity = 1.6f;
+        light.shadows = LightShadows.None;
+        light.lightmapBakeType = LightmapBakeType.Realtime;
+
+        var glow = root.AddComponent<CauldronGlow>();
+        var so = new SerializedObject(glow);
+        SerializedProperty list = so.FindProperty("liquidRenderers");
+        list.arraySize = liquids.Count;
+        for (int i = 0; i < liquids.Count; i++) list.GetArrayElementAtIndex(i).objectReferenceValue = liquids[i];
+        so.FindProperty("glowLight").objectReferenceValue = light;
+        so.FindProperty("emission").colorValue = LiquidEmission;
+        so.ApplyModifiedPropertiesWithoutUndo();
     }
 
     // 움직이지 않는 부분만 정적으로 표시한다(애니메이션 대상은 제외).

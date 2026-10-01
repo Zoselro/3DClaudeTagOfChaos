@@ -8,4 +8,7 @@ public static class NetEventCodes
     // 옛 빌드와 혼동하지 않도록 4는 비워 둔다.
     public const byte StartGameRequest = 5; // Bug-fix-plan.md §33 — 호스트가 진행 권한을 가진 방장에게 판 시작을 요청
     public const byte DoorStateRequest = 6; // GameLobbyScene.md §14 — 상호작용한 클라이언트가 방장에게 문 상태 변경을 요청
+    public const byte EscapeRequest = 7; // EscapePlan.md §5.2 — 상자·줍기·떨어뜨리기·설치·훔치기·로켓·탈출·도구 요청(EscapeOp)
+    public const byte EscapeNotice = 8;  // 방장이 모두에게 보내는 알림(EscapeNoticeKind) — 스파이 잡힘, 로켓에 끼움 등
+    public const byte ToolHit = 9;       // 방장이 승인한 도구 명중 — 맞은 사람 본인이 기절·떨어뜨리기·색칠을 처리한다
 }

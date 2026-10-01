@@ -32,11 +32,24 @@ public class PhaseCountdownDisplay : MonoBehaviour
 
     private void Update()
     {
+        // 타임어택 중에는 방의 제한시간이 멈춘다(EscapePlan.md D15) — 스파이가 떠난 순간의 남은 시간을 그대로 보여준다.
+        if (phase == CountdownPhase.Survival && GamePhaseState.Current == GamePhase.TimeAttack
+            && RoomState.TryGetDouble(NetKeys.GameEndTime, out double frozenEnd) && RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double escapedAt))
+        {
+            SetVisible(true);
+            ShowSeconds(Mathf.Max(0, Mathf.CeilToInt((float)(frozenEnd - escapedAt))));
+            return;
+        }
+
         bool running = GamePhaseState.TryGetActiveEndTime(ToGamePhase(phase), out double endTime) && PhotonNetwork.Time < endTime;
         SetVisible(running);
         if (!running) return;
 
-        int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(endTime - PhotonNetwork.Time)));
+        ShowSeconds(Mathf.Max(0, Mathf.CeilToInt((float)(endTime - PhotonNetwork.Time))));
+    }
+
+    private void ShowSeconds(int seconds)
+    {
         if (seconds == lastShownSeconds || timerText == null) return; // 초가 바뀔 때만 문자열을 만든다
 
         lastShownSeconds = seconds;

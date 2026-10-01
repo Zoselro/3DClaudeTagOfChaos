@@ -2,9 +2,9 @@ using Photon.Pun;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-// 괴물 전용 이동 컨트롤러(GameRule.md §6.2). 원래 1인칭(마우스로 몸통 회전 + 몸 기준 이동)으로
-// 설계됐으나, 사용자 결정으로 쿠키와 같은 3인칭 궤도 카메라(Camera_Ctrl, 우클릭 드래그 회전) + 카메라
-// 기준 이동 + 이동 방향으로 몸 회전 방식으로 바뀌었다(Bug-fix-plan.md §23.4, A안). 쿠키와 입력은
+// 괴물 전용 이동 컨트롤러(GameRule.md §6.2). 시점은 1인칭(MonsterFirstPersonCamera, 몸은 카메라의 수평 방향을
+// 바라봄)과 3인칭(쿠키와 같은 Camera_Ctrl 궤도 카메라, 몸은 이동 방향을 바라봄) 두 가지를 모두 지원하고,
+// MonsterViewSwitcher가 고른다(GameFixPlan.md F6). 이동은 어느 쪽이든 카메라 기준이다. 쿠키와 입력은
 // 같지만 TentacleDash/GrabKill 상태와 애니메이터가 달라 HideOrSeekPlayer를 재사용하지는 않는다.
 //
 // 이동 방식은 Rigidbody 물리 기반으로 확정됨(사용자 확인, GameRule.md v3.4) — HideOrSeekPlayer.cs와
@@ -54,6 +54,7 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     private readonly NetworkTransformSync<MonsterMoveState> networkSync = new NetworkTransformSync<MonsterMoveState>();
     private MonsterMoveState currentState = MonsterMoveState.Idle;
     private MonsterMoveState previousState = MonsterMoveState.Idle;
+    private MonsterViewSwitcher viewSwitcher; // 본인 클라이언트에서만 있다(GameFixPlan.md F6)
 
     // GrabKill 재생 시간(= 처형 트리거 쿨다운, GameRule.md v3.5). 예전에는 LateUpdate에서 Animator 상태
     // 이름 + normalizedTime으로 종료를 감지했는데, 같은 프레임 Update()가 곧바로 Idle/Walk로
@@ -90,7 +91,7 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     // 촉수 돌진 애니메이션은 이동(TentacleDashDuration, 0.25초)보다 길다(클립 약 2초). 예전에는 이동이 끝나는 즉시
     // Walk/Idle로 바꿔 동작의 앞부분만 보였다(㉚-B). 이제 GrabKill처럼 클립 길이만큼 TentacleDash 상태를 유지하고
     // (이동은 처음 구간만, 나머지는 자리에서 마무리 — 그동안 이동·재돌진 입력 무시), 끝나면 Idle/Walk로 돌아간다.
-    // 돌진 경로에 쿠키가 있으면 그 자리에서 멈추고 GrabKill로 바로 넘어간다(사용자 결정, Bug-fix-plan.md §34).
+    // 돌진 경로에 쿠키가 있으면 그 앞에서 멈추기만 한다 — 자동 처형은 없앴다(GameFixPlan.md F1, 잡기는 조준 + E).
     private const string TentacleDashClipKeyword = "TentacleDash";
     private const string CookieLayerName = "Cookie"; // 파괴된 쿠키는 BrokenCookie 레이어로 옮겨져 자동 제외된다
     private float tentacleDashAnimDuration;
@@ -109,7 +110,9 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     public CharacterRole Role => CharacterRole.Monster;
     public PhotonView View => pv;
     public bool IsSpectatable => true;
-    public bool CanInteract => !IsGrabKilling && !IsTentacleDashing; // 처형·돌진 연출 중에는 상호작용 불가
+    public bool CanInteract => !IsGrabKilling && !IsTentacleDashing && !IsStunned; // 처형·돌진 연출·기절 중에는 상호작용 불가
+    private StunReceiver stun; // 도구에 맞아 기절(EscapePlan.md §1.8, D24 — 괴물은 세 도구 모두에 기절)
+    public bool IsStunned => stun != null && stun.IsStunned;
 
     public override void OnEnable()
     {
@@ -126,6 +129,9 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     private void Awake()
     {
         groundDetector = new CharacterGroundDetector(groundLayer, GroundCheckDistance);
+        stun = gameObject.AddComponent<StunReceiver>();
+        stun.Init(5.2f);
+        if (EscapeManager.IsActive) gameObject.AddComponent<MonsterEscapeState>().Init(this);
         if (!pv.IsMine) return;
 
         // HideOrSeekPlayer.Awake()와 동일한 "Main Camera에 나를 넘긴다" 패턴 — 쿠키용 3인칭 궤도
@@ -139,7 +145,15 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
         }
 
         camCtrl.InitCamera(gameObject, CameraTargetHeight, CameraDistance);
+
+        // 1인칭/3인칭 선택(GameFixPlan.md F6). 기본값은 GameSettings.MonsterDefaultView.
+        viewSwitcher = gameObject.AddComponent<MonsterViewSwitcher>();
+        viewSwitcher.Init(this, eyeSocket != null ? eyeSocket : transform);
     }
+
+    // 조준한 쿠키를 잡는다(GameFixPlan.md F1). CharacterInteractor가 E키 입력 때 다른 상호작용보다 먼저 부른다.
+    public bool TryGrabAimTarget() => grabKillTrigger != null && grabKillTrigger.TryGrabAimTarget();
+    public bool HasGrabAimTarget => grabKillTrigger != null && grabKillTrigger.AimTarget != null;
 
     private void Start()
     {
@@ -163,7 +177,7 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
         grabKillDuration = FindClipLength(GrabKillClipKeyword, FallbackGrabKillDuration);
         tentacleDashAnimDuration = FindClipLength(TentacleDashClipKeyword, GameSettings.Current.TentacleDashDuration);
         cookieLayerMask = LayerMask.GetMask(CookieLayerName);
-        if (cookieLayerMask == 0) Debug.LogWarning($"[MonsterController] Layer '{CookieLayerName}' not found. Tentacle dash cannot catch cookies on its path.");
+        if (cookieLayerMask == 0) Debug.LogWarning($"[MonsterController] Layer '{CookieLayerName}' not found. Tentacle dash cannot stop before cookies.");
     }
 
     private float FindClipLength(string keyword, float fallback)
@@ -209,6 +223,14 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
             tentacleDashAnimRemaining = 0f;
         }
 
+        if (IsStunned)
+        {
+            // 기절 중에는 움직이지 않는다(돌진·잡기도 불가).
+            moveInput = Vector3.zero;
+            ChangeState(MonsterMoveState.Idle);
+            return;
+        }
+
         moveInput = ReadCameraRelativeMoveInput();
 
         // 입력 키는 좌Shift로 확정(사용자 확인, GameRule.md v3.4) — InputBindings의 TentacleDashKey에서 바꿀 수 있다.
@@ -241,7 +263,10 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
 
         // transform.rotation 직접 대입 대신 rb.MoveRotation — Rigidbody 보간이 인식하는 회전만 갱신해야
         // 매 물리 스텝마다 회전이 튀지 않는다(쿠키에서 고친 Bug-fix-plan.md §13과 같은 이유).
-        if (moveInput != Vector3.zero)
+        // 1인칭이면 몸은 카메라의 수평 방향을 바라본다(조준과 몸 앞 방향을 맞춤). 3인칭이면 이동 방향을 바라본다.
+        if (viewSwitcher != null && viewSwitcher.IsFirstPerson)
+            rb.MoveRotation(viewSwitcher.YawRotation);
+        else if (moveInput != Vector3.zero)
             rb.MoveRotation(Quaternion.LookRotation(moveInput));
 
         Vector3 horizontal = moveInput * speed;
@@ -282,13 +307,15 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
             velocity.y = Mathf.Min(rb.linearVelocity.y, 0f);
         }
 
-        if (TryCatchCookieOnDashPath(velocity * dt, out float travel))
-            velocity = velocity.normalized * (travel / dt); // 쿠키 앞까지만 움직이고 GrabKill로 전환된다(돌진은 PlayGrabKill이 끊음)
+        bool stopBeforeCookie = TryStopBeforeCookieOnDashPath(velocity * dt, out float travel);
+        if (stopBeforeCookie)
+            velocity = velocity.normalized * (travel / dt); // 쿠키 앞까지만 움직인다(처형하지 않음, GameFixPlan.md F1)
 
         rb.linearVelocity = velocity;
         lastDashPosition = position;
         lastDashExpected = velocity.magnitude * dt;
         tentacleDash.TickDash(dt);
+        if (stopBeforeCookie) tentacleDash.Cancel(); // 돌진 이동만 끝낸다 — 애니메이션 마무리는 그대로 이어진다
         return true;
     }
 
@@ -315,38 +342,37 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
         if (pv.IsMine) groundDetector.RecordContacts(collision);
     }
 
-    // 이번 물리 스텝의 돌진 이동 경로를 처형 판정 범위(MonsterGrabKillTrigger의 구)로 훑어 살아 있는 쿠키가 있으면
-    // 처형한다. 한 스텝에 1m 넘게 움직여 트리거(OnTriggerEnter)만으로는 쿠키를 건너뛸 수 있기 때문이다.
-    // 처형했으면 true와 함께 쿠키에 닿기까지 움직일 거리를 돌려준다.
-    private bool TryCatchCookieOnDashPath(Vector3 step, out float travel)
+    // 이번 스텝의 돌진 경로에 살아 있는 쿠키(스파이 포함)가 있으면 그 앞까지의 거리를 돌려준다. 처형은 하지 않는다
+    // (GameFixPlan.md F1). 초속 80m라 한 스텝에 1m 넘게 움직여, 그대로 부딪히면 물리 엔진이 쿠키를 튕겨 날릴 수 있다.
+    private const float DashStopMargin = 0.1f;
+
+    private bool TryStopBeforeCookieOnDashPath(Vector3 step, out float travel)
     {
         travel = 0f;
         float distance = step.magnitude;
-        if (grabKillTrigger == null || cookieLayerMask == 0 || distance <= 0f || grabKillTrigger.IsOnCooldown) return false;
+        if (cookieLayerMask == 0 || distance <= 0f) return false;
+
+        // 충돌 캡슐(반지름 약 0.31m)은 겉모습(앞면 약 1.87m)보다 훨씬 작다. 캡슐 기준으로 멈추면 겉보기에 몸이 쿠키를
+        // 덮으므로, 겉모습 앞면이 쿠키에 닿기 직전에 멈춘다. 그러면 쿠키는 바로 잡기 거리 안에 들어온다.
+        // 그만큼 앞을 미리 살펴야 이번 스텝에 이미 너무 가까이 가는 일이 없다.
+        float lookAhead = (grabKillTrigger != null ? Mathf.Max(0f, grabKillTrigger.BodyFrontOffset - bodyRadius) : 0f) + DashStopMargin;
 
         Vector3 direction = step / distance;
-        int count = Physics.SphereCastNonAlloc(grabKillTrigger.ReachCenter, grabKillTrigger.ReachRadius, direction,
-            dashSweepHits, distance, cookieLayerMask, QueryTriggerInteraction.Ignore);
+        Vector3 origin = rb.position + Vector3.up * (bodyRadius + GroundProbeLift);
+        int count = Physics.SphereCastNonAlloc(origin, bodyRadius, direction, dashSweepHits, distance + lookAhead,
+            cookieLayerMask, QueryTriggerInteraction.Ignore);
 
-        // 가까운 쿠키부터 처형을 시도한다(NonAlloc 결과는 정렬돼 있지 않다).
-        System.Array.Sort(dashSweepHits, 0, count, RaycastHitDistanceComparer.Instance);
+        float nearest = float.MaxValue;
         for (int i = 0; i < count; i++)
         {
             var cookie = dashSweepHits[i].collider.GetComponentInParent<HideOrSeekPlayer>();
-            if (cookie == null || cookie.gameObject == gameObject) continue;
-            if (!grabKillTrigger.TryGrabKill(cookie)) continue;
-
-            travel = dashSweepHits[i].distance;
-            Debug.Log($"[MonsterController] Tentacle dash caught cookie (view {cookie.View.ViewID}) after {travel:F2}m.");
-            return true;
+            if (cookie == null || cookie.gameObject == gameObject || cookie.IsBroken) continue;
+            nearest = Mathf.Min(nearest, dashSweepHits[i].distance);
         }
-        return false;
-    }
+        if (nearest == float.MaxValue) return false;
 
-    private sealed class RaycastHitDistanceComparer : System.Collections.Generic.IComparer<RaycastHit>
-    {
-        public static readonly RaycastHitDistanceComparer Instance = new RaycastHitDistanceComparer();
-        public int Compare(RaycastHit a, RaycastHit b) => a.distance.CompareTo(b.distance);
+        travel = Mathf.Clamp(nearest - lookAhead, 0f, distance);
+        return true;
     }
 
     // 쿠키와 같은 카메라 기준 수평 이동 방향(3인칭 궤도 카메라 전제, PlayerInput 공용).

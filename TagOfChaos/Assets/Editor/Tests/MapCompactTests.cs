@@ -73,6 +73,30 @@ public class MapCompactTests
         Assert.IsTrue(result.Clean, result.ToString());
     }
 
+    // 걸을 수 있는 곳이 어떤 점광원 범위의 55% 안에 들어가야 한다(GameFixPlan.md F7 — 가장자리 띠가 너무 어두웠다).
+    [TestCaseSource(nameof(Maps))]
+    public void MapScene_WalkableGroundIsLit(string map)
+    {
+        Open(map);
+        Physics.SyncTransforms();
+        var lights = Object.FindObjectsByType<Light>(FindObjectsSortMode.None)
+            .Where(l => l.type != LightType.Directional && l.enabled && l.gameObject.activeInHierarchy).ToList();
+        int total = 0, lit = 0;
+        var dark = new List<string>();
+        for (int x = -66; x <= 66; x += 6)
+        for (int z = -66; z <= 66; z += 6)
+        {
+            bool ground = Physics.RaycastAll(new Vector3(x, 500f, z), Vector3.down, 1000f).Any(h => h.collider.name.Contains("Terrain_Walkable"));
+            if (!ground) continue;
+            total++;
+            var p = new Vector2(x, z);
+            if (lights.Any(l => Vector2.Distance(p, new Vector2(l.transform.position.x, l.transform.position.z)) < l.range * 0.55f)) lit++;
+            else dark.Add($"({x},{z})");
+        }
+        Assert.That(total, Is.GreaterThan(0), $"{map}: no walkable ground found");
+        Assert.That(lit / (float)total, Is.GreaterThanOrEqualTo(0.98f), $"{map}: dark cells {dark.Count}/{total}: {string.Join(" ", dark.Take(20))}");
+    }
+
     [TestCaseSource(nameof(Maps))]
     public void MapScene_DoorOpeningsAreWideAndClear(string map)
     {

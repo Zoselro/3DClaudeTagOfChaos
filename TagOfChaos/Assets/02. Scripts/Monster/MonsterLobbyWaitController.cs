@@ -23,6 +23,9 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
     [SerializeField] private string countdownFormat = "{0}"; // 표시 문구는 인스펙터에서 입력
     [SerializeField] private Button[] buttonsToDisableWhileWaiting;      // Back 버튼 등
     [SerializeField] private Behaviour[] behavioursToDisableWhileWaiting; // GameManager(채팅) 등
+    // 큐가 멈춘 동안에는 퇴장 소식을 받지 못해 PhotonNetwork.PlayerList가 갱신되지 않는다 — 나간 사람이 목록에 남아
+    // 보이던 버그(GameFixPlan.md F8). 정확할 수 없는 UI(참가자 목록 등)는 기다리는 동안 숨긴다.
+    [SerializeField] private GameObject[] objectsToHideWhileWaiting;
 
     private bool isWaiting;
     private double departAtLocalTime; // Time.realtimeSinceStartupAsDouble 기준 출발 시각
@@ -93,6 +96,7 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
             // 갈 씬이 없으면 멈춘 큐라도 되돌려 방 상태(대기실 복귀 등)를 받게 한다.
             Debug.LogError("[MonsterLobbyWait] No game map to load. Resuming the message queue in the lobby.");
             PhotonNetwork.IsMessageQueueRunning = true;
+            SetWaitingUi(false); // 큐가 다시 돌면 목록이 정확해지므로 다시 보여준다
             return;
         }
         PhotonNetwork.LoadLevel(map); // 방장이 아니므로 혼자만 로드, 로드 후 큐 자동 재개
@@ -113,6 +117,12 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
     private void SetWaitingUi(bool waiting)
     {
         if (waitPanelRoot != null) waitPanelRoot.SetActive(waiting);
+
+        if (objectsToHideWhileWaiting != null)
+        {
+            foreach (var go in objectsToHideWhileWaiting)
+                if (go != null) go.SetActive(!waiting);
+        }
 
         if (buttonsToDisableWhileWaiting != null)
         {

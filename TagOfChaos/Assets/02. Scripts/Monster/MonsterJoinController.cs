@@ -57,7 +57,7 @@ public class MonsterJoinController : MonoBehaviourPunCallbacks
         PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
         {
             { NetKeys.MonsterJoined, 1 },
-            { NetKeys.GameEndTime, joinTime + GameSettings.Current.SurvivalDuration },
+            { NetKeys.GameEndTime, joinTime + RoomState.TimeLimitSeconds() }, // 방장이 정한 제한시간(EscapePlan.md §1.7)
         });
     }
 

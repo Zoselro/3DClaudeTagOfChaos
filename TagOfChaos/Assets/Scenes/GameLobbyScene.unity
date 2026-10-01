@@ -2295,6 +2295,8 @@ MonoBehaviour:
   - {fileID: 787480883}
   behavioursToDisableWhileWaiting:
   - {fileID: 1603680378}
+  objectsToHideWhileWaiting:
+  - {fileID: 2098261537124965677}
 --- !u!114 &478262775
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9732,6 +9734,11 @@ PrefabInstance:
 --- !u!224 &2098261537124965676 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 304748778165494095, guid: c8e0fd40b4c64ce4b8f0b9eae85a4e70, type: 3}
+  m_PrefabInstance: {fileID: 2098261537124965675}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &2098261537124965677 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 6306639265193187188, guid: c8e0fd40b4c64ce4b8f0b9eae85a4e70, type: 3}
   m_PrefabInstance: {fileID: 2098261537124965675}
   m_PrefabAsset: {fileID: 0}
 --- !u!1660057539 &9223372036854775807

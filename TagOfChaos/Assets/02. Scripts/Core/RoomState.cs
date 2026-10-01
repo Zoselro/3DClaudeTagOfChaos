@@ -1,5 +1,6 @@
 using Photon.Pun;
 using Photon.Realtime;
+using UnityEngine;
 
 // Room/Player CustomProperties를 안전하게 읽는 조회 헬퍼. 전 도메인이 쓰므로 Core/에 둔다(research.md §7).
 // 값의 타입이 예상과 다르거나(키 삭제 통지 null 포함) 없으면 예외 대신 false를 돌려준다 — 예전에는
@@ -52,6 +53,20 @@ public static class RoomState
     public static bool IsLocalMonster() => PhotonNetwork.LocalPlayer != null && IsMonster(PhotonNetwork.LocalPlayer.ActorNumber);
 
     public static bool IsBroken(Player player) => TryGetPlayerInt(player, NetKeys.HitCount, out int hitCount) && hitCount >= 2;
+
+    public static bool IsSpy(int actorNumber) =>
+        TryGetIntArray(NetKeys.SpyActorNumbers, out int[] spies) && System.Array.IndexOf(spies, actorNumber) >= 0;
+
+    public static bool IsLocalSpy() => PhotonNetwork.LocalPlayer != null && IsSpy(PhotonNetwork.LocalPlayer.ActorNumber);
+
+    public static bool HasEscaped(Player player) => TryGetPlayerInt(player, NetKeys.Escaped, out int escaped) && escaped == 1;
+
+    // 방장이 정한 제한시간·타임어택 시간(초). 방 설정이 없으면(오프라인 개발 방 등) 기본값.
+    public static int TimeLimitSeconds() =>
+        TryGetInt(NetKeys.RoomTimeLimit, out int seconds) && seconds > 0 ? seconds : Mathf.RoundToInt(GameSettings.Current.SurvivalDuration);
+
+    public static int TimeAttackSeconds() =>
+        TryGetInt(NetKeys.TimeAttackDuration, out int seconds) && seconds > 0 ? seconds : GameSettings.Current.DefaultTimeAttackMinutes * 60;
 
     public static int MonsterCount() => TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters) ? monsters.Length : 0;
 

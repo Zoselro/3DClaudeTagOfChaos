@@ -429,7 +429,10 @@ public static class MapCompactor
         Physics.SyncTransforms();
 
         UpdateProbes(scene);
+        int filled = FillDarkAreas(scene);
+        if (filled > 0) ctx.Report.Add($"fill lights added: {filled}");
         PlaceSpawnsAndKillZone(ctx);
+        ctx.Report.Add(EscapeMapSetup.Apply(scene, map)); // 탈출 장치·로켓·상자 자리·마녀 위치(EscapePlan.md §4)
         AddMarker(scene);
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -1375,6 +1378,60 @@ public static class MapCompactor
             synced++;
         }
         ctx.Report.Add($"ground fixes: synced {synced}, removed {removed}");
+    }
+
+    // ---------------- fill lights (GameFixPlan.md F7) ----------------
+
+    // 맵을 줄이며 조명을 솎아 내고(LightSpacing), 높은 외곽 벽이 해를 가리는 가장자리 띠가 너무 어두웠다
+    // (HauntedBakery (54, 0, 20) 등, 6 m 격자 529곳 중 130곳이 어떤 조명 범위의 80% 밖). 걸을 수 있는 곳을 격자로 훑어
+    // 조명이 충분히 닿지 않는 곳에 맵의 기존 랜턴과 같은 색의 보충 조명을 둔다. 그림자는 끄고 렌더 모드는 Auto로 둔다(최적화).
+    private const float FillGrid = 7f; // 14 m 격자는 (54, 0, 20) 같은 벽 옆 띠를 건너뛰었다
+    // 점광원은 범위 끝으로 갈수록 거의 닿지 않는다 — 범위의 80%를 기준으로 하면 가장자리가 여전히 어두웠다(Play Mode 확인).
+    private const float FillCoverage = 0.55f;
+    private const float FillHeight = 3.3f;
+    private const float FillIntensityScale = 1.1f;
+
+    private static int FillDarkAreas(Scene scene)
+    {
+        GameObject lighting = scene.GetRootGameObjects().FirstOrDefault(g => g.name == "MapLighting");
+        Transform points = lighting != null ? lighting.transform.Find("PointLights") : null;
+        if (points == null) return 0;
+
+        List<Light> lights = points.GetComponentsInChildren<Light>(true).Where(l => l.type != LightType.Directional).ToList();
+        if (lights.Count == 0) return 0;
+        Light sample = lights[0]; // 맵의 랜턴 색·범위를 그대로 따른다
+
+        Physics.SyncTransforms();
+        int added = 0;
+        for (float x = -NewHalf + FillGrid / 2f; x < NewHalf; x += FillGrid)
+        for (float z = -NewHalf + FillGrid / 2f; z < NewHalf; z += FillGrid)
+        {
+            if (!TryWalkableHeight(x, z, out float y)) continue;
+            var p = new Vector2(x, z);
+            if (lights.Any(l => Vector2.Distance(p, new Vector2(l.transform.position.x, l.transform.position.z)) < l.range * FillCoverage)) continue;
+
+            var go = new GameObject($"LGT_Fill_{added:00}");
+            go.transform.SetParent(points, false);
+            go.transform.position = new Vector3(x, y + FillHeight, z);
+            var light = go.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = sample.color;
+            light.range = sample.range;
+            light.intensity = sample.intensity * FillIntensityScale;
+            light.shadows = LightShadows.None;
+            light.renderMode = LightRenderMode.Auto;
+            lights.Add(light);
+            added++;
+        }
+        return added;
+    }
+
+    private static bool TryWalkableHeight(float x, float z, out float y)
+    {
+        y = float.NegativeInfinity;
+        foreach (RaycastHit h in Physics.RaycastAll(new Vector3(x, 500f, z), Vector3.down, 1000f))
+            if (h.collider.name.Contains("Terrain_Walkable")) y = Mathf.Max(y, h.point.y);
+        return !float.IsNegativeInfinity(y);
     }
 
     // ---------------- probes, spawns, kill zone ----------------

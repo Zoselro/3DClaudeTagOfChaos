@@ -3,6 +3,7 @@ using Photon.Pun;
 using Photon.Realtime;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class LobbyController : MonoBehaviourPunCallbacks
 {
@@ -13,6 +14,12 @@ public class LobbyController : MonoBehaviourPunCallbacks
     [SerializeField] private TMP_Text feedbackText;
     [SerializeField] private Transform roomListContent;
     [SerializeField] private RoomListItem roomListItemPrefab;
+    [SerializeField] private Button refreshButton;
+
+    [Header("Room Settings (EscapePlan.md §1.7)")]
+    [SerializeField] private RoomSettingField playersField;
+    [SerializeField] private RoomSettingField timeLimitField;
+    [SerializeField] private RoomSettingField timeAttackField;
 
     [Header("Feedback Messages (set in inspector)")] // 코드에 한글을 넣지 않는 프로젝트 규칙 — 표시 문구는 프리팹에서 입력
     [SerializeField] private string enterRoomNameMessage = "Enter a room name.";
@@ -23,6 +30,13 @@ public class LobbyController : MonoBehaviourPunCallbacks
 
     private readonly Dictionary<string, RoomInfo> cachedRoomList = new Dictionary<string, RoomInfo>();
     private readonly Dictionary<string, RoomListItem> roomListItems = new Dictionary<string, RoomListItem>();
+
+    // 방 목록 새로고침(GameFixPlan.md F3). OnRoomListUpdate는 변경분만 주므로 한 번 놓치면 그 방이 다음 변경 때까지
+    // 보이지 않는다. Photon은 로비에 새로 들어올 때 전체 목록을 다시 보내므로, 로비를 나갔다 다시 들어간다.
+    // 연타로 로비를 계속 드나들지 않도록 잠시 버튼을 막는다.
+    private const float RefreshCooldown = 2f;
+    private float refreshReadyTime;
+    private bool rejoinLobbyAfterLeave;
 
     private void Awake()
     {
@@ -45,6 +59,36 @@ public class LobbyController : MonoBehaviourPunCallbacks
             PhotonNetwork.SerializationRate = GameSettings.Current.CharacterSyncRate; // 캐릭터 동기화 빈도(research.md §12.4)
             PhotonNetwork.ConnectUsingSettings();
         }
+    }
+
+    private void Update()
+    {
+        if (refreshButton == null) return;
+        bool ready = Time.unscaledTime >= refreshReadyTime && PhotonNetwork.IsConnectedAndReady && !rejoinLobbyAfterLeave;
+        if (refreshButton.interactable != ready) refreshButton.interactable = ready;
+    }
+
+    public void OnRefreshButtonClicked()
+    {
+        if (Time.unscaledTime < refreshReadyTime || !PhotonNetwork.IsConnectedAndReady || rejoinLobbyAfterLeave) return;
+        refreshReadyTime = Time.unscaledTime + RefreshCooldown;
+
+        if (PhotonNetwork.InLobby)
+        {
+            rejoinLobbyAfterLeave = true;
+            PhotonNetwork.LeaveLobby(); // OnLeftLobby에서 다시 들어간다
+        }
+        else
+        {
+            PhotonNetwork.JoinLobby();
+        }
+    }
+
+    public override void OnLeftLobby()
+    {
+        if (!rejoinLobbyAfterLeave) return;
+        rejoinLobbyAfterLeave = false;
+        PhotonNetwork.JoinLobby(); // OnJoinedLobby가 목록을 비우고, 곧 전체 목록이 OnRoomListUpdate로 온다
     }
 
     public override void OnConnectedToMaster()
@@ -117,8 +161,20 @@ public class LobbyController : MonoBehaviourPunCallbacks
             return;
         }
 
-        // 정원은 전역 설정(Resources/GameSettings)에서 읽는다 — 인원을 늘릴 때 코드 수정 없이 에셋 값만 바꾼다.
-        var options = new RoomOptions { MaxPlayers = GameSettings.Current.MaxPlayers };
+        // 방장이 고른 인원·제한시간·타임어택 시간(EscapePlan.md §1.7). 입력칸 값은 RoomSettingField가 이미 허용 범위로 맞춰 둔다.
+        // 제한시간과 타임어택 시간은 판이 바뀌어도 유지되는 Room Prop(초)으로 넣는다.
+        int players = playersField != null ? playersField.Value : GameSettings.Current.DefaultPlayers;
+        int timeLimitMinutes = timeLimitField != null ? timeLimitField.Value : GameSettings.Current.DefaultTimeLimitMinutes;
+        int timeAttackMinutes = timeAttackField != null ? timeAttackField.Value : GameSettings.Current.DefaultTimeAttackMinutes;
+        var options = new RoomOptions
+        {
+            MaxPlayers = players,
+            CustomRoomProperties = new ExitGames.Client.Photon.Hashtable
+            {
+                { NetKeys.RoomTimeLimit, timeLimitMinutes * 60 },
+                { NetKeys.TimeAttackDuration, timeAttackMinutes * 60 },
+            },
+        };
         PhotonNetwork.CreateRoom(roomName, options, TypedLobby.Default);
     }
 

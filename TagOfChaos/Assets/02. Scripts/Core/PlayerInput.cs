@@ -51,6 +51,23 @@ public static class PlayerInput
     public static bool GrabPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.GrabKey);
     public static bool InteractPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.InteractKey);
     public static bool TentacleDashPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.TentacleDashKey);
+    // 인벤토리(EscapePlan.md §1.9): G키로 떨어뜨리기, 숫자키 1~4로 칸 고르기, 마우스로 도구 쓰기.
+    public static bool DropPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DropKey);
+    public static bool UseToolPressed => !IsGameplaySuppressed && Input.GetMouseButtonDown(Bindings.UseToolButton);
+
+    // 눌린 칸 번호(1~4 → 0~3), 없으면 -1.
+    public static int SlotKeyPressed
+    {
+        get
+        {
+            if (IsGameplaySuppressed) return -1;
+            for (int i = 0; i < 4; i++)
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i)) return i;
+            return -1;
+        }
+    }
+
+    public static bool ToggleViewPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.ToggleViewKey);
     public static bool SpectateNextPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.SpectateNextKey);
     public static bool ChatSubmitReleased => Input.GetKeyUp(Bindings.ChatSubmitKey);
 
@@ -62,4 +79,7 @@ public static class PlayerInput
     public static bool CameraRotatePressed => Input.GetMouseButtonDown(Bindings.CameraRotateButton);
     public static bool CameraRotateReleased => Input.GetMouseButtonUp(Bindings.CameraRotateButton);
     public static Vector2 CameraRotateDelta => new Vector2(Input.GetAxis(Bindings.MouseXAxis), Input.GetAxis(Bindings.MouseYAxis));
+
+    // 1인칭 시점 회전(GameFixPlan.md F6): 우클릭 없이 마우스 이동만으로 돌린다. 채팅 중에는 멈춘다.
+    public static Vector2 LookDelta => IsGameplaySuppressed ? Vector2.zero : CameraRotateDelta;
 }

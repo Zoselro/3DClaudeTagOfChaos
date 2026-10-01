@@ -2,7 +2,7 @@
 
 - 작성일: 2026-09-30
 - 상태: **결정 완료, 최종 승인 대기**.
-  - D1~D29 결정은 모두 반영했다.
+  - D1~D40 결정은 모두 반영했다.
   - 프로젝트 규칙(Claude.md)에 따라 최종 승인을 받은 뒤 작업을 시작한다.
 - 근거:
   - 지금 코드를 직접 읽고 확인했다.
@@ -79,20 +79,24 @@
 - **마녀 연출:**
   - 맵 밖에 아주 크게 보인다.
   - 처음에는 뒷모습이고, 타이머가 흐를수록 서서히 돌아서 앞모습이 된다.
+  - **바로 나타나지 않는다.** 스파이가 떠난 순간부터 5초 동안 투명도(알파)가 0에서 255(완전히 보임)로 서서히 올라가며 나타난다(D38).
 - **스파이의 탈출 경로:** 로켓이다. 쿠키의 탈출 장치와 다르다.
 
-### 1.3 결과 화면
+### 1.3 결과 화면 (D39)
 
-플레이어마다 한 줄씩 보여준다.
+플레이어마다 한 줄씩, 닉네임 뒤에 역할을 붙여 보여준다.
 
-- 쿠키: 탈출 성공 / 탈출 실패
-- 스파이: 탈출 성공 / 탈출 실패
-- 괴물: 잡은 횟수 n회, 또는 마녀에 의해 사망
+| 역할 | 형식 | 예 |
+|---|---|---|
+| 쿠키 | 닉네임(쿠키) 탈출 성공 / 탈출 실패 | 초코칩(쿠키) 탈출 성공 |
+| 스파이 | 닉네임(스파이) 탈출 성공 / 탈출 실패 | 버터링(스파이) 탈출 실패 |
+| 괴물 | 닉네임(괴물) 잡은 횟수 n회 / 마녀에 의해 사망 | 마카롱(괴물) 잡은 횟수 3회 |
 
-괴물이 이긴 경우에는 추천안을 쓴다.
-- 괴물이 쿠키 유리병을 들고 서 있고, 잡힌 쿠키 수만큼 병 안에 쿠키가 들어 있다.
-- 괴물이 2명이면 각자 자기 병을 든다. 더 많이 잡은 괴물이 가운데에 서서 MVP가 된다.
-- 아래에는 플레이어별 줄이 나온다.
+- 역할 이름과 문구는 인스펙터에서 입력한다(코드에 한글 금지).
+- 괴물이 이긴 경우에는 추천안을 쓴다.
+  - 괴물이 쿠키 유리병을 들고 서 있고, 잡힌 쿠키 수만큼 병 안에 쿠키가 들어 있다.
+  - 괴물이 2명이면 각자 자기 병을 든다. 더 많이 잡은 괴물이 가운데에 서서 MVP가 된다.
+  - 아래에는 위 형식의 플레이어별 줄이 나온다.
 
 ### 1.4 상자 (D7, D12, D14, D16)
 
@@ -242,29 +246,83 @@
   | 물풍선 터지는 범위 | 반경 1.5m |
   | 쿨다운 | 모든 도구 3초 |
 
-### 1.9 인벤토리 (D26)
+### 1.9 인벤토리 (D26, D30~D33)
 
-쿠키와 스파이 모두 같은 인벤토리를 쓴다. 리썰 컴퍼니처럼 아래쪽에 칸이 보이는 방식이다.
+쿠키와 스파이 모두 같은 인벤토리를 쓴다. 리썰 컴퍼니처럼 화면 아래에 칸이 보이는 방식이다. 괴물은 인벤토리가 없다.
 
 - **칸 수:** 최대 4칸이다. 숫자키 1~4나 마우스 휠로 칸을 고른다.
+  - 색칠 단계에서는 마우스 휠이 붓 크기 조절(`PlayerInput.BrushSizeDelta`)에 쓰이므로, 그동안은 휠로 칸을 바꾸지 않는다.
 - **손에 든 아이템:** 지금 고른 칸의 아이템이 손에 들려 겉으로 보인다.
-- **재료 (중요):**
-  - 재료와 공구상자는 **양손으로 들고** 다닌다. 한 번에 1개만 들 수 있다.
-  - 재료를 들고 있는 동안에는 **다른 칸으로 바꿀 수 없다.** 뿅망치나 다른 도구를 쓰려면 재료를 먼저 끼우거나 내려놓아야 한다.
+- **줍기와 떨어뜨리기 (D30):**
+  - 줍기: 상호작용 키 **E**. 상자에서 꺼낼 때도 E다.
+  - 떨어뜨리기: **G** 키. 손에 든 아이템을 바닥에 내려놓는다. 누구나 다시 주울 수 있다.
+- **드는 방식 (D31):**
+  - 아이템마다 **한 손** 또는 **두 손**으로 든다. 이 값은 아이템 데이터(`ItemSO.HoldType`)에 둔다. 나중에 새 아이템이 생겨도 데이터만 정하면 된다.
+  - 지금은 재료와 공구상자만 두 손이고, 뿅망치·스턴건·물풍선은 한 손이다.
+  - 한 손 아이템은 오른손에, 두 손 아이템은 두 손 사이에 들고 애니메이션도 그에 맞춘다.
+- **두 손 아이템 (중요):**
+  - 두 손 아이템은 한 번에 1개만 가질 수 있다.
+  - 두 손 아이템을 들고 있는 동안에는 **다른 칸으로 바꿀 수 없다.** 도구를 쓰려면 먼저 끼우거나 G로 내려놓아야 한다.
+  - 두 손 아이템을 들고 있는 동안에는 다른 아이템도 주울 수 없다.
   - 예: 1번 칸에 재료, 2번 칸에 뿅망치가 있으면, 재료를 내려놓기 전까지 2번 칸을 고를 수 없다.
+- **떨어뜨린 뒤 자동으로 들기 (D32):**
+  - 손에 든 아이템이 없어지면(떨어뜨림, 설치, 로켓에 끼움, 도구 횟수 다 씀), **다음 번호 칸부터 차례로** 찾아 처음 나오는 아이템을 바로 든다. 끝 칸 다음에는 1번 칸부터 다시 찾는다.
+  - 예: 1·3·4번 칸에 아이템이 있고 2번 칸이 비었을 때 1번을 떨어뜨리면, 바로 3번 칸 아이템을 든다.
+  - 모든 칸이 비었으면 빈손이 된다.
 - **도구:** 뿅망치, 스턴건, 물풍선은 칸 하나씩 차지하고, 남은 횟수가 칸에 표시된다. 횟수를 다 쓰면 칸에서 사라진다.
-- **칸이 가득 차면:** 상자에서 새 아이템을 꺼낼 수 없다. 안내 문구로 알려준다.
-- **내려놓기:** 버리기 키로 손에 든 아이템을 바닥에 내려놓는다. 누구나 다시 주울 수 있다.
+- **칸이 가득 차면:** 새 아이템을 주울 수 없다. 안내 문구로 알려준다.
 - **떨어뜨리는 경우 (D11, D20, D28):**
 
   | 상황 | 떨어지는 것 |
   |---|---|
+  | G키 | 손에 든 아이템 하나 |
   | 도구에 맞음 | 손에 든 아이템 하나 |
   | 괴물에게 잡힘 | 인벤토리의 모든 아이템 |
   | 게임 중에 나감 (쿠키, 스파이) | 인벤토리의 모든 아이템 |
 
   - 떨어진 아이템은 그 자리 바닥에 놓이고, 누구나 다시 주울 수 있다.
-- 괴물은 인벤토리가 없다.
+
+### 1.10 역할별로 할 수 있는 것 (D33~D36)
+
+| 할 수 있는 것 | 쿠키 | 스파이 | 괴물 |
+|---|---|---|---|
+| 문 열고 닫기 | ○ | ○ | ○ |
+| 아이템 줍기, 상자 열기 | ○ | ○ (스파이 상자 포함) | ✕ |
+| 쿠키 탈출구로 탈출 | ○ | ✕ | ✕ |
+| 스파이 로켓 | ✕ | ○ | ✕ |
+| 잡기 | ✕ | ✕ | ○ (쿠키와 스파이 모두) |
+
+- **괴물은 문만 열고 닫을 수 있다 (D33).** 아이템을 줍거나 상자를 열 수 없다. 각 사물의 `CanInteract`가 괴물을 거른다.
+- **괴물은 스파이도 잡을 수 있다 (D34).** 스파이도 쿠키 캐릭터라서 잡는 방식은 같다. 잡힌 스파이는 탈출 실패다.
+  - 잡는 방식은 조준 + E키다(`GameFixPlan.md` F1). 조준 대상이 있으면 E키는 문보다 잡기가 먼저다.
+  - 스파이가 잡히면 모두의 화면 가운데에 **"스파이가 잡혔습니다"** 문구가 뜨고, 서서히 사라진다(약 3초).
+- **탈출구는 쿠키만 들어갈 수 있다 (D35).** 재료를 다 모아 탈출구가 열려도 스파이와 괴물은 들어갈 수 없다.
+  - 스파이가 다가가면 쿠키처럼 E 아이콘이 뜨지만, 눌러도 "들어갈 수 없음"만 나온다. 그래야 스파이만 못 들어가는 모습으로 정체가 드러나지 않는다.
+  - 괴물에게는 E 아이콘도 뜨지 않는다.
+- **탈출한 쿠키는 다른 쿠키의 시점으로 관전한다 (D36).** 기존 관전 모드(`SpectatorController`, 대상: 살아 있는 쿠키)를 그대로 쓴다. 관전 대상에는 스파이도 쿠키로 들어간다(겉모습이 쿠키라서 빼면 정체가 드러난다).
+
+### 1.11 화면 표시 (D37, D38)
+
+- **필요한 재료 표시 (오른쪽 위):**
+  - 재료 이미지, 이름, (지금 수/필요한 수)를 한 줄씩 보여준다.
+  - 쿠키는 탈출 장치의 재료를, 스파이는 자기 로켓의 재료를 본다.
+
+  | 쿠키 화면 (예: 베이커리) | 스파이 화면 (예: 베이커리) |
+  |---|---|
+  | 기어 0/1 | 기어 0/1 |
+  | 레드 버튼 0/1 | 배터리 0/1 |
+  | 수리 0/2 | |
+  | 배터리 0/1 | |
+
+  - 누가 끼우거나 빼면 모두의 화면에서 바로 바뀐다.
+- **훔쳤을 때 (D37):**
+  - 스파이가 탈출 장치에서 재료를 빼면, 쿠키 화면의 그 재료 수만 줄어든다(예: 기어 1/1 → 0/1).
+  - **이때는 알림 문구를 띄우지 않는다.**
+- **로켓에 끼움 알림 (D40):**
+  - 스파이가 **장치에서 훔친 재료**를 로켓에 끼울 때만, 모두의 화면에 **"스파이가 기어를 훔쳐 로켓에 끼워넣었습니다"** 문구가 뜨고 서서히 사라진다.
+  - 재료 이름 끝 글자에 받침이 있으면 "을", 없으면 "를"을 붙인다(예: 기어를, 레드 버튼을). 문구 틀은 인스펙터에서 두 가지로 입력한다.
+  - 상자나 바닥에서 주운 재료, 공구상자를 로켓에 끼울 때는 알림이 뜨지 않는다. 훔친 재료인지는 방장이 재료마다 기록한다(`EscapeItems`의 `stolenFromDevice`).
+- **마녀 등장 (D38):** 스파이가 떠난 순간부터 5초 동안 알파 0에서 255로 서서히 나타난다(§1.2).
 
 ## 2. 결정 기록
 
@@ -299,22 +357,33 @@
 | D27 | 장치에서 훔치기 | 스파이는 자기 로켓에 아직 필요한 종류만 장치에서 뺄 수 있음. 공구상자는 로켓에 빈 칸이 있으면 뺄 수 있음 |
 | D28 | 게임 중에 나감 | 쿠키와 스파이 모두 인벤토리의 모든 아이템을 그 자리에 떨어뜨림 |
 | D29 | 기절 이펙트 | 머리 위에 별이 도는 이펙트. 쿠키, 스파이, 괴물 공통 |
+| D30 | 줍기와 떨어뜨리기 | 줍기는 E, 떨어뜨리기는 G |
+| D31 | 드는 방식 | 아이템마다 한 손 또는 두 손(`ItemSO.HoldType`). 지금은 재료와 공구상자만 두 손 |
+| D32 | 떨어뜨린 뒤 | 다음 번호 칸부터 찾아 처음 나오는 아이템을 바로 듦 |
+| D33 | 괴물이 할 수 있는 것 | 문 열고 닫기만. 줍기와 상자 열기는 못 함 |
+| D34 | 스파이 잡기 | 괴물은 스파이도 잡을 수 있음. "스파이가 잡혔습니다"가 떴다가 서서히 사라짐 |
+| D35 | 탈출구 | 쿠키만 들어갈 수 있음. 스파이와 괴물은 못 들어감 |
+| D36 | 탈출한 쿠키 | 다른 쿠키 시점으로 관전 |
+| D37 | 필요한 재료 표시 | 오른쪽 위에 재료 이미지와 (n/필요 수). 장치에서 훔치면 수만 줄고 알림은 없음 |
+| D38 | 마녀 등장 | 5초 동안 알파 0 → 255로 서서히 |
+| D39 | 결과 화면 | 닉네임(역할) + 탈출 성공·실패 / 잡은 횟수·마녀에 의해 사망 |
+| D40 | 로켓에 끼움 알림 | 장치에서 훔친 재료를 로켓에 끼울 때만 "스파이가 ○○을(를) 훔쳐 로켓에 끼워넣었습니다" |
 
 ## 3. 작업 순서
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
-| P0 | D1~D12 결정 ✅ / 계획서 최종 승인 ⬜ | 🔄 |
-| P1 | Blender: 에셋 제작 (탈출 장치, 재료, 상자, 스파이 로켓, 마녀) | ⬜ |
-| P2 | Blender: 맵 5개에 배치, 진저브레드 유적 마을로 개편 | ⬜ |
-| P3 | Unity: 맵 다시 빌드, 자동 축소, 통행 검사 | ⬜ |
-| P4 | Unity: 역할 배정(괴물 수·스파이) 규칙 | ⬜ |
-| P5 | Unity: 재료, 상자, 인벤토리 4칸 (네트워크 포함) | ⬜ |
-| P6 | Unity: 탈출 장치와 탈출 (맵 5개) | ⬜ |
-| P7 | Unity: 스파이 (훔치기, 로켓, 스파이 상자)와 도구 (스턴건, 물풍선, 뿅망치, 기절 이펙트) | ⬜ |
-| P8 | Unity: 마녀 타임어택 | ⬜ |
-| P9 | Unity: 게임 끝 판정과 결과 화면 | ⬜ |
-| P10 | 테스트와 Play Mode 검증, 문서 정리 | ⬜ |
+| P0 | D1~D12 결정 ✅ / 계획서 최종 승인 ✅ | ✅ |
+| P1 | Blender: 에셋 제작 (탈출 장치, 재료, 상자, 스파이 로켓, 마녀) | ✅ |
+| P2 | Blender: 맵 5개에 배치, 진저브레드 유적 마을로 개편 | ✅ (배치는 Unity, §7) |
+| P3 | Unity: 맵 다시 빌드, 자동 축소, 통행 검사 | ✅ |
+| P4 | Unity: 역할 배정(괴물 수·스파이) 규칙 | ✅ |
+| P5 | Unity: 재료, 상자, 인벤토리 4칸 (네트워크 포함) | ✅ |
+| P6 | Unity: 탈출 장치와 탈출 (맵 5개) | ✅ |
+| P7 | Unity: 스파이 (훔치기, 로켓, 스파이 상자)와 도구 (스턴건, 물풍선, 뿅망치, 기절 이펙트) | ✅ |
+| P8 | Unity: 마녀 타임어택 | ✅ |
+| P9 | Unity: 게임 끝 판정과 결과 화면 | ✅ |
+| P10 | 테스트와 Play Mode 검증, 문서 정리 | ✅ |
 
 - 먼저 **CandyForest 하나로 P1~P9를 끝까지** 완성해서 게임 흐름을 확인한다. 그다음 나머지 4개 맵으로 넓힌다.
 - 맵마다 다른 것은 에셋과 레시피 데이터뿐이다. 코드는 한 번만 만든다.
@@ -424,7 +493,7 @@ Unity 코드는 오브젝트를 이름으로 찾는다.
 | 새 키 | 대상 | 내용 |
 |---|---|---|
 | `EscapeRecipe` | Room | 이번 판의 칸 구성 (칸 번호 → 재료 종류), 필요 재료 수 |
-| `EscapeItems` | Room | 재료마다: 상자 안 / 누가 들고 있음 / 바닥 위치 / 설치됨 |
+| `EscapeItems` | Room | 재료마다: 상자 안 / 누가 들고 있음 / 바닥 위치 / 설치됨, 그리고 장치에서 훔친 재료인지(`stolenFromDevice`) |
 | `ChestStates` | Room | 상자마다: 닫힘 / 열림, 들어 있던 것 |
 | `SpyActorNumbers` | Room | 스파이 번호 (§5.9 보안 참고) |
 | `RoomTimeLimit`, `TimeAttackDuration` | Room | 방장이 정한 제한시간과 타임어택 시간(초). 수명은 `Session`이라 판이 바뀌어도 유지된다 |
@@ -436,6 +505,7 @@ Unity 코드는 오브젝트를 이름으로 찾는다.
 | `Escaped` | Player | 0 = 아직, 1 = 탈출 성공 |
 | `CatchCount` | Player (괴물) | 잡은 횟수 |
 | `DeathCause` | Player | 괴물에게 잡힘 / 마녀 |
+| `RevealedSpies` | Room | 게임이 끝난 뒤 방장이 공개하는 스파이 번호들 (결과 화면용) |
 
 - 새 이벤트 코드는 `NetEventCodes`의 7번부터 쓴다.
   - `ItemRequest`: 줍기, 내려놓기, 설치
@@ -444,6 +514,9 @@ Unity 코드는 오브젝트를 이름으로 찾는다.
   - `StealRequest`: 탈출 장치에서 재료 빼기
   - `RocketRequest`: 로켓에 재료 끼우기와 탑승
   - `ToolUseRequest`: 도구 쓰기 (맞힌 대상 포함)
+  - `PickUpRequest`, `DropRequest`: 줍기와 떨어뜨리기 (G키)
+  - `EscapeExitRequest`: 쿠키 탈출구로 들어가기
+  - `SpyCaught`, `StolenItemToRocket`: 방장이 모두에게 보내는 알림 (§5.10)
 
 ### 5.3 P4: 역할 배정
 
@@ -552,6 +625,357 @@ Unity 코드는 오브젝트를 이름으로 찾는다.
   - 문구는 인스펙터에서 입력한다. 코드에는 한글을 쓰지 않는다.
 - 지금의 "처형 연출이 끝난 뒤 결과 표시" 로직은 그대로 둔다.
 
+### 5.10 코드 스니펫 (§1.3, §1.9~§1.11)
+
+아래는 지금 코드 구조에 맞춘 핵심 부분이다. 실제 구현에서 세부는 달라질 수 있다.
+
+#### 아이템 데이터와 드는 방식 (D31)
+
+```csharp
+// Assets/02. Scripts/Escape/ItemSO.cs — 아이템 하나의 데이터. 새 아이템은 에셋만 추가한다.
+public enum HoldType
+{
+    OneHanded, // 오른손. 다른 칸으로 바꿀 수 있다
+    TwoHanded, // 두 손. 들고 있는 동안 칸 바꾸기와 줍기가 막힌다
+}
+
+public enum ItemCategory { Material, Tool }
+
+[CreateAssetMenu(menuName = "TagOfChaos/Escape/Item", fileName = "Item_")]
+public class ItemSO : ScriptableObject
+{
+    [SerializeField] private string itemId;          // 네트워크로 주고받는 ID(영문)
+    [SerializeField] private string displayName;     // 화면 표시 이름(인스펙터에서 한글 입력 가능)
+    [SerializeField] private Sprite icon;            // 인벤토리 칸, 오른쪽 위 재료 표시
+    [SerializeField] private GameObject heldPrefab;  // 손에 든 모습
+    [SerializeField] private HoldType holdType;
+    [SerializeField] private ItemCategory category;
+
+    public string ItemId => itemId;
+    public string DisplayName => displayName;
+    public Sprite Icon => icon;
+    public GameObject HeldPrefab => heldPrefab;
+    public HoldType HoldType => holdType;
+    public ItemCategory Category => category;
+    public bool LocksSlotSwitch => holdType == HoldType.TwoHanded;
+}
+```
+
+#### 인벤토리 (D26, D30, D32)
+
+상태는 본인 클라이언트가 Player Props(`Inventory`, `SelectedSlot`)에 쓴다. 지금 `HitCount`처럼 "본인만 자기 상태를 쓴다" 원칙을 따른다. 아이템의 위치(누가 들고 있는지, 바닥 어디인지)는 방장이 `EscapeItems` 표로 관리한다(§5.2). 그래서 줍기와 떨어뜨리기는 방장에게 요청하고, 방장이 승인하면 인벤토리에 반영한다.
+
+```csharp
+// Assets/02. Scripts/Escape/PlayerInventory.cs — 쿠키 프리팹에 붙는다(스파이도 쿠키 프리팹).
+public class PlayerInventory : MonoBehaviourPunCallbacks
+{
+    public const int SlotCount = 4;
+
+    private readonly InventorySlot[] slots = new InventorySlot[SlotCount];
+    public int Selected { get; private set; }
+    public InventorySlot Held => slots[Selected];
+    public bool HandsLocked => !Held.IsEmpty && Held.Item.LocksSlotSwitch;
+
+    public event System.Action Changed; // 핫바 UI, 손 모델 표시가 구독
+
+    private void Update()
+    {
+        if (!photonView.IsMine) return;
+        int wanted = ReadSlotInput(); // 숫자키 1~4, 색칠 단계가 아니면 마우스 휠
+        if (wanted >= 0) TrySelect(wanted);
+        if (PlayerInput.DropPressed) RequestDrop(Selected);
+    }
+
+    public bool TrySelect(int index)
+    {
+        if (index == Selected || index < 0 || index >= SlotCount) return false;
+        if (HandsLocked) return false; // 두 손 아이템을 든 동안에는 바꿀 수 없다(중요 규칙)
+        Selected = index;
+        Publish();
+        return true;
+    }
+
+    // 줍기(E). 두 손 아이템을 든 동안에는 줍지 못하고, 두 손 아이템은 한 개만 가질 수 있다.
+    public bool CanPickUp(ItemSO item)
+    {
+        if (HandsLocked) return false;
+        if (item.LocksSlotSwitch && System.Array.Exists(slots, s => !s.IsEmpty && s.Item.LocksSlotSwitch)) return false;
+        return FirstEmptySlot() >= 0;
+    }
+
+    // 방장이 줍기를 승인하면 호출된다. 빈손이면 지금 칸에, 아니면 첫 빈 칸에 넣는다.
+    // 두 손 아이템은 바로 손에 든다(들고 가는 모습이 보여야 하므로).
+    public void AddApproved(ItemSO item, int charges)
+    {
+        int index = Held.IsEmpty ? Selected : FirstEmptySlot();
+        slots[index] = new InventorySlot(item, charges);
+        if (item.LocksSlotSwitch) Selected = index;
+        Publish();
+    }
+
+    // 손에 든 것이 사라졌을 때(떨어뜨림, 설치, 로켓, 횟수 소진) 다음 칸부터 찾아 바로 든다(D32).
+    // 예: 1·3·4번에 아이템, 2번이 빔 → 1번을 떨어뜨리면 3번을 든다.
+    public void RemoveHeldAndAutoEquip()
+    {
+        slots[Selected] = InventorySlot.Empty;
+        for (int step = 1; step < SlotCount; step++)
+        {
+            int next = (Selected + step) % SlotCount;
+            if (slots[next].IsEmpty) continue;
+            Selected = next;
+            break;
+        }
+        Publish();
+    }
+
+    private int FirstEmptySlot()
+    {
+        for (int i = 0; i < SlotCount; i++) if (slots[i].IsEmpty) return i;
+        return -1;
+    }
+
+    private void Publish()
+    {
+        Changed?.Invoke();
+        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable
+        {
+            { NetKeys.Inventory, InventoryCodec.Encode(slots) }, // 아이템 ID와 남은 횟수
+            { NetKeys.SelectedSlot, Selected },
+        });
+    }
+}
+```
+
+- `InventorySlot`은 (아이템, 남은 횟수)를 담는 작은 구조체다. `IsEmpty`는 아이템이 없을 때 true다.
+- 손 모델은 `HeldItemPresenter`가 모든 클라이언트에서 `SelectedSlot`과 `Inventory`를 보고 `CarriedItemSocket`(한 손은 오른손, 두 손은 가운데)에 붙인다. 모델은 풀에서 꺼내 쓴다.
+- 입력 추가(`PlayerInput`, `InputBindingsSO`):
+
+```csharp
+public static bool DropPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DropKey);
+public static int SlotKeyPressed // 1~4 → 0~3, 없으면 -1
+{
+    get
+    {
+        if (IsGameplaySuppressed) return -1;
+        for (int i = 0; i < PlayerInventory.SlotCount; i++)
+            if (Input.GetKeyDown(KeyCode.Alpha1 + i)) return i;
+        return -1;
+    }
+}
+
+[Tooltip("손에 든 아이템 떨어뜨리기.")]
+[SerializeField] private KeyCode dropKey = KeyCode.G;
+public KeyCode DropKey => dropKey;
+```
+
+#### 역할별 상호작용 걸러내기 (D33, D35)
+
+지금 `IInteractable.CanInteract(IGameCharacter)`가 사물 쪽 조건을 판단한다. 새 사물들은 여기서 역할을 거른다. 스파이 여부는 `EscapeRoles.IsSpy(actor)`로 확인한다(본인과 방장만 알 수 있다, §5.9).
+
+```csharp
+// MaterialChest, GroundItem(바닥 아이템) — 괴물은 줍기·상자 열기 불가(D33).
+public bool CanInteract(IGameCharacter character) =>
+    character.Role == CharacterRole.Cookie && character.gameObject.GetComponent<PlayerInventory>().CanPickUp(ContainedItem);
+
+// EscapeExit(탈출구) — 괴물에게는 아이콘도 안 뜬다. 스파이는 아이콘은 뜨지만 들어갈 수 없다(D35).
+public bool CanInteract(IGameCharacter character) => isOpen && character.Role == CharacterRole.Cookie;
+
+public void Interact(IGameCharacter character)
+{
+    if (EscapeRoles.IsLocalSpy())
+    {
+        Toast.Show(cannotEnterText); // "들어갈 수 없음" — 쿠키와 같은 아이콘이라 겉으로는 구별되지 않는다
+        return;
+    }
+    RequestEscape(); // 방장 승인 → 본인이 Escaped=1을 쓰고 캐릭터를 숨긴 뒤 관전 시작
+}
+```
+
+```csharp
+// 탈출 승인 후(본인 클라이언트) — 기존 관전 모드를 그대로 쓴다(D36).
+private void OnEscapeApproved()
+{
+    PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.Escaped, 1 } });
+    inventory.DropAllApproved();                                // 들고 있던 것은 탈출구 앞에 남긴다
+    GetComponent<SpectatorController>()?.EnterSpectatorMode(); // 대상: 살아 있는 쿠키(스파이 포함)
+    HideSelf();                                                 // 렌더러·콜라이더 끄기
+}
+```
+
+- 탈출한 쿠키의 `IsSpectatable`은 false가 되어야 한다. `HideOrSeekPlayer.IsSpectatable`에 "탈출하지 않았음" 조건을 더한다.
+
+#### 스파이 잡힘 알림과 로켓에 끼움 알림 (D34, D40)
+
+스파이가 누구인지는 방장만 안다. 그래서 알림은 방장이 보낸다.
+
+```csharp
+// SpyAuthority(방장) — 스파이의 HitCount가 파괴로 바뀌면 모두에게 알린다.
+public override void OnPlayerPropertiesUpdate(Player target, Hashtable changed)
+{
+    if (!PhotonNetwork.IsMasterClient || !changed.ContainsKey(NetKeys.HitCount)) return;
+    if (!EscapeRoles.IsSpy(target.ActorNumber) || !RoomState.IsBroken(target)) return;
+    PhotonNetwork.RaiseEvent(NetEventCodes.SpyCaught, null,
+        new RaiseEventOptions { Receivers = ReceiverGroup.All }, SendOptions.SendReliable);
+}
+
+```
+
+```csharp
+// EscapeItemAuthority(방장) — 로켓 끼우기를 승인할 때(D40). 장치에서 훔친 재료만 알린다.
+private void ApproveRocketInsert(ItemRecord record, int spyActor)
+{
+    rocket.Fill(record.Item, spyActor);
+    bool announce = record.StolenFromDevice;       // 훔칠 때 true로 기록, 다시 생기면 false로 되돌림
+    RespawnInRandomEmptyChest(record);             // §1.4: 빈 일반 상자에 닫힌 모습으로 다시 생긴다
+    record.StolenFromDevice = false;
+    WriteItemsTable();
+    if (announce)
+        PhotonNetwork.RaiseEvent(NetEventCodes.StolenItemToRocket, record.Item.ItemId,
+            new RaiseEventOptions { Receivers = ReceiverGroup.All }, SendOptions.SendReliable);
+}
+
+// 장치에서 훔치기를 승인할 때 기록만 해 둔다. 이때는 알림을 보내지 않는다(D37).
+private void ApproveSteal(ItemRecord record, int spyActor)
+{
+    record.StolenFromDevice = true;
+    record.HolderActor = spyActor;
+    // ... 장치 칸 비우기, EscapeItems 쓰기 → 모두의 재료 표시가 줄어든다
+}
+```
+
+```csharp
+// EscapeToastUI — 화면 가운데 문구가 떴다가 서서히 사라진다.
+[SerializeField] private string spyCaughtText;         // 인스펙터: 스파이가 잡혔습니다
+[SerializeField] private string rocketFormatWithFinal; // 인스펙터: 받침 있을 때 "스파이가 {0}을 훔쳐 로켓에 끼워넣었습니다"
+[SerializeField] private string rocketFormatNoFinal;   // 인스펙터: 받침 없을 때 "스파이가 {0}를 훔쳐 로켓에 끼워넣었습니다"
+[SerializeField] private float holdSeconds = 1.5f;
+[SerializeField] private float fadeSeconds = 1.5f;
+
+public void ShowStolenToRocket(ItemSO item)
+{
+    string format = KoreanText.HasFinalConsonant(item.DisplayName) ? rocketFormatWithFinal : rocketFormatNoFinal;
+    Show(string.Format(format, item.DisplayName));
+}
+
+private IEnumerator FadeRoutine()
+{
+    group.alpha = 1f;
+    yield return new WaitForSeconds(holdSeconds);
+    for (float t = 0f; t < fadeSeconds; t += Time.deltaTime)
+    {
+        group.alpha = 1f - t / fadeSeconds;
+        yield return null;
+    }
+    group.alpha = 0f;
+}
+```
+
+```csharp
+// KoreanText.cs — 코드에 한글을 쓰지 않고 받침 여부를 판단한다(유니코드 한글 음절 계산).
+public static class KoreanText
+{
+    private const int SyllableStart = 0xAC00;
+    private const int SyllableEnd = 0xD7A3;
+    private const int FinalCount = 28;
+
+    public static bool HasFinalConsonant(string word)
+    {
+        if (string.IsNullOrEmpty(word)) return false;
+        char last = word[word.Length - 1];
+        if (last < SyllableStart || last > SyllableEnd) return false; // 한글이 아니면 받침 없음으로 본다
+        return (last - SyllableStart) % FinalCount != 0;
+    }
+}
+```
+
+#### 오른쪽 위 필요한 재료 표시 (D37)
+
+```csharp
+// RequirementHud — Props(EscapeRecipe, EscapeItems, RocketState)가 바뀔 때만 다시 계산한다(매 프레임 X).
+public override void OnRoomPropertiesUpdate(Hashtable changed)
+{
+    if (changed.ContainsKey(NetKeys.EscapeItems) || changed.ContainsKey(NetKeys.RocketState)
+        || changed.ContainsKey(NetKeys.EscapeRecipe)) Rebuild();
+}
+
+private void Rebuild()
+{
+    // 스파이는 로켓 재료, 그 외는 탈출 장치 재료.
+    IReadOnlyList<Requirement> list = EscapeRoles.IsLocalSpy() ? RocketRequirements.Current() : EscapeRequirements.Current();
+    for (int i = 0; i < rows.Count; i++) rows[i].gameObject.SetActive(i < list.Count);
+    for (int i = 0; i < list.Count; i++)
+        rows[i].Set(list[i].Item.Icon, list[i].Item.DisplayName, list[i].Installed, list[i].Required); // "기어 0/1"
+}
+```
+
+- 줄(`RequirementRow`)은 미리 5개 만들어 두고 켜고 끈다. 필요한 재료 종류는 최대 4가지다.
+- "수리"처럼 칸 이름이 아이템 이름과 다르면 `EscapeRecipeSO`의 칸 표시 이름을 쓴다.
+
+#### 마녀 서서히 나타나기 (D38)
+
+Built-in 렌더 파이프라인이므로 마녀 머티리얼은 Standard 셰이더의 `Fade` 모드 복사본을 따로 둔다. 다 나타나면 원래(불투명) 머티리얼로 바꿔 정렬 문제와 비용을 없앤다.
+
+```csharp
+// WitchPresenter.cs
+private static readonly int ColorId = Shader.PropertyToID("_Color");
+[SerializeField] private Renderer[] renderers;
+[SerializeField] private Material[] fadeMaterials;   // Standard(Fade) 복사본
+[SerializeField] private Material[] opaqueMaterials; // 원래 머티리얼
+[SerializeField] private float fadeInSeconds = 5f;
+
+private MaterialPropertyBlock block;
+private bool fadeFinished;
+
+private void Update()
+{
+    if (!RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double escapedAt)) return;
+
+    float elapsed = (float)(PhotonNetwork.Time - escapedAt); // 모두 같은 시계라 화면이 맞는다
+    if (!fadeFinished)
+    {
+        float alpha = Mathf.Clamp01(elapsed / fadeInSeconds); // 0 → 1 (= 0 → 255)
+        block ??= new MaterialPropertyBlock();
+        foreach (Renderer r in renderers)
+        {
+            r.GetPropertyBlock(block);
+            block.SetColor(ColorId, new Color(1f, 1f, 1f, alpha));
+            r.SetPropertyBlock(block);
+        }
+        if (alpha >= 1f) SwapToOpaque();
+    }
+    UpdateTurnPose(elapsed); // 돌아서기 진행률(§5.7)
+}
+```
+
+- 처음 켜질 때는 `fadeMaterials`로 바꾸고 시작한다. 늦게 들어온 사람도 `elapsed`로 바로 맞는 알파가 된다.
+
+#### 결과 화면 줄 (D39)
+
+```csharp
+// PlayerResultRow.cs — 기존 SetMonster/SetCookie를 역할과 결과로 넓힌다. 문구는 모두 인스펙터 입력.
+[SerializeField] private string cookieRoleLabel;   // (쿠키)
+[SerializeField] private string spyRoleLabel;      // (스파이)
+[SerializeField] private string monsterRoleLabel;  // (괴물)
+[SerializeField] private string escapedLabel;      // 탈출 성공
+[SerializeField] private string failedLabel;       // 탈출 실패
+[SerializeField] private string catchFormat;       // 잡은 횟수 {0}회
+[SerializeField] private string witchKilledLabel;  // 마녀에 의해 사망
+
+public void SetEscaper(string nickname, bool isSpy, bool escaped)
+{
+    nameText.text = nickname + (isSpy ? spyRoleLabel : cookieRoleLabel);
+    statusText.text = escaped ? escapedLabel : failedLabel;
+}
+
+public void SetMonster(string nickname, int catches, bool killedByWitch)
+{
+    nameText.text = nickname + monsterRoleLabel;
+    statusText.text = killedByWitch ? witchKilledLabel : string.Format(catchFormat, catches);
+}
+```
+
+- 스파이 정체는 게임이 끝난 뒤 방장이 `GameResult`와 함께 스파이 번호를 Room Props에 공개한다. 그때부터 결과 화면이 스파이를 표시할 수 있다.
+
 ### 5.9 알려진 제한
 
 - **스파이 정보가 노출될 수 있다.**
@@ -573,7 +997,13 @@ Unity 코드는 오브젝트를 이름으로 찾는다.
   - 공구상자: 로켓의 아무 슬롯이나 채우는지
   - 로켓 탑승: 스파이 1명과 2명일 때, 한 명이 나갔을 때
   - 도구: 맞으면 손에 든 아이템 하나만 떨어뜨리는지, 괴물도 세 도구에 기절하는지, 횟수와 쿨다운, 물풍선 색칠
-  - 인벤토리: 4칸 제한, 재료는 1개만, 재료를 든 동안 칸 바꾸기가 막히는지, 칸이 가득 차면 꺼낼 수 없는지
+  - 인벤토리: 4칸 제한, 두 손 아이템은 1개만, 두 손 아이템을 든 동안 칸 바꾸기와 줍기가 막히는지, 칸이 가득 차면 주울 수 없는지
+  - 자동으로 들기: 1·3·4번에 아이템이 있을 때 1번을 떨어뜨리면 3번을 드는지, 모두 비면 빈손인지
+  - 역할별 상호작용: 괴물은 문만, 탈출구는 쿠키만(스파이는 거부 문구), 스파이 로켓은 스파이만
+  - 받침 판단(`KoreanText.HasFinalConsonant`): 받침 있는 말, 없는 말, 영문
+  - 로켓에 끼움 알림: 장치에서 훔친 재료는 끼울 때만 알림이 뜨고(훔칠 때는 안 뜸), 상자·바닥에서 주운 재료와 공구상자는 뜨지 않는지
+  - 필요한 재료 표시: 끼우고 훔칠 때 수가 맞게 바뀌는지, 쿠키와 스파이가 서로 다른 목록을 보는지
+  - 마녀 알파: 스파이 탈출 후 0초·2.5초·5초에 0·0.5·1인지
   - 떨어뜨리기: 잡혔을 때와 나갔을 때 모든 아이템이 떨어지는지
   - 장치에서 훔치기: 로켓에 필요한 종류만 뺄 수 있는지
   - 스파이 상자: 쿠키에게는 "잠겨 있음"이고 열리지 않는지, 스파이 수 × 2개가 스턴건·물풍선 한 쌍씩 생기는지
@@ -592,3 +1022,58 @@ Unity 코드는 오브젝트를 이름으로 찾는다.
   - 맵 5개 모두 확인한다.
 - 작업할 때마다 컴파일 오류와 Console 오류·경고를 확인한다.
 - 단계를 끝내면 이 문서의 상태 표시를 ✅로 바꾼다.
+
+---
+
+## 7. 작업 결과 (P1~P10 완료)
+
+### 7.1 P1: Blender 에셋
+- 스크립트: `Assets/Maps/Source~/Scripts/escape_assets.py` (Blender 5.2, 백그라운드 실행). 원본: `Assets/Maps/Source~/Escape/TagOfChaos_Escape.blend`.
+- 결과 FBX 31개: `Assets/09. Environment/Escape/Models/`
+  - 아이템 19개 `ITEM_<ItemId>`: 레드 버튼, 안전벨트, 배터리, 공구상자, 기어, 마카롱 바퀴, 쿠키 바퀴, 초콜릿 원유, 룬 4색, 알사탕 전지 4색, 뿅망치, 스턴건, 물풍선
+  - 상자 `CHEST` (Body + Lid, 뚜껑 경첩 기준)
+  - 스파이 로켓 5종 `SPY_Rocket_<Map>` (맵마다 색·무늬가 다름, Slot_00/01)
+  - 탈출 장치 5종 `ESC_<Map>`: 롤러코스터 카트, 반죽 기계, 초콜릿 기차(바퀴 자리 = 바퀴 칸), 룬 제단(+ESC_Glow), 케이크(→ 조각 + 케이크 로켓)
+  - 마녀 `WITCH` (약 90 m, SlamArm 어깨 축)
+- Unity 연결: `EscapeModelImportPostprocessor`(임포트 규칙), `EscapeModelBuilder`(메뉴 Tools/TagOfChaos/Escape/Build Models: 머티리얼 꺼내기·색 맞추기, 아이템 SO에 모델 연결, 맵 배치 다시 만들기). 모델이 없으면 기존 임시 도형을 쓴다.
+- 계획과 다른 점: 마녀는 뼈대 대신 **부품 계층(SlamArm 축)** 으로 만들고, 돌아서기·내려치기는 코드가 공통 시계(PhotonNetwork.Time)로 움직인다. 늦게 들어온 사람도 같은 자세가 되고, 애니메이션 클립 동기화가 필요 없다.
+
+### 7.2 P2: 배치와 진저브레드 유적 마을
+- **배치(장치·로켓·상자 20곳·마녀)는 Blender가 아니라 Unity `EscapeMapSetup`이 한다.** 맵을 축소할 때마다 자동으로 다시 만들고, 걸을 수 있는 땅·주변 여유 공간을 직접 재서 고르므로 통행 검사와 항상 맞는다.
+  - 장치 주변 여유 6.5 m, 로켓 5 m: 장치 옆에 쿠키만 들어가는 좁은 틈(괴물이 못 오는 곳)이 생기지 않게 했다.
+  - 여유 검사를 높은 캡슐에서 **땅 높이 원기둥(0.3~4 m)** 으로 바꿨다(반지름이 커도 정확).
+  - 장치 충돌체는 모델 모양 그대로(MeshCollider). 레일은 괴물이 넘을 수 있는 높이(0.12 m), 룬 제단 받침은 경사로라 괴물도 오른다.
+- 진저브레드: `assets.py`에 무너진 과자 집 3종(`GingerRuin_Cottage/Tall/Twin`)과 잔해(`RuinRubble`)를 추가했다. 일반 집의 약 2/3가 무너진 집이 된다(저주받은 집은 그대로).
+  - 무너진 집 아래 3.4 m는 막힌 덩어리라 들어가거나 오를 수 없다. 그 위에 부서진 벽과 내려앉은 지붕이 있다.
+  - 무너질 집을 고르는 난수는 따로 써서 나머지 배치는 바뀌지 않는다.
+  - 축소 후 결과: 집 27채 중 무너진 집 12채.
+- 다시 빌드 도구: `rebuild_map.py` (Blender를 창과 함께 열어 빌드 → 내보내기 → 저장 → 종료). `export_unity.py`의 프로젝트 경로는 스크립트 위치에서 계산한다.
+
+### 7.3 P3: 다시 빌드와 검사
+- 진저브레드: `MapSceneBuilder.Build` → 자동 축소 → 어두운 곳 채우기 → 탈출 배치까지 한 번에 다시 만들었다.
+- 통행 검사(`MapPassabilityCheck`): 맵 5개 모두 깨끗함(갇힌 곳 0, 쿠키만 가는 곳 0, 스폰 연결).
+- 함께 고친 것: 머티리얼이 없는 FBX의 `.meta`에 `externalObjects:`가 빈 값으로 써져 YAML 오류가 나던 문제(`*_Effects.fbx.meta` 5개, `export_unity.py`).
+
+### 7.4 P10: 테스트와 Play Mode
+- 테스트: EscapeTests 32/32, RuleTests 16/16, MapCompactTests 20/20 통과. 이번에 추가한 테스트:
+  - 모든 아이템에 모델이 연결됐는지
+  - 맵마다 장치·로켓(칸 2개)·상자 20곳(뚜껑)·마녀 모델이 있는지
+  - 쿠키 스폰에서 장치와 로켓까지 걸어갈 수 있는지
+- Play Mode(오프라인)에서 확인한 것:
+  - 상자 열기(뚜껑 모델), 두 손 아이템 들기, 슬롯 잠금, 떨어뜨리기, 자동 장착
+  - 장치 설치·완성 연출: 캔디숲 케이크 → 로켓, 진저브레드 무지개빛, 공장 바퀴 칸
+  - 탈출: 숨김·관전, 결과 "닉네임(쿠키) 탈출 성공", 쿠키 승
+  - 스파이: 스파이 상자 2개(스턴건·물풍선), 일반 상자에서 꺼내기, 장치에서 훔치기 → 로켓 끼움 알림, 공구상자가 아무 칸에나 맞음, 재료가 빈 상자에 닫힌 채 다시 생김, 탑승 → 출발
+  - 도구: 뿅망치로 괴물 기절, 물풍선 기절·손에 든 아이템만 떨어뜨림·색칠
+  - 타임어택: 방 시간이 멈추고 빨간 타이머, 마녀가 5초에 걸쳐 나타나 돌아서고 내려침 → 남은 쿠키 사망, 결과 "탈출 실패"
+  - 스파이 잡힘 알림, 괴물 승리 화면(쿠키 유리병, "잡은 횟수 n회 / 마녀에 의해 사망")
+  - 맵 5개 모두 탈출 상태 시작, Console 오류·경고 0
+- 검증 중 고친 버그:
+  - 로켓 탑승 뒤 출발 판정을 부르지 않던 문제(`RocketBoard` → `TryLaunchRocket`)
+  - 쿠키가 모두 끝났는데 로켓이 떠나면 마녀 알림이 뜨던 문제(D10: 타임어택 없이 끝냄)
+  - 탈출·탑승한 몸에 속도를 넣어 경고가 나던 문제(이동 잠금에 탈출 포함)
+  - 결과 화면 위에 HUD·조준점이 겹치던 문제, 변장 단계에 가방 칸이 색 팔레트와 겹치던 문제
+  - 결과 줄 한글 문구(프리팹), 괴물 줄 한 줄 표시, 유리병 트로피 위치·한글 글꼴
+  - 캔디숲 완성 빛 기둥이 케이크 로켓을 가리던 문제
+- 오프라인 테스트 한계: 혼자서는 다른 사람이 쿠키·괴물인 상황을 만들 수 없어, 일부 장면은 방 속성(스파이·괴물 번호, 타임어택 시각)을 직접 넣어 확인했다. 실제 여러 명 접속 테스트는 남아 있다.
+

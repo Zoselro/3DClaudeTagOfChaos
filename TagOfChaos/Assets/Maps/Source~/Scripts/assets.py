@@ -640,11 +640,57 @@ def _ginger_house(g, rnd, W, D, Hw, Hr, cursed=False, tower=False, twin=False):
         g.tube(arc((0, -D / 2 - 0.3, Hw * 0.8), 1.2, 0, 2 * math.pi, 12, plane='xz'), 0.12, 'M_Magic_Rune', seg=6)
 
 
+def _ginger_ruin(g, rnd, W, D, Hw, tower=False):
+    """Ruined cookie house (EscapePlan.md P2: GingerbreadVillage -> cookie ruins). The lower 3.4 m is a solid closed block
+    (no way in, too tall to climb); broken wall stubs and a collapsed waffle roof sit on top of it."""
+    wall, core = 'M_Cookie_Wall', 3.4
+    g.rbox('M_Cookie_Stone', (0, 0, 0), (W + 0.8, D + 0.8, 0.35), 0.1)               # foundation
+    g.rbox(wall, (0, 0, 0.3), (W, D, core), 0.3)
+    n = 5
+    for side in range(4):                                                               # ragged wall tops
+        L = W if side % 2 == 0 else D
+        for i in range(n):
+            if rnd.random() < 0.3:
+                continue
+            h = rnd.uniform(0.5, max(0.8, Hw - core))
+            t = -L / 2 + L * (i + 0.5) / n
+            if side % 2 == 0:
+                loc, size = (t, (D / 2 - 0.4) * (1 if side == 2 else -1), core + 0.25), (L / n * 0.95, 0.8, h)
+            else:
+                loc, size = ((W / 2 - 0.4) * (1 if side == 1 else -1), t, core + 0.25), (0.8, L / n * 0.95, h)
+            g.rbox(wall, loc, size, 0.12, rot=(rnd.uniform(-0.08, 0.08), rnd.uniform(-0.08, 0.08), 0))
+    g.rbox('M_Waffle', (W * 0.08, D * 0.05, core + 0.45), (W * 0.75, D * 0.65, 0.35), 0.1,
+           rot=(0.22, -0.14, 0.1))                                                       # collapsed roof
+    for x in (-W * 0.3, W * 0.3):                                                       # dark empty windows
+        g.rbox('M_Chocolate_Dark', (x, -D / 2 - 0.06, 1.3), (1.6, 0.15, 1.4), 0.05)
+    g.rbox('M_Wood_Dark', (0, -D / 2 - 0.1, 0.3), (1.8, 0.3, 2.4), 0.15)                 # boarded door
+    for k in range(2):
+        g.rbox('M_Wood_Light', (0, -D / 2 - 0.3, 0.9 + k * 0.9), (2.2, 0.12, 0.25), 0.03, rot=(0, 0.3 * (1 - 2 * k), 0))
+    for x in (-W / 2 - 0.05, W / 2 + 0.05):                                             # cracked icing remains
+        g.tube([(x, -D / 2 - 0.05, 0.4), (x, -D / 2 - 0.05, core - rnd.uniform(0.3, 1.2))], 0.14, 'M_Sugar_White', seg=6)
+    if tower:                                                                           # broken round tower stump
+        g.lathe([(1.6, 0), (1.6, core + 2.4), (1.2, core + 2.9), (0, core + 3.0)], wall, seg=12,
+                loc=(W / 2 - 0.5, D / 2 - 0.5, 0.3), radial=lambda a: 1 + 0.08 * math.sin(a * 4))
+
+
+@asset('RuinRubble')
+def _(g, rnd):
+    for k in range(7):
+        a, r = rnd.uniform(0, 6.28), rnd.uniform(0.2, 1.6)
+        s = rnd.uniform(0.35, 0.9)
+        g.rbox(rnd.choice(('M_Cookie_Wall', 'M_Cookie_Stone', 'M_Gingerbread_Dark')), (math.cos(a) * r, math.sin(a) * r, 0),
+               (s, s * rnd.uniform(0.6, 1.0), s * rnd.uniform(0.4, 0.8)), 0.08, rot=(rnd.uniform(-0.3, 0.3), rnd.uniform(-0.3, 0.3), a))
+    g.rbox('M_Waffle', (0.6, -0.4, 0.15), (2.0, 1.2, 0.25), 0.06, rot=(0.35, 0.1, 0.6))     # roof shard
+
+
 ASSETS['GingerHouse_Cottage'] = lambda g, rnd: _ginger_house(g, rnd, 10, 9, 5.5, 4.5)
 ASSETS['GingerHouse_Tall'] = lambda g, rnd: _ginger_house(g, rnd, 8, 8, 8.0, 5.0, tower=True)
 ASSETS['GingerHouse_Twin'] = lambda g, rnd: _ginger_house(g, rnd, 13, 9, 5.5, 4.0, twin=True)
 ASSETS['GingerHouse_Cursed'] = lambda g, rnd: _ginger_house(g, rnd, 9, 8, 7.0, 5.5, cursed=True)
 ASSETS['GingerHouse_Shop'] = lambda g, rnd: _ginger_house(g, rnd, 12, 10, 6.0, 4.0)
+ASSETS['GingerRuin_Cottage'] = lambda g, rnd: _ginger_ruin(g, rnd, 10, 9, 6.0)
+ASSETS['GingerRuin_Tall'] = lambda g, rnd: _ginger_ruin(g, rnd, 8, 8, 7.5, tower=True)
+ASSETS['GingerRuin_Twin'] = lambda g, rnd: _ginger_ruin(g, rnd, 13, 9, 5.5)
 
 
 @asset('Lollipop_Red')
@@ -1087,11 +1133,14 @@ def lollipop(m, cat, x, y, h, r, mats=None, face=0.0, base=None):
     return place(m, nm, cat, x, y, face, (h + 2 * r) / 7.0)
 
 
-def house(m, x, y, w, d, h, rotz=0.0, roof=None, wall=None, cursed=False, cat='MainStructures'):
+def house(m, x, y, w, d, h, rotz=0.0, roof=None, wall=None, cursed=False, cat='MainStructures', ruined=False):
     k = int(abs(x * 13 + y * 7)) % 4
     nm = 'GingerHouse_Cursed' if cursed else ('GingerHouse_Cottage', 'GingerHouse_Tall', 'GingerHouse_Twin',
                                               'GingerHouse_Cottage')[k]
-    base_w = {'GingerHouse_Cottage': 10, 'GingerHouse_Tall': 9.5, 'GingerHouse_Twin': 13, 'GingerHouse_Cursed': 9}[nm]
+    if ruined and not cursed:
+        nm = nm.replace('GingerHouse_', 'GingerRuin_')
+    base_w = {'GingerHouse_Cottage': 10, 'GingerHouse_Tall': 9.5, 'GingerHouse_Twin': 13, 'GingerHouse_Cursed': 9,
+              'GingerRuin_Cottage': 10, 'GingerRuin_Tall': 9.5, 'GingerRuin_Twin': 13}[nm]
     s = min(1.25, max(0.8, w / base_w))
     o = place(m, nm, cat, x, y, rotz, s)
     m.blockers.append(((x, y), math.hypot(w, d) / 2))

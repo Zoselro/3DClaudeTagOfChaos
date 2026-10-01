@@ -48,7 +48,10 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
 
     // 이 쿠키 자신의 상태로 이동이 잠겼는지(파괴·들림). 채팅 같은 입력 차단은 캐릭터 종류와 무관하게 PlayerInput.IsGameplaySuppressed가
     // 맡는다 — 예전에는 채팅이 이 값을 직접 켜 쿠키만 잠겼고, 잠긴 동안 Update가 멈춰 걷기 애니메이션이 남았다(Bug-fix-plan.md §41 ㊵).
-    public bool IsMovementLocked => IsBroken || (carryFollower != null && carryFollower.IsCarried);
+    // 탈출·로켓 탑승한 몸은 숨겨지고 물리가 멈추므로(EscapeCharacterState) 이동도 잠근다.
+    public bool IsMovementLocked => IsBroken || (carryFollower != null && carryFollower.IsCarried) || (stun != null && stun.IsStunned)
+                                    || (pv != null && pv.Owner != null && RoomState.HasEscaped(pv.Owner));
+    private StunReceiver stun; // 도구에 맞아 기절(EscapePlan.md §1.8)
 
     // 외부에서 "이 인스턴스가 내 캐릭터인지" 판별할 수단 (GameManager의 채팅 이동잠금이 참조)
     public bool IsMine => pv != null && pv.IsMine;
@@ -59,7 +62,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     public PhotonView View => pv;
     // 괴물에게 붙잡혀 부서지는 중인 쿠키도 부서지는 순간까지 관전 대상으로 남긴다 — 파괴 판정은 잡힌 즉시 기록되지만 관전자도
     // 잡힌 본인처럼 분쇄 연출을 끝까지 보게 한다(Bug-fix-plan.md §38).
-    public bool IsSpectatable => pv != null && pv.Owner != null
+    public bool IsSpectatable => pv != null && pv.Owner != null && !RoomState.HasEscaped(pv.Owner) // 탈출한 쿠키는 숨겨진다
         && (!RoomState.IsBroken(pv.Owner) || (lifePresenter != null && lifePresenter.IsBeingGrabKilled));
     public bool CanInteract => !IsMovementLocked; // 파괴·들림 중에는 상호작용 불가(채팅 중에는 InteractPressed가 억제된다)
     public float CameraTargetHeight => Camera_Ctrl.CookieTargetHeight;
@@ -124,7 +127,12 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         if (!pv.IsMine) return; // 본인 클라이언트만 자기 상태 확정(소유권 원칙)
 
         hitCount = 2;
-        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetKeys.HitCount, hitCount } });
+        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable
+        {
+            { NetKeys.HitCount, hitCount },
+            { NetKeys.DeathCause, (int)DeathCause.Monster },
+        });
+        GetComponent<PlayerInventory>()?.RequestDropAll(); // 잡히면 인벤토리의 모든 아이템이 그 자리에 떨어진다(D11)
 
         // 들고 있던 쿠키는 내려놓고, 들려 있었다면 캐리 관계를 끊는다.
         if (grabController != null) grabController.Release();
@@ -158,6 +166,9 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         grabController = GetComponent<PlayerGrabController>();
         carryFollower = new PlayerCarryFollower(gameObject, rb);
         lifePresenter = GetComponent<CookieLifeStatePresenter>();
+        stun = gameObject.AddComponent<StunReceiver>();
+        stun.Init(2.3f);
+        AttachEscapeMode();
 
         if (!pv.IsMine) return;
 
@@ -200,6 +211,31 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     }
 
     private const string BodyMeshName = "Mesh_0";
+
+    // 탈출 모드 맵이면(EscapeManager가 있으면) 인벤토리·손에 든 아이템·탈출 상태를 붙인다(EscapePlan.md §5.4).
+    private void AttachEscapeMode()
+    {
+        EscapeManager escape = EscapeManager.Instance;
+        if (escape == null || !escape.isActiveAndEnabled) return;
+        gameObject.AddComponent<HeldItemPresenter>().Init(escape, pv);
+        gameObject.AddComponent<EscapeCharacterState>().Init(escape, this);
+        if (pv.IsMine) gameObject.AddComponent<PlayerInventory>().Init(this, escape);
+    }
+
+    // 마녀가 내리쳤다(EscapePlan.md §1.2). 본인 클라이언트만 자기 상태를 확정한다(잡혔을 때와 같은 소유권 원칙).
+    public void KillByWitch()
+    {
+        if (!pv.IsMine || IsBroken) return;
+        hitCount = 2;
+        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable
+        {
+            { NetKeys.HitCount, hitCount },
+            { NetKeys.DeathCause, (int)DeathCause.Witch },
+        });
+        rb.linearVelocity = Vector3.zero;
+        rb.isKinematic = true;
+        GetComponent<SpectatorController>()?.EnterSpectatorMode();
+    }
 
     public override void OnEnable()
     {

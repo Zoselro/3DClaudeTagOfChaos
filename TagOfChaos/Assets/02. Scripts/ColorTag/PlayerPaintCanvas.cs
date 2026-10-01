@@ -583,6 +583,18 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
         ReportSlotCount(); // 강제 도포 후 슬롯 수를 다시 보고한다(research.md §8.18)
     }
 
+    // 물풍선에 맞으면 그 색으로 전신이 칠해진다(EscapePlan.md §1.8). 본인 캔버스만, 색은 팔레트 번호(범위 밖이면 무시).
+    public void ForceFillColor(int colorIndex)
+    {
+        if (!pv.IsMine || palette == null || palette.Count == 0) return;
+        colorIndex = Mathf.Abs(colorIndex) % palette.Count;
+        localDrawStamps.Clear();
+        QueueLocalDraw(Vector2.zero, float.MaxValue, colorIndex, StrokeKind.ForceFill);
+        DrawStamps(localDrawStamps);
+        QueueStamp(Vector2.zero, float.MaxValue, colorIndex, StrokeKind.ForceFill);
+        FlushStrokes();
+    }
+
     public override void OnDisable()
     {
         base.OnDisable();

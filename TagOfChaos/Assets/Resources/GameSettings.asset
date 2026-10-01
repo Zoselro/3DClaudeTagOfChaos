@@ -12,7 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c4d59d2856480424eb0602f3371de1f7, type: 3}
   m_Name: GameSettings
   m_EditorClassIdentifier: 
-  maxPlayers: 4
+  maxPlayers: 8
+  minPlayers: 4
+  defaultPlayers: 4
+  roleTable:
+  - players: 4
+    monsters: 1
+    spies: 0
+  - players: 5
+    monsters: 1
+    spies: 1
+  - players: 6
+    monsters: 1
+    spies: 1
+  - players: 7
+    monsters: 2
+    spies: 1
+  - players: 8
+    monsters: 2
+    spies: 1
   monsterCount: 1
   monsterSelectTimeout: 30
   paintPhaseDuration: 60
@@ -25,12 +43,23 @@ MonoBehaviour:
   - Game_ChocolateFactory
   - Game_CursedCandyCarnival
   - Game_HauntedBakery
+  minTimeLimitMinutes: 10
+  maxTimeLimitMinutes: 40
+  defaultTimeLimitMinutes: 10
+  minTimeAttackMinutes: 1
+  maxTimeAttackMinutes: 10
+  defaultTimeAttackMinutes: 1
   survivalDuration: 600
   monsterDepartureReturnDelay: 5
   tentacleDashDistance: 20
   tentacleDashDuration: 0.25
   tentacleDashCooldown: 15
-  tentacleDashRadius: 0.4
+  tentacleDashMaxSlope: 45
+  tentacleDashGroundSnap: 0.6
+  grabReachFromFront: 2
+  grabAimRadius: 0.4
+  monsterDefaultView: 0
+  allowMonsterViewToggle: 1
   characterSyncRate: 10
   paintStrokeSendRate: 15
   paintStrokeReferencePlayers: 4

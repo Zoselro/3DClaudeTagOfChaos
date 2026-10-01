@@ -16,12 +16,20 @@ public class InputBindingsSO : ScriptableObject
     [SerializeField] private KeyCode dodgeKey = KeyCode.LeftControl;
     [SerializeField] private KeyCode grabKey = KeyCode.F;
 
+    [Header("Cookie Inventory (EscapePlan.md §1.9)")]
+    [Tooltip("손에 든 아이템 떨어뜨리기.")]
+    [SerializeField] private KeyCode dropKey = KeyCode.G;
+    [Tooltip("손에 든 도구 쓰기(0=왼쪽 마우스). 색칠 시간에는 쓰지 않는다.")]
+    [SerializeField, Range(0, 2)] private int useToolButton = 0;
+
     [Header("Cookie / Monster")]
     [Tooltip("문 등 상호작용 사물(IInteractable) 사용 키. 파괴되지 않은 쿠키와 괴물이 쓴다.")]
     [SerializeField] private KeyCode interactKey = KeyCode.E;
 
     [Header("Monster")]
     [SerializeField] private KeyCode tentacleDashKey = KeyCode.LeftShift;
+    [Tooltip("괴물 1인칭/3인칭 전환(테스트용, GameFixPlan.md F6). GameSettings.AllowMonsterViewToggle이 꺼져 있으면 무시된다.")]
+    [SerializeField] private KeyCode toggleViewKey = KeyCode.V;
 
     [Header("Spectator / UI")]
     [SerializeField] private KeyCode spectateNextKey = KeyCode.Space;
@@ -41,7 +49,10 @@ public class InputBindingsSO : ScriptableObject
     public KeyCode DodgeKey => dodgeKey;
     public KeyCode GrabKey => grabKey;
     public KeyCode InteractKey => interactKey;
+    public KeyCode DropKey => dropKey;
+    public int UseToolButton => useToolButton;
     public KeyCode TentacleDashKey => tentacleDashKey;
+    public KeyCode ToggleViewKey => toggleViewKey;
     public KeyCode SpectateNextKey => spectateNextKey;
     public KeyCode ChatSubmitKey => chatSubmitKey;
     public int PaintButton => paintButton;

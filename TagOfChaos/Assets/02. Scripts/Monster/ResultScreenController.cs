@@ -52,7 +52,7 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         if (isShown) return; // 결과 행/코루틴이 중복 생성되지 않도록 한 번만 표시
         isShown = true;
 
-        if (result == GameResult.MonsterWins) StartCoroutine(ShowAfterGrabKills(result));
+        if (result == GameResult.MonsterWins || result == GameResult.EscapeEnded) StartCoroutine(ShowAfterGrabKills(result));
         else Present(result);
     }
 
@@ -76,6 +76,12 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
 
     private void Present(GameResult result)
     {
+        if (result == GameResult.EscapeEnded)
+        {
+            PresentEscape();
+            return;
+        }
+
         CanvasGroupVisibility.Set(rootGroup, true);
         if (monsterWinBanner != null) monsterWinBanner.SetActive(result == GameResult.MonsterWins);
         if (cookieWinBanner != null) cookieWinBanner.SetActive(result == GameResult.CookiesWin);
@@ -105,6 +111,50 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
 
         // 분모는 실제 쿠키 수(최대 3명) — 예전에는 4로 하드코딩돼 있었다(research.md §8.23).
         if (remainingCountText != null) remainingCountText.text = $"{aliveCount} / {cookieCount}";
+        StartCoroutine(AutoReturnCountdown());
+    }
+
+    // 탈출 모드 결과(EscapePlan.md §1.3): 사람마다 "닉네임(역할) 결과" 한 줄. 쿠키가 한 명도 탈출하지 못하고 괴물이 잡았으면
+    // 괴물 승리 화면(쿠키 유리병 트로피)을 함께 보여준다. 스파이는 게임이 끝난 뒤 공개된 번호(RevealedSpies)로 표시한다.
+    private void PresentEscape()
+    {
+        CanvasGroupVisibility.Set(rootGroup, true);
+        RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters);
+        RoomState.TryGetIntArray(NetKeys.RevealedSpies, out int[] spies);
+        EscapeState state = EscapeManager.Instance != null ? EscapeManager.Instance.State : null;
+
+        int cookieCount = 0, escapedCookies = 0, totalCatches = 0;
+        var jarEntries = new System.Collections.Generic.List<MonsterJarTrophy.Entry>();
+        foreach (Player p in PhotonNetwork.PlayerList.OrderBy(pl => pl.ActorNumber))
+        {
+            int actor = p.ActorNumber;
+            bool isMonster = monsters != null && monsters.Contains(actor);
+            bool isSpy = spies != null && spies.Contains(actor);
+            bool escaped = RoomState.HasEscaped(p) || (state != null && (state.Escaped.Contains(actor) || state.Boarded.Contains(actor)));
+            PlayerResultRow row = playerRowPrefab != null && playerListContent != null ? Instantiate(playerRowPrefab, playerListContent) : null;
+
+            if (isMonster)
+            {
+                int catches = RoomState.TryGetPlayerInt(p, NetKeys.CatchCount, out int c) ? c : 0;
+                bool witch = RoomState.TryGetPlayerInt(p, NetKeys.DeathCause, out int cause) && cause == (int)DeathCause.Witch;
+                if (row != null) row.SetMonster(p.NickName, catches, witch);
+                totalCatches += catches;
+                jarEntries.Add(new MonsterJarTrophy.Entry { Name = p.NickName, Catches = catches });
+                continue;
+            }
+
+            if (row != null) row.SetEscaper(p.NickName, isSpy, escaped);
+            if (isSpy) continue;
+            cookieCount++;
+            if (escaped) escapedCookies++;
+            AddCookieIcon(!escaped);
+        }
+
+        bool monsterWins = escapedCookies == 0 && totalCatches > 0;
+        if (monsterWinBanner != null) monsterWinBanner.SetActive(monsterWins);
+        if (cookieWinBanner != null) cookieWinBanner.SetActive(!monsterWins && escapedCookies > 0);
+        if (monsterWins) MonsterJarTrophy.Build(root.transform, jarEntries); // 괴물이 쿠키 유리병을 들고 선다(추천안)
+        if (remainingCountText != null) remainingCountText.text = $"{escapedCookies} / {cookieCount}";
         StartCoroutine(AutoReturnCountdown());
     }
 
