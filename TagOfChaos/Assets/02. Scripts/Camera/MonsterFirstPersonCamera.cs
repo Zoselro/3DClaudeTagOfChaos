@@ -79,7 +79,7 @@ public class MonsterFirstPersonCamera : MonoBehaviour
         }
 
         Quaternion rotation = killBlend > 0f ? Quaternion.Slerp(own, killLook, Mathf.SmoothStep(0f, 1f, killBlend)) : own;
-        transform.SetPositionAndRotation(eye.position, rotation);
+        transform.SetPositionAndRotation(eye.position + CameraShake.Offset, rotation);
     }
 
     // 처형 시점 고정 정도(0~1). 테스트·연출 확인용.

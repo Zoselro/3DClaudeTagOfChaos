@@ -56,7 +56,8 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
         if (cursorInstance == null) return;
 
         PlayerPaintCanvas localPaintCanvas = PlayerPaintCanvas.Local;
-        if (localPaintCanvas == null)
+        // 메뉴가 열려 있거나 마우스가 UI 위면 붓 대신 OS 커서를 보여 준다 — 몸 위라고 커서를 숨기면 메뉴 버튼이 안 보였다(research.md R5-20).
+        if (localPaintCanvas == null || PlayerInput.IsMenuOpen || PlayerPaintCanvas.IsPointerOverUi())
         {
             cursorInstance.SetActive(false);
             Cursor.visible = true;

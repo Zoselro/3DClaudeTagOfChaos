@@ -490,6 +490,7 @@ GameObject:
   - component: {fileID: 6567607663982871776}
   - component: {fileID: 8559695349326238476}
   - component: {fileID: 6331194917883019300}
+  - component: {fileID: 5078666674237916414}
   m_Layer: 5
   m_Name: StartGameButton
   m_TagString: Untagged
@@ -611,6 +612,20 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!114 &5078666674237916414
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5129930179079164417}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 104
+  hover: 100
 --- !u!1 &5233477286495529630
 GameObject:
   m_ObjectHideFlags: 0

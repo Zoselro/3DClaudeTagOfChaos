@@ -43,13 +43,13 @@ public class RoomSettingField : MonoBehaviour
 
     private void Awake()
     {
-        if (decreaseButton != null) decreaseButton.onClick.AddListener(() => Apply(Stepper.Step(-1)));
-        if (increaseButton != null) increaseButton.onClick.AddListener(() => Apply(Stepper.Step(+1)));
+        if (decreaseButton != null) decreaseButton.onClick.AddListener(() => Apply(Stepper.Step(-1), byUser: true));
+        if (increaseButton != null) increaseButton.onClick.AddListener(() => Apply(Stepper.Step(+1), byUser: true));
         if (input != null)
         {
             input.contentType = TMP_InputField.ContentType.IntegerNumber; // 숫자 외 문자는 입력되지 않는다
             input.characterValidation = TMP_InputField.CharacterValidation.Digit;
-            input.onEndEdit.AddListener(text => Apply(Stepper.SetFromText(text)));
+            input.onEndEdit.AddListener(text => Apply(Stepper.SetFromText(text), byUser: true));
         }
         SetWarning(false);
         Refresh();
@@ -64,20 +64,25 @@ public class RoomSettingField : MonoBehaviour
     public RoomSettingStepper.Outcome SubmitText(string text)
     {
         RoomSettingStepper.Outcome outcome = Stepper.SetFromText(text);
-        Apply(outcome);
+        Apply(outcome, byUser: false);
         return outcome;
     }
 
     public RoomSettingStepper.Outcome StepBy(int delta)
     {
         RoomSettingStepper.Outcome outcome = Stepper.Step(delta);
-        Apply(outcome);
+        Apply(outcome, byUser: false);
         return outcome;
     }
 
-    private void Apply(RoomSettingStepper.Outcome outcome)
+    // byUser: 버튼·입력으로 바꾼 경우에만 경고음을 낸다(창을 열며 코드가 값을 채울 때는 문구만).
+    private void Apply(RoomSettingStepper.Outcome outcome, bool byUser)
     {
-        if (outcome == RoomSettingStepper.Outcome.OutOfRange) SetWarning(true);
+        if (outcome == RoomSettingStepper.Outcome.OutOfRange)
+        {
+            SetWarning(true);
+            if (byUser) UiSoundCues.Error();
+        }
         Refresh();
     }
 

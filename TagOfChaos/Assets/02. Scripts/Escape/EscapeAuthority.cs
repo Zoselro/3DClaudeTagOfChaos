@@ -308,10 +308,39 @@ public sealed class EscapeAuthority
         if (it.Charges <= 0) it.Loc = ItemLocation.Gone;
         State.Items[item] = it;
 
-        var payload = new object[] { it.Id, r.Sender, r.Targets ?? new int[0], r.Pos, r.B };
+        var payload = new object[] { it.Id, r.Sender, ValidTargets(r.Sender, def.Tool, r.Pos, r.Targets), r.Pos, r.B };
         PhotonNetwork.RaiseEvent(NetEventCodes.ToolHit, payload, new RaiseEventOptions { Receivers = ReceiverGroup.All }, SendOptions.SendReliable);
         return true;
     }
+
+    // 쓴 사람이 고른 명중 대상 중 실제로 닿을 수 있는 것만 남긴다(research.md R4.10-8). 거리는 방장 화면의 위치로 재고,
+    // 동기화 지연·몸 크기(괴물 몸 앞면 약 1.9 m)를 여유로 둔다. 물풍선은 떨어진 지점이 사거리 안이고 대상이 그 둘레에 있어야 한다.
+    private int[] ValidTargets(int sender, ToolSO tool, Vector3 point, int[] targets)
+    {
+        if (targets == null || targets.Length == 0) return new int[0];
+        if (!lastPositions.TryGetValue(sender, out Vector3 from)) return targets; // 위치를 아직 모르면 막지 않는다(입장 직후)
+
+        bool area = tool.Kind == ToolKind.WaterBalloon;
+        if (area && Flat(point - from) > tool.Range + ToolReachSlack) return new int[0];
+
+        var kept = new List<int>(targets.Length);
+        foreach (int viewId in targets)
+        {
+            if (kept.Contains(viewId)) continue;
+            PhotonView view = PhotonView.Find(viewId);
+            if (view == null) continue;
+            Vector3 at = view.transform.position;
+            float distance = area ? Vector3.Distance(at, point) : Vector3.Distance(at, from);
+            float limit = (area ? tool.HitRadius : tool.Range) + ToolReachSlack;
+            if (distance <= limit) kept.Add(viewId);
+            else Debug.LogWarning($"[EscapeAuthority] Tool {tool.Kind} from actor {sender}: target view {viewId} is out of reach ({distance:F1} m > {limit:F1} m).");
+        }
+        return kept.ToArray();
+    }
+
+    private const float ToolReachSlack = 3f;
+
+    private static float Flat(Vector3 v) => new Vector2(v.x, v.z).magnitude;
 
     // ---------------- room events ----------------
 
@@ -330,9 +359,15 @@ public sealed class EscapeAuthority
     public void OnPlayerBroken(Player player)
     {
         if (player != null && RoomState.IsSpy(player.ActorNumber)) Notice(EscapeNoticeKind.SpyCaught, null);
+        Reevaluate(); // 밖에 남은 마지막 쿠키가 잡히면 기다리던 쿠키들이 출발한다
+    }
+
+    // 출발·로켓 조건을 다시 본다(알림 없음). 잡힘 처리와 방장 교체 직후에 쓴다.
+    public void Reevaluate()
+    {
         if (State != null && State.DepartedAt <= 0)
         {
-            TryDepart(); // 밖에 남은 마지막 쿠키가 잡히면 기다리던 쿠키들이 출발한다
+            TryDepart();
             if (State.DepartedAt > 0) Commit();
         }
         TryLaunchRocket();

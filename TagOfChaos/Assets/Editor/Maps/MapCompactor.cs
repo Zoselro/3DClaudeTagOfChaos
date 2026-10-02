@@ -222,6 +222,41 @@ public static class MapCompactor
     // 지면과 같거나 낮은 수면은 지면에 가려 깨져 보이므로 지면 위로 살짝 올린다(분지 안의 물은 그대로).
     //private const float WaterLift = 0.03f;
 
+    // 그룹 FBX에 물체가 하나뿐이면 임포트 때 그 물체가 그룹 루트(Map 바로 아래) 자체가 되고, 빌더가 루트 위치를 0으로 맞추면서
+    // 제자리를 잃는다 — 진저브레드 분수 꼭대기 보석이 분수 없이 맵 한가운데(시계탑 지하 경사로 축)에 보이는 장애물로 남았다
+    // (research.md R5-26). 원점 기준으로 만든 큰 메시(배경 지형 등)는 그대로 맞는 자리이므로, 플레이 구역보다 작은 메시만
+    // 제자리를 잃은 물체로 보고 걷어낸다(위치를 되살릴 수 없다).
+    public static bool IsDisplacedGroupRootMesh(Transform group)
+    {
+        Bounds? b = null;
+        if (group.TryGetComponent(out Renderer r)) b = r.bounds;
+        else if (group.TryGetComponent(out Collider c)) b = c.bounds;
+        return b.HasValue && b.Value.extents.x < NewHalf && b.Value.extents.z < NewHalf;
+    }
+
+    public static int StripGroupRootMeshes(Transform mapRoot)
+    {
+        int stripped = 0;
+        foreach (Transform group in mapRoot)
+        {
+            if (!IsDisplacedGroupRootMesh(group)) continue;
+            bool had = false;
+            foreach (Collider c in group.GetComponents<Collider>()) { Object.DestroyImmediate(c); had = true; }
+            if (group.TryGetComponent(out MeshRenderer renderer)) { Object.DestroyImmediate(renderer); had = true; }
+            if (group.TryGetComponent(out MeshFilter filter)) { Object.DestroyImmediate(filter); had = true; }
+            if (!had) continue;
+            stripped++;
+            Debug.Log($"{LogTag} Stripped the mesh on group root '{group.name}' (single-object group FBX lost its placement).");
+        }
+        return stripped;
+    }
+
+    private static void StripGroupRootMeshes(Context ctx)
+    {
+        int stripped = StripGroupRootMeshes(ctx.MapRoot);
+        if (stripped > 0) ctx.Report.Add($"group root meshes stripped: {stripped}");
+    }
+
     private static void LiftWaterAboveGround(Transform mapRoot)
     {
         foreach (MeshRenderer mr in mapRoot.GetComponentsInChildren<MeshRenderer>(true))
@@ -426,6 +461,7 @@ public static class MapCompactor
 
         foreach (Transform t in ctx.Removed)
             if (t != null) Object.DestroyImmediate(t.gameObject);
+        StripGroupRootMeshes(ctx);
         Physics.SyncTransforms();
 
         UpdateProbes(scene);

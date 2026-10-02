@@ -223,12 +223,15 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
 
     private void HandlePaintInput()
     {
-        if (!PlayerInput.PaintHeld)
+        // ESC 메뉴가 열려 있으면 칠하지 않는다 — 메뉴 버튼을 누르는 클릭이 뒤의 몸에 칠해졌다(research.md R5-20).
+        if (!PlayerInput.PaintHeld || PlayerInput.IsMenuOpen)
         {
             if (isStroking) FlushStrokes(); // 한 획이 끝나면 지연 없이 보낸다
             isStroking = false;
             return;
         }
+        // UI(스와치·버튼) 위에서 누르기 시작한 클릭은 획을 시작하지 않는다. 몸에서 시작한 획은 UI 위로 지나가도 이어진다.
+        if (!isStroking && IsPointerOverUi()) return;
 
         if (localCamera == null) localCamera = Camera.main;
         if (localCamera == null) return;
@@ -408,6 +411,9 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     }
 
     private static bool IsPaintPhaseActive() => GamePhaseState.IsPaintActive;
+
+    public static bool IsPointerOverUi() =>
+        UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
 
     // 마우스 휠로 붓 크기를 min~max 범위 내에서 조절
     private void HandleBrushSizeInput()

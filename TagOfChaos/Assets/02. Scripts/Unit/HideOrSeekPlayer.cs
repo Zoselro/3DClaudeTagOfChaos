@@ -19,6 +19,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     [SerializeField] private PhotonView pv;
 
     private float baseSpeed;
+    private const float DodgeSpeedMultiplier = 2f;
 
     [Header("States")]
     [SerializeField] private bool isJump;
@@ -133,7 +134,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
             { NetKeys.HitCount, hitCount },
             { NetKeys.DeathCause, (int)DeathCause.Monster },
         });
-        GetComponent<PlayerInventory>()?.RequestDropAll(); // 잡히면 인벤토리의 모든 아이템이 그 자리에 떨어진다(D11)
+        if (TryGetComponent(out PlayerInventory inventory)) inventory.RequestDropAll(); // 잡히면 인벤토리의 모든 아이템이 그 자리에 떨어진다(D11)
 
         // 들고 있던 쿠키는 내려놓고, 들려 있었다면 캐리 관계를 끊는다.
         if (grabController != null) grabController.Release();
@@ -149,7 +150,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         rb.isKinematic = true;
 
         // 연출 중이면 부서지는 순간 CookieLifeStatePresenter가 관전으로 넘긴다 — 그때까지 자기 쿠키가 잡혀 가는 모습을 본다.
-        if (!presented) GetComponent<SpectatorController>()?.EnterSpectatorMode();
+        if (!presented && TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode();
     }
 
     private void Awake()
@@ -235,7 +236,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         });
         rb.linearVelocity = Vector3.zero;
         rb.isKinematic = true;
-        GetComponent<SpectatorController>()?.EnterSpectatorMode();
+        if (TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode();
     }
 
     public override void OnEnable()
@@ -252,21 +253,45 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
 
     private void Update()
     {
-        if (IsMovementLocked)
+        if (!pv.IsMine)
+        {
+            UpdateRemote();
             return;
-
-        if (pv.IsMine) // 자신이 조종하는 캐릭터일 때만 입력 처리
-        {
-            CheckMovementInput(); // 이동 입력 체크 + 회전 갱신(좌표 이동은 FixedUpdate의 Move()가 담당)
-            CheckJumpInput(); // 점프 입력 체크(의도만 기록, 실제 적용은 FixedUpdate)
-            CheckDodgeInput(); // 회피 입력 체크
-            animationDriver.HandleJumpAnimationHold(); // 착지 전까지 Jump 애니메이션이 끝까지 재생되지 않도록 고정
         }
-        else // 원격지 아바타 캐릭터들은 위치, 회전, 애니메이션을 따라오게 동기화 처리
+
+        if (IsMovementLocked)
         {
+            OnLocalMovementLocked();
+            return;
+        }
+
+        CheckMovementInput(); // 이동 입력 체크 + 회전 갱신(좌표 이동은 FixedUpdate의 Move()가 담당)
+        CheckJumpInput(); // 점프 입력 체크(의도만 기록, 실제 적용은 FixedUpdate)
+        CheckDodgeInput(); // 회피 입력 체크
+        animationDriver.HandleJumpAnimationHold(); // 착지 전까지 Jump 애니메이션이 끝까지 재생되지 않도록 고정
+    }
+
+    // 원격 아바타는 위치·회전·애니메이션을 동기화 값으로 따라간다. 기절 중에도 따라간다 — 예전에는 기절(이동 잠금)이면 보간까지 멈춰
+    // 다른 화면에서 얼어 있다가 풀리면 순간이동했다(research.md R4.7-10). 처형 중에는 처형 연출(CookieLifeStatePresenter.LateUpdate)이
+    // 위치를 맡으므로 보간하지 않는다(R4.7-6).
+    private void UpdateRemote()
+    {
+        if (lifePresenter == null || !lifePresenter.IsBeingGrabKilled)
             networkSync.Interpolate(transform, Time.deltaTime);
-            animationDriver.ChangeState(networkSync.RemoteState);
-            animationDriver.SetCarryLayerWeight(networkSync.RemoteIsCarrying ? 1f : 0f);
+        animationDriver.ChangeState(networkSync.RemoteState);
+        animationDriver.SetCarryLayerWeight(networkSync.RemoteIsCarrying ? 1f : 0f);
+    }
+
+    // 본인 캐릭터가 들림·기절·파괴·탑승으로 잠긴 동안. 회피 중이었으면 끝낸다 — 예전에는 회피 타이머가 멈춘 채 남아, 풀린 뒤
+    // 옛 방향으로 2배 속도로 밀려났다(research.md R5-14). 기절이면 서 있는 자세로 돌린다(걷던 자세가 굳지 않게).
+    private void OnLocalMovementLocked()
+    {
+        if (isDodge) DodgeOut();
+        jumpRequested = false;
+        if (stun != null && stun.IsStunned && !IsBroken && !carryFollower.IsCarried)
+        {
+            animationDriver.ResumePlayback();
+            animationDriver.ChangeState(PlayerMoveState.Idle);
         }
     }
 
@@ -276,7 +301,11 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         if (!pv.IsMine) return;
         if (TryFollowCarrier()) return; // 그랩당한 동안은 일반 이동 로직 대신 캐리 위치만 추적
         if (IsMovementLocked)
+        {
+            // 기절 순간의 수평 속도가 남아 미끄러지지 않게 멈춘다(research.md R5-19). 키네마틱(파괴·탑승)이면 건드리지 않는다.
+            if (!rb.isKinematic) rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
             return;
+        }
 
         bool grounded = groundDetector.IsGrounded(transform.position);
 
@@ -352,7 +381,6 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         {
             dodgeMoveDir = rotation;
             dodgeRotation = rotation;
-            speed *= 2f;
             isDodge = true;
             keepMovingAfterDodge = true; // isDodge와 동시에 세팅해야 Move()의 관성 이동 분기가 실제로 도달 가능해짐
             dodgeTimer = dodgeDuration;
@@ -372,7 +400,6 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
 
     private void DodgeOut()
     {
-        speed *= 0.5f;
         isDodge = false;
         keepMovingAfterDodge = false;
         rotation = rotation_value;
@@ -394,7 +421,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         if (isDodge && keepMovingAfterDodge) // 캐릭터가 회피중일 경우, 키보드에서 손을 떼더라도 회피를 시작했던 그 방향으로 강제로 밀어붙임
         {
             dir = dodgeMoveDir;
-            vel = speed; // CheckDodgeInput에서 이미 2배로 올려둔 speed
+            vel = baseSpeed * DodgeSpeedMultiplier; // speed를 바꿨다 되돌리던 방식은 회피가 끊기면 배율이 남았다(research.md R5-14)
             lookDir = new Vector3(dodgeMoveDir.x, 0f, dodgeMoveDir.z);
         }
         else // Shift를 눌렀을 경우 기본 속도의 +30%(질주). 아니면 100% 속도 유지 — 점프/낙하 중에도 동일하게 적용(PlayerControllPlan.md §24/§25)

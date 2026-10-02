@@ -52,8 +52,9 @@ public class EscMenu : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.Escape))
         {
-            if (Visible) Close();
-            else Open();
+            // 키로 여닫을 때만 소리를 낸다 — 버튼으로 여닫으면 버튼 클릭 소리가 이미 난다
+            if (Visible) { Close(); UiSoundCues.WindowClosed(); }
+            else { Open(); UiSoundCues.WindowOpened(); }
         }
         bool open = Visible;
         if (PlayerInput.IsMenuOpen != open) PlayerInput.IsMenuOpen = open;
@@ -63,8 +64,8 @@ public class EscMenu : MonoBehaviour
     public void Open()
     {
         if (panel != null) panel.SetActive(true);
-        // 방 설정은 대기실의 방장만(로비에서 정한 값을 다시 바꾼다)
-        bool canSet = roomSettings != null && Photon.Pun.PhotonNetwork.IsMasterClient;
+        // 방 설정은 대기실의 호스트만 — 시작 버튼과 같은 사람(research.md R5-22)
+        bool canSet = roomSettings != null && RoomSettingsAuthority.CanLocalEdit();
         if (settingsButton != null) settingsButton.gameObject.SetActive(canSet);
         if (box != null && baseBoxHeight > 0f) box.sizeDelta = new Vector2(box.sizeDelta.x, baseBoxHeight + (canSet ? settingsRowHeight : 0f));
     }

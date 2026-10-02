@@ -11,4 +11,5 @@ public static class NetEventCodes
     public const byte EscapeRequest = 7; // EscapePlan.md §5.2 — 상자·줍기·떨어뜨리기·설치·훔치기·로켓·탈출·도구 요청(EscapeOp)
     public const byte EscapeNotice = 8;  // 방장이 모두에게 보내는 알림(EscapeNoticeKind) — 스파이 잡힘, 로켓에 끼움 등
     public const byte ToolHit = 9;       // 방장이 승인한 도구 명중 — 맞은 사람 본인이 기절·떨어뜨리기·색칠을 처리한다
+    public const byte RoomSettingsRequest = 10; // research.md R5-22 — 호스트가 방장에게 방 설정(인원·제한시간·타임어택) 변경을 요청
 }

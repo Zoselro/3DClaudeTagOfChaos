@@ -94,13 +94,19 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
         RefreshStartButton();
     }
 
-    // 방장 쪽: 호스트의 시작 요청을 받아 GameStartAuthority로 실행한다(요청자·조건은 그 안에서 다시 확인).
+    // 방장 쪽: 호스트의 시작·방 설정 요청을 받아 각 Authority로 실행한다(요청자·조건은 그 안에서 다시 확인).
     public void OnEvent(EventData photonEvent)
     {
-        if (photonEvent.Code != NetEventCodes.StartGameRequest) return;
         if (!PhotonNetwork.IsMasterClient) return;
-        GameStartAuthority.Result result = GameStartAuthority.TryStart(photonEvent.Sender);
-        Debug.Log($"[GameStart] Start request from actor {photonEvent.Sender}: {result}");
+        if (photonEvent.Code == NetEventCodes.StartGameRequest)
+        {
+            GameStartAuthority.Result result = GameStartAuthority.TryStart(photonEvent.Sender);
+            Debug.Log($"[GameStart] Start request from actor {photonEvent.Sender}: {result}");
+        }
+        else if (photonEvent.Code == NetEventCodes.RoomSettingsRequest)
+        {
+            RoomSettingsAuthority.HandleRequest(photonEvent);
+        }
     }
 
     // 괴물 확정 여부와 선정 기준 시각이 시작 조건·상태 문구에 들어가므로 바뀌는 순간 갱신한다 — Update()의
@@ -155,7 +161,9 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
         {
             if (RoomState.TryGetDouble(NetKeys.MonsterSelectDeadline, out double deadline))
             {
+                int previous = lastShownSeconds;
                 lastShownSeconds = Mathf.Max(0, Mathf.CeilToInt((float)(deadline - PhotonNetwork.Time)));
+                if (previous >= 0 && previous != lastShownSeconds) UiSoundCues.CountdownTick(lastShownSeconds); // 괴물 선정 마지막 10초
                 statusText.text = string.Format(selectingMonsterFormat, lastShownSeconds);
             }
             else

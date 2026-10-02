@@ -321,4 +321,31 @@ public class EscapeTests
         Assert.AreEqual(12.5, d.CompletedAt, 1e-9);
         Assert.AreEqual(30.25, d.DepartedAt, 1e-9);
     }
+
+    // research.md R5-21: 런타임에 켜는 키워드 조합마다 Resources에 재질 에셋이 있어야 빌드에 셰이더 변형이 들어간다.
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void MaterialTemplate_ExistsWithKeywords(bool fade, bool glow)
+    {
+        var mat = Resources.Load<Material>(EscapeVisuals.TemplateName(fade, glow));
+        Assert.NotNull(mat, $"Missing {EscapeVisuals.TemplateName(fade, glow)}. Run Tools/TagOfChaos/Escape/Build Material Templates.");
+        Assert.AreEqual("Standard", mat.shader.name);
+        Assert.AreEqual(fade, mat.IsKeywordEnabled(EscapeVisuals.FadeKeyword), "fade keyword");
+        Assert.AreEqual(glow, mat.IsKeywordEnabled(EscapeVisuals.EmissionKeyword), "emission keyword");
+    }
+
+    // 마녀 모델 재질을 Fade로 복제할 때 생기는 키워드 조합이 위 틀에 들어 있어야 한다(텍스처·노멀맵 키워드가 붙으면 틀을 늘린다).
+    [Test]
+    public void WitchMaterials_UseOnlyTemplateKeywords()
+    {
+        string[] allowed = { EscapeVisuals.EmissionKeyword };
+        foreach (string guid in AssetDatabase.FindAssets("ME_Witch_ t:Material"))
+        {
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(guid));
+            string[] extra = mat.shaderKeywords.Where(k => !allowed.Contains(k)).ToArray();
+            Assert.IsEmpty(extra, $"{mat.name} uses keywords without a Fade template: {string.Join(" ", extra)}");
+        }
+    }
 }

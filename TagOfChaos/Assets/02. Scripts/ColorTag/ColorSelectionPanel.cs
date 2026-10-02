@@ -16,6 +16,7 @@ public class ColorSelectionPanel : MonoBehaviourPunCallbacks
     [SerializeField] private CanvasGroup canvasGroup; // 비어 있으면 Awake에서 같은 오브젝트에 확보
 
     private bool? lastVisible; // 상태가 바뀔 때만 CanvasGroup을 갱신
+    private int lastShownSeconds = -1;
 
     private void Awake()
     {
@@ -31,7 +32,13 @@ public class ColorSelectionPanel : MonoBehaviourPunCallbacks
         if (timeLabel != null)
         {
             double remaining = System.Math.Max(0, endTime - PhotonNetwork.Time);
-            timeLabel.text = Mathf.CeilToInt((float)remaining).ToString();
+            int seconds = Mathf.CeilToInt((float)remaining);
+            if (seconds != lastShownSeconds)
+            {
+                if (lastShownSeconds >= 0) UiSoundCues.CountdownTick(seconds); // 변장 시간 마지막 10초 째깍
+                lastShownSeconds = seconds;
+                timeLabel.text = seconds.ToString(); // 초가 바뀔 때만 문자열을 만든다
+            }
         }
 
         PlayerPaintCanvas localPaintCanvas = PlayerPaintCanvas.Local;

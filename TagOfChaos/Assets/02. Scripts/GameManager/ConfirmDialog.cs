@@ -24,6 +24,7 @@ public class ConfirmDialog : MonoBehaviour
         messageText.text = message;
         onYesConfirmed = onYes;
         gameObject.SetActive(true);
+        UiSoundCues.WindowOpened();
     }
 
     private void OnYesClicked()

@@ -84,9 +84,23 @@ public class Camera_Ctrl : MonoBehaviour
         transform.LookAt(m_TargetPos);
     }
 
+    // 흔들림이 없을 때의 카메라 위치. 따라갈 대상이 없어도(마녀가 내리쳐 모두 쓰러진 뒤의 관전 등) 이 자리에서 흔들린다.
+    Vector3 m_RestPos;
+    bool m_HasRestPos;
+
+    void OnEnable()
+    {
+        m_HasRestPos = false; // 1인칭 카메라 등이 그사이 카메라를 옮겼을 수 있다
+    }
+
     void LateUpdate()
     {
-        if (m_Player == null) return;
+        if (m_Player == null)
+        {
+            if (!m_HasRestPos) { m_RestPos = transform.position; m_HasRestPos = true; }
+            transform.position = m_RestPos + CameraShake.Offset;
+            return;
+        }
 
         m_TargetPos = m_Player.transform.position;
         m_TargetPos.y += m_TargetHeight;
@@ -114,6 +128,9 @@ public class Camera_Ctrl : MonoBehaviour
         m_BuffPos = m_TargetPos + (m_CurrentRotation * m_BasicPos);
         transform.position = m_BuffPos;
         transform.LookAt(m_TargetPos);
+        m_RestPos = m_BuffPos;
+        m_HasRestPos = true;
+        transform.position += CameraShake.Offset; // 흔들림은 위치를 다 정한 뒤에 더한다(research.md R4.7-9)
     }
 
     // 우클릭으로 시점을 돌리는 동안에만 커서를 잠근다(research.md §8.8). 잠그지 않으면 드래그 중 커서가 창

@@ -54,6 +54,7 @@ public class PhaseCountdownDisplay : MonoBehaviour
     {
         if (seconds == lastShownSeconds || timerText == null) return; // 초가 바뀔 때만 문자열을 만든다
 
+        if (lastShownSeconds >= 0) UiSoundCues.CountdownTick(seconds); // 마지막 10초 째깍(SoundPlan.md S2)
         lastShownSeconds = seconds;
         timerText.text = string.Format(format, seconds / 60, seconds % 60);
     }

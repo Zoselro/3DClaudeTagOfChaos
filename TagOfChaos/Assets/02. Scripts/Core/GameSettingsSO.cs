@@ -48,7 +48,7 @@ public class GameSettingsSO : ScriptableObject
     [SerializeField, Min(0.02f)] private float paintColliderRefreshInterval = 0.2f;
 
     [Header("Maps")]
-    [Tooltip("판마다 무작위로 고르는 게임 맵 씬 이름(빌드 목록에 있어야 함). 비어 있으면 GameScene을 쓴다. 직전 판 맵은 다시 고르지 않는다(맵이 2개 이상일 때).")]
+    [Tooltip("판마다 무작위로 고르는 게임 맵 씬 이름(빌드 목록에 있어야 함). 비어 있으면 게임을 시작할 수 없다(시작 시 오류 로그). 직전 판 맵은 다시 고르지 않는다(맵이 2개 이상일 때).")]
     [SerializeField] private string[] gameMapScenes = new string[0];
 
     [Header("Room Time Settings (EscapePlan.md §1.7, 분 단위)")]

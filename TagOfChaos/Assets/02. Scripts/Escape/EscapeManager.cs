@@ -113,7 +113,12 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
 
     private void Update()
     {
-        if (!PhotonNetwork.IsMasterClient || !RoomState.IsInRoom()) return;
+        if (!RoomState.IsInRoom()) return;
+        if (!PhotonNetwork.IsMasterClient)
+        {
+            TrackBrokenPlayers(asMaster: false); // 방장이 아니어도 잡힌 사람을 기억해 둔다 — 방장이 되면 다시 알리지 않게(research.md R4.10-9)
+            return;
+        }
         authority.TrackPositions();
 
         if (State == null && !initRequested && CanInitialize())
@@ -121,21 +126,21 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
             initRequested = true;
             authority.Initialize(chestAnchors.Length);
         }
-        ReportBrokenPlayers();
+        TrackBrokenPlayers(asMaster: true);
     }
 
     // 판 시작 신호(PaintPhaseEndTime)가 있고 괴물이 정해졌으면 시작한다. 오프라인 개발 방은 바로 시작한다.
     private static bool CanInitialize() =>
         PhotonNetwork.OfflineMode || (RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out _) && RoomState.HasMonster());
 
-    // 방장: 잡힌 사람을 한 번씩 확인해 스파이 잡힘 알림과 로켓 출발 조건을 다시 본다.
-    private void ReportBrokenPlayers()
+    // 잡힌 사람을 한 번씩 기록한다. 방장은 새로 잡힌 사람마다 스파이 잡힘 알림과 출발·로켓 조건을 다시 본다.
+    // 방장이 아닐 때 기록해 둔 사람은 방장이 된 뒤 다시 알리지 않는다(예전에는 새 방장이 이미 잡힌 스파이를 다시 알렸다).
+    private void TrackBrokenPlayers(bool asMaster)
     {
         foreach (Player p in PhotonNetwork.PlayerList)
         {
-            if (!RoomState.IsBroken(p) || brokenReported.Contains(p.ActorNumber)) continue;
-            brokenReported.Add(p.ActorNumber);
-            authority.OnPlayerBroken(p);
+            if (!RoomState.IsBroken(p) || !brokenReported.Add(p.ActorNumber)) continue;
+            if (asMaster) authority.OnPlayerBroken(p);
         }
     }
 
@@ -161,7 +166,9 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
 
     public override void OnMasterClientSwitched(Player newMasterClient)
     {
-        if (PhotonNetwork.IsMasterClient && State != null) authority.Adopt(State); // 새 방장이 이어받는다
+        if (!PhotonNetwork.IsMasterClient || State == null) return;
+        authority.Adopt(State); // 새 방장이 이어받는다
+        authority.Reevaluate(); // 이전 방장이 처리하기 전에 나갔을 수 있는 출발·로켓 조건을 한 번 다시 본다(알림은 다시 보내지 않음)
     }
 
     public override void OnPlayerLeftRoom(Player otherPlayer)
@@ -229,12 +236,25 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 if (PhotonNetwork.IsMasterClient && EscapeRequest.TryParse(e.CustomData, e.Sender, out EscapeRequest r)) authority.Handle(r);
                 break;
             case NetEventCodes.EscapeNotice:
+                if (!SentByMaster(e)) return;
                 if (e.CustomData is object[] n && n.Length >= 2 && n[0] is byte kind) EscapeHud.Notice((EscapeNoticeKind)kind, n[1] as string);
                 break;
             case NetEventCodes.ToolHit:
+                if (!SentByMaster(e)) return;
                 ToolHitReceiver.Handle(e.CustomData);
                 break;
         }
+    }
+
+    // 알림·도구 명중은 방장만 보낸다 — 다른 클라이언트가 직접 보낸 것은 무시한다(research.md R4.10-8).
+    // 오프라인에서는 PUN이 보낸 사람을 1번으로 채운다.
+    private static bool SentByMaster(EventData e)
+    {
+        if (PhotonNetwork.OfflineMode) return true;
+        Room room = PhotonNetwork.CurrentRoom;
+        if (room != null && e.Sender == room.MasterClientId) return true;
+        Debug.LogWarning($"[EscapeManager] Ignored event {e.Code} from actor {e.Sender} (not the master client).");
+        return false;
     }
 
     // ---------------- helpers ----------------

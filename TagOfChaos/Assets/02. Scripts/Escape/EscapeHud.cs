@@ -34,6 +34,7 @@ public class EscapeHud : MonoBehaviour
     private TMP_Text boardingText;
     private PlayerInventory boundInventory;
     private bool spyNoticeShown;
+    private int lastTimeAttackSeconds = -1;
     private static Sprite whiteSprite;
 
     private struct RequirementRow { public GameObject Root; public Image Icon; public TMP_Text Label; }
@@ -66,9 +67,12 @@ public class EscapeHud : MonoBehaviour
 
     // ---------------- static API ----------------
 
-    public static void Toast(string message)
+    // alert = 모두가 주목할 알림(스파이 잡힘·마녀) — 소리가 다르다(SoundPlan.md S2).
+    public static void Toast(string message, bool alert = false)
     {
-        if (instance != null && !string.IsNullOrEmpty(message)) instance.ShowToast(message, 2.5f);
+        if (instance == null || string.IsNullOrEmpty(message)) return;
+        instance.ShowToast(message, 2.5f);
+        UiSoundCues.Toast(alert);
     }
 
     public static void Notice(EscapeNoticeKind kind, string itemId)
@@ -77,7 +81,7 @@ public class EscapeHud : MonoBehaviour
         EscapeTextsSO t = instance.texts;
         switch (kind)
         {
-            case EscapeNoticeKind.SpyCaught: Toast(t.spyCaught); break;
+            case EscapeNoticeKind.SpyCaught: Toast(t.spyCaught, alert: true); break;
             case EscapeNoticeKind.DeviceComplete: Toast(t.deviceComplete); break;
             case EscapeNoticeKind.StolenToRocket:
             {
@@ -200,6 +204,7 @@ public class EscapeHud : MonoBehaviour
         {
             spyNoticeShown = true;
             ShowToast(texts.youAreSpy, 4f);
+            UiSoundCues.Toast(alert: false);
         }
 
         RefreshBoarding();
@@ -209,7 +214,12 @@ public class EscapeHud : MonoBehaviour
         if (timeAttack)
         {
             int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(end - PhotonNetwork.Time)));
-            timeAttackText.text = string.Format(texts.timeAttackFormat, seconds / 60, seconds % 60);
+            if (seconds != lastTimeAttackSeconds)
+            {
+                if (lastTimeAttackSeconds >= 0) UiSoundCues.CountdownTick(seconds); // 타임어택 마지막 10초
+                lastTimeAttackSeconds = seconds;
+                timeAttackText.text = string.Format(texts.timeAttackFormat, seconds / 60, seconds % 60);
+            }
         }
     }
 

@@ -56,7 +56,7 @@ public class WitchPresenter : MonoBehaviour
             fadeDone = false;
             if (fadeMaterials != null)
                 for (int i = 0; i < renderers.Length && i < fadeMaterials.Length; i++) renderers[i].sharedMaterials = fadeMaterials[i];
-            EscapeHud.Toast(EscapeTextsSO.Current.witchComing);
+            EscapeHud.Toast(EscapeTextsSO.Current.witchComing, alert: true);
         }
 
         float elapsed = (float)(PhotonNetwork.Time - escapedAt);
@@ -79,6 +79,7 @@ public class WitchPresenter : MonoBehaviour
         {
             struck = true;
             strikeTime = Time.time;
+            CameraShake.Add(SlamShakeStrength, SlamShakeSeconds); // 카메라가 LateUpdate에서 더한다(research.md R4.7-9)
         }
         if (struck) AnimateSlam(Time.time - strikeTime);
     }
@@ -99,20 +100,15 @@ public class WitchPresenter : MonoBehaviour
         }
     }
 
-    // 손을 들어 맵 쪽으로 내리친다 + 카메라 흔들림.
+    private const float SlamShakeStrength = 0.72f; // 내리친 순간의 흔들림(m), SlamShakeSeconds 동안 0으로 줄어든다
+    private const float SlamShakeSeconds = 1.2f;
+
+    // 손을 들어 맵 쪽으로 내리친다(카메라 흔들림은 내리친 순간 CameraShake에 한 번 등록).
     private void AnimateSlam(float t)
     {
-        if (slamArm != null)
-        {
-            float k = t < 0.5f ? t / 0.5f : 1f;
-            slamArm.localRotation = Quaternion.Euler(Mathf.Lerp(RaisedArmAngle, 20f, k), 0f, 0f);
-        }
-        Camera cam = Camera.main;
-        if (cam != null && t < 1.2f)
-        {
-            float strength = (1.2f - t) * 0.6f;
-            cam.transform.position += Random.insideUnitSphere * strength;
-        }
+        if (slamArm == null) return;
+        float k = t < 0.5f ? t / 0.5f : 1f;
+        slamArm.localRotation = Quaternion.Euler(Mathf.Lerp(RaisedArmAngle, 20f, k), 0f, 0f);
     }
 
     // ---------------- Blender model ----------------
@@ -207,24 +203,13 @@ public class WitchPresenter : MonoBehaviour
         return go.transform;
     }
 
-    // Built-in Standard 셰이더를 Fade 모드로(알파로 서서히 나타나게).
+    // Fade 모드 재질(알파로 서서히 나타나게). 원본 재질이 있으면 텍스처 등을 유지하려 복제하고, 키워드 조합은
+    // Resources의 Fade 틀(EscapeVisuals.FadeTemplate·FadeGlowTemplate)과 같아 빌드에 셰이더 변형이 들어간다(research.md R5-21).
     private static Material FadeMaterial(Color color, float emission, Material source = null)
     {
-        var m = source != null ? new Material(source) : new Material(Shader.Find("Standard"));
-        m.color = color;
-        m.SetFloat("_Mode", 2f);
-        m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        m.SetInt("_ZWrite", 0);
-        m.DisableKeyword("_ALPHATEST_ON");
-        m.EnableKeyword("_ALPHABLEND_ON");
-        m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-        m.renderQueue = 3000;
-        if (emission > 0f && source == null)
-        {
-            m.EnableKeyword("_EMISSION");
-            m.SetColor("_EmissionColor", color * emission);
-        }
+        if (source == null) return EscapeVisuals.NewMaterial(color, emission, fade: true);
+        var m = new Material(source) { color = color };
+        EscapeVisuals.ApplyFade(m);
         return m;
     }
 }

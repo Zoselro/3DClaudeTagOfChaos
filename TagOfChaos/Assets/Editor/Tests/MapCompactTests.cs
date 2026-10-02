@@ -31,6 +31,17 @@ public class MapCompactTests
 
     private static Scene Open(string map) => EditorSceneManager.OpenScene(MapSceneBuilder.ScenePath(map), OpenSceneMode.Single);
 
+    // 그룹 루트에 붙은 작은 메시는 제자리를 잃은 물체다(research.md R5-26 — 진저브레드 시계탑 축의 분수 보석).
+    // 원점 기준의 큰 메시(배경 지형)는 맞는 자리라 허용한다.
+    [TestCaseSource(nameof(Maps))]
+    public void MapScene_GroupRootsHaveNoDisplacedMesh(string map)
+    {
+        Open(map);
+        foreach (Transform group in GameObject.Find("Map").transform)
+            Assert.IsFalse(MapCompactor.IsDisplacedGroupRootMesh(group),
+                $"{map}: group root '{group.name}' carries a small mesh at the map origin (lost its placement). Run Compact {map}.");
+    }
+
     [TestCaseSource(nameof(Maps))]
     public void MapScene_IsCompactedToPlayArea(string map)
     {

@@ -1,0 +1,995 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4daec867ca986fb4b8f3a6d08ff17e7a, type: 3}
+  m_Name: SoundCatalog
+  m_EditorClassIdentifier: 
+  entries:
+  - id: 100
+    clips:
+    - {fileID: 8300000, guid: 6ec56e5eed5ff54449b916725dca2589, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 101
+    clips:
+    - {fileID: 8300000, guid: 26fe4912798e45f4198d1e5f66a8dae0, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 102
+    clips:
+    - {fileID: 8300000, guid: f775a0fb2b87c134eba4a3c93654d52e, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 103
+    clips:
+    - {fileID: 8300000, guid: 15b8cfb9985603c46bec78de99418fd2, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 104
+    clips:
+    - {fileID: 8300000, guid: cd320d19af7b91c4494d8adc80b1b8a8, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 105
+    clips:
+    - {fileID: 8300000, guid: 10432771b9dbd654a8c9a9a5dd96d1a4, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 106
+    clips:
+    - {fileID: 8300000, guid: b220b006718944f4ba350242e89d4bc2, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 107
+    clips:
+    - {fileID: 8300000, guid: 07e5ce81f34989d48b651a091f1b4193, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 108
+    clips:
+    - {fileID: 8300000, guid: 9f85c881cd8840c488861b8affc20147, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 109
+    clips:
+    - {fileID: 8300000, guid: 8f8b9cf228be3fa40b7bba579b4b937f, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 110
+    clips:
+    - {fileID: 8300000, guid: d254d21b0e3c051498b772d460cbc7e1, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 111
+    clips:
+    - {fileID: 8300000, guid: 0df50c1f33c1e434fba75e3252bd52ca, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 112
+    clips:
+    - {fileID: 8300000, guid: a776d534c6aa7264fa01fd59327c506a, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 113
+    clips:
+    - {fileID: 8300000, guid: d43acc08dd8a3a848a889c696ec8ac6b, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 114
+    clips:
+    - {fileID: 8300000, guid: fe228f5afc9a2f74088747a92a0b962c, type: 3}
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 200
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 12
+    cooldown: 0
+    maxInstances: 8
+    importance: 0
+  - id: 201
+    clips:
+    - {fileID: 8300000, guid: c4a37e8707751b84f884f86b44c21d6f, type: 3}
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 12
+    cooldown: 0
+    maxInstances: 8
+    importance: 0
+  - id: 202
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 12
+    cooldown: 0
+    maxInstances: 8
+    importance: 0
+  - id: 203
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 12
+    cooldown: 0
+    maxInstances: 8
+    importance: 0
+  - id: 204
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 205
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 206
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 207
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 30
+    cooldown: 0
+    maxInstances: 4
+    importance: 2
+  - id: 208
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 30
+    cooldown: 0
+    maxInstances: 4
+    importance: 2
+  - id: 209
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 30
+    cooldown: 0
+    maxInstances: 4
+    importance: 2
+  - id: 210
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 30
+    cooldown: 0
+    maxInstances: 4
+    importance: 2
+  - id: 211
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 212
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 213
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 214
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 215
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 216
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 217
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 300
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 1
+  - id: 301
+    clips:
+    - {fileID: 8300000, guid: f18443581e3323f44832cf5c17652656, type: 3}
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 1
+  - id: 302
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 1
+  - id: 303
+    clips:
+    - {fileID: 8300000, guid: ad13ebb068864234e87cd5fde7edb330, type: 3}
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 1
+  - id: 304
+    clips:
+    - {fileID: 8300000, guid: 30ba2cb69553e05478dc62a2d8bfff5e, type: 3}
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 1
+  - id: 305
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 1
+  - id: 400
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 3
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 1
+    importance: 1
+  - id: 401
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 402
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 403
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 2
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 500
+    clips:
+    - {fileID: 8300000, guid: b118edb3a6d0277409f11842f195b661, type: 3}
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 501
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 502
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 503
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 504
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 505
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 506
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 507
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 508
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 509
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 510
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 511
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 512
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 1
+    importance: 3
+  - id: 513
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 1
+    importance: 3
+  - id: 514
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 1
+    importance: 3
+  - id: 515
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 15
+    cooldown: 0.05
+    maxInstances: 1
+    importance: 3
+  - id: 600
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 0
+    bus: 1
+    maxDistance: 20
+    cooldown: 0.05
+    maxInstances: 1
+    importance: 1
+  - id: 601
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 20
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 602
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 20
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 603
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 20
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 604
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 20
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 605
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 20
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 606
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 20
+    cooldown: 0.05
+    maxInstances: 4
+    importance: 1
+  - id: 700
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 701
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 702
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 703
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 704
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 705
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 710
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 711
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 712
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 713
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 714
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 720
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 721
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 722
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 723
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 730
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 731
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 732
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 733
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 740
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 741
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 742
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 743
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 744
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 745
+    clips: []
+    volume: 1
+    pitchRange: {x: 0.95, y: 1.05}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
+  - id: 800
+    clips: []
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 1
+    bus: 3
+    maxDistance: 40
+    cooldown: 0
+    maxInstances: 2
+    importance: 1
+  - id: 801
+    clips: []
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 1
+    bus: 3
+    maxDistance: 40
+    cooldown: 0
+    maxInstances: 2
+    importance: 1
+  - id: 802
+    clips: []
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 1
+    bus: 3
+    maxDistance: 40
+    cooldown: 0
+    maxInstances: 2
+    importance: 1
+  - id: 803
+    clips: []
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 1
+    bus: 3
+    maxDistance: 40
+    cooldown: 0
+    maxInstances: 2
+    importance: 1
+  - id: 804
+    clips: []
+    volume: 1
+    pitchRange: {x: 1, y: 1}
+    space: 1
+    bus: 3
+    maxDistance: 40
+    cooldown: 0
+    maxInstances: 2
+    importance: 1

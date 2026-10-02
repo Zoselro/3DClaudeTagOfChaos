@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 8448081057735296131}
   - component: {fileID: 7591261541608101707}
   - component: {fileID: 8782438758796988134}
+  - component: {fileID: 3266561178106328531}
   m_Layer: 0
   m_Name: Swatch0
   m_TagString: Untagged
@@ -136,6 +137,20 @@ MonoBehaviour:
   colorIndex: 0
   icon: {fileID: 8448081057735296131}
   button: {fileID: 7591261541608101707}
+--- !u!114 &3266561178106328531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 124921622679211231}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &188018772632005486
 GameObject:
   m_ObjectHideFlags: 0
@@ -734,6 +749,7 @@ GameObject:
   - component: {fileID: 7603304855886378832}
   - component: {fileID: 3795699841515796555}
   - component: {fileID: 8947196999910021670}
+  - component: {fileID: 2707924617910844311}
   m_Layer: 0
   m_Name: Swatch8
   m_TagString: Untagged
@@ -857,6 +873,20 @@ MonoBehaviour:
   colorIndex: 8
   icon: {fileID: 7603304855886378832}
   button: {fileID: 3795699841515796555}
+--- !u!114 &2707924617910844311
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1605428020283655930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &1663803761953779547
 GameObject:
   m_ObjectHideFlags: 0
@@ -1650,6 +1680,7 @@ GameObject:
   - component: {fileID: 1330302254332999565}
   - component: {fileID: 6300742242048779331}
   - component: {fileID: 1530745261202310785}
+  - component: {fileID: 256669179991798323}
   m_Layer: 0
   m_Name: Swatch5
   m_TagString: Untagged
@@ -1773,6 +1804,20 @@ MonoBehaviour:
   colorIndex: 5
   icon: {fileID: 1330302254332999565}
   button: {fileID: 6300742242048779331}
+--- !u!114 &256669179991798323
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2588932455825424449}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &2611490249183923080
 GameObject:
   m_ObjectHideFlags: 0
@@ -1922,6 +1967,7 @@ GameObject:
   - component: {fileID: 3284346477435836278}
   - component: {fileID: 2307222431431323780}
   - component: {fileID: 5503494141988163038}
+  - component: {fileID: 6922981831225561785}
   m_Layer: 0
   m_Name: EraseButton
   m_TagString: Untagged
@@ -2045,6 +2091,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   action: 0
   button: {fileID: 2307222431431323780}
+--- !u!114 &6922981831225561785
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2717849439895387331}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 303
+  hover: 100
 --- !u!1 &2724004682309213466
 GameObject:
   m_ObjectHideFlags: 0
@@ -2198,7 +2258,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -189.85428}
+  m_AnchoredPosition: {x: 0, y: -189.99998}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
 --- !u!114 &1940580015424624391
@@ -2317,6 +2377,7 @@ GameObject:
   - component: {fileID: 7777477563649598475}
   - component: {fileID: 5114157284787116099}
   - component: {fileID: 5728217505703499104}
+  - component: {fileID: 4200273733023314301}
   m_Layer: 0
   m_Name: Swatch1
   m_TagString: Untagged
@@ -2440,6 +2501,20 @@ MonoBehaviour:
   colorIndex: 1
   icon: {fileID: 7777477563649598475}
   button: {fileID: 5114157284787116099}
+--- !u!114 &4200273733023314301
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3092516719739408715}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &3228027550421198173
 GameObject:
   m_ObjectHideFlags: 0
@@ -2532,6 +2607,7 @@ GameObject:
   - component: {fileID: 4744623650799965992}
   - component: {fileID: 2910735007959704100}
   - component: {fileID: 7759770308950120370}
+  - component: {fileID: 5886663717120543432}
   m_Layer: 0
   m_Name: Swatch4
   m_TagString: Untagged
@@ -2655,6 +2731,20 @@ MonoBehaviour:
   colorIndex: 4
   icon: {fileID: 4744623650799965992}
   button: {fileID: 2910735007959704100}
+--- !u!114 &5886663717120543432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3385378193285994204}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &3618779892688826323
 GameObject:
   m_ObjectHideFlags: 0
@@ -3126,6 +3216,10 @@ MonoBehaviour:
   exitButton: {fileID: 3041644258934678858}
   roomExit: {fileID: 8415509958961991961}
   confirmDialog: {fileID: 9103411634071823307}
+  settingsButton: {fileID: 0}
+  roomSettings: {fileID: 0}
+  box: {fileID: 0}
+  settingsRowHeight: 70
 --- !u!1 &4147523775187089402
 GameObject:
   m_ObjectHideFlags: 0
@@ -3362,6 +3456,7 @@ GameObject:
   - component: {fileID: 3034480488771408456}
   - component: {fileID: 148670075568540405}
   - component: {fileID: 3256822214107826672}
+  - component: {fileID: 4527548168277764298}
   m_Layer: 0
   m_Name: Swatch6
   m_TagString: Untagged
@@ -3485,6 +3580,20 @@ MonoBehaviour:
   colorIndex: 6
   icon: {fileID: 3034480488771408456}
   button: {fileID: 148670075568540405}
+--- !u!114 &4527548168277764298
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4426164456825348429}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &4550074343084730190
 GameObject:
   m_ObjectHideFlags: 0
@@ -3498,6 +3607,7 @@ GameObject:
   - component: {fileID: 63968941149488341}
   - component: {fileID: 2420201863242176132}
   - component: {fileID: 948912685340418899}
+  - component: {fileID: 2108078537777793272}
   m_Layer: 0
   m_Name: Swatch9
   m_TagString: Untagged
@@ -3621,6 +3731,20 @@ MonoBehaviour:
   colorIndex: 9
   icon: {fileID: 63968941149488341}
   button: {fileID: 2420201863242176132}
+--- !u!114 &2108078537777793272
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4550074343084730190}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &4759157927729766858
 GameObject:
   m_ObjectHideFlags: 0
@@ -4220,6 +4344,7 @@ GameObject:
   - component: {fileID: 5650471383647406542}
   - component: {fileID: 1189644023991367510}
   - component: {fileID: 5320229126772813566}
+  - component: {fileID: 5535977137562676420}
   m_Layer: 0
   m_Name: Swatch2
   m_TagString: Untagged
@@ -4343,6 +4468,20 @@ MonoBehaviour:
   colorIndex: 2
   icon: {fileID: 5650471383647406542}
   button: {fileID: 1189644023991367510}
+--- !u!114 &5535977137562676420
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6395362033752825081}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &6600101374988654589
 GameObject:
   m_ObjectHideFlags: 0
@@ -4355,6 +4494,7 @@ GameObject:
   - component: {fileID: 4762782859235840391}
   - component: {fileID: 3050589801308348500}
   - component: {fileID: 8222294886890904591}
+  - component: {fileID: 7169562183975441026}
   m_Layer: 5
   m_Name: Button
   m_TagString: Untagged
@@ -4464,6 +4604,20 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &7169562183975441026
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6600101374988654589}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 101
+  hover: 100
 --- !u!1 &6678276900660726872
 GameObject:
   m_ObjectHideFlags: 0
@@ -4999,7 +5153,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 1054216195069289600}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -5017,6 +5171,7 @@ GameObject:
   - component: {fileID: 4503396509542242503}
   - component: {fileID: 3121524716718022650}
   - component: {fileID: 4401524078245282897}
+  - component: {fileID: 5485969776813508079}
   m_Layer: 0
   m_Name: Swatch7
   m_TagString: Untagged
@@ -5140,6 +5295,20 @@ MonoBehaviour:
   colorIndex: 7
   icon: {fileID: 4503396509542242503}
   button: {fileID: 3121524716718022650}
+--- !u!114 &5485969776813508079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7140991971063013672}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &7168963741587256845
 GameObject:
   m_ObjectHideFlags: 0
@@ -5315,7 +5484,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &3397488637680246352
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5564,6 +5733,7 @@ GameObject:
   - component: {fileID: 9169792270952096489}
   - component: {fileID: 3041644258934678858}
   - component: {fileID: 6985179979755995507}
+  - component: {fileID: 3891282571552397271}
   m_Layer: 0
   m_Name: ExitButton
   m_TagString: Untagged
@@ -5693,6 +5863,20 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &3891282571552397271
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7413119197515942526}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 101
+  hover: 100
 --- !u!1 &7668441932941628402
 GameObject:
   m_ObjectHideFlags: 0
@@ -5934,6 +6118,7 @@ GameObject:
   - component: {fileID: 3332648348356460409}
   - component: {fileID: 5454535424069199370}
   - component: {fileID: 5698047564098083197}
+  - component: {fileID: 874587889502656810}
   m_Layer: 0
   m_Name: SettingsButton
   m_TagString: Untagged
@@ -6063,6 +6248,20 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &874587889502656810
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7799533214595598633}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 101
+  hover: 100
 --- !u!1 &7899655767145961976
 GameObject:
   m_ObjectHideFlags: 0
@@ -6419,6 +6618,7 @@ GameObject:
   - component: {fileID: 91746775136346351}
   - component: {fileID: 8453583920615528307}
   - component: {fileID: 4993530408569509997}
+  - component: {fileID: 6094598965556561073}
   m_Layer: 0
   m_Name: ResetButton
   m_TagString: Untagged
@@ -6542,6 +6742,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   action: 1
   button: {fileID: 8453583920615528307}
+--- !u!114 &6094598965556561073
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8327945852817416711}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 304
+  hover: 100
 --- !u!1 &8519132640208838515
 GameObject:
   m_ObjectHideFlags: 0
@@ -7053,6 +7267,7 @@ GameObject:
   - component: {fileID: 9023510829217251520}
   - component: {fileID: 7973127615754754734}
   - component: {fileID: 574856540979767365}
+  - component: {fileID: 6434565989640970272}
   m_Layer: 0
   m_Name: Swatch3
   m_TagString: Untagged
@@ -7176,6 +7391,20 @@ MonoBehaviour:
   colorIndex: 3
   icon: {fileID: 9023510829217251520}
   button: {fileID: 7973127615754754734}
+--- !u!114 &6434565989640970272
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8884698270393242488}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 301
+  hover: 100
 --- !u!1 &9016963277170408109
 GameObject:
   m_ObjectHideFlags: 0
@@ -7189,6 +7418,7 @@ GameObject:
   - component: {fileID: 7279873611281373928}
   - component: {fileID: 5311539468863451785}
   - component: {fileID: 808768798788318394}
+  - component: {fileID: 3649974804119869847}
   m_Layer: 0
   m_Name: ResumeButton
   m_TagString: Untagged
@@ -7318,6 +7548,20 @@ MonoBehaviour:
   m_FlexibleWidth: -1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!114 &3649974804119869847
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9016963277170408109}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cdfc6ead2f4a4249b9656cceaa1e81b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  click: 103
+  hover: 100
 --- !u!1001 &3534787291473228025
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7464,7 +7708,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 110

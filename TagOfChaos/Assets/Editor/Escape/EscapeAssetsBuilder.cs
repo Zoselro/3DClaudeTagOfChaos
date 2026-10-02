@@ -86,9 +86,32 @@ public static class EscapeAssetsBuilder
         catalog.EditorSetup(items.ToArray(), recipes.ToArray(), hammer, new[] { stunGun, balloon });
         EditorUtility.SetDirty(catalog);
         LoadOrCreate<EscapeTextsSO>(ResourcesRoot + "/EscapeTexts.asset");
+        BuildMaterialTemplates();
 
         AssetDatabase.SaveAssets();
         Debug.Log($"[EscapeAssets] items={items.Count} recipes={recipes.Count} catalog={AssetDatabase.GetAssetPath(catalog)}");
+    }
+
+    // 런타임에 키워드를 켜서 쓰는 Standard 재질의 틀 4개(research.md R5-21). 에셋이 있어야 빌드에 그 셰이더 변형이 들어간다.
+    [MenuItem("Tools/TagOfChaos/Escape/Build Material Templates")]
+    public static void BuildMaterialTemplates()
+    {
+        EnsureFolder("Assets/Resources", "Escape");
+        foreach (bool fade in new[] { false, true })
+        foreach (bool glow in new[] { false, true })
+        {
+            string path = $"Assets/Resources/{EscapeVisuals.TemplateName(fade, glow)}.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(Shader.Find("Standard"));
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            mat.shader = Shader.Find("Standard");
+            EscapeVisuals.ConfigureTemplate(mat, fade, glow);
+            EditorUtility.SetDirty(mat);
+        }
+        AssetDatabase.SaveAssets();
     }
 
     private static EscapeRecipeSO.SlotGroup G(ItemSO item, int slots, int fixedRequired, string label = null) =>

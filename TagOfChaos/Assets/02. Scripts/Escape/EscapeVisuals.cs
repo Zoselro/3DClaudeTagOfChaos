@@ -4,8 +4,6 @@ using UnityEngine;
 // (Blender 모델이 들어오기 전의 임시 모양, EscapePlan.md §4). 만든 모양에는 충돌체가 없다.
 public static class EscapeVisuals
 {
-    private static Material baseMaterial;
-
     public static GameObject CreateItemModel(ItemSO item, Transform parent)
     {
         GameObject go;
@@ -74,21 +72,68 @@ public static class EscapeVisuals
 
     public static void Tint(GameObject go, Color color, float emission)
     {
-        if (baseMaterial == null)
-        {
-            Shader shader = Shader.Find("Standard");
-            baseMaterial = new Material(shader);
-        }
         foreach (Renderer r in go.GetComponentsInChildren<Renderer>(true))
         {
-            var m = new Material(baseMaterial) { color = color };
-            if (emission > 0f)
-            {
-                m.EnableKeyword("_EMISSION");
-                m.SetColor("_EmissionColor", color * emission);
-            }
-            r.sharedMaterial = m;
+            r.sharedMaterial = NewMaterial(color, emission, fade: false);
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
+    }
+
+    // ---------------- Standard 재질 틀 ----------------
+    // 빌드는 실제 재질 에셋이 쓰는 키워드 조합의 셰이더 변형만 넣는다(research.md R5-21). 코드로 켜는 _EMISSION·Fade(_ALPHABLEND_ON)
+    // 조합이 빠지지 않게 Resources에 네 조합의 재질 에셋을 두고, 런타임 재질은 그 틀을 복제한다(에디터: Tools/TagOfChaos/Escape/Build Material Templates).
+    public const string OpaqueTemplate = "Escape/StandardOpaque";
+    public const string OpaqueGlowTemplate = "Escape/StandardOpaqueGlow";
+    public const string FadeTemplate = "Escape/StandardFade";
+    public const string FadeGlowTemplate = "Escape/StandardFadeGlow";
+    public const string EmissionKeyword = "_EMISSION";
+    public const string FadeKeyword = "_ALPHABLEND_ON";
+
+    private static readonly Material[] templates = new Material[4];
+
+    public static string TemplateName(bool fade, bool glow) =>
+        fade ? (glow ? FadeGlowTemplate : FadeTemplate) : (glow ? OpaqueGlowTemplate : OpaqueTemplate);
+
+    private static Material Template(bool fade, bool glow)
+    {
+        int index = (fade ? 2 : 0) + (glow ? 1 : 0);
+        if (templates[index] != null) return templates[index];
+        Material asset = Resources.Load<Material>(TemplateName(fade, glow));
+        if (asset == null) // 에셋이 없으면(에디터에서 아직 안 만듦) 예전처럼 코드로 만든다 — 빌드에서는 변형이 빠질 수 있다
+        {
+            asset = new Material(Shader.Find("Standard"));
+            ConfigureTemplate(asset, fade, glow);
+        }
+        return templates[index] = asset;
+    }
+
+    // 틀 재질의 렌더 설정. 에디터 빌더도 이것으로 에셋을 만든다(설정이 한 곳에만 있게).
+    public static void ConfigureTemplate(Material m, bool fade, bool glow)
+    {
+        if (fade) ApplyFade(m);
+        if (glow) m.EnableKeyword(EmissionKeyword);
+        else m.DisableKeyword(EmissionKeyword);
+    }
+
+    // Built-in Standard 셰이더를 Fade 모드로(알파로 서서히 나타나게).
+    public static void ApplyFade(Material m)
+    {
+        m.SetFloat("_Mode", 2f);
+        m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        m.SetInt("_ZWrite", 0);
+        m.DisableKeyword("_ALPHATEST_ON");
+        m.EnableKeyword(FadeKeyword);
+        m.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+    }
+
+    // 색(과 발광 세기)을 입힌 새 재질. 쓰는 쪽이 수명을 관리한다.
+    public static Material NewMaterial(Color color, float emission, bool fade)
+    {
+        bool glow = emission > 0f;
+        var m = new Material(Template(fade, glow)) { color = color };
+        if (glow) m.SetColor("_EmissionColor", color * emission);
+        return m;
     }
 }

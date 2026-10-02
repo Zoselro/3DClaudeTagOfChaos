@@ -21,6 +21,7 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
     [SerializeField] private GameObject waitPanelRoot; // 반드시 이 컴포넌트와 다른 오브젝트(자기 자신을 끄는 함정 회피)
     [SerializeField] private TMP_Text countdownText;
     [SerializeField] private string countdownFormat = "{0}"; // 표시 문구는 인스펙터에서 입력
+    private int lastShownSeconds = -1;
     [SerializeField] private Button[] buttonsToDisableWhileWaiting;      // Back 버튼 등
     [SerializeField] private Behaviour[] behavioursToDisableWhileWaiting; // GameManager(채팅) 등
     // 큐가 멈춘 동안에는 퇴장 소식을 받지 못해 PhotonNetwork.PlayerList가 갱신되지 않는다 — 나간 사람이 목록에 남아
@@ -28,7 +29,20 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
     [SerializeField] private GameObject[] objectsToHideWhileWaiting;
 
     private bool isWaiting;
+
+    private static MonsterLobbyWaitController local; // 대기실에 하나 — 배경음(MusicDirector)이 "괴물 대기 중"을 묻는다
+    public static bool IsLocalWaiting => local != null && local.isWaiting;
     private double departAtLocalTime; // Time.realtimeSinceStartupAsDouble 기준 출발 시각
+
+    private void Awake()
+    {
+        local = this;
+    }
+
+    private void OnDestroy()
+    {
+        if (local == this) local = null;
+    }
 
     private void Start()
     {
@@ -68,6 +82,7 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
         double remaining = System.Math.Max(0, endTime - PhotonNetwork.Time);
         departAtLocalTime = Time.realtimeSinceStartupAsDouble + remaining;
         isWaiting = true;
+        lastShownSeconds = -1;
 
         RemoveOtherPlayersAvatars();
         SetWaitingUi(true);
@@ -89,8 +104,13 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
         }
 
         double remaining = departAtLocalTime - Time.realtimeSinceStartupAsDouble;
-        if (countdownText != null)
-            countdownText.text = string.Format(countdownFormat, Mathf.CeilToInt((float)System.Math.Max(0, remaining)));
+        int seconds = Mathf.CeilToInt((float)System.Math.Max(0, remaining));
+        if (seconds != lastShownSeconds)
+        {
+            if (lastShownSeconds >= 0) UiSoundCues.CountdownTick(seconds); // 괴물 대기 마지막 10초(로컬 재생이라 큐가 멈춰도 난다)
+            lastShownSeconds = seconds;
+            if (countdownText != null) countdownText.text = string.Format(countdownFormat, seconds);
+        }
 
         if (remaining > 0) return;
 
