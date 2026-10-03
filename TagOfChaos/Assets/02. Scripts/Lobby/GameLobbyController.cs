@@ -113,6 +113,13 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     // 안전망은 인원수/방장 여부만 감시해 Room Props 변화는 잡지 못한다.
     public override void OnRoomPropertiesUpdate(Hashtable propertiesThatChanged)
     {
+        // 호스트가 서버 지역을 바꿨다: 모두 새 지역의 같은 방으로 옮겨 간다(RegionMove).
+        if (propertiesThatChanged.TryGetValue(NetKeys.RegionMove, out object move) && RegionMove.TryDecode(move, out string region, out string token))
+        {
+            RegionMove.Begin(region, token);
+            return;
+        }
+
         if (propertiesThatChanged.ContainsKey(NetKeys.MonsterActorNumbers)
             || propertiesThatChanged.ContainsKey(NetKeys.MonsterSelectDeadline))
             RefreshStartButton();

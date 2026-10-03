@@ -41,7 +41,7 @@ public sealed class EscapeAuthority
         int cookies = Mathf.Max(1, players - monsters - spies);
         s.RequiredCount = cookies;
 
-        foreach (RecipePlanner.PlannedSlot p in RecipePlanner.Plan(recipe, cookies, rng))
+        foreach (RecipePlanner.PlannedSlot p in RecipePlanner.Plan(recipe, cookies, rng, GameSettings.Current.MaxCookieCount))
             s.DeviceSlots.Add(new EscapeState.Slot { Label = p.Label, Accepts = p.Accepts, Prefilled = !p.Required, ItemIndex = -1 });
 
         foreach (EscapeRecipeSO.RocketSlot r in recipe.RocketSlots)
@@ -132,7 +132,7 @@ public sealed class EscapeAuthority
             case EscapeOp.PickUp: changed = PickUp(r.Sender, r.A); break;
             case EscapeOp.Drop: changed = Drop(r.Sender, r.A, r.Pos); break;
             case EscapeOp.DropAll: changed = DropAll(r.Sender, r.Pos); break;
-            case EscapeOp.Install: changed = Install(r.Sender, r.A); break;
+            case EscapeOp.Install: changed = Install(r.Sender, r.A, EscapeNet.DecodeSlot(r.B)); break;
             case EscapeOp.Steal: changed = Steal(r.Sender, r.A); break;
             case EscapeOp.RocketInsert: changed = RocketInsert(r.Sender, r.A); break;
             case EscapeOp.RocketBoard: changed = RocketBoard(r.Sender); break;
@@ -189,13 +189,15 @@ public sealed class EscapeAuthority
         return any;
     }
 
-    private bool Install(int actor, int invSlot)
+    // targetSlot: 쿠키가 고른 칸(-1 = 아무 빈 칸). 고른 칸이 이미 찼거나 맞지 않으면 끼우지 않는다(다른 칸에 몰래 들어가지 않게).
+    private bool Install(int actor, int invSlot, int targetSlot)
     {
         if (!IsActiveEscaper(actor) || !IsNearDevice(actor)) return false;
         int item = State.HeldItemAt(actor, invSlot);
         if (item < 0) return false;
         EscapeState.Item it = State.Items[item];
-        for (int s = 0; s < State.DeviceSlots.Count; s++)
+        if (targetSlot >= State.DeviceSlots.Count) return false;
+        for (int s = targetSlot >= 0 ? targetSlot : 0; s < (targetSlot >= 0 ? targetSlot + 1 : State.DeviceSlots.Count); s++)
         {
             EscapeState.Slot slot = State.DeviceSlots[s];
             if (slot.Filled || !slot.Allows(it.Id)) continue;

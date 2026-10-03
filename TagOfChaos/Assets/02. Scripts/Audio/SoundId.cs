@@ -115,6 +115,8 @@ public enum SoundId
     AmbFactory = 802,
     AmbCarnival = 803,
     AmbBakery = 804,
+    CarouselSpin = 805,   // 저주받은 놀이공원 회전목마(오르간 왈츠 + 도는 기계)
+    AmbCave = 806,        // 진저브레드 지하 유적: 바람 + 가끔 떨어지는 물방울(AmbientZone, 2D)
 }
 
 // 배경음·스팅어·징글 ID(SoundPlan.md §3.1). 규칙은 SoundId와 같다.

@@ -227,6 +227,11 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: ME_Root
+    second: {fileID: 2100000, guid: 5c33d545fc400c84a900a8ca061af55a, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: ME_Rune_Blue
     second: {fileID: 2100000, guid: e9fe563e67101e54a98d99434d87fa44, type: 2}
   - first:
@@ -244,6 +249,26 @@ ModelImporter:
       assembly: UnityEngine.CoreModule
       name: ME_Rune_Yellow
     second: {fileID: 2100000, guid: 5c10d204fdd742e4d8d2ddc2e9d3dd77, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Stone_Dark
+    second: {fileID: 2100000, guid: 28747b15e599085429d5149b917b23d3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Stone_Light
+    second: {fileID: 2100000, guid: 6c975f9c42ea3d94b843e5816d4edba9, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Stone_Moss
+    second: {fileID: 2100000, guid: a9a79f026f3168f4ea1c203c12dfd35b, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Stone_Warm
+    second: {fileID: 2100000, guid: ecbb95a199232e3419e8a4303b6f2f23, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule

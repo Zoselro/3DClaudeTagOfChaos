@@ -55,6 +55,35 @@ public class EscapeTests
         Assert.IsTrue(slots.All(s => s.Required && s.Accepts.Length == recipe.CounterItems.Length));
     }
 
+    // 2026-10-03: 진저브레드 룬은 늘 최대 칸 수, (최대 − 필요)개는 채워진 채 시작한다.
+    [TestCase(3)]
+    [TestCase(4)]
+    [TestCase(5)]
+    public void Planner_CounterFillsCapacity_PrefillsSpareSlots(int required)
+    {
+        EscapeRecipeSO recipe = Recipe("GingerbreadVillage");
+        Assert.IsTrue(recipe.CounterFillsCapacity, "Gingerbread runes fill to capacity.");
+        int capacity = GameSettings.Current.MaxCookieCount;
+        Assert.AreEqual(5, capacity, "role table: 8 players - 2 monsters - 1 spy");
+        for (int seed = 0; seed < 20; seed++)
+        {
+            List<RecipePlanner.PlannedSlot> slots = RecipePlanner.Plan(recipe, required, new System.Random(seed), capacity);
+            Assert.AreEqual(capacity, slots.Count);
+            Assert.AreEqual(required, slots.Count(s => s.Required));
+            Assert.IsTrue(slots.Where(s => s.Required).All(s => s.Accepts.Length == recipe.CounterItems.Length), "needed slots accept any rune");
+            Assert.IsTrue(slots.Where(s => !s.Required).All(s => s.Accepts.Length == 1), "prefilled slots show one rune");
+        }
+    }
+
+    // 다른 개수 모드(캔디숲)는 그대로 필요한 수만큼만.
+    [Test]
+    public void Planner_CounterWithoutFlag_IgnoresCapacity()
+    {
+        EscapeRecipeSO recipe = Recipe("CandyForest");
+        Assert.IsFalse(recipe.CounterFillsCapacity);
+        Assert.AreEqual(3, RecipePlanner.Plan(recipe, 3, new System.Random(1), 5).Count);
+    }
+
     [Test]
     public void State_EncodeDecode_RoundTrips()
     {

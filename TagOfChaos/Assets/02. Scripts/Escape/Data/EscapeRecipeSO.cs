@@ -46,6 +46,8 @@ public class EscapeRecipeSO : ScriptableObject
     [SerializeField] private string counterLabel;
     [Tooltip("개수 모드: 칸마다 무작위로 고르는 재료(예: 알사탕 전지 4색).")]
     [SerializeField] private ItemSO[] counterItems = new ItemSO[0];
+    [Tooltip("개수 모드: 칸을 늘 최대 수(인원표의 가장 많은 쿠키 수)만큼 만들고, 이번 판에 필요 없는 칸은 채워진 상태로 시작한다(2026-10-03 — 진저브레드 룬).")]
+    [SerializeField] private bool counterFillsCapacity;
     [SerializeField] private RocketSlot[] rocketSlots = new RocketSlot[0];
     [Tooltip("스파이 1명당 일반 상자에 더 넣는 공구상자(D18). 공구상자가 탈출 재료가 아닌 맵에서 쓴다.")]
     [SerializeField] private ItemSO spyToolbox;
@@ -57,6 +59,7 @@ public class EscapeRecipeSO : ScriptableObject
     public SlotGroup[] Groups => groups;
     public string CounterLabel => counterLabel;
     public ItemSO[] CounterItems => counterItems;
+    public bool CounterFillsCapacity => counterFillsCapacity;
     public RocketSlot[] RocketSlots => rocketSlots;
     public ItemSO SpyToolbox => spyToolbox;
     public int ExtraToolboxesPerSpy => extraToolboxesPerSpy;
@@ -75,8 +78,9 @@ public class EscapeRecipeSO : ScriptableObject
 
 #if UNITY_EDITOR
     public void EditorSetup(string map, EscapeExitKind exit, RecipeMode recipeMode, SlotGroup[] slotGroups, string counterName,
-        ItemSO[] counters, RocketSlot[] rocket, ItemSO toolbox, int toolboxesPerSpy)
+        ItemSO[] counters, RocketSlot[] rocket, ItemSO toolbox, int toolboxesPerSpy, bool fillsCapacity = false)
     {
+        counterFillsCapacity = fillsCapacity;
         mapName = map;
         exitKind = exit;
         mode = recipeMode;

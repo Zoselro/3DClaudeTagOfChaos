@@ -5,11 +5,11 @@ using UnityEngine;
 // 에디터에서 재생 중이 아니거나 클립이 아직 없으면 아무 소리도 내지 않는다(호출하는 쪽은 신경 쓰지 않아도 된다).
 public static class GameAudio
 {
-    // 2D(UI·본인 전용 소리).
-    public static void Play(SoundId id)
+    // 2D(UI·본인 전용 소리). 돌려받은 핸들로 멈출 수 있다(무시해도 된다).
+    public static AudioHandle Play(SoundId id)
     {
         AudioRuntime runtime = Runtime();
-        if (runtime != null) runtime.Play(id, false, Vector3.zero, null, false);
+        return runtime != null ? runtime.Play(id, false, Vector3.zero, null, false) : default;
     }
 
     // 3D 한 번, 그 자리에서. 카탈로그가 2D 소리로 정했으면 2D로 난다.
@@ -36,6 +36,20 @@ public static class GameAudio
         return target == null
             ? runtime.Play(id, false, Vector3.zero, null, true)
             : runtime.Play(id, true, target.position, target, true);
+    }
+
+    // 반복음의 음량 배율(0~1)을 바꾼다(서서히 키우고 줄일 때).
+    public static void SetLoopFade(AudioHandle handle, float fade)
+    {
+        AudioRuntime runtime = Runtime();
+        if (runtime != null) runtime.SetFade(handle, fade);
+    }
+
+    // 장소에 따른 배경음 배율(0~1, 1 = 그대로).
+    public static void SetMusicZoneGain(float gain)
+    {
+        AudioRuntime runtime = Runtime();
+        if (runtime != null) runtime.Music.ZoneGain = Mathf.Clamp01(gain);
     }
 
     public static MusicId CurrentMusic

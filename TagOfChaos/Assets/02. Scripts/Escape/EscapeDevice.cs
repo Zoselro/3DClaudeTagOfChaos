@@ -26,23 +26,46 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
     // 맵별 탈출 연출(있으면). 완성되면 타는 곳(Board)이 상호작용 위치가 된다.
     public EscapeSequence Sequence { get; private set; }
 
-    public Vector3 InteractionPoint => complete && Sequence != null ? Sequence.BoardPoint.position : NearestSlotToLocalPlayer();
-
-    // 설치는 장치 둘레의 칸 자리에서 한다(큰 장치는 중심이 멀다). 로컬 쿠키에 가장 가까운 칸을 상호작용 위치로 쓴다.
-    private Vector3 NearestSlotToLocalPlayer()
+    public Vector3 InteractionPoint
     {
-        Vector3 me = transform.position;
-        foreach (IGameCharacter c in CharacterRegistry.All)
-            if (c.View != null && c.View.IsMine && c.Role == CharacterRole.Cookie) { me = c.gameObject.transform.position; break; }
-        Vector3 best = transform.position; // 칸이 하나도 없을 때만 중심(큰 장치는 중심이 몸 안이다)
-        float bestDist = float.MaxValue;
-        foreach (GameObject socket in slotSockets)
+        get
         {
-            if (socket == null || !socket.transform.parent.gameObject.activeInHierarchy) continue;
-            float d = Flat(socket.transform.parent.position - me);
-            if (d < bestDist) { bestDist = d; best = socket.transform.parent.position; }
+            if (complete && Sequence != null) return Sequence.BoardPoint.position;
+            int slot = ActionSlot(out _);
+            return slot >= 0 && slot < slotSockets.Count && slotSockets[slot] != null ? slotSockets[slot].transform.parent.position : transform.position;
         }
+    }
+
+    // 지금 로컬 쿠키가 손댈 수 있는 칸 중 가장 가까운 칸(없으면 -1): 들고 있는 재료를 끼울 수 있는 빈 칸, 또는 스파이가 뺄 수 있는 칸.
+    // 상호작용 위치가 이 칸이라, 이미 채워진 칸(처음부터 채워진 칸 포함) 앞에서는 E가 뜨지 않고, 누르면 바로 그 칸에 끼운다(2026-10-03 —
+    // 예전에는 가장 가까운 칸이면 채워진 칸이어도 E가 떴고, 누르면 다른 빈 칸에 들어갔다).
+    private int ActionSlot(out bool steal)
+    {
+        steal = false;
+        PlayerInventory inv = PlayerInventory.Local;
+        if (manager == null || manager.State == null || inv == null) return -1;
+        Vector3 me = LocalCookiePosition();
+        List<EscapeState.Slot> slots = manager.State.DeviceSlots;
+        int best = -1;
+        float bestDist = float.MaxValue;
+        ItemSO held = inv.HeldItem;
+        bool spySteal = held == null && RoomState.IsLocalSpy();
+        for (int i = 0; i < slots.Count && i < slotSockets.Count; i++)
+        {
+            bool usable = held != null ? !slots[i].Filled && slots[i].Allows(held.ItemId) : spySteal && IsStealable(i);
+            if (!usable || slotSockets[i] == null || !slotSockets[i].transform.parent.gameObject.activeInHierarchy) continue;
+            float d = Flat(slotSockets[i].transform.parent.position - me);
+            if (d < bestDist) { bestDist = d; best = i; }
+        }
+        steal = best >= 0 && held == null;
         return best;
+    }
+
+    private Vector3 LocalCookiePosition()
+    {
+        foreach (IGameCharacter c in CharacterRegistry.All)
+            if (c.View != null && c.View.IsMine && c.Role == CharacterRole.Cookie) return c.gameObject.transform.position;
+        return transform.position;
     }
 
     // 칸 자리와 이만큼 넘게 높이가 다르면 닿지 않는다(시계탑 지하 유적의 제단을 지상에서 만지지 못하게).
@@ -191,10 +214,7 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         if (!EscapeManager.ActionsAllowed) return false; // 변장 시간(§1.3)
         if (manager == null || manager.State == null || character.Role != CharacterRole.Cookie) return false; // 괴물 X(D33)
         if (complete) return BoardingOpen(); // 쿠키는 탑승, 스파이는 "들어갈 수 없음"(같은 아이콘 — 정체가 드러나지 않게, D35)
-        PlayerInventory inv = PlayerInventory.Local;
-        if (inv == null) return false;
-        if (FindInstallSlot(inv.HeldItem) >= 0) return true;
-        return RoomState.IsLocalSpy() && inv.HeldItem == null && FindStealSlot() >= 0;
+        return ActionSlot(out _) >= 0;
     }
 
     public void Interact(IGameCharacter character)
@@ -207,35 +227,20 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
             else manager.Request(EscapeOp.Exit);
             return;
         }
-        if (FindInstallSlot(inv.HeldItem) >= 0)
-        {
-            manager.Request(EscapeOp.Install, inv.Selected);
-            return;
-        }
-        int steal = RoomState.IsLocalSpy() ? FindStealSlot() : -1;
-        if (steal >= 0) manager.Request(EscapeOp.Steal, steal);
+        int slot = ActionSlot(out bool steal);
+        if (slot < 0 || Flat(slotSockets[slot].transform.parent.position - LocalCookiePosition()) > interactionRange) return; // 손 닿는 칸만(먼 빈 칸에 끼워지지 않게)
+        if (steal) manager.Request(EscapeOp.Steal, slot);
+        else manager.Request(EscapeOp.Install, inv.Selected, EscapeNet.EncodeSlot(slot)); // 고른 칸에 끼운다
     }
 
     public string GetLabel(IGameCharacter viewer) => complete && BoardingOpen() ? EscapeTextsSO.Current.escapeDevice : null;
 
-    private int FindInstallSlot(ItemSO held)
-    {
-        if (held == null || manager.State == null) return -1;
-        List<EscapeState.Slot> slots = manager.State.DeviceSlots;
-        for (int i = 0; i < slots.Count; i++) if (!slots[i].Filled && slots[i].Allows(held.ItemId)) return i;
-        return -1;
-    }
-
-    // 스파이가 뺄 수 있는 칸: 쿠키가 끼운 재료 중 자기 로켓에 아직 필요한 종류(D27).
-    private int FindStealSlot()
+    // 스파이가 뺄 수 있는 칸: 쿠키가 끼운 재료 중 자기 로켓에 아직 필요한 종류(D27). 처음부터 채워진 칸은 뺄 수 없다.
+    private bool IsStealable(int i)
     {
         EscapeState s = manager.State;
-        for (int i = 0; i < s.DeviceSlots.Count; i++)
-        {
-            EscapeState.Slot slot = s.DeviceSlots[i];
-            if (slot.Prefilled || slot.ItemIndex < 0) continue;
-            if (SpyRocket.RocketNeeds(s, manager.Catalog, s.Items[slot.ItemIndex].Id)) return i;
-        }
-        return -1;
+        EscapeState.Slot slot = s.DeviceSlots[i];
+        if (slot.Prefilled || slot.ItemIndex < 0) return false;
+        return SpyRocket.RocketNeeds(s, manager.Catalog, s.Items[slot.ItemIndex].Id);
     }
 }

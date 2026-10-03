@@ -964,14 +964,15 @@ MonoBehaviour:
     maxInstances: 2
     importance: 1
   - id: 802
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 8dfdd647d63776f40af6df65ec0dcfdc, type: 3}
     volume: 1
     pitchRange: {x: 1, y: 1}
     space: 1
     bus: 3
-    maxDistance: 40
+    maxDistance: 28
     cooldown: 0
-    maxInstances: 2
+    maxInstances: 4
     importance: 1
   - id: 803
     clips: []
@@ -992,4 +993,26 @@ MonoBehaviour:
     maxDistance: 40
     cooldown: 0
     maxInstances: 2
+    importance: 1
+  - id: 805
+    clips:
+    - {fileID: 8300000, guid: 485974cf96ae11f478dfc0f7fbb3fffd, type: 3}
+    volume: 0.5
+    pitchRange: {x: 1, y: 1}
+    space: 1
+    bus: 1
+    maxDistance: 40
+    cooldown: 0
+    maxInstances: 1
+    importance: 1
+  - id: 806
+    clips:
+    - {fileID: 8300000, guid: 382f47316553bec4fb7517e1a4e34d50, type: 3}
+    volume: 0.55
+    pitchRange: {x: 1, y: 1}
+    space: 1
+    bus: 1
+    maxDistance: 40
+    cooldown: 0
+    maxInstances: 1
     importance: 1

@@ -12,10 +12,10 @@ public class RoomSettingsMenu : MonoBehaviour
     [SerializeField] private RoomSettingField playersField;
     [SerializeField] private RoomSettingField timeLimitField;
     [SerializeField] private RoomSettingField timeAttackField;
+    [Tooltip("서버 지역(타임어택 칸 밑) — 바꾸고 적용하면 방 전원이 새 지역의 같은 방으로 옮겨 간다(몇 초 끊김)")]
+    [SerializeField] private RegionSelector regionField;
     [SerializeField] private Button applyButton;
-    [SerializeField] private Button backButton;
     [SerializeField] private TMP_Text feedbackText;
-    [SerializeField] private string appliedMessage = "Saved";
     [SerializeField] private string playersRaisedMessage = "Players can't be fewer than the people in the room";
     [SerializeField] private string notHostMessage = "Only the host can change room settings";
 
@@ -26,7 +26,6 @@ public class RoomSettingsMenu : MonoBehaviour
     private void Awake()
     {
         if (applyButton != null) applyButton.onClick.AddListener(Apply);
-        if (backButton != null) backButton.onClick.AddListener(Close);
     }
 
     public void Open()
@@ -39,6 +38,7 @@ public class RoomSettingsMenu : MonoBehaviour
         if (playersField != null) playersField.SubmitText(PhotonNetwork.CurrentRoom.MaxPlayers.ToString());
         if (timeLimitField != null && RoomState.TryGetInt(NetKeys.RoomTimeLimit, out int limit)) timeLimitField.SubmitText((limit / 60).ToString());
         if (timeAttackField != null && RoomState.TryGetInt(NetKeys.TimeAttackDuration, out int attack)) timeAttackField.SubmitText((attack / 60).ToString());
+        if (regionField != null) regionField.SetCode(PhotonRegions.Current ?? PhotonRegions.Saved);
     }
 
     public void Close()
@@ -56,15 +56,20 @@ public class RoomSettingsMenu : MonoBehaviour
         int limit = timeLimitField != null ? timeLimitField.Value : CurrentMinutes(NetKeys.RoomTimeLimit, GameSettings.Current.DefaultTimeLimitMinutes);
         int attack = timeAttackField != null ? timeAttackField.Value : CurrentMinutes(NetKeys.TimeAttackDuration, GameSettings.Current.DefaultTimeAttackMinutes);
 
-        RoomSettingsAuthority.Result result = RoomSettingsAuthority.Request(players, limit, attack);
+        string region = regionField != null ? regionField.Code : RoomSettingsAuthority.KeepRegion;
+        RoomSettingsAuthority.Result result = RoomSettingsAuthority.Request(players, limit, attack, region);
         if (result == RoomSettingsAuthority.Result.PlayersRaised && playersField != null)
             playersField.SubmitText(Mathf.Max(players, room.PlayerCount).ToString());
-        if (result == RoomSettingsAuthority.Result.Applied) UiSoundCues.Saved();
-        else UiSoundCues.Error();
+        if (result == RoomSettingsAuthority.Result.Applied)
+        {
+            UiSoundCues.Saved();
+            Close(); // 저장되면 ESC 메뉴로 돌아간다('뒤로' 버튼은 없앴다 — ESC로도 닫힌다)
+            return;
+        }
+        UiSoundCues.Error(); // 인원을 올렸거나 호스트가 아니면 창에 남아 안내를 보여 준다
         if (feedbackText == null) return;
         switch (result)
         {
-            case RoomSettingsAuthority.Result.Applied: feedbackText.text = appliedMessage; break;
             case RoomSettingsAuthority.Result.PlayersRaised: feedbackText.text = playersRaisedMessage; break;
             case RoomSettingsAuthority.Result.NotHost: feedbackText.text = notHostMessage; break;
         }

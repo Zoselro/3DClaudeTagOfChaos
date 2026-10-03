@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 // 진저브레드 탈출 장치: 시계탑 아래 쿠키 유적의 룬 제단 → 포탈(EscapeVisualPlan.md §5.5).
-//   평소       : 제단 빛은 희미한 보라, 낡은 등불(Lantern_nn)이 깜빡인다
+//   평소       : 제단 빛은 희미한 보라, 낡은 등불(Lantern_nn)이 깜빡인다, 돌 유적은 푸른 채움 빛(CaveLight_nn)
 //   완성 0~2초 : 제단이 무지개빛으로 빛나며 점점 밝아진다
 //   2~4초      : 제단 위에 포탈(무지개 고리 + 소용돌이)이 열린다 → 탈 수 있음
 //   탑승        : 쿠키가 포탈 속으로 빨려 들어가(BoardingFx.Suck) 포탈 안에 둥둥 떠서 기다린다
@@ -53,9 +53,22 @@ public class RuneAltarSequence : EscapeSequence
             var light = anchor.gameObject.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = new Color(1f, 0.62f, 0.3f);
-            light.range = 9f;
+            light.range = 11f;
+            light.intensity = 1.6f;
             lanterns.Add(light);
             lanternSeed.Add(i * 1.7f);
+        }
+        // 돌 유적의 은은한 푸른 채움 빛(2026-10-03) — 깜빡이지 않는다. 길과 돌 색이 보일 만큼만.
+        for (int i = 0; ; i++)
+        {
+            Transform anchor = FindDeep(transform, $"CaveLight_{i:00}");
+            if (anchor == null) break;
+            var fill = anchor.gameObject.AddComponent<Light>();
+            fill.type = LightType.Point;
+            fill.color = new Color(0.62f, 0.72f, 0.95f);
+            fill.range = 17f;
+            fill.intensity = 1.3f;
+            fill.shadows = LightShadows.None;
         }
         for (int i = 0; ; i++)
         {

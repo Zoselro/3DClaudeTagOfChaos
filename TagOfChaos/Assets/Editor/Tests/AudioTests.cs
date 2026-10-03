@@ -205,11 +205,6 @@ public class AudioTests
             { MusicScene.CandyForest, MusicId.CandyForestPaint }, { MusicScene.Gingerbread, MusicId.GingerbreadPaint },
             { MusicScene.Factory, MusicId.FactoryPaint }, { MusicScene.Carnival, MusicId.CarnivalPaint }, { MusicScene.Bakery, MusicId.BakeryPaint },
         };
-        var mapHunt = new System.Collections.Generic.Dictionary<MusicScene, MusicId>
-        {
-            { MusicScene.CandyForest, MusicId.CandyForestHunt }, { MusicScene.Gingerbread, MusicId.GingerbreadHunt },
-            { MusicScene.Factory, MusicId.FactoryHunt }, { MusicScene.Carnival, MusicId.CarnivalHunt }, { MusicScene.Bakery, MusicId.BakeryHunt },
-        };
         foreach (MusicScene scene in (MusicScene[])Enum.GetValues(typeof(MusicScene)))
         foreach (GamePhase phase in (GamePhase[])Enum.GetValues(typeof(GamePhase)))
         foreach (bool waiting in new[] { false, true })
@@ -220,24 +215,12 @@ public class AudioTests
             if (scene == MusicScene.Other) expected = MusicId.None;
             else if (scene == MusicScene.Lobby) expected = MusicId.Lobby;
             else if (scene == MusicScene.GameLobby) expected = waiting || monsterInGame ? MusicId.MonsterWait : MusicId.GameLobby;
-            else if (phase == GamePhase.Hunt) expected = mapHunt[scene];
-            else if (phase == GamePhase.TimeAttack) expected = MusicId.TimeAttack;
             else if (phase == GamePhase.Result) expected = MusicId.Lobby;
-            else expected = mapPaint[scene];
+            else if (monster) expected = MusicId.None;                         // 괴물은 맵 곡 없음
+            else if (phase == GamePhase.Lobby || phase == GamePhase.Paint) expected = mapPaint[scene];
+            else expected = MusicId.None;                                       // 변장이 끝나면 끈다
             var c = new MusicContext { Scene = scene, Phase = phase, LocalMonsterWaiting = waiting, LocalIsMonster = monster };
             Assert.AreEqual(expected, MusicRules.Select(c), $"{scene} {phase} waiting={waiting} monster={monster}");
-        }
-    }
-
-    // 같은 맵의 변장 곡과 추격 곡은 짝(교차 전환이 매끄럽게 같은 조성·템포로 만든다 — §3.1).
-    [Test]
-    public void Music_PaintAndHuntArePairs()
-    {
-        foreach (MusicScene scene in new[] { MusicScene.CandyForest, MusicScene.Gingerbread, MusicScene.Factory, MusicScene.Carnival, MusicScene.Bakery })
-        {
-            MusicId paint = MusicRules.Select(new MusicContext { Scene = scene, Phase = GamePhase.Paint });
-            MusicId hunt = MusicRules.Select(new MusicContext { Scene = scene, Phase = GamePhase.Hunt });
-            Assert.AreEqual(paint.ToString().Replace("Paint", ""), hunt.ToString().Replace("Hunt", ""));
         }
     }
 
@@ -265,6 +248,40 @@ public class AudioTests
     public void Music_JingleByLocalOutcome(GameResult result, bool monster, bool survived, bool anyEscaped, MusicId expected)
     {
         Assert.AreEqual(expected, MusicRules.JingleFor(result, monster, survived, anyEscaped));
+    }
+
+    // ---- 환경음 배치 ----
+
+    [Test]
+    public void AmbientTable_UsesRealMapsAndWorldSounds()
+    {
+        var catalog = Resources.Load<SoundCatalogSO>(SoundCatalogSO.ResourcePath);
+        foreach (var map in AmbientPlacer.Table)
+        {
+            Assert.Contains(map.Key.Replace("Game_", ""), MapSceneBuilder.MapNames, $"{map.Key} is not a map scene.");
+            foreach (AmbientPlacer.Spot spot in map.Value)
+            {
+                Assert.IsTrue(catalog.TryGet(spot.Sound, out var entry), $"{spot.Sound} has no catalog entry.");
+                Assert.AreEqual(SoundSpace.World3D, entry.space, $"{spot.Name}: ambient sounds must be 3D.");
+                Assert.GreaterOrEqual(entry.maxInstances, map.Value.Count(s => s.Sound == spot.Sound), $"{spot.Sound}: more emitters than allowed instances.");
+            }
+        }
+    }
+
+    [Test]
+    public void AmbientZones_UseRealMapsAndLoopedSounds()
+    {
+        var catalog = Resources.Load<SoundCatalogSO>(SoundCatalogSO.ResourcePath);
+        foreach (var map in AmbientPlacer.Zones)
+        {
+            Assert.Contains(map.Key.Replace("Game_", ""), MapSceneBuilder.MapNames, $"{map.Key} is not a map scene.");
+            foreach (AmbientPlacer.Zone zone in map.Value)
+            {
+                Assert.IsTrue(catalog.TryGet(zone.Sound, out var entry) && entry.HasClip, $"{zone.Sound} needs a clip.");
+                Assert.IsNotEmpty(zone.Boxes);
+                Assert.IsTrue(zone.Boxes.All(b => b.max.y < 0f), $"{zone.Name}: underground zones stay below the ground.");
+            }
+        }
     }
 
     // ---- 음량 ----

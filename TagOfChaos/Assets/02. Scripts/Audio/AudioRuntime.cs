@@ -19,6 +19,7 @@ public class AudioRuntime : MonoBehaviour
         public bool following;
         public SoundBus bus;
         public float baseVolume;
+        public float fade = 1f; // 반복음을 서서히 키우고 줄일 때(AmbientZone)
     }
 
     private static AudioRuntime instance;
@@ -131,15 +132,18 @@ public class AudioRuntime : MonoBehaviour
         src.loop = loop;
         voice.bus = entry.bus;
         voice.baseVolume = entry.volume;
+        voice.fade = 1f;
         voice.follow = follow;
         voice.following = follow != null;
-        src.volume = voice.baseVolume * AudioVolumeSettings.Gain(voice.bus);
+        src.volume = VolumeOf(voice);
         if (world)
         {
             src.maxDistance = entry.maxDistance;
             src.transform.position = follow != null ? follow.position : position;
         }
         src.Play();
+        // 반복음은 아무 지점에서 시작한다 — 같은 소리를 내는 여러 곳(공장 기계 등)이 똑같이 겹쳐 울리지 않게
+        if (loop && src.clip != null && src.clip.length > 0.1f) src.time = Random.Range(0f, src.clip.length * 0.95f);
         return new AudioHandle(world, index, pool.GenerationOf(index));
     }
 
@@ -152,6 +156,17 @@ public class AudioRuntime : MonoBehaviour
     }
 
     public bool IsPlaying(AudioHandle handle) => IsCurrent(handle);
+
+    // 재생 중인 소리의 음량 배율(0~1). 카탈로그 음량·묶음 음량에 곱한다.
+    public void SetFade(AudioHandle handle, float fade)
+    {
+        if (!IsCurrent(handle)) return;
+        Voice voice = (handle.World ? worldVoices : flatVoices)[handle.Voice];
+        voice.fade = Mathf.Clamp01(fade);
+        voice.source.volume = VolumeOf(voice);
+    }
+
+    private static float VolumeOf(Voice voice) => voice.baseVolume * voice.fade * AudioVolumeSettings.Gain(voice.bus);
 
     private bool IsCurrent(AudioHandle handle)
     {
@@ -209,7 +224,7 @@ public class AudioRuntime : MonoBehaviour
     private static void ApplyVolumes(Voice[] voices, AudioVoicePool pool)
     {
         for (int i = 0; i < voices.Length; i++)
-            if (pool.IsBusy(i)) voices[i].source.volume = voices[i].baseVolume * AudioVolumeSettings.Gain(voices[i].bus);
+            if (pool.IsBusy(i)) voices[i].source.volume = VolumeOf(voices[i]);
     }
 }
 

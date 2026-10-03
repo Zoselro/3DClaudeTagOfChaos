@@ -318,4 +318,39 @@ public class RuleTests
     {
         Assert.AreEqual(0, UILayoutValidator.ValidateBuildScenesAndPrefabs(), "See [UILayoutValidator] warnings in the Console.");
     }
+
+    // ---- 서버 지역(Request1003Plan.md §1) ----
+
+    [TestCase("kr/*", "kr")]
+    [TestCase("JP", "jp")]
+    [TestCase("asia", "asia")]
+    [TestCase("", null)]
+    public void Region_Normalize(string cloud, string expected)
+    {
+        Assert.AreEqual(expected, PhotonRegions.Normalize(cloud));
+    }
+
+    [Test]
+    public void RegionMove_EncodeDecode_RoundTrips()
+    {
+        Assert.IsTrue(RegionMove.TryDecode(RegionMove.Encode("jp", "ab12cd34"), out string region, out string token));
+        Assert.AreEqual("jp", region);
+        Assert.AreEqual("ab12cd34", token);
+        Assert.IsFalse(RegionMove.TryDecode("xx|tok", out _, out _), "unknown region");
+        Assert.IsFalse(RegionMove.TryDecode("jp|", out _, out _), "empty token");
+        Assert.IsFalse(RegionMove.TryDecode(42, out _, out _), "not a string");
+        Assert.AreNotEqual(RegionMove.NewToken(), RegionMove.NewToken());
+    }
+
+    // 판이 시작되기 전(대기실)에, 다른 올바른 지역을 골랐을 때만 방을 옮긴다.
+    [TestCase("jp", "kr", GamePhase.Lobby, true)]
+    [TestCase("kr", "kr", GamePhase.Lobby, false)]
+    [TestCase(null, "kr", GamePhase.Lobby, false)]
+    [TestCase("zz", "kr", GamePhase.Lobby, false)]
+    [TestCase("jp", "kr", GamePhase.Paint, false)]
+    [TestCase("jp", null, GamePhase.Lobby, false)]
+    public void RegionMove_OnlyFromLobbyToAnotherRegion(string requested, string current, GamePhase phase, bool expected)
+    {
+        Assert.AreEqual(expected, RoomSettingsAuthority.ShouldMoveRegion(requested, current, phase));
+    }
 }

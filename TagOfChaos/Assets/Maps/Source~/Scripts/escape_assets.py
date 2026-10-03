@@ -38,6 +38,9 @@ PAL.update({
     'ME_Glass': ((0.75, 0.90, 1.0), 0),          # Unity makes every *Glass* material transparent
     'ME_Red_Button': ((0.92, 0.12, 0.16), 0.5), 'ME_Pink': ((1.0, 0.55, 0.72), 0),
     'ME_Tunnel_Dark': ((0.03, 0.02, 0.03), 0),
+    # --- stone ruins under the gingerbread village (Request1003Plan.md §2) ---
+    'ME_Stone_Light': ((0.44, 0.42, 0.40), 0), 'ME_Stone_Dark': ((0.20, 0.20, 0.21), 0),
+    'ME_Stone_Warm': ((0.40, 0.33, 0.26), 0), 'ME_Stone_Moss': ((0.20, 0.30, 0.16), 0), 'ME_Root': ((0.22, 0.14, 0.08), 0),
     # --- per-item colours ---
     'ME_Oil_Choco': ((0.26, 0.12, 0.05), 0), 'ME_Macaron_Pink': ((1.0, 0.62, 0.76), 0),
     'ME_Rune_Red': ((1.0, 0.15, 0.20), 1), 'ME_Rune_Pink': ((1.0, 0.35, 0.80), 1),

@@ -278,6 +278,21 @@
 - 회귀: RuleTests 16/16·EscapeTests 42/42 통과. BuildSceneTests는 6/8 — 소리 작업과 무관하게 `Game_CandyForest`(10-03 00:22 저장, 활성)·`Game_HauntedBakery`(10-02 23:38 저장, 비활성)에
   `GameObject`라는 이름의 오브젝트로 `OfflineModeBootstrap`(spawnAsSpy 켬)이 새로 저장돼 있다. 에디터에서 직접 넣은 시험용으로 보여 지우지 않았다 — 출시 전에 빼야 한다(research.md R4.4-9).
 
+### S3+ — 2026-10-03 사용자 요청 반영
+| 요청 | 상태 | 내용 |
+|---|---|---|
+| 방 이름 없이 방 만들기를 누르면 소리 두 개가 겹침 | ✅ | 저장·오류음은 버튼을 누른 결과라 같은 프레임의 버튼 클릭음을 대신한다(`UiSoundCues.PlayResult`, `ButtonClick`). Play Mode: 오류음만 1번, 일반 버튼은 클릭음만 |
+| 게임 중 배경음 | ✅ | 쿠키는 변장 시간에만 맵 곡, 변장이 끝나면(합류 대기·추격·타임어택) 끈다. 괴물은 맵 곡 없음. 결과는 징글 뒤 로비 곡. 스팅어는 유지. `…Hunt`·`TimeAttack` 곡 ID는 번호 보존을 위해 남김 |
+| 로비 배경음이 중간에 끊기는 느낌 → 후보 4곡 | 🔄 선택 대기 | FluidSynth(FluidR3_GM)로 작곡·렌더: A 쿠키 마을 아침, B 캔디 왈츠, C 과자 행진, D 포근한 오후. 32마디, 두 바퀴 렌더 후 둘째 바퀴만 잘라 이음매 없음(`Source~/sfx/compose_lobby.py`) |
+| 진저브레드 네온 줄이기 | ✅ | 진저브레드 전용 재질 7종(창문·분홍·노랑·주황·흰·보라 유리·청록 발광, 발광 45%)으로 71칸 교체(`Assets/Maps/GingerbreadVillage/Materials/*_GingerDim.mat` — 다른 맵은 원본), 블룸 1.2→0.6·문턱 1.2→1.6. 룬·보석·마녀 눈·탈출 장치 발광은 그대로 |
+| 공장 기계 소리 | ✅ | `AmbFactory`(모터 웅웅·1초 금속 쿵·2초 증기·기어 틱, 8초 반복) — 기계실 동·서, 북쪽 프레스 줄, 가운데 파이프 4곳(28 m) |
+| 놀이공원 회전목마 소리 | ✅ | 새 ID `CarouselSpin`(805) — 단조 칼리오페 왈츠 + 도는 기계 굴림·덜컹·삐걱, 22초 반복, 회전목마 중심(40 m, 효과음 묶음 −6 dB) |
+
+- 새 코드: `Audio/AmbientEmitter`(켜져 있는 동안 3D 반복, 칸이 모자라면 2초 뒤 재시도), `Editor/Audio/AmbientPlacer`(Tools/TagOfChaos/Audio/Place Ambient Emitters — 맵별 위치 표), 반복음은 무작위 지점에서 시작(같은 소리 여러 곳이 똑같이 겹치지 않게).
+- 테스트: AudioTests에 환경음 배치 표 검사 추가. 회귀 — AudioTests 49/49·RuleTests 16/16·EscapeTests 42/42·MapCompactTests 25/25(진저브레드 조명 포함)·BuildSceneTests 8/8(앞서 걸리던 맵 씬 시험 오브젝트는 정리됨).
+- ✅ 뒤로가기 제거(대기실·게임 화면 왼쪽 위 화살표, 방 설정 창 '뒤로' — 적용하면 저장 후 ESC 메뉴로, ESC로 닫힘). Play Mode 확인, 콘솔 0.
+- 남은 요청: 국가 설정, 진저브레드 지하 유적·룬 받침대, 지하 동굴 소리 → `Plan.md/Request1003Plan.md`(승인 대기).
+
 ### S4 — 캐릭터·색칠·대기실 소리 ⬜ (약 2시간)
 - `PlayerAnimationDriver`·`MonsterController`·`StunReceiver`·`CookieLifeStatePresenter`에 이벤트 추가, `CharacterAudio`·`PaintAudio`를 프리팹에 연결(에디터 도구).
 - 발소리: 속도·접지로 간격 계산(달리기만 — D3), 숨겨진·파괴된 쿠키는 조용.

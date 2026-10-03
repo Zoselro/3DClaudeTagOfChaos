@@ -1,11 +1,18 @@
 // 탈출 모드 요청 종류(EscapePlan.md §5.2). 누른 클라이언트가 방장에게 보내고, 방장(EscapeAuthority)만 상태를 바꾼다.
+// 요청 값 보조(설치할 칸 번호: 0은 "아무 빈 칸", 칸 i는 i + 1 — 예전 요청과 섞여도 뜻이 같게).
+public static class EscapeNet
+{
+    public static int EncodeSlot(int slot) => slot + 1;
+    public static int DecodeSlot(int value) => value - 1;
+}
+
 public enum EscapeOp : byte
 {
     OpenChest = 1,    // A = 상자 번호
     PickUp = 2,       // A = 아이템 번호(바닥)
     Drop = 3,         // A = 인벤토리 칸, Pos = 떨어뜨릴 위치
     DropAll = 4,      // Pos = 떨어뜨릴 위치(잡힘·탈출)
-    Install = 5,      // A = 인벤토리 칸 → 탈출 장치
+    Install = 5,      // A = 인벤토리 칸 → 탈출 장치, B = EncodeSlot(고른 칸)(0 = 아무 빈 칸)
     Steal = 6,        // A = 탈출 장치 칸
     RocketInsert = 7, // A = 인벤토리 칸 → 스파이 로켓
     RocketBoard = 8,

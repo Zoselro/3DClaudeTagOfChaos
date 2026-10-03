@@ -175,6 +175,19 @@ public class GameSettingsSO : ScriptableObject
     public int MonsterCountFor(int playerCount) =>
         TryGetRoleRow(playerCount, out RoleRow row) ? row.monsters : Mathf.Clamp(monsterCount, 1, Mathf.Max(1, playerCount - 1));
 
+    // 한 판에 나올 수 있는 가장 많은 쿠키 수(= 필요 재료 수의 최댓값) — 인원표에서 (인원 − 괴물 − 스파이)의 최댓값.
+    // 개수 모드 탈출 장치(진저브레드 룬)는 이 수만큼 칸을 만든다(EscapeRecipeSO.CounterFillsCapacity).
+    public int MaxCookieCount
+    {
+        get
+        {
+            int max = 0;
+            if (roleTable != null)
+                foreach (RoleRow r in roleTable) max = Mathf.Max(max, r.players - r.monsters - r.spies);
+            return max > 0 ? max : Mathf.Max(1, maxPlayers - monsterCount);
+        }
+    }
+
     // 현재 방 인원에서 뽑을 스파이 수(인원표). 표에 없는 인원은 0명.
     public int SpyCountFor(int playerCount) => TryGetRoleRow(playerCount, out RoleRow row) ? row.spies : 0;
 

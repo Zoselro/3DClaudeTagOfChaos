@@ -18,6 +18,9 @@ public class MusicPlayer
     private float fadeSeconds = 2f;
     private float duck = 1f;
 
+    // 장소에 따른 배경음 배율(0~1) — 진저브레드 지하에 들어가면 동굴 소리가 들리게 낮춘다(AmbientZone).
+    public float ZoneGain { get; set; } = 1f;
+
     public MusicId Current { get; private set; }
 
     public MusicPlayer(AudioSource deckA, AudioSource deckB, AudioSource stingerSource)
@@ -77,7 +80,7 @@ public class MusicPlayer
                 if (deck.isPlaying) deck.Stop();
                 continue;
             }
-            deck.volume = level[i] * entryVolume[i] * gain * duck;
+            deck.volume = level[i] * entryVolume[i] * gain * duck * ZoneGain;
         }
         stinger.volume = stingerVolume * gain;
     }

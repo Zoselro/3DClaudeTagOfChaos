@@ -40,14 +40,12 @@ public static class MusicRules
             case MusicScene.Other: return MusicId.None;
         }
 
-        // 맵: 변장 → 추격 → 타임어택 → 결과(징글 뒤 로비 곡)
-        switch (c.Phase)
-        {
-            case GamePhase.Hunt: return MapHunt(c.Scene);
-            case GamePhase.TimeAttack: return MusicId.TimeAttack;
-            case GamePhase.Result: return MusicId.Lobby;
-            default: return MapPaint(c.Scene); // 판 시작 전·변장·괴물 합류 대기
-        }
+        // 맵(사용자 결정 2026-10-03): 쿠키는 변장 시간에만 맵 곡을 듣고, 변장이 끝나면(합류 대기·추격·타임어택) 배경음을 끈다 —
+        // 그때부터는 효과음·환경음·스팅어만. 괴물은 맵에 들어와도 맵 곡이 없다. 결과는 징글 뒤 로비 곡.
+        // (MusicId의 …Hunt·TimeAttack 곡은 쓰지 않지만 ID 번호를 지키려고 남겨 둔다.)
+        if (c.Phase == GamePhase.Result) return MusicId.Lobby;
+        if (c.LocalIsMonster) return MusicId.None;
+        return c.Phase == GamePhase.Lobby || c.Phase == GamePhase.Paint ? MapPaint(c.Scene) : MusicId.None;
     }
 
     // 괴물 본인이 대기실에 남아 있는 판 진행 중 — 대기가 끝나 맵으로 넘어가는 동안에도 대기 곡을 이어 간다(대기실 곡으로 잠깐 돌아가지 않게).
@@ -84,18 +82,6 @@ public static class MusicRules
             case MusicScene.Factory: return MusicId.FactoryPaint;
             case MusicScene.Carnival: return MusicId.CarnivalPaint;
             default: return MusicId.BakeryPaint;
-        }
-    }
-
-    private static MusicId MapHunt(MusicScene scene)
-    {
-        switch (scene)
-        {
-            case MusicScene.CandyForest: return MusicId.CandyForestHunt;
-            case MusicScene.Gingerbread: return MusicId.GingerbreadHunt;
-            case MusicScene.Factory: return MusicId.FactoryHunt;
-            case MusicScene.Carnival: return MusicId.CarnivalHunt;
-            default: return MusicId.BakeryHunt;
         }
     }
 }

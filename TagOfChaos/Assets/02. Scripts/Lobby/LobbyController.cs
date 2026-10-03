@@ -8,9 +8,6 @@ using UnityEngine.UI;
 public class LobbyController : MonoBehaviourPunCallbacks
 {
     private const string GameVersion = "1"; // 빌드가 바뀌면 올려서 이전 버전 클라이언트와 매치메이킹이 섞이지 않게 함
-    // 방은 한 지역 서버 안에만 있다. 지역을 고르지 않고 접속하면 PC마다 핑이 좋은 지역에 따로 붙어 서로의 방이
-    // 보이지 않으므로(EscapeVisualPlan.md §1.1 문제 2) 모두 한 지역으로 접속한다. 지역 선택 UI는 지웠다(research.md R5-25).
-    private const string Region = "kr";
 
     [SerializeField] private TMP_InputField userIdInput;
     [SerializeField] private TMP_InputField roomNameInput;
@@ -24,12 +21,21 @@ public class LobbyController : MonoBehaviourPunCallbacks
     [SerializeField] private RoomSettingField timeLimitField;
     [SerializeField] private RoomSettingField timeAttackField;
 
+    // 서버 지역(EscapeVisualPlan.md §1.1, 2026-10-03 다시 살림 — Request1003Plan.md §1). 방은 한 지역 서버 안에만 있으므로
+    // 지역을 고르지 않고 접속하면 PC마다 핑이 좋은 지역에 따로 붙어 서로의 방이 보이지 않는다 — 늘 고른 지역으로 접속한다.
+    [Header("Region")]
+    [Tooltip("로비에서 볼 지역 — 고르면 그 지역으로 다시 접속해 그 지역의 방 목록을 보여준다")]
+    [SerializeField] private RegionSelector viewRegion;
+    [Tooltip("방을 만들 지역(타임어택 칸 밑) — 지금 접속한 지역과 다르면 다시 접속한 뒤 방을 만든다")]
+    [SerializeField] private RegionSelector createRegion;
+
     [Header("Feedback Messages (set in inspector)")] // 코드에 한글을 넣지 않는 프로젝트 규칙 — 표시 문구는 프리팹에서 입력
     [SerializeField] private string enterRoomNameMessage = "Enter a room name.";
     [SerializeField] private string enterUserIdMessage = "Enter a user ID.";
     [SerializeField] private string roomNameExistsMessage = "A room with this name already exists.";
     [SerializeField] private string noRoomAvailableMessage = "No room is available to join.";
     [SerializeField] private string cannotJoinRoomMessage = "Cannot join this room.";
+    [SerializeField] private string regionMoveFailedMessage = "Could not follow the room to the new region.";
 
     private readonly Dictionary<string, RoomInfo> cachedRoomList = new Dictionary<string, RoomInfo>();
     private readonly Dictionary<string, RoomListItem> roomListItems = new Dictionary<string, RoomListItem>();
@@ -41,6 +47,16 @@ public class LobbyController : MonoBehaviourPunCallbacks
     private float refreshReadyTime;
     private bool rejoinLobbyAfterLeave;
 
+    // 지역 바꾸기: 끊고(OnDisconnected) → targetRegion으로 다시 접속. 다른 지역에 방을 만들거나(로비) 옮겨 간 방에 들어갈 때(대기실의
+    // 지역 변경, RegionMove)는 접속 뒤 바로 만든다/들어간다.
+    private string targetRegion;
+    private bool reconnectAfterDisconnect;
+    private string pendingRoomName;
+    private RoomOptions pendingRoomOptions;
+    private bool pendingJoinOrCreate; // true = 지역 옮기기(같은 이름의 방에 들어가거나 먼저 도착했으면 만든다)
+
+    private static string CurrentRegion => PhotonRegions.Current;
+
     private void Awake()
     {
         // #Critical: LoadLevel()이 방 전체에 씬 전환을 자동 동기화하게 함 (PunBasics-Tutorial 관례)
@@ -51,30 +67,101 @@ public class LobbyController : MonoBehaviourPunCallbacks
 
     private void Start()
     {
-        userIdInput.text = "Player" + Random.Range(1000, 10000); // 기본값, 직접 수정 가능
+        userIdInput.text = !string.IsNullOrEmpty(PhotonNetwork.NickName) ? PhotonNetwork.NickName : "Player" + Random.Range(1000, 10000); // 기본값, 직접 수정 가능
         PhotonNetwork.SerializationRate = GameSettings.Current.CharacterSyncRate; // 캐릭터 동기화 빈도(research.md §12.4)
-        Connect();
+
+        string region = CurrentRegion ?? PhotonRegions.Saved;
+        if (RegionMove.HasPending) // 대기실에서 호스트가 지역을 바꿔 방을 옮기는 중
+        {
+            region = RegionMove.PendingRegion;
+            pendingRoomName = RegionMove.PendingRoomName;
+            pendingRoomOptions = RegionMove.PendingOptions;
+            pendingJoinOrCreate = true;
+        }
+        if (viewRegion != null)
+        {
+            viewRegion.SetCode(region);
+            viewRegion.Changed += OnViewRegionChanged;
+        }
+        if (createRegion != null) createRegion.SetCode(region);
+        SwitchRegion(region);
     }
 
-    // 게임을 마치고 로비로 돌아오면 이미 접속해 있으니 로비만 들어간다.
-    private static void Connect()
+    private void OnDestroy()
     {
+        if (viewRegion != null) viewRegion.Changed -= OnViewRegionChanged;
+    }
+
+    private void OnViewRegionChanged(string code)
+    {
+        PhotonRegions.Saved = code;
+        if (createRegion != null) createRegion.SetCode(code);
+        SwitchRegion(code);
+    }
+
+    // 이미 그 지역에 붙어 있으면 로비만 들어가고(또는 기다리던 방 만들기·들어가기), 아니면 끊고 다시 접속한다.
+    private void SwitchRegion(string region)
+    {
+        Debug.Log($"[Lobby] Switch region {CurrentRegion ?? "-"} -> {region}" + (pendingRoomName != null ? $" (then room '{pendingRoomName}')" : ""));
+        targetRegion = region;
+        if (PhotonNetwork.IsConnected && CurrentRegion == region)
+        {
+            if (PhotonNetwork.IsConnectedAndReady && !PhotonNetwork.InLobby && !PhotonNetwork.InRoom)
+            {
+                if (!RunPendingRoom()) PhotonNetwork.JoinLobby();
+            }
+            return; // 아직 마스터 서버로 돌아가는 중이면 OnConnectedToMaster가 이어서 한다
+        }
+        cachedRoomList.Clear();
+        ClearRoomListView();
         if (PhotonNetwork.IsConnected)
         {
-            if (PhotonNetwork.IsConnectedAndReady && !PhotonNetwork.InLobby && !PhotonNetwork.InRoom) PhotonNetwork.JoinLobby();
-            return;
+            reconnectAfterDisconnect = true;
+            PhotonNetwork.Disconnect();
         }
-        // 설정 에셋은 건드리지 않고 사본에 지역만 넣어 접속한다(ConnectToRegion은 PUN에서 사용 중단 예정).
+        else
+        {
+            ConnectToRegion(region);
+        }
+    }
+
+    // 설정 에셋은 건드리지 않고 사본에 지역만 넣어 접속한다(ConnectToRegion은 PUN에서 사용 중단 예정).
+    private static void ConnectToRegion(string region)
+    {
         var settings = new AppSettings();
         PhotonNetwork.PhotonServerSettings.AppSettings.CopyTo(settings);
-        settings.FixedRegion = Region;
+        settings.FixedRegion = region;
         PhotonNetwork.ConnectUsingSettings(settings);
+    }
+
+    public override void OnDisconnected(DisconnectCause cause)
+    {
+        if (!reconnectAfterDisconnect) return;
+        reconnectAfterDisconnect = false;
+        ConnectToRegion(targetRegion);
+    }
+
+    // 기다리던 방 만들기·들어가기가 있으면 실행하고 true.
+    private bool RunPendingRoom()
+    {
+        if (pendingRoomName == null) return false;
+        string name = pendingRoomName;
+        RoomOptions options = pendingRoomOptions;
+        bool joinOrCreate = pendingJoinOrCreate;
+        pendingRoomName = null;
+        pendingRoomOptions = null;
+        pendingJoinOrCreate = false;
+        if (joinOrCreate) PhotonNetwork.JoinOrCreateRoom(name, options, TypedLobby.Default);
+        else PhotonNetwork.CreateRoom(name, options, TypedLobby.Default);
+        return true;
     }
 
     private void Update()
     {
+        bool connected = PhotonNetwork.IsConnectedAndReady && !reconnectAfterDisconnect;
+        if (viewRegion != null) viewRegion.SetInteractable(connected && pendingRoomName == null && !RegionMove.HasPending);
         if (refreshButton == null) return;
-        bool ready = Time.unscaledTime >= refreshReadyTime && PhotonNetwork.IsConnectedAndReady && !rejoinLobbyAfterLeave;
+        bool ready = Time.unscaledTime >= refreshReadyTime && connected && !rejoinLobbyAfterLeave;
         if (refreshButton.interactable != ready) refreshButton.interactable = ready;
     }
 
@@ -104,7 +191,7 @@ public class LobbyController : MonoBehaviourPunCallbacks
     public override void OnConnectedToMaster()
     {
         Debug.Log($"[Lobby] Connected to region {PhotonNetwork.CloudRegion}.");
-        PhotonNetwork.JoinLobby();
+        if (!RunPendingRoom()) PhotonNetwork.JoinLobby();
     }
 
     public override void OnJoinedLobby()
@@ -186,6 +273,18 @@ public class LobbyController : MonoBehaviourPunCallbacks
                 { NetKeys.TimeAttackDuration, timeAttackMinutes * 60 },
             },
         };
+        string region = createRegion != null ? createRegion.Code : CurrentRegion;
+        if (region != null && region != CurrentRegion)
+        {
+            // 다른 지역에 만든다: 그 지역으로 다시 접속한 뒤(OnConnectedToMaster) 만든다. 로비의 볼 지역도 그 지역으로 맞춘다.
+            pendingRoomName = roomName;
+            pendingRoomOptions = options;
+            pendingJoinOrCreate = false;
+            PhotonRegions.Saved = region;
+            if (viewRegion != null) viewRegion.SetCode(region);
+            SwitchRegion(region);
+            return;
+        }
         PhotonNetwork.CreateRoom(roomName, options, TypedLobby.Default);
     }
 
@@ -215,6 +314,8 @@ public class LobbyController : MonoBehaviourPunCallbacks
 
     public override void OnCreateRoomFailed(short returnCode, string message)
     {
+        Debug.LogWarning($"[Lobby] Create room failed ({returnCode}): {message}");
+        if (FailRegionMove()) return;
         ShowError(roomNameExistsMessage); // 대부분 이 케이스 (ErrorCode.GameIdAlreadyExists)
     }
 
@@ -225,7 +326,18 @@ public class LobbyController : MonoBehaviourPunCallbacks
 
     public override void OnJoinRoomFailed(short returnCode, string message)
     {
+        Debug.LogWarning($"[Lobby] Join room failed ({returnCode}): {message}");
+        if (FailRegionMove()) return;
         ShowError(cannotJoinRoomMessage); // 방금 꽉 찼거나 방장이 이미 게임을 시작한 경우 등
+    }
+
+    // 지역 옮기기 중 실패: 옮기기를 끝내고 그 지역의 로비에 남는다.
+    private bool FailRegionMove()
+    {
+        if (!RegionMove.HasPending) return false;
+        RegionMove.Clear();
+        ShowError(regionMoveFailedMessage);
+        return true;
     }
 
     // 실패 안내: 문구 + 경고음(SoundPlan.md S2).
@@ -237,6 +349,18 @@ public class LobbyController : MonoBehaviourPunCallbacks
 
     public override void OnJoinedRoom()
     {
+        if (RegionMove.HasPending)
+        {
+            // 옮겨 간 방이 맞는지(같은 이름의 남의 방이 아닌지) 표로 확인한다.
+            bool expected = RegionMove.IsExpectedRoom(PhotonNetwork.CurrentRoom);
+            RegionMove.Clear();
+            if (!expected)
+            {
+                PhotonNetwork.LeaveRoom(); // 마스터 서버로 돌아가면 OnConnectedToMaster가 로비에 다시 들어간다
+                ShowError(regionMoveFailedMessage);
+                return;
+            }
+        }
         if (PhotonNetwork.CurrentRoom.PlayerCount == 1)
             PhotonNetwork.LoadLevel(SceneNames.GameLobby); // 방을 새로 만든 최초 1인만 로드, 나머지는 자동 동기화
     }

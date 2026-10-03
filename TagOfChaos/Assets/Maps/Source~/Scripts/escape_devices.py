@@ -340,7 +340,7 @@ def device_factory():
     empty(u, 'Board', (2.4, TRAIN_COACH_Y, 0.3))
 
 
-# ---------------- GingerbreadVillage: clock tower -> spiral ramp -> underground cookie ruins -> rune altar portal ----------------
+# ---------------- GingerbreadVillage: clock tower -> spiral ramp -> underground stone ruins -> rune pedestals + altar portal ----------------
 # (EscapeVisualPlan.md §5.5) Built in the clock tower's frame (origin = tower centre on the ground, door on -Y).
 # Unity places the root on GIN_Landmark_ClockTower after the map is compacted and cuts the ground under the tower.
 #   tower room: round (CornerFill), door threshold + small landing at z 0
@@ -405,36 +405,6 @@ def wedge_ring(g, mat, t0, t1, z0, z1, outer, step=5.0):
         t = tb
 
 
-def ruin_house(body, decor, cx, cy, w, d, h, rotz, rnd):
-    """Abandoned cookie house: solid tilted walls + sagging roof (colliders), boarded windows, cracks, fallen door."""
-    def at(x, y):
-        c, s_ = math.cos(rotz), math.sin(rotz)
-        return cx + x * c - y * s_, cy + x * s_ + y * c
-    body.rbox('ME_Cookie_Dark', (cx, cy, -GIN_DEPTH), (w, d, h), bevel=0.3, rot=(0.0, 0.04, rotz))
-    rx, ry = at(0.3, 0.2)
-    body.rbox('ME_Purple_Deep', (rx, ry, -GIN_DEPTH + h - 0.4), (w + 0.8, d + 0.6, 0.6), bevel=0.2, rot=(0.22, -0.12, rotz))
-    fx, fy = at(0, -d / 2 - 0.06)
-    for k, ox in enumerate((-w * 0.3, w * 0.3)):                                      # boarded windows
-        x, y = at(ox, -d / 2 - 0.06)
-        decor.rbox('ME_Tunnel_Dark', (x, y, -GIN_DEPTH + 1.5), (1.4, 0.1, 1.3), bevel=0.0, rotz=rotz)
-        for sgn in (1, -1):
-            decor.rbox('ME_Cookie_Gold', (x, y, -GIN_DEPTH + 1.55 + 0.25 * sgn), (1.7, 0.16, 0.22), bevel=0.04,
-                       rot=(0, sgn * 0.35, rotz))
-    decor.rbox('ME_Tunnel_Dark', (fx, fy, -GIN_DEPTH), (1.4, 0.1, 2.4), bevel=0.0, rotz=rotz)   # empty doorway
-    dx, dy = at(0.6, -d / 2 - 1.6)
-    decor.rbox('ME_Cookie_Gold', (dx, dy, -GIN_DEPTH), (1.3, 2.3, 0.12), bevel=0.04, rotz=rotz + 0.4)  # fallen door
-    for k in range(3):                                                                # cracks
-        x0 = rnd.uniform(-w / 2 + 0.6, w / 2 - 0.6)
-        pts = []
-        for j in range(5):
-            x, y = at(x0 + rnd.uniform(-0.3, 0.3), -d / 2 - 0.08)
-            pts.append((x, y, -GIN_DEPTH + h - 0.3 - j * h * 0.18))
-        decor.tube(pts, 0.06, 'ME_Tunnel_Dark', seg=5)
-    for k in range(4):                                                                # icing remnants
-        x, y = at(rnd.uniform(-w / 2, w / 2), -d / 2 - 0.1)
-        decor.blob('ME_Cream', (x, y, -GIN_DEPTH + h - 0.5), 0.22, sz=(1, 0.5, 1.6), seg=8)
-
-
 def cobweb(g, corner, dirx, diry, z, size):
     cx, cy = corner
     spokes = [(cx + dirx * size * math.cos(a), cy + diry * size * math.sin(a)) for a in [i * math.pi / 8 for i in range(5)]]
@@ -471,71 +441,129 @@ def device_gingerbread():
         for y0, y1 in ((-3.2, -2.6), (2.6, 3.2)):
             slab(g, 'ME_Gray_Dark', 4.8, hx0, y0, y1, floor, -3.5)
         slab(g, 'ME_Gray_Dark', 4.8, hx0, -3.2, 3.2, -3.5, -3.0)
-        # ---- hall ----
-        slab(g, 'ME_Cookie_Dark', hx0, hx1, hy0, hy1, floor - 0.3, floor)
-        slab(g, 'ME_Gray_Dark', hx0 - 0.6, hx0, hy0 - 0.6, -2.6, floor, -1.0)
-        slab(g, 'ME_Gray_Dark', hx0 - 0.6, hx0, 2.6, hy1 + 0.6, floor, -1.0)
-        slab(g, 'ME_Gray_Dark', hx0 - 0.6, hx0, -2.6, 2.6, -3.5, -1.0)
-        slab(g, 'ME_Gray_Dark', hx1, hx1 + 0.6, hy0 - 0.6, hy1 + 0.6, floor, -1.0)
+        # ---- hall: broken stone ruins of an old cookie village (2026-10-03, Request1003Plan.md §2) ----
+        slab(g, 'ME_Stone_Dark', hx0, hx1, hy0, hy1, floor - 0.3, floor)
+        slab(g, 'ME_Stone_Dark', hx0 - 0.6, hx0, hy0 - 0.6, -2.6, floor, -1.0)
+        slab(g, 'ME_Stone_Dark', hx0 - 0.6, hx0, 2.6, hy1 + 0.6, floor, -1.0)
+        slab(g, 'ME_Stone_Dark', hx0 - 0.6, hx0, -2.6, 2.6, -3.5, -1.0)
+        slab(g, 'ME_Stone_Dark', hx1, hx1 + 0.6, hy0 - 0.6, hy1 + 0.6, floor, -1.0)
         for y0, y1 in ((hy0 - 0.6, hy0), (hy1, hy1 + 0.6)):
-            slab(g, 'ME_Gray_Dark', hx0, hx1, y0, y1, floor, -1.0)
-        slab(g, 'ME_Gray_Dark', hx0 - 0.6, hx1 + 0.6, hy0 - 0.6, hy1 + 0.6, -1.0, -0.55)
-        # cracked cookie columns (one broken)
-        for k, (x, y) in enumerate(((24, -8), (24, 8), (44, -8), (44, 8))):
-            cyl(g, 'ME_Gray_Light', (x, y, floor), 0.9, 3.2 if k == 3 else 9.0, seg=14)
-        # rune altar: walkable mound (1:3) with a stout rune pillar
-        g.lathe([(0, floor), (5.5, floor), (2.6, floor + 0.95), (0, floor + 0.95)], 'ME_Gray_Light', seg=32,
+            slab(g, 'ME_Stone_Dark', hx0, hx1, y0, y1, floor, -1.0)
+        slab(g, 'ME_Stone_Dark', hx0 - 0.6, hx1 + 0.6, hy0 - 0.6, hy1 + 0.6, -1.0, -0.55)
+        # stone columns (one broken off at 3.2 m)
+        for k, (x, y) in enumerate(GIN_COLUMNS):
+            cyl(g, 'ME_Stone_Light', (x, y, floor), 1.25, 0.5, seg=10)                               # plinth
+            cyl(g, 'ME_Stone_Light', (x, y, floor), 0.9, 3.2 if k == 3 else 8.5, seg=12)
+            if k != 3:
+                cyl(g, 'ME_Stone_Light', (x, y, floor + 8.3), 1.2, 0.7, seg=10)                       # capital
+        # rune altar: walkable stone mound (1:3) with a stout rune pillar
+        g.lathe([(0, floor), (5.5, floor), (2.6, floor + 0.95), (0, floor + 0.95)], 'ME_Stone_Light', seg=32,
                 loc=(ax, ay, 0))
         g.lathe([(0, floor + 0.95), (0.6, floor + 0.95), (0.45, floor + 2.3), (0.65, floor + 2.5), (0, floor + 2.6)],
-                'ME_Purple_Deep', seg=16, loc=(ax, ay, 0))
-        # ruined houses in the corners and on the east wall (front towards the altar)
+                'ME_Stone_Dark', seg=16, loc=(ax, ay, 0))
+        # five separate rune pedestals round the altar (one rune each — Slot_00..04)
+        for i, (px, py, a) in enumerate(gin_pedestals()):
+            g.rbox('ME_Stone_Light', (px, py, floor), (1.5, 1.5, 0.3), bevel=0.08, rotz=a)
+            g.rbox('ME_Stone_Dark', (px, py, floor + 0.3), (0.95, 0.95, 1.05), bevel=0.06, rotz=a)
+            g.rbox('ME_Stone_Light', (px, py, floor + 1.35), (1.3, 1.3, 0.22), bevel=0.06, rotz=a)
+        # collapsed stone houses (solid cores = colliders, like the old cookie houses: nothing to hide inside)
         rnd = random.Random(12)
-        for cx, cy, w, d, h, rz in ((hx0 + 4, hy0 + 3, 8, 6, 4.6, 0.0), (hx0 + 4, hy1 - 3, 8, 6, 5.2, math.pi),
-                                    (hx1 - 4, hy0 + 3, 8, 6, 4.2, 0.0), (hx1 - 4, hy1 - 3, 8, 6, 5.0, math.pi),
-                                    (hx1 - 3, 0.0, 8, 6, 4.8, -math.pi / 2)):
-            ruin_house(g, DECOR, cx, cy, w, d, h, rz, rnd)
+        for cx, cy, w, d, h, rz in GIN_RUINS:
+            ruin_stone_house(g, DECOR, cx, cy, w, d, h, rz, rnd)
     DECOR = G()
     mesh_obj(u, 'Body', body)
 
     def decor(g):
-        # the shared decor kit collected by ruin_house, plus rubble, furniture, webs, wall runes, lantern posts
+        # the shared decor kit collected by ruin_stone_house, plus flagstones, wall stones, stalactites, roots, rubble, torches
         g.bm = DECOR.bm
         g.mats = DECOR.mats
         rnd = random.Random(5)
-        for k in range(26):                                                               # flat rubble chips
+        # flagstones (2 cm above the floor slab, no collider) with a few cracked / missing ones
+        for ix in range(int(hx0) + 1, int(hx1) - 1, 3):
+            for iy in range(int(hy0) + 1, int(hy1) - 1, 3):
+                if rnd.random() < 0.12:
+                    continue
+                if math.hypot(ix + 1.5 - ax, iy + 1.5 - ay) < 5.6:
+                    continue
+                g.rbox(rnd.choice(('ME_Stone_Light', 'ME_Stone_Warm', 'ME_Stone_Light')), (ix + 1.5, iy + 1.5, floor),
+                       (rnd.uniform(2.6, 2.9), rnd.uniform(2.6, 2.9), 0.03), bevel=0.0, rotz=rnd.uniform(-0.05, 0.05))
+        for k in range(14):                                                                   # floor cracks
             x, y = rnd.uniform(hx0 + 2, hx1 - 2), rnd.uniform(hy0 + 2, hy1 - 2)
-            if math.hypot(x - ax, y - ay) < 6.5:
+            pts, a = [], rnd.uniform(0, 6.3)
+            for j in range(5):
+                pts.append((x, y, floor + 0.04))
+                a += rnd.uniform(-0.7, 0.7)
+                x, y = x + 0.8 * math.cos(a), y + 0.8 * math.sin(a)
+            g.tube(pts, 0.05, 'ME_Tunnel_Dark', seg=4)
+        # rough stones jutting from the walls (visual only)
+        for k in range(70):
+            side = rnd.randrange(4)
+            z = rnd.uniform(floor + 0.3, -1.6)
+            if side == 0:
+                x, y, rz = hx0 + 0.15, rnd.uniform(hy0 + 1, hy1 - 1), 0.0
+                if abs(y) < 3.4 and z < -3.0:
+                    continue                                                                  # keep the tunnel mouth clear
+            elif side == 1:
+                x, y, rz = hx1 - 0.15, rnd.uniform(hy0 + 1, hy1 - 1), 0.0
+            else:
+                x, y, rz = rnd.uniform(hx0 + 1, hx1 - 1), (hy0 + 0.15) if side == 2 else (hy1 - 0.15), math.pi / 2
+            g.blob(rnd.choice(('ME_Stone_Dark', 'ME_Stone_Light', 'ME_Stone_Moss')), (x, y, z), rnd.uniform(0.5, 1.1),
+                   sz=(0.45, 1.0, 0.7), seg=8, jitter=0.18, rnd=rnd, rot=(0, 0, rz))
+        # stalactites (tips stay above floor + 5.5 m, none over the altar portal)
+        for k in range(26):
+            x, y = rnd.uniform(hx0 + 1.5, hx1 - 1.5), rnd.uniform(hy0 + 1.5, hy1 - 1.5)
+            if math.hypot(x - ax, y - ay) < 7.5:
                 continue
-            g.rbox(rnd.choice(('ME_Cookie_Dark', 'ME_Gray_Dark', 'ME_Cookie_Gold')), (x, y, floor),
-                   (rnd.uniform(0.5, 1.4), rnd.uniform(0.4, 1.0), rnd.uniform(0.08, 0.2)), bevel=0.05, rotz=rnd.uniform(0, 6.3))
-        for x, y in ((44.6, -8.6), (45.4, -7.2), (43.0, -9.4)):                            # broken column pieces
-            g.rbox('ME_Gray_Light', (x, y, floor), (1.2, 0.8, 0.35), bevel=0.15, rotz=rnd.uniform(0, 6.3))
-        for k, (x, y) in enumerate(((24, -8), (24, 8), (44, 8))):                          # column cracks
+            L = rnd.uniform(1.0, 3.2)
+            g.lathe([(0, -1.0), (rnd.uniform(0.35, 0.7), -1.0), (0.15, -1.0 - L * 0.7), (0, -1.0 - L)],
+                    rnd.choice(('ME_Stone_Dark', 'ME_Stone_Light')), seg=7, loc=(x, y, 0))
+        # roots hanging down the walls and from the ceiling
+        for k in range(12):
+            x, y = rnd.uniform(hx0 + 1, hx1 - 1), rnd.choice((hy0 + 0.4, hy1 - 0.4))
+            pts = [(x, y, -1.0)]
+            for j in range(5):
+                pts.append((pts[-1][0] + rnd.uniform(-0.6, 0.6), y, pts[-1][2] - rnd.uniform(0.9, 1.5)))
+            g.tube(pts, [0.16, 0.13, 0.1, 0.08, 0.05, 0.03], 'ME_Root', seg=6)
+        # rubble piles and broken column drums (kept out of the altar ring and the tunnel path)
+        for k in range(30):
+            x, y = rnd.uniform(hx0 + 2, hx1 - 2), rnd.uniform(hy0 + 2, hy1 - 2)
+            if math.hypot(x - ax, y - ay) < 10.0 or (x < ax and abs(y) < 4.0):
+                continue
+            g.blob(rnd.choice(('ME_Stone_Dark', 'ME_Stone_Light', 'ME_Stone_Warm')), (x, y, floor + 0.1),
+                   rnd.uniform(0.25, 0.6), sz=(1.2, 1.0, 0.55), seg=7, jitter=0.25, rnd=rnd, rot=(0, 0, rnd.uniform(0, 6.3)))
+        bx, by = GIN_COLUMNS[3]
+        for dx, dy, rz in ((1.3, -1.0, 0.4), (2.6, -0.4, 1.3), (0.6, -2.4, 2.2)):                  # fallen drums of the broken column
+            cyl(g, 'ME_Stone_Light', (bx + dx, by + dy, floor + 0.85), 0.85, 1.1, seg=12, rot=(math.pi / 2, 0, rz))
+        for k, (x, y) in enumerate(GIN_COLUMNS[:3]):                                              # column cracks
             g.tube([(x + 0.92 * math.cos(1.2 * k), y + 0.92 * math.sin(1.2 * k), floor + z) for z in (1.0, 2.5, 4.0, 5.5)],
                    0.07, 'ME_Tunnel_Dark', seg=5)
-        # tipped table + broken chair
-        g.rbox('ME_Cookie_Gold', (28, -15, floor + 0.1), (1.8, 1.0, 0.12), bevel=0.04, rot=(0.0, 1.2, 0.4))
-        g.rbox('ME_Cookie_Gold', (29.2, -14.2, floor), (0.5, 0.5, 0.1), bevel=0.03, rotz=0.8)
-        g.tube([(29.0, -13.6, floor + 0.05), (29.8, -13.0, floor + 0.05)], 0.06, 'ME_Cookie_Dark', seg=5)
+        # moss on column bases and pedestals
+        for x, y in GIN_COLUMNS + [(px, py) for px, py, a in gin_pedestals()]:
+            for j in range(3):
+                a = rnd.uniform(0, 6.3)
+                g.blob('ME_Stone_Moss', (x + 0.9 * math.cos(a), y + 0.9 * math.sin(a), floor + 0.05), 0.35,
+                       sz=(1.3, 1.0, 0.25), seg=8, jitter=0.2, rnd=rnd)
+        # rune marks carved on each pedestal top (glow with the altar via Altar_Glow) and faint wall runes
+        for x, y, rz in ((hx0 + 0.05, 9.0, math.pi / 2), (hx0 + 0.05, -9.0, math.pi / 2), (hx1 - 0.05, 9.0, -math.pi / 2),
+                         (34.0, hy1 - 0.05, math.pi), (24.0, hy0 + 0.05, 0.0)):
+            star_prism(g, 'ME_Glow_Purple', (x, y, -4.5), 0.5, 0.2, 0.06, points=4, rot=(0, 0, rz))
         # cobwebs in the hall corners and over the tunnel mouth
         for cx, cy, dx, dy in ((hx0, hy0, 1, 1), (hx0, hy1, 1, -1), (hx1, hy0, -1, 1), (hx1, hy1, -1, -1)):
             cobweb(g, (cx, cy), dx, dy, -1.1, 2.6)
         cobweb(g, (hx0 + 0.1, 2.6), 1, -1, -3.6, 1.6)
-        for x, y, rz in ((hx0 + 0.05, 9.0, math.pi / 2), (hx0 + 0.05, -9.0, math.pi / 2), (hx1 - 0.05, 9.0, -math.pi / 2),
-                         (34.0, hy1 - 0.05, math.pi), (24.0, hy0 + 0.05, 0.0)):                     # faint wall runes
-            star_prism(g, 'ME_Glow_Purple', (x, y, -4.5), 0.5, 0.2, 0.06, points=4, rot=(0, 0, rz))
-        for x, y in LANTERNS:                                                               # lantern posts
-            cyl(g, 'ME_Gray_Dark', (x, y, floor), 0.09, 2.6, seg=8)
-            g.rbox('ME_Gray_Dark', (x, y, floor + 2.55), (0.45, 0.45, 0.1), bevel=0.03)
-            g.blob('ME_Glow_Orange', (x, y, floor + 2.9), 0.2, sz=(1, 1, 1.3), seg=10)
-            g.lathe([(0.3, 0), (0.05, 0.3), (0, 0.32)], 'ME_Gray_Dark', seg=4, loc=(x, y, floor + 3.1))
-        for k in range(5):                                                                  # bands on the shaft column
+        for x, y in LANTERNS:                                                                 # stone torch posts
+            cyl(g, 'ME_Stone_Dark', (x, y, floor), 0.22, 2.3, seg=8, r2=0.14)
+            g.lathe([(0.0, 0.0), (0.32, 0.12), (0.36, 0.3), (0.0, 0.3)], 'ME_Stone_Light', seg=8, loc=(x, y, floor + 2.3))
+            g.blob('ME_Glow_Orange', (x, y, floor + 2.75), 0.2, sz=(1, 1, 1.4), seg=10)
+        for k in range(5):                                                                    # bands on the shaft column
             torus(g, 'ME_Purple_Deep', (0, 0, -9.0 + k * 3.8), GIN_R0 + 0.02, 0.09, seg=16)
-    LANTERNS = [(hx0 + 2.5, -4.5), (hx0 + 2.5, 4.5), (26.0, 0.0), (42.0, 0.0), (34.0, -15.0), (34.0, 15.0), (9.0, -2.0)]
+    LANTERNS = [(hx0 + 2.5, -4.5), (hx0 + 2.5, 4.5), (24.0, -12.0), (24.0, 12.0), (44.0, -12.0), (44.0, 12.0), (9.0, -2.0)]
     mesh_obj(u, 'Decor', decor)
     for i, (x, y) in enumerate(LANTERNS):
-        empty(u, f'Lantern_{i:02d}', (x, y, floor + 2.9))
+        empty(u, f'Lantern_{i:02d}', (x, y, floor + 2.75))
     empty(u, f'Lantern_{len(LANTERNS):02d}', (2.6, 0.0, -3.0))                              # in the shaft
+    for i, (x, y) in enumerate(((20.0, -12.0), (20.0, 12.0), (34.0, -14.0), (34.0, 14.0), (48.0, -12.0), (48.0, 12.0))):
+        empty(u, f'CaveLight_{i:02d}', (x, y, floor + 6.0))                                     # soft cool fill (Unity adds lights)
 
     def altar_glow(g):    # recolored to cycling rainbow by Unity once all runes are in
         torus(g, 'ME_Glow_Purple', (ax, ay, floor + 0.97), 2.5, 0.09, seg=32)
@@ -544,6 +572,8 @@ def device_gingerbread():
             a = k * math.pi / 2 + math.pi / 4
             g.tube([(ax + 0.62 * math.cos(a), ay + 0.62 * math.sin(a), floor + 1.0),
                     (ax + 0.5 * math.cos(a), ay + 0.5 * math.sin(a), floor + 2.3)], 0.06, 'ME_Glow_Purple', seg=5)
+        for px, py, a in gin_pedestals():                                                     # ring carved on each pedestal top
+            torus(g, 'ME_Glow_Purple', (px, py, floor + 1.58), 0.45, 0.05, seg=20)
     mesh_obj(u, 'Altar_Glow', altar_glow)
 
     pz = floor + 5.6                                                                        # portal above the pillar, facing -X
@@ -559,12 +589,77 @@ def device_gingerbread():
     mesh_obj(u, 'Portal_Swirl', swirl, loc=(ax, ay, pz))
     for i, (yy, zz) in enumerate([(0, 0)] + [(1.4 * math.cos(k * math.pi / 3), 1.4 * math.sin(k * math.pi / 3)) for k in range(6)]):
         empty(u, f'Float_{i:02d}', (ax - 0.4, ay + yy, pz + zz - 0.6))
-    for i in range(8):                                                                      # rune sockets round the pillar
-        t = 2 * math.pi * i / 8
-        empty(u, f'Slot_{i:02d}', (ax + 1.05 * math.cos(t), ay + 1.05 * math.sin(t), floor + 1.75),
-              rot=(0, 0, t + math.pi / 2))
+    for i, (px, py, a) in enumerate(gin_pedestals()):                                       # one rune socket on top of each pedestal
+        empty(u, f'Slot_{i:02d}', (px, py, floor + 1.85), rot=(0, 0, a))
     empty(u, 'Board', (ax - 3.2, ay, floor + 0.95))
     empty(u, 'Mouth', (ax, ay, pz))
+
+
+# pedestals: radius 7.5 round the altar, 72 deg apart, none on the tunnel side (-X) so the path to the altar stays open
+GIN_PEDESTAL_R = 7.5
+GIN_COLUMNS = [(22.0, -9.0), (22.0, 9.0), (46.0, -9.0), (46.0, 9.0)]   # >= 3.6 m (monster width) from pedestals and ruins
+GIN_RUINS = ((GIN_HALL[0] + 4, GIN_HALL[2] + 3, 8, 6, 4.6, 0.0), (GIN_HALL[0] + 4, GIN_HALL[3] - 3, 8, 6, 5.2, math.pi),
+             (GIN_HALL[1] - 4, GIN_HALL[2] + 3, 8, 6, 4.2, 0.0), (GIN_HALL[1] - 4, GIN_HALL[3] - 3, 8, 6, 5.0, math.pi),
+             (GIN_HALL[1] - 3, 0.0, 8, 6, 4.8, -math.pi / 2))
+
+
+def gin_pedestals():
+    ax, ay = GIN_ALTAR
+    out = []
+    for k in range(5):
+        a = math.radians(k * 72.0)
+        out.append((ax + GIN_PEDESTAL_R * math.cos(a), ay + GIN_PEDESTAL_R * math.sin(a), a + math.pi))  # face the altar
+    return out
+
+
+def ruin_stone_house(body, decor, cx, cy, w, d, h, rotz, rnd):
+    """Collapsed stone house: a solid rubble core (collider), jagged broken walls on top, a fallen beam,
+    dark empty windows, rubble at the foot and a few gingerbread remnants of the old cookie village."""
+    def at(x, y):
+        c, s_ = math.cos(rotz), math.sin(rotz)
+        return cx + x * c - y * s_, cy + x * s_ + y * c
+    core_h = h * 0.6
+    body.rbox('ME_Stone_Warm', (cx, cy, -GIN_DEPTH), (w, d, core_h), bevel=0.25, rot=(0.0, 0.03, rotz))
+    # jagged wall tops along the four sides
+    for side in range(4):
+        along = w if side % 2 == 0 else d
+        n = int(along // 1.3)
+        for k in range(n):
+            t = -along / 2 + (k + 0.5) * along / n
+            if side == 0:
+                x, y = t, -d / 2 + 0.25
+            elif side == 2:
+                x, y = t, d / 2 - 0.25
+            elif side == 1:
+                x, y = w / 2 - 0.25, t
+            else:
+                x, y = -w / 2 + 0.25, t
+            top = rnd.uniform(0.0, h - core_h + 0.4) * (0.4 if rnd.random() < 0.3 else 1.0)
+            if top < 0.15:
+                continue
+            px, py = at(x, y)
+            decor.rbox(rnd.choice(('ME_Stone_Warm', 'ME_Stone_Light')), (px, py, -GIN_DEPTH + core_h - 0.05),
+                       (1.25, 0.5, top), bevel=0.08, rotz=rotz + (0 if side % 2 == 0 else math.pi / 2) + rnd.uniform(-0.06, 0.06))
+    for ox in (-w * 0.28, w * 0.28):                                                         # dark empty windows
+        x, y = at(ox, -d / 2 - 0.04)
+        decor.rbox('ME_Tunnel_Dark', (x, y, -GIN_DEPTH + 1.3), (1.2, 0.08, 1.2), bevel=0.0, rotz=rotz)
+    x, y = at(0, -d / 2 - 0.04)
+    decor.rbox('ME_Tunnel_Dark', (x, y, -GIN_DEPTH), (1.4, 0.08, 2.2), bevel=0.0, rotz=rotz)          # blocked doorway
+    bx, by = at(rnd.uniform(-w / 4, w / 4), 0)
+    decor.rbox('ME_Root', (bx, by, -GIN_DEPTH + core_h + 0.4), (w * 0.9, 0.35, 0.3), bevel=0.05,
+               rot=(0.0, 0.32, rotz + 0.3))                                                  # fallen roof beam
+    for k in range(5):                                                                       # rubble at the foot (front)
+        x, y = at(rnd.uniform(-w / 2, w / 2), -d / 2 - rnd.uniform(0.3, 1.2))
+        decor.blob(rnd.choice(('ME_Stone_Warm', 'ME_Stone_Dark')), (x, y, -GIN_DEPTH + 0.1), rnd.uniform(0.25, 0.5),
+                   sz=(1.2, 1.0, 0.6), seg=7, jitter=0.25, rnd=rnd)
+    for k in range(3):                                                                       # gingerbread remnants
+        x, y = at(rnd.uniform(-w / 2 + 0.5, w / 2 - 0.5), -d / 2 - 0.05)
+        decor.rbox('ME_Cookie_Dark', (x, y, -GIN_DEPTH + rnd.uniform(0.6, core_h - 0.4)), (0.7, 0.12, 0.45), bevel=0.05,
+                   rot=(rnd.uniform(-0.3, 0.3), 0.0, rotz))
+        decor.blob('ME_Cream', (x, y - 0.02, -GIN_DEPTH + core_h - 0.2), 0.18, sz=(1, 0.5, 1.4), seg=8)
+    for k in range(3):                                                                       # moss
+        x, y = at(rnd.uniform(-w / 2, w / 2), rnd.uniform(-d / 2, d / 2))
+        decor.blob('ME_Stone_Moss', (x, y, -GIN_DEPTH + core_h), 0.5, sz=(1.4, 1.0, 0.25), seg=8, jitter=0.2, rnd=rnd)
 
 
 # ---------------- CandyForest: giant cake that breaks open into a candy rocket (EscapeVisualPlan.md §5.1) ----------------

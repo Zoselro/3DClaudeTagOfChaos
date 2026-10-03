@@ -77,7 +77,7 @@ public static class EscapeAssetsBuilder
                 new[] { G(macaronWheel, 2, 1), G(cookieWheel, 2, 1), G(oil, 2, 0), G(gear, 2, 0) }, null, null,
                 new[] { R(oil), R(gear) }, toolbox),
             Recipe("GingerbreadVillage", EscapeExitKind.RuneAltar, RecipeMode.Counter, null, "Rune", runes,
-                new[] { R(runes), R(runes) }, toolbox),
+                new[] { R(runes), R(runes) }, toolbox, fillsCapacity: true), // 룬 받침대는 늘 최대 수, 남는 칸은 켜진 채 시작
             Recipe("CandyForest", EscapeExitKind.CakeRocket, RecipeMode.Counter, null, "Candy Cell", cells,
                 new[] { R(cells), R(cells) }, toolbox),
         };
@@ -143,10 +143,10 @@ public static class EscapeAssetsBuilder
     }
 
     private static EscapeRecipeSO Recipe(string map, EscapeExitKind exit, RecipeMode mode, EscapeRecipeSO.SlotGroup[] groups, string counterLabel,
-        ItemSO[] counterItems, EscapeRecipeSO.RocketSlot[] rocket, ItemSO toolbox)
+        ItemSO[] counterItems, EscapeRecipeSO.RocketSlot[] rocket, ItemSO toolbox, bool fillsCapacity = false)
     {
         var recipe = LoadOrCreate<EscapeRecipeSO>($"{SoRoot}/Recipes/Recipe_{map}.asset");
-        recipe.EditorSetup(map, exit, mode, groups, counterLabel, counterItems, rocket, toolbox, 1);
+        recipe.EditorSetup(map, exit, mode, groups, counterLabel, counterItems, rocket, toolbox, 1, fillsCapacity);
         EditorUtility.SetDirty(recipe);
         return recipe;
     }

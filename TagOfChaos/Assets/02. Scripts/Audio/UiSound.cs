@@ -34,7 +34,7 @@ public class UiSound : MonoBehaviour, IPointerEnterHandler
 
     private void PlayClick()
     {
-        if (click != SoundId.None) GameAudio.Play(click);
+        UiSoundCues.ButtonClick(click); // 같은 프레임에 저장·오류음이 나면 그쪽이 대신한다
     }
 
 #if UNITY_EDITOR

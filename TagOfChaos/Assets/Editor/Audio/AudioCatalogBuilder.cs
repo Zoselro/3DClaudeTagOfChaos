@@ -178,6 +178,19 @@ public static class SoundDefaults
                 e.bus = SoundBus.Ambience;
                 e.pitchRange = Vector2.one;
                 e.cooldown = 0f;
+                if (id == SoundId.AmbFactory) { e.maxDistance = 28f; e.maxInstances = 4; } // 기계 여러 곳(AmbientPlacer)
+                else if (id == SoundId.AmbCave)
+                {
+                    e.bus = SoundBus.Sfx; // 지하에서는 이 소리가 주인공 — 환경음 묶음(−12 dB)보다 또렷하게
+                    e.volume = 0.55f;
+                    e.maxInstances = 1;
+                }
+                else if (id == SoundId.CarouselSpin)
+                {
+                    e.bus = SoundBus.Sfx; // 회전목마 음악은 환경음(−12 dB)보다 또렷하게
+                    e.volume = 0.5f;
+                    e.maxInstances = 1;
+                }
                 break;
         }
         return e;

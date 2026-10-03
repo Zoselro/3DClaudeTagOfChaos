@@ -37,6 +37,10 @@ public static class NetKeys
     // 방 설정(EscapePlan.md §1.7) — 방을 만들 때 방장이 정한다(초, int). 판이 바뀌어도 유지된다.
     public const string RoomTimeLimit = "RoomTimeLimit";
     public const string TimeAttackDuration = "TimeAttackDuration";
+    // 서버 지역 옮기기(Request1003Plan.md §1) — 방장이 쓰는 "지역|표"(string). 받으면 모두 새 지역의 같은 방으로 옮겨 간다.
+    public const string RegionMove = "RegionMove";
+    // 옮겨 간 방에 붙는 표(string) — 같은 이름의 남의 방에 잘못 들어가지 않았는지 확인한다.
+    public const string RegionMoveToken = "RegionMoveToken";
 
     // 탈출 모드(EscapePlan.md §5.2)
     public const string SpyActorNumbers = "SpyActorNumbers";   // int[] — 시작 버튼 때 방장이 뽑는다
@@ -95,6 +99,8 @@ public static class NetKeys
         new Scope(GameMapScene, Target.Room, Lifetime.Round),
         new Scope(RoomTimeLimit, Target.Room, Lifetime.Session),
         new Scope(TimeAttackDuration, Target.Room, Lifetime.Session),
+        new Scope(RegionMove, Target.Room, Lifetime.Round),
+        new Scope(RegionMoveToken, Target.Room, Lifetime.Session),
         new Scope(SpyActorNumbers, Target.Room, Lifetime.Round),
         new Scope(EscapeState, Target.Room, Lifetime.Round),
         new Scope(SpyEscapedAt, Target.Room, Lifetime.Round),
