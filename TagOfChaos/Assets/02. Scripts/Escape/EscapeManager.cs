@@ -108,6 +108,7 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     private void Start()
     {
         EscapeHud.Create(this);
+        gameObject.AddComponent<EscapeAudioPresenter>().Init(this); // 탈출 모드 소리(상태 차이, SoundPlan.md S5)
         ReadStateFromRoom();
     }
 
@@ -237,7 +238,12 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 break;
             case NetEventCodes.EscapeNotice:
                 if (!SentByMaster(e)) return;
-                if (e.CustomData is object[] n && n.Length >= 2 && n[0] is byte kind) EscapeHud.Notice((EscapeNoticeKind)kind, n[1] as string);
+                if (!(e.CustomData is object[] n) || n.Length < 2 || !(n[0] is byte kind)) return;
+                if ((EscapeNoticeKind)kind == EscapeNoticeKind.StolenFromDevice)
+                {
+                    if (n.Length >= 4 && n[2] is int itemIndex && n[3] is double showAt) EscapeHud.ScheduleStolen(n[1] as string, itemIndex, showAt);
+                }
+                else EscapeHud.Notice((EscapeNoticeKind)kind, n[1] as string);
                 break;
             case NetEventCodes.ToolHit:
                 if (!SentByMaster(e)) return;

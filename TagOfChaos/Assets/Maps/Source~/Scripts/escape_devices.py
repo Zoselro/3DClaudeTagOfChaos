@@ -743,6 +743,7 @@ def device_candy():
     def rocket_body(g):
         g.lathe([(0, 0.35), (1.6, 0.35), (2.3, 1.6), (2.4, 5.5), (2.0, 7.6), (1.2, 9.4), (0.4, 10.4), (0, 10.6)],
                 'ME_Pink', seg=32, segmat=lambda k: 'ME_Cream' if (k // 4) % 2 == 0 else 'ME_Pink')
+        cut_doorway(g, 0.7, 1.62, 3.45, 0.42, 'ME_Purple_Deep')   # behind the hatch (closed hatch: |x| < 0.8, z 1.0..3.6) — Request1003bPlan.md §6
         g.blob('ME_Teal', (0, 0, 10.6), 0.45, seg=12)
         g.lathe([(0, 0.0), (1.2, 0.0), (1.6, 0.6), (0, 0.6)], 'ME_Gray_Dark', seg=24)                     # nozzle
         for a in (90, 210, 330):
@@ -752,6 +753,7 @@ def device_candy():
         g.rbox('ME_Purple_Deep', (0, -2.35, 0.9), (2.0, 0.2, 0.18), bevel=0.05)                         # hatch frame
         g.rbox('ME_Purple_Deep', (0, -2.35, 3.6), (2.0, 0.2, 0.18), bevel=0.05)
     mesh_obj(u, 'RocketBody', rocket_body, parent=rocket)
+    cabin(u, 'Cabin', 2.0, 1.62, 3.75, seats=3, parent=rocket)   # passengers' cockpit seen through the open hatch
 
     def hatch(g):
         g.rbox('ME_Cream', (0.8, 0, 0), (1.6, 0.2, 2.6), bevel=0.12)

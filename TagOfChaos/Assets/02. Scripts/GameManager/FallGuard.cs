@@ -37,5 +37,6 @@ public class FallGuard : MonoBehaviour
             guard.nextAllowedTime = Time.time + RespawnCooldown;
         }
         target.RespawnToSpawnPoint();
+        if (component != null && component.TryGetComponent(out IGameCharacter character)) GameAudio.PlayCharacter(SoundId.Respawn, character); // 본인 2D(S4)
     }
 }

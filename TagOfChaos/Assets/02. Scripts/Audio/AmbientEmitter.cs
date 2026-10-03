@@ -60,6 +60,9 @@ public class AmbientEmitter : MonoBehaviour
         GameAudio.SetLoopFade(handle, 0f);
     }
 
+    // 코드로 붙일 때(가마솥 등) 소리를 정한다.
+    public void Configure(SoundId value) => sound = value;
+
 #if UNITY_EDITOR
     public void EditorSetup(SoundId value) => sound = value;
 #endif

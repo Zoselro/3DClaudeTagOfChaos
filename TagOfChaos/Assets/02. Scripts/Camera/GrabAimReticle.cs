@@ -6,6 +6,7 @@ using UnityEngine.UI;
 // 프리팹 없이 코드로 만든다(괴물 본인 클라이언트에만 하나).
 public class GrabAimReticle : MonoBehaviour
 {
+    private bool hadTarget;
     private const float MarkerHeight = 2.4f; // 쿠키 발밑에서 머리 위까지(m)
 
     private MonsterGrabKillTrigger trigger;
@@ -74,6 +75,8 @@ public class GrabAimReticle : MonoBehaviour
 
         HideOrSeekPlayer target = trigger != null ? trigger.AimTarget : null;
         bool hasTarget = target != null;
+        if (hasTarget && !hadTarget) GameAudio.Play(SoundId.MonsterAimLock); // 잡을 수 있는 쿠키를 조준에 잡은 순간(괴물 본인 2D, S4)
+        hadTarget = hasTarget;
 
         dot.color = hasTarget ? targetColor : idleColor;
         float size = hasTarget ? targetSize : idleSize;

@@ -20,7 +20,11 @@ public class EscapeTextsSO : ScriptableObject
 
     [Header("Toasts (§1.10, §1.11)")]
     public string spyCaught = "The spy was caught";
-    [Tooltip("받침 있을 때. {0} = 재료 이름")]
+    [Tooltip("스파이가 장치에서 재료를 뺀 뒤 n초 후(괴물 제외). 받침 있을 때. {0} = 재료 이름")]
+    public string stolenFromDeviceWithFinal = "The spy took the {0}!";
+    [Tooltip("받침 없을 때. {0} = 재료 이름")]
+    public string stolenFromDeviceNoFinal = "The spy took the {0}!";
+    [Tooltip("쓰지 않음(2026-10-03 — 로켓에 끼울 때 알림은 없어졌다). 받침 있을 때. {0} = 재료 이름")]
     public string stolenToRocketWithFinal = "The spy stole {0} and put it in the rocket";
     [Tooltip("받침 없을 때. {0} = 재료 이름")]
     public string stolenToRocketNoFinal = "The spy stole {0} and put it in the rocket";

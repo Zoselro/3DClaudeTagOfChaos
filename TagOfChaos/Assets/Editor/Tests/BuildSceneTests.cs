@@ -28,4 +28,18 @@ public class BuildSceneTests
                                     .ToArray();
         Assert.IsEmpty(dev, $"{scenePath} uses dev-only scripts: {string.Join(", ", dev)}");
     }
+
+    // 사용자가 지운 맵 오브젝트(MapSceneBuilder.RemovedObjects)는 씬에 다시 생기면 안 된다(Request1003bPlan.md §5).
+    [Test]
+    public void MapScenes_DoNotContainRemovedObjects()
+    {
+        foreach (var kv in MapSceneBuilder.RemovedObjects)
+        {
+            string path = $"Assets/Scenes/Maps/Game_{kv.Key}.unity";
+            Assert.IsTrue(System.IO.File.Exists(path), path);
+            string text = System.IO.File.ReadAllText(path);
+            foreach (string name in kv.Value)
+                Assert.IsFalse(text.Contains("m_Name: " + name + "\n") || text.Contains("m_Name: " + name + "\r"), $"{path} still has {name}");
+        }
+    }
 }

@@ -283,7 +283,7 @@
 |---|---|---|
 | 방 이름 없이 방 만들기를 누르면 소리 두 개가 겹침 | ✅ | 저장·오류음은 버튼을 누른 결과라 같은 프레임의 버튼 클릭음을 대신한다(`UiSoundCues.PlayResult`, `ButtonClick`). Play Mode: 오류음만 1번, 일반 버튼은 클릭음만 |
 | 게임 중 배경음 | ✅ | 쿠키는 변장 시간에만 맵 곡, 변장이 끝나면(합류 대기·추격·타임어택) 끈다. 괴물은 맵 곡 없음. 결과는 징글 뒤 로비 곡. 스팅어는 유지. `…Hunt`·`TimeAttack` 곡 ID는 번호 보존을 위해 남김 |
-| 로비 배경음이 중간에 끊기는 느낌 → 후보 4곡 | 🔄 선택 대기 | FluidSynth(FluidR3_GM)로 작곡·렌더: A 쿠키 마을 아침, B 캔디 왈츠, C 과자 행진, D 포근한 오후. 32마디, 두 바퀴 렌더 후 둘째 바퀴만 잘라 이음매 없음(`Source~/sfx/compose_lobby.py`) |
+| 로비 배경음이 중간에 끊기는 느낌 → 후보 4곡 | ✅ A 선택(2026-10-03, `BGM/Lobby.ogg`) | FluidSynth(FluidR3_GM)로 작곡·렌더: A 쿠키 마을 아침, B 캔디 왈츠, C 과자 행진, D 포근한 오후. 32마디, 두 바퀴 렌더 후 둘째 바퀴만 잘라 이음매 없음(`Source~/sfx/compose_lobby.py`) |
 | 진저브레드 네온 줄이기 | ✅ | 진저브레드 전용 재질 7종(창문·분홍·노랑·주황·흰·보라 유리·청록 발광, 발광 45%)으로 71칸 교체(`Assets/Maps/GingerbreadVillage/Materials/*_GingerDim.mat` — 다른 맵은 원본), 블룸 1.2→0.6·문턱 1.2→1.6. 룬·보석·마녀 눈·탈출 장치 발광은 그대로 |
 | 공장 기계 소리 | ✅ | `AmbFactory`(모터 웅웅·1초 금속 쿵·2초 증기·기어 틱, 8초 반복) — 기계실 동·서, 북쪽 프레스 줄, 가운데 파이프 4곳(28 m) |
 | 놀이공원 회전목마 소리 | ✅ | 새 ID `CarouselSpin`(805) — 단조 칼리오페 왈츠 + 도는 기계 굴림·덜컹·삐걱, 22초 반복, 회전목마 중심(40 m, 효과음 묶음 −6 dB) |
@@ -296,21 +296,61 @@
 ### S3.5 — 거리 기반 음량 감쇠 + 술래 접근 추격음 ✅ 완료(2026-10-03) → `Plan.md/DistanceFadePlan.md` §10
 - 듣는 위치를 캐릭터 머리로, 소리 종류별 감쇠 곡선 + 최소 거리, 층 감쇠, 들리지 않는 소리는 칸을 쓰지 않기, 내 소리는 2D. S4·S5는 이 위에서 값만 정한다.
 
-### S4 — 캐릭터·색칠·대기실 소리 ⬜ (약 2시간)
+### S4 — 캐릭터·색칠·대기실 소리 ✅ 완료(2026-10-03)
+- 연결: `PlayerAnimationDriver.StateChanged`(본인·원격 공통) → `Audio/CookieAudio`(점프·착지·회피·달리기 발소리 0.3초·다른 쿠키에게 들림/내려짐, 숨겨진·부서진 쿠키는 조용, 본인 색칠 중 붓 소리 반복) /
+  `MonsterController.StateChanged` → `Audio/MonsterAudio`(걷기 발소리 0.5초·촉수 돌진·잡기) / `CookieLifeStatePresenter`(눌림·바스러짐) / `StunReceiver.Stun`(별) / `FallGuard`(복귀, 본인) /
+  `GrabAimReticle`(조준 포착, 괴물 본인 2D) / `InteractableDoor`(열림·닫힘) / `CauldronSplash`(풍덩 + 끓는 소리 `AmbientEmitter`) / `MonsterLobbyWaitController`(괴물 출발) / `PlayerPaintCanvas`(슬롯 등록·강제 도포).
+  캐릭터 소리는 `GameAudio.PlayCharacter`(내 것 2D, 남의 것 3D) → DistanceFadePlan의 거리 감쇠가 그대로 적용.
+- 시험음 24종(`Source~/sfx/synth_s4.py`, numpy 합성 — S8에서 교체): 쿠키 발소리 3종·괴물 발소리 2종 변형 포함, 붓질·가마솥은 이음매 없는 반복.
+- 검증(Play Mode, 재생 기록): 달리기 0.3초 간격 발소리, 점프·착지·회피·들림·내려짐·기절 별·복귀·바스러짐, 괴물 걷기 0.5초 간격·돌진·잡기, 붓 소리(칠하는 동안만), 강제 도포,
+  대기실 풍덩·문 열림/닫힘·가마솥 끓는 소리(가까이 갈 때만 — 80 m 떨어져서는 재생 안 함). 콘솔 0. 회귀 전체 통과.
+- 원래 계획 메모:
 - `PlayerAnimationDriver`·`MonsterController`·`StunReceiver`·`CookieLifeStatePresenter`에 이벤트 추가, `CharacterAudio`·`PaintAudio`를 프리팹에 연결(에디터 도구).
 - 발소리: 속도·접지로 간격 계산(달리기만 — D3), 숨겨진·파괴된 쿠키는 조용.
 - 가마솥·문 소리.
 - 검증: 오프라인 2캐릭터(쿠키·괴물)로 점프·회피·들기·돌진·처형·기절·낙하 복귀, 원격 복사본 쪽에서도 들리는지(두 클라이언트 빌드 또는 에디터 + 빌드).
 
-### S5 — 탈출 모드·도구 소리 ⬜ (약 2시간)
+### S5 — 탈출 모드·도구 소리 ✅ 완료(2026-10-03)
+- `Audio/EscapeAudioPresenter`(EscapeManager가 붙임): 상태가 바뀔 때마다 직전 상태와 비교 — 상자 열림·다시 채워짐, 줍기(본인 2D·남 3D)·떨어뜨리기, 장치 끼우기·빼기(`DeviceInsert`, 칸 자리 위치 `EscapeDevice.SlotPosition`),
+  장치 완성(`DeviceComplete` + 스팅어 `StDeviceComplete`), 로켓 끼우기, 쿠키 탑승(`BoardHop`)·스파이 로켓 해치(`RocketHatch`), 내 탈출 성공(2D), 타임어택 마지막 10초 심장 박동(1초마다 2D).
+  방장 화면은 같은 상태가 두 번 들어와도 두 번째는 차이가 없어 소리가 겹치지 않는다(R4.10-10 판 번호 없이 해결). 처음 받은 상태는 소리 없이 기억만(늦게 들어온 경우).
+- 도구: 쓴 사람은 누르는 순간 2D(`ToolUser.Use` → `UseSound`: 휘두르기·발사·던지기), 다른 사람은 승인된 `ToolHit`에서 그 손 위치 3D. 맞은 곳(모두 3D) — 물풍선 터짐(늘), 스턴 명중·뿅망치 쿵(맞았을 때만).
+  스턴건 조준 중 윙 소리 반복(본인 2D, `UpdateAimHum`).
+- 시험음 17종(`Source~/sfx/synth_s5.py` — S8에서 교체). 알림 소리는 S2의 토스트 소리(안내·경고)를 그대로 쓴다.
+- 검증(Play Mode, 놀이공원 오프라인, 재생 기록): 쿠키 — 상자 열기·줍기 → 떨어뜨리기 → 줍기 → 끼우기 2번 → 완성(+안내 토스트) → 탑승 → 탈출 성공.
+  스파이 — 장치에서 빼기 → 5초 뒤 훔침 경고 → 로켓 끼우기 2번 → 해치 → 탈출 성공 → 결과 징글. 도구 — 내 뿅망치·물풍선(터짐은 날아간 뒤), 남의 스턴건(발사·명중·별·떨어뜨리기),
+  남의 뿅망치(휘두르기·별·쿵), 타임어택 마지막 초 심장 박동, 조준 윙(켜짐 1개 유지·꺼짐). 콘솔 오류·경고 0(에디터 내부 할당 경고만). AudioTests 52/52 등 회귀 전체 통과.
+- 원래 계획 메모:
 - `EscapeAudioPresenter`(상태 차이), 알림 종류별 소리, 도구 소리(조준 반복·발사·명중·물풍선 비행·터짐·뿅망치).
 - 이 단계에서 research.md R4.10-10(상태 판 번호)을 함께 넣으면 방장 화면에서 같은 소리가 두 번 나는 일을 막을 수 있다(넣지 않으면 차이 계산이 같은 변화를 두 번 볼 수 있음 — 소리별 0.1초 중복 방지로 대신).
 - 검증: 쿠키·스파이 흐름(상자 → 설치 → 완성 → 탑승 → 출발, 훔치기 → 로켓 → 발사) 맵 1개 이상에서 소리 순서 확인.
 
-### S6 — 맵 연출·마녀 ⬜ (약 2시간)
-- `EscapeSequence.CueAt` + 시퀀스 5종 시간표에 소리 얹기, 로켓 점화·발사, 마녀 등장·내리치기.
-- **카메라 흔들림 수정(research.md R4.7-9)** — 같은 지점.
-- 검증: 맵 5개 각각 완성 → 탑승 → 출발 연출을 가짜 시각으로 재생(기존 `seqshot` 방식)하며 소리 타이밍 기록, 늦게 들어온 경우 지난 소리가 안 나는지.
+### S6 — 맵 연출·마녀 ✅ 완료(2026-10-03)
+- `EscapeSequence`에 소리 시간표: 하위 클래스가 Awake에서 `AddCue(id, 완성/출발 기준, 몇 초, 위치)`·`AddLoop(id, 울릴 조건, 위치)`를 등록하고,
+  `EscapeDevice`가 매 프레임 `Step`(모습 `Tick` → 소리)을 부른다. 경계를 지나는 프레임에 한 번(`ShouldCue` 순수 함수), 지난 지 1.5초가 넘은 경계는 내지 않는다
+  (늦게 들어온 사람 — 몇십 초 지난 상태를 받음). 처음엔 0.5초였으나 Play Mode에서 완성 순간 프레임이 1초 끊기자 0초 소리가 빠져 1.5초로 늘렸다(네트워크 지연도 흡수).
+  반복음은 칸이 모자라면 1초 뒤 재시도, 꺼지면 멈춘다. 새 RPC·Props 없음(공통 시계).
+- 시간표(완성 c초 / 출발 d초, 움직이는 것은 따라감):
+  - 캔디숲: c0 `CakeRumble` · c1.2 `CakeCrack` · c2 `CakeBurst` · c3 `CakeRocketRise`(로켓) / d0 `CakeIgnite` · d2 `CakeLaunch`(로켓)
+  - 놀이공원: c0 `CoasterBulbOn`(아치)·`CoasterStartup`(앞 차) · c0.3 `CoasterSparks` / d0 `CoasterLapBar` · d1 `CoasterDepart`(앞 차)
+  - 베이커리: 반복 `OvenGears`(완성 ~ 출발 끝) · c0 `OvenPiston` · c3 `OvenDoorRoll`(열림) / d0 `OvenDoorRoll`(닫힘) · d1.8 `OvenFlash`
+  - 공장: c0 `TrainPuff` / d0 `TrainWhistle` · d0.8 `TrainChug`(기관차) · 기관차가 터널에 닿는 순간(경로로 계산, 약 d2.8) `TrainTunnel`
+  - 진저브레드: 반복 `AltarHum`(완성 ~ 출발 끝) · c0 `AltarGlow` · c2 `PortalOpen` / d0 `PortalFlash` · d1.2 `PortalClose`.
+    낡은 등불이 꺼질 듯 어두워지는 순간 `LanternFlicker`(10 m, 등불마다 최소 3초 간격)
+- 탑승 소리는 맵 연출이 정한다(`BoardSound`): 오븐·포탈은 `BoardSuck`, 나머지 `BoardHop`. 탄 쿠키를 못 찾으면 탑승 위치에서.
+- 스파이 로켓(`SpyRocket.AnimateLaunch`): 출발 시각 t0 `RocketIgnite` · t2 `RocketLiftoff`(로켓을 따라감, 같은 경계 규칙).
+- 마녀(`WitchPresenter`, 모두 2D): 나타나기 시작 `WitchAppear`(바람·웃음), 다 나타남(5초) 스팅어 `StWitchAppear` — 타임어택 시작 스팅어 `StSpyLaunch`와 겹치지 않게 늦춤,
+  내리침 `WitchSlam`(처음 보인 프레임에 이미 내리친 상태면 내지 않음). 늦게 들어와 지난 순간이면 내지 않는다.
+- 카메라 흔들림(research.md R4.7-9)은 이미 고쳐져 있음(`CameraShake.Add`가 카메라 LateUpdate에서 더함) — 같은 지점에 소리만 더했다.
+- 시험음 31종(`Source~/sfx/synth_s6.py`, numpy — S8에서 교체): 맵 연출 25 + `BoardSuck`·`RocketIgnite`·`RocketLiftoff`·`WitchAppear`·`WitchSlam`. 반복음 2개는 이음매 없음.
+  카탈로그: 연출 3D 60 m(Landmark), 등불 10 m·작게, 반복음은 피치 고정.
+
+**검증**
+- 컴파일 오류·경고 0. AudioTests 54/54(+ `SequenceCue_FiresOnceAtBoundary_NotWhenLate` — 경계 1번·이미 지남·아직·늦게 들어옴·긴 끊김·30fps 한 바퀴 1번, `S6Sounds_HaveClips_AndRightSpace`). EscapeTests 52/52·RuleTests 27/27.
+- Play Mode(맵 5개 오프라인, 상태의 완성·출발 시각을 바꿔 재생, 재생 기록): 맵마다 위 시간표 순서대로 모두 남(캔디숲 6·놀이공원 5·베이커리 4+반복·공장 4·진저브레드 4+반복).
+  반복음은 완성 뒤 재생 중(`OvenGears` 8 m, `AltarHum` 4 m), 출발 연출이 끝나면 멈춤. **늦게 들어온 경우(30초 전 완성)** 연출 소리 0개(반복음만 지금 상태대로 켜짐).
+  탑승: 베이커리 `BoardSuck`, 공장 `BoardHop`. 진저브레드 등불 지직(간격 적용 후 7초에 5번 — 8개 등불 합계, 가까운 것만 들림).
+  스파이 출발 → `RocketIgnite`·`WitchAppear`·경고 토스트 → `RocketLiftoff` → 마녀 다 나타남 `StWitchAppear` → 내리침 `WitchSlam` → 결과 징글. 콘솔 오류·경고 0.
 
 ### S7 — 환경음 ⬜ (약 1시간)
 - `AmbientEmitter` + `EscapeMapSetup`이 맵 랜드마크(장치·시계탑·오븐·공장 굴뚝·놀이공원 입구)와 맵 중심에 배치.

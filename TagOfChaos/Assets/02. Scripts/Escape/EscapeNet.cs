@@ -23,8 +23,9 @@ public enum EscapeOp : byte
 public enum EscapeNoticeKind : byte
 {
     SpyCaught = 1,
-    StolenToRocket = 2, // 내용: 아이템 ID
+    StolenToRocket = 2, // 쓰지 않음(2026-10-03 — 로켓에 끼울 때 알림 → StolenFromDevice로 바뀜). 값 보존
     DeviceComplete = 3,
+    StolenFromDevice = 4, // 내용: 아이템 ID, 아이템 번호, 보여 줄 시각(PhotonNetwork.Time) — 괴물 제외 대상에게만
 }
 
 // 게임이 끝난 이유(NetKeys.EscapeEndReason).

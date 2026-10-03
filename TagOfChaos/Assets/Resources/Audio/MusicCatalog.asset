@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   entries:
   - id: 1
-    clip: {fileID: 8300000, guid: 47dda6006f13ace4086b4979becd87db, type: 3}
+    clip: {fileID: 8300000, guid: cf747333c2f380c4a8ac28cae6b85124, type: 3}
     volume: 1
     loop: 1
   - id: 2

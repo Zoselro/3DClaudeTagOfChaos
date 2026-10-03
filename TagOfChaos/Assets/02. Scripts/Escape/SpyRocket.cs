@@ -31,6 +31,7 @@ public class SpyRocket : MonoBehaviour, IInteractable, IInteractionLabel
     private Renderer[] renderers;
     private Collider[] colliders;
     private bool launchedVisible = true;
+    private float lastLaunchTime = -1f;
 
     private void Awake()
     {
@@ -116,10 +117,15 @@ public class SpyRocket : MonoBehaviour, IInteractable, IInteractionLabel
         {
             if (!launchedVisible) SetVisible(true);
             if (baseSaved) transform.position = basePosition;
+            lastLaunchTime = -1f;
             return;
         }
         if (!baseSaved) { basePosition = transform.position; baseSaved = true; }
         float t = (float)(PhotonNetwork.Time - escapedAt);
+        // 소리(SoundPlan.md S6): 점화 → 떠오름. 맵 연출과 같은 경계 규칙(늦게 들어온 사람은 지난 소리를 듣지 않음)
+        if (EscapeSequence.ShouldCue(0f, lastLaunchTime, t)) GameAudio.PlayOn(SoundId.RocketIgnite, transform);
+        if (EscapeSequence.ShouldCue(IgniteSeconds, lastLaunchTime, t)) GameAudio.PlayOn(SoundId.RocketLiftoff, transform);
+        lastLaunchTime = t;
         if (t < 0f) return;
 
         foreach (Collider c in colliders) if (c != null && c.enabled) c.enabled = false; // 떠오르는 로켓에 걸리지 않게

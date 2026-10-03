@@ -21,22 +21,27 @@ public class GameSettingsSO : ScriptableObject
     [Tooltip("방 만들기의 기본 인원.")]
     [SerializeField, Min(2)] private int defaultPlayers = 4;
 
-    [Tooltip("총 인원별 괴물·스파이 수(EscapePlan.md §1.1). 표에 없는 인원은 monsterCount와 스파이 0명을 쓴다.")]
+    [Tooltip("총 인원별 괴물 수(EscapePlan.md §1.1). 인원이 늘면 괴물이 늘어난다. 표에 없는 인원은 monsterCount를 쓴다.")]
     [SerializeField] private RoleRow[] roleTable =
     {
-        new RoleRow(4, 1, 0),
-        new RoleRow(5, 1, 1),
-        new RoleRow(6, 1, 1),
-        new RoleRow(7, 2, 1),
-        new RoleRow(8, 2, 1),
+        new RoleRow(4, 1),
+        new RoleRow(5, 1),
+        new RoleRow(6, 1),
+        new RoleRow(7, 2),
+        new RoleRow(8, 2),
     };
+
+    [Tooltip("이 인원 이상이면 스파이가 정확히 1명 나온다(그 미만은 0명). 스파이는 인원이 늘어도 늘지 않는다(2026-10-03).")]
+    [SerializeField, Min(2)] private int spyMinPlayers = 5;
 
     [Tooltip("한 판의 괴물 수. 항상 (현재 인원 - 1) 이하로 제한된다(쿠키가 최소 1명은 있어야 함).")]
     [SerializeField, Min(1)] private int monsterCount = 1;
 
-    [Header("Monster Selection")]
-    [Tooltip("정원이 찬 뒤 가마솥 입장자가 모자라면 이 시간(초) 후 남은 자리를 무작위로 채운다.")]
-    [SerializeField, Min(1f)] private float monsterSelectTimeout = 30f;
+    [Header("Escape — Spy")]
+    [Tooltip("스파이가 탈출 장치에서 재료를 뺀 뒤 이 시간(초)이 지나면 괴물을 뺀 모두에게 '스파이가 OO를 가져갔다' 알림을 띄운다. " +
+             "그사이 재료가 다시 장치에 끼워지면 띄우지 않는다(Request1003bPlan.md §2).")]
+    [SerializeField, Min(0f)] private float stealNoticeDelaySeconds = 5f;
+    public float StealNoticeDelaySeconds => stealNoticeDelaySeconds;
 
     [Header("Paint Phase")]
     [SerializeField, Min(1f)] private float paintPhaseDuration = 60f;
@@ -113,7 +118,6 @@ public class GameSettingsSO : ScriptableObject
     public int MaxTimeAttackMinutes => maxTimeAttackMinutes;
     public int DefaultTimeAttackMinutes => defaultTimeAttackMinutes;
     public int MonsterCount => monsterCount;
-    public float MonsterSelectTimeout => monsterSelectTimeout;
     public float PaintPhaseDuration => paintPhaseDuration;
     public float SceneLoadGrace => sceneLoadGrace;
     public int MaxColorSlots => maxColorSlots;
@@ -176,20 +180,21 @@ public class GameSettingsSO : ScriptableObject
         TryGetRoleRow(playerCount, out RoleRow row) ? row.monsters : Mathf.Clamp(monsterCount, 1, Mathf.Max(1, playerCount - 1));
 
     // 한 판에 나올 수 있는 가장 많은 쿠키 수(= 필요 재료 수의 최댓값) — 인원표에서 (인원 − 괴물 − 스파이)의 최댓값.
-    // 개수 모드 탈출 장치(진저브레드 룬)는 이 수만큼 칸을 만든다(EscapeRecipeSO.CounterFillsCapacity).
+    // 탈출 장치는 이 수만큼 칸을 만든다(EscapeRecipeSO.FillsCapacity).
     public int MaxCookieCount
     {
         get
         {
             int max = 0;
             if (roleTable != null)
-                foreach (RoleRow r in roleTable) max = Mathf.Max(max, r.players - r.monsters - r.spies);
+                foreach (RoleRow r in roleTable) max = Mathf.Max(max, r.players - r.monsters - SpyCountFor(r.players));
             return max > 0 ? max : Mathf.Max(1, maxPlayers - monsterCount);
         }
     }
 
-    // 현재 방 인원에서 뽑을 스파이 수(인원표). 표에 없는 인원은 0명.
-    public int SpyCountFor(int playerCount) => TryGetRoleRow(playerCount, out RoleRow row) ? row.spies : 0;
+    // 현재 방 인원에서 뽑을 스파이 수: spyMinPlayers 이상이면 1명, 아니면 0명. 쿠키가 최소 1명은 남아야 한다.
+    public int SpyCountFor(int playerCount) => playerCount >= spyMinPlayers && playerCount - MonsterCountFor(playerCount) >= 2 ? 1 : 0;
+    public int SpyMinPlayers => spyMinPlayers;
 
     private bool TryGetRoleRow(int playerCount, out RoleRow row)
     {
@@ -205,13 +210,13 @@ public class GameSettingsSO : ScriptableObject
     {
         public int players;
         public int monsters;
-        public int spies;
+        [HideInInspector] public int spies; // 예전 인원별 스파이 수 — 더 이상 읽지 않는다(스파이는 spyMinPlayers 규칙으로 1명). 에셋 호환용
 
-        public RoleRow(int players, int monsters, int spies)
+        public RoleRow(int players, int monsters)
         {
             this.players = players;
             this.monsters = monsters;
-            this.spies = spies;
+            spies = 0;
         }
     }
 

@@ -6,6 +6,8 @@ using UnityEngine;
 // - 타임어택 동안 뒷모습에서 앞모습으로 천천히 돌아선다. 진행률은 공통 시계(PhotonNetwork.Time) 기준이라 모든 화면이 같고,
 //   늦게 들어온 사람도 바로 맞는 자세가 된다.
 // - 타이머가 0이 되어 WitchStrike가 기록되면 손으로 맵을 내리친다(카메라 흔들림). 죽음 처리는 각 캐릭터가 한다.
+// - 소리(SoundPlan.md S6, 모두 2D): 나타나기 시작 = 바람·웃음(WitchAppear), 다 나타남 = 스팅어(StWitchAppear — 타임어택 시작의
+//   StSpyLaunch와 겹치지 않게), 내리침 = 충격(WitchSlam). 늦게 들어와 이미 지난 순간이면 내지 않는다.
 // Blender 모델이 자식 "Model"로 있으면 그것을 쓰고, 없으면 도형으로 만든 임시 마녀를 쓴다.
 public class WitchPresenter : MonoBehaviour
 {
@@ -19,7 +21,10 @@ public class WitchPresenter : MonoBehaviour
 
     private Renderer[] renderers = new Renderer[0];
     private MaterialPropertyBlock block;
+    private const float LateSoundSeconds = EscapeSequence.CueLateTolerance; // 맵 연출과 같은 기준
+
     private bool fadeDone;
+    private bool activeBefore; // 지난 프레임에도 보였는지(처음 보인 프레임에 이미 내리친 상태면 충격음을 내지 않는다)
     private bool struck;
     private float strikeTime;
     private Quaternion faceMap;   // 앞모습(맵을 바라봄)
@@ -48,6 +53,7 @@ public class WitchPresenter : MonoBehaviour
         if (!RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double escapedAt) || !RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out _))
         {
             if (model.gameObject.activeSelf) model.gameObject.SetActive(false);
+            activeBefore = false;
             return;
         }
         if (!model.gameObject.activeSelf)
@@ -57,6 +63,7 @@ public class WitchPresenter : MonoBehaviour
             if (fadeMaterials != null)
                 for (int i = 0; i < renderers.Length && i < fadeMaterials.Length; i++) renderers[i].sharedMaterials = fadeMaterials[i];
             EscapeHud.Toast(EscapeTextsSO.Current.witchComing, alert: true);
+            if (PhotonNetwork.Time - escapedAt < LateSoundSeconds) GameAudio.Play(SoundId.WitchAppear);
         }
 
         float elapsed = (float)(PhotonNetwork.Time - escapedAt);
@@ -67,6 +74,7 @@ public class WitchPresenter : MonoBehaviour
             if (alpha >= 1f)
             {
                 fadeDone = true;
+                if (elapsed < fadeInSeconds + LateSoundSeconds) GameAudio.Stinger(MusicId.StWitchAppear);
                 RestoreOpaqueMaterials(); // 다 나타나면 불투명으로 돌려 몸의 앞뒤가 올바르게 그려지게 한다
             }
         }
@@ -80,7 +88,9 @@ public class WitchPresenter : MonoBehaviour
             struck = true;
             strikeTime = Time.time;
             CameraShake.Add(SlamShakeStrength, SlamShakeSeconds); // 카메라가 LateUpdate에서 더한다(research.md R4.7-9)
+            if (activeBefore) GameAudio.Play(SoundId.WitchSlam);
         }
+        activeBefore = true;
         if (struck) AnimateSlam(Time.time - strikeTime);
     }
 

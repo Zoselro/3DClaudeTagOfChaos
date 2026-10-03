@@ -83,7 +83,7 @@ public static class GameStartAuthority
     // 직전 판 맵(이 클라이언트가 방장으로 시작한 판). 판이 끝나면 Room의 맵 키는 지워지므로 여기서 기억한다.
     private static string lastMap;
 
-    // 괴물이 아닌 사람 중에서 스파이를 무작위로 뽑는다(EscapePlan.md §1.1). 0명이면 빈 배열.
+    // 괴물이 아닌 사람 중에서 스파이를 무작위로 뽑는다(EscapePlan.md §1.1). 스파이는 spyMinPlayers 이상일 때 늘 1명(GameSettingsSO.SpyCountFor), 0명이면 빈 배열.
     private static int[] PickSpies(int count)
     {
         var candidates = new System.Collections.Generic.List<int>();

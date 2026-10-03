@@ -188,6 +188,22 @@ public static class MapSceneBuilder
         public GameObject Root;
     }
 
+    // 맵 모델(FBX)에는 남아 있지만 씬에 두지 않는 오브젝트(사용자가 지운 것). Blender 스크립트도 같은 이름을 만들지 않는다.
+    // 2026-10-03 캔디숲: 가운데 케이크 로켓이 솟아오를 때 어색하던 마카롱 바위 2개(build_candyforest.py, Request1003bPlan.md §5).
+    public static readonly Dictionary<string, string[]> RemovedObjects = new Dictionary<string, string[]>
+    {
+        { "CandyForest", new[] { "CAN_Macaron_Rock_165", "CAN_Macaron_Rock_166" } },
+    };
+
+    private static void RemoveListed(string map, Transform root, List<string> report)
+    {
+        if (!RemovedObjects.TryGetValue(map, out string[] names)) return;
+        int removed = 0;
+        foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            if (t != null && System.Array.IndexOf(names, t.name) >= 0) { Object.DestroyImmediate(t.gameObject); removed++; }
+        report.Add($"removed listed objects: {removed}");
+    }
+
     private static List<Placed> PlaceModels(string map, Transform parent, List<string> report)
     {
         var placed = new List<Placed>();
@@ -206,6 +222,7 @@ public static class MapSceneBuilder
             instance.transform.localScale = Vector3.one;
             placed.Add(new Placed { Category = category, Root = instance });
         }
+        RemoveListed(map, parent, report);
         report.Add($"models: {string.Join(", ", placed.Select(p => $"{p.Category}({p.Root.transform.childCount})"))}");
         return placed;
     }

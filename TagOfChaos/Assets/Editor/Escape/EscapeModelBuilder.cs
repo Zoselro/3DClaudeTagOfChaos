@@ -22,6 +22,7 @@ public static class EscapeModelBuilder
         { "ME_Rocket_Flame", 4f }, { "ME_Altar_Glow", 4f }, { "ME_Witch_Eye", 6f },
         { "ME_Glow_Teal", 2f }, { "ME_Glow_Orange", 2f }, { "ME_Glow_Purple", 2f }, { "ME_Glow_White", 3f },
         { "ME_Red_Button", 0.5f },
+        { "ME_Cabin_Wall", 0.35f }, { "ME_Cabin_Floor", 0.2f }, { "ME_Cabin_Seat", 0.3f }, // 로켓 조종실(그늘 속에서도 보이게, Request1003bPlan.md §6)
     };
 
     [MenuItem("Tools/TagOfChaos/Escape/Build Models (after Blender export)")]

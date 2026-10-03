@@ -77,6 +77,21 @@ ModelImporter:
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
+      name: ME_Cabin_Floor
+    second: {fileID: 2100000, guid: 81c107b38467289409e3611b57b9339f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Cabin_Seat
+    second: {fileID: 2100000, guid: d953231a0a759a7478789b52543d7c53, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: ME_Cabin_Wall
+    second: {fileID: 2100000, guid: 694eb14d8b145364d8791c9705e352b9, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
       name: ME_Cart_Red
     second: {fileID: 2100000, guid: 37be456d21619614e93f2162ef7c5e5f, type: 2}
   - first:

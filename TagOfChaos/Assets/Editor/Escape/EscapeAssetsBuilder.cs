@@ -69,17 +69,17 @@ public static class EscapeAssetsBuilder
         {
             Recipe("CursedCandyCarnival", EscapeExitKind.RollerCoaster, RecipeMode.Slots,
                 new[] { G(redButton, 1, 1), G(seatbelt, 1, 1), G(battery, 3, 0), G(toolbox, 3, 0, "Repair") }, null, null,
-                new[] { R(seatbelt), R(battery) }, toolbox),
+                new[] { R(seatbelt), R(battery) }, toolbox, fillsCapacity: true),
             Recipe("HauntedBakery", EscapeExitKind.BakeryMachine, RecipeMode.Slots,
                 new[] { G(redButton, 1, 1), G(gear, 1, 1), G(battery, 3, 0), G(toolbox, 3, 0, "Repair") }, null, null,
-                new[] { R(gear), R(battery) }, toolbox),
+                new[] { R(gear), R(battery) }, toolbox, fillsCapacity: true),
             Recipe("ChocolateFactory", EscapeExitKind.ChocolateTrain, RecipeMode.Slots,
                 new[] { G(macaronWheel, 2, 1), G(cookieWheel, 2, 1), G(oil, 2, 0), G(gear, 2, 0) }, null, null,
-                new[] { R(oil), R(gear) }, toolbox),
+                new[] { R(oil), R(gear) }, toolbox, fillsCapacity: true),
             Recipe("GingerbreadVillage", EscapeExitKind.RuneAltar, RecipeMode.Counter, null, "Rune", runes,
-                new[] { R(runes), R(runes) }, toolbox, fillsCapacity: true), // 룬 받침대는 늘 최대 수, 남는 칸은 켜진 채 시작
+                new[] { R(runes), R(runes) }, toolbox, fillsCapacity: true), // 모든 맵: 늘 최대 수만 쓰고 남는 칸은 켜진 채 시작(2026-10-03)
             Recipe("CandyForest", EscapeExitKind.CakeRocket, RecipeMode.Counter, null, "Candy Cell", cells,
-                new[] { R(cells), R(cells) }, toolbox),
+                new[] { R(cells), R(cells) }, toolbox, fillsCapacity: true),
         };
 
         var catalog = LoadOrCreate<EscapeCatalogSO>(ResourcesRoot + "/EscapeCatalog.asset");

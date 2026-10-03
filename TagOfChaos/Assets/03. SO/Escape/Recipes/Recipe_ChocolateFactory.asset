@@ -34,6 +34,7 @@ MonoBehaviour:
     fixedRequired: 0
   counterLabel: 
   counterItems: []
+  fillsCapacity: 1
   rocketSlots:
   - label: "\uCD08\uCF5C\uB9BF \uC6D0\uC720"
     accepts:

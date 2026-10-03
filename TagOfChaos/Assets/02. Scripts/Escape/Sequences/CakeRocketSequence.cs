@@ -49,6 +49,14 @@ public class CakeRocketSequence : EscapeSequence
         }
         if (intact != null) intactHome = intact.localPosition;
         if (rocket != null) rocketHome = rocket.localPosition;
+
+        // 소리(SoundPlan.md S6): 우르릉 → 금 가는 소리 → 펑 터짐 → 로켓 솟음 / 출발: 점화 → 발사(로켓을 따라감)
+        AddCue(SoundId.CakeRumble, CueClock.Completed, 0f);
+        AddCue(SoundId.CakeCrack, CueClock.Completed, CrackSeconds * 0.6f);
+        AddCue(SoundId.CakeBurst, CueClock.Completed, CrackSeconds);
+        AddCue(SoundId.CakeRocketRise, CueClock.Completed, RocketRiseStart, rocket);
+        AddCue(SoundId.CakeIgnite, CueClock.Departed, 0f, rocket);
+        AddCue(SoundId.CakeLaunch, CueClock.Departed, IgniteSeconds, rocket);
     }
 
     public override void Tick(EscapeState state, double now)

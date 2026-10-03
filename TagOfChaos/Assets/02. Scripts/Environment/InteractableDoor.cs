@@ -212,6 +212,7 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
 
         if (open && hasOutwardParameter) animator.SetBool(outwardHash, outward);
         animator.SetBool(openHash, open);
+        if (!instant) GameAudio.PlayAt(open ? SoundId.DoorOpen : SoundId.DoorClose, transform.position); // S4
 
         if (instant)
         {

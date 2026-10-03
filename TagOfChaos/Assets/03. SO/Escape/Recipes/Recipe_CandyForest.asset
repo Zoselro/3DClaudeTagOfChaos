@@ -22,6 +22,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 87d68c32ee5c894458b080a183b2147e, type: 2}
   - {fileID: 11400000, guid: 7f032406016e7c64ca14d7a67d365234, type: 2}
   - {fileID: 11400000, guid: 219329dc1b57da44db6a51e87bda786c, type: 2}
+  fillsCapacity: 1
   rocketSlots:
   - label: "\uC54C\uC0AC\uD0D5 \uC804\uC9C0"
     accepts:

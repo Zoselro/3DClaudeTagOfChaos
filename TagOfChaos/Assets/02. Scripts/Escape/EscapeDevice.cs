@@ -71,15 +71,18 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
     // 칸 자리와 이만큼 넘게 높이가 다르면 닿지 않는다(시계탑 지하 유적의 제단을 지상에서 만지지 못하게).
     public const float MaxReachHeight = 4f;
 
-    // 장치까지의 수평 거리(칸 자리 중 가장 가까운 곳, 칸 자리가 없으면 중심). 방장이 설치·훔치기 거리를 잴 때 쓴다.
+    // 장치까지의 수평 거리(이번 판에 쓰는 칸 자리 중 가장 가까운 곳, 칸 자리가 없으면 중심). 방장이 설치·훔치기 거리를 잴 때 쓴다.
+    // 칸 모드는 모델 자리 중 일부만 쓰므로(Request1003bPlan.md §1) 상태가 있으면 쓰는 자리만 본다.
     public float DistanceTo(Vector3 p)
     {
         float best = float.MaxValue;
         bool anyAnchor = false;
-        for (int i = 0; i < 16; i++)
+        List<EscapeState.Slot> slots = manager != null && manager.State != null ? manager.State.DeviceSlots : null;
+        int count = slots != null ? slots.Count : 16;
+        for (int i = 0; i < count; i++)
         {
-            Transform anchor = SlotAnchor(i);
-            if (anchor == null) break;
+            Transform anchor = SlotAnchor(slots != null ? slots[i].Anchor : i);
+            if (anchor == null) { if (slots == null) break; continue; }
             anyAnchor = true;
             if (Mathf.Abs(anchor.position.y - p.y) > MaxReachHeight) continue;
             best = Mathf.Min(best, Flat(anchor.position - p));
@@ -92,6 +95,15 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
     {
         while (anchorCache.Count <= i) anchorCache.Add(EscapeSequence.FindDeep(transform, $"Slot_{anchorCache.Count:00}"));
         return anchorCache[i];
+    }
+
+    // 장치 칸 i(상태의 칸 번호)의 월드 위치 — 끼우기·빼기 소리를 그 자리에서 낸다. 칸 자리가 없으면 장치 중심.
+    public Vector3 SlotPosition(int i)
+    {
+        List<EscapeState.Slot> slots = manager != null && manager.State != null ? manager.State.DeviceSlots : null;
+        Transform anchor = slots != null && i >= 0 && i < slots.Count ? SlotAnchor(slots[i].Anchor) : null;
+        if (anchor == null && i >= 0 && i < slotSockets.Count && slotSockets[i] != null) anchor = slotSockets[i].transform.parent;
+        return anchor != null ? anchor.position : transform.position;
     }
 
     private static float Flat(Vector3 v) => new Vector2(v.x, v.z).magnitude;
@@ -116,7 +128,7 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         manager = owner;
         EscapeState s = owner.State;
         if (s == null) return;
-        EnsureSlots(s.DeviceSlots.Count);
+        EnsureSlots(s.DeviceSlots);
         for (int i = 0; i < s.DeviceSlots.Count; i++)
         {
             EscapeState.Slot slot = s.DeviceSlots[i];
@@ -156,7 +168,7 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
 
     private void Update()
     {
-        if (Sequence != null) Sequence.Tick(manager != null ? manager.State : null, PhotonNetwork.Time);
+        if (Sequence != null) Sequence.Step(manager != null ? manager.State : null, PhotonNetwork.Time);
         else if (complete) EscapeExitFx.Tick(transform, manager != null ? manager.Recipe.ExitKind : EscapeExitKind.CakeRocket);
     }
 
@@ -167,20 +179,23 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         return s != null && s.CompletedAt > 0 && s.DepartedAt <= 0 && PhotonNetwork.Time >= s.CompletedAt + manager.BoardReadySeconds;
     }
 
-    private void EnsureSlots(int count)
+    // 칸 i의 받침은 그 칸의 모델 자리(Slot.Anchor)에 만든다. 칸 모드는 자리 8개 중 이번 판에 쓰는 자리만 칸이 된다.
+    private void EnsureSlots(List<EscapeState.Slot> slots)
     {
+        int count = slots.Count;
         while (slotSockets.Count < count)
         {
             int i = slotSockets.Count;
-            Transform anchor = SlotAnchor(i);
+            int anchorIndex = slots[i].Anchor;
+            Transform anchor = SlotAnchor(anchorIndex);
             modelAnchors.Add(anchor != null);
             if (anchor == null)
             {
-                anchor = new GameObject($"Slot_{i:00}").transform;
+                anchor = new GameObject($"Slot_{anchorIndex:00}").transform;
                 anchor.SetParent(transform, false);
                 float angle = (count <= 1 ? 0f : i * 360f / count);
                 anchor.localPosition = Quaternion.Euler(0f, angle, 0f) * Vector3.forward * slotRingRadius + Vector3.up * slotHeight;
-                anchorCache[i] = anchor;
+                anchorCache[anchorIndex] = anchor;
             }
             var socket = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             DestroyImmediate(socket.GetComponent<Collider>());

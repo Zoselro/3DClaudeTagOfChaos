@@ -191,6 +191,13 @@ public static class SoundDefaults
             case 7: // 맵 연출
                 World(e, 60f, 2);
                 e.importance = SoundImportance.High;
+                if (id == SoundId.OvenGears || id == SoundId.AltarHum) e.pitchRange = Vector2.one; // 반복음
+                else if (id == SoundId.LanternFlicker)
+                {
+                    e.volume = 0.5f;          // 등불 여러 개가 따로 깜빡인다 — 작게, 가까이서만
+                    e.cooldown = 0.2f;
+                    e.importance = SoundImportance.Low;
+                }
                 break;
             case 8: // 환경음(반복)
                 World(e, 40f, 2);
@@ -247,6 +254,7 @@ public static class SoundDefaults
                 falloff = SoundFalloff.Landmark; min = 8f; max = 60f; return;
             case SoundId.AmbFactory: falloff = SoundFalloff.Landmark; min = 6f; max = 28f; return;
             case SoundId.CarouselSpin: falloff = SoundFalloff.Landmark; min = 8f; max = 40f; return;
+            case SoundId.LanternFlicker: falloff = SoundFalloff.Action; min = 1.5f; max = 10f; return;
         }
         int group = (int)id / 100;
         if (group == 7) { falloff = SoundFalloff.Landmark; min = 8f; max = 60f; return; }  // 맵 연출

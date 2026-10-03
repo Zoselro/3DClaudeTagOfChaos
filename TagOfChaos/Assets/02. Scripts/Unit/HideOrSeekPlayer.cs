@@ -163,6 +163,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         networkSync = new PlayerNetworkSync();
         animator = GetComponent<Animator>();
         animationDriver = new PlayerAnimationDriver(animator, jumpFreezeNormalizedTime);
+        gameObject.AddComponent<CookieAudio>().Init(this, animationDriver); // 캐릭터 소리(SoundPlan.md S4)
         groundDetector = new CharacterGroundDetector(groundLayer, groundCheckOffset);
         rb = GetComponent<Rigidbody>();
         grabController = GetComponent<PlayerGrabController>();

@@ -21,6 +21,8 @@ public class ToolUser : MonoBehaviour
     // 로컬 플레이어가 스턴건을 조준하는 중인지.
     public static bool Aiming { get; private set; }
 
+    private AudioHandle aimHum;
+
     public void Init(PlayerInventory owner, EscapeManager escape)
     {
         inventory = owner;
@@ -41,12 +43,32 @@ public class ToolUser : MonoBehaviour
             zoom = Mathf.MoveTowards(zoom, Aiming ? AimZoom : 1f, AimZoomSpeed * Time.deltaTime);
             cam.fieldOfView = baseFov * zoom;
         }
+        UpdateAimHum(Aiming);
         if (Aiming && crosshair == null) crosshair = CreateCrosshair();
         if (crosshair != null && crosshair.activeSelf != Aiming) crosshair.SetActive(Aiming);
     }
 
+    // 스턴건을 조준하는 동안 윙 소리 반복(본인 2D, S5).
+    private void UpdateAimHum(bool aiming)
+    {
+        if (aiming && !aimHum.IsPlaying) aimHum = GameAudio.StartLoop(SoundId.StunAimHum, null);
+        else if (!aiming && aimHum.IsPlaying) { aimHum.Stop(); aimHum = default; }
+    }
+
+    // 도구를 쓰는 순간의 소리(던지기·발사·휘두르기). ToolHitReceiver도 다른 사람 화면에서 같은 소리를 쓴다.
+    public static SoundId UseSound(ToolKind kind)
+    {
+        switch (kind)
+        {
+            case ToolKind.Hammer: return SoundId.HammerSwing;
+            case ToolKind.StunGun: return SoundId.StunFire;
+            default: return SoundId.BalloonThrow;
+        }
+    }
+
     private void OnDestroy()
     {
+        aimHum.Stop();
         if (crosshair != null) Destroy(crosshair);
         Camera cam = Camera.main;
         if (cam != null && baseFov > 0f) cam.fieldOfView = baseFov;
@@ -88,6 +110,7 @@ public class ToolUser : MonoBehaviour
         ToolSO tool = item.Tool;
         if (tool.Kind == ToolKind.StunGun && !Aiming) return; // 스턴건은 우클릭으로 조준한 상태에서만 쏜다
         readyAt = Time.time + tool.CooldownSeconds;
+        GameAudio.Play(UseSound(tool.Kind)); // 쓴 사람은 누르는 순간 바로(2D). 다른 사람은 승인된 ToolHit에서 3D로 듣는다(S5)
 
         Vector3 origin = transform.position + Vector3.up * 1.1f;
         Camera cam = Camera.main;

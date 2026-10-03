@@ -21,6 +21,7 @@ public class StunReceiver : MonoBehaviour
     public void Stun(float seconds)
     {
         if (seconds <= 0f) return;
+        if (!IsStunned && TryGetComponent(out IGameCharacter character)) GameAudio.PlayCharacter(SoundId.StunStars, character); // 별이 도는 순간(S4)
         stunnedUntil = Mathf.Max(stunnedUntil, Time.time + seconds);
         EnsureStars();
         starRoot.gameObject.SetActive(true);

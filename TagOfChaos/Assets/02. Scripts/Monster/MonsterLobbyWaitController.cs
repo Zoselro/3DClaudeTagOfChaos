@@ -124,6 +124,7 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
             SetWaitingUi(false); // 큐가 다시 돌면 목록이 정확해지므로 다시 보여준다
             return;
         }
+        GameAudio.Play(SoundId.MonsterDeparted); // 괴물이 맵으로 떠나는 순간(2D, 씬이 바뀌어도 소리는 이어진다 — S4)
         PhotonNetwork.LoadLevel(map); // 방장이 아니므로 혼자만 로드, 로드 후 큐 자동 재개
     }
 

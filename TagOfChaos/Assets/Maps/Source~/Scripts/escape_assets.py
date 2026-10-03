@@ -41,6 +41,8 @@ PAL.update({
     # --- stone ruins under the gingerbread village (Request1003Plan.md §2) ---
     'ME_Stone_Light': ((0.44, 0.42, 0.40), 0), 'ME_Stone_Dark': ((0.20, 0.20, 0.21), 0),
     'ME_Stone_Warm': ((0.40, 0.33, 0.26), 0), 'ME_Stone_Moss': ((0.20, 0.30, 0.16), 0), 'ME_Root': ((0.22, 0.14, 0.08), 0),
+    # --- rocket cockpit seen through the open hatch (Request1003bPlan.md §6): faint glow so it reads inside the hull's shadow ---
+    'ME_Cabin_Wall': ((0.66, 0.50, 0.88), 0.35), 'ME_Cabin_Floor': ((0.34, 0.28, 0.44), 0.2), 'ME_Cabin_Seat': ((0.55, 0.22, 0.66), 0.3),
     # --- per-item colours ---
     'ME_Oil_Choco': ((0.26, 0.12, 0.05), 0), 'ME_Macaron_Pink': ((1.0, 0.62, 0.76), 0),
     'ME_Rune_Red': ((1.0, 0.15, 0.20), 1), 'ME_Rune_Pink': ((1.0, 0.35, 0.80), 1),

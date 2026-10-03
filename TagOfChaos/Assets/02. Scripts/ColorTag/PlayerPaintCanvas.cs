@@ -265,6 +265,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         Ray ray = localCamera.ScreenPointToRay(screenPos);
         if (!paintableCollider.Raycast(ray, out RaycastHit hit, MaxPaintRayDistance)) return;
+        LastStampTime = Time.time; // 붓 소리(CookieAudio)가 칠하는 동안만 나도록
 
         if (isErasing)
         {
@@ -292,6 +293,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
             {
                 pendingStrokeCounts.Remove(brushColor);
                 registeredColorSlots.Add(brushColor);
+                GameAudio.Play(SoundId.PaintSlotRegistered); // 새 색이 슬롯에 등록됨(본인 2D, S4)
                 ReportSlotCount();
             }
             else
@@ -316,6 +318,9 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     // 색 슬롯 UI에서 스와치를 클릭했을 때 호출 — 로컬 전용 선택값이라 네트워크 동기화 불필요
     // (다른 클라이언트는 이 캐릭터가 실제로 칠한 결과만 보면 되지, "지금 뭘 들고 있는지"는
     // 볼 필요가 없다).
+    // 마지막으로 몸에 붓이 닿은 시각(본인). 붓 소리가 칠하는 동안만 나게 CookieAudio가 읽는다.
+    public float LastStampTime { get; private set; } = -1f;
+
     public void SetBrushColor(int colorIndex)
     {
         currentBrushColorIndex = colorIndex;
@@ -579,6 +584,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
         if (myIndex < 0 || myIndex >= colors.Length) return;
 
         localDrawStamps.Clear(); // 아직 그리지 않은 이번 프레임 스탬프가 강제 도포 위에 덧칠되지 않도록
+        GameAudio.Play(SoundId.PaintForceFill); // 변장 시간이 끝나 강제로 칠해짐(본인 2D, S4)
         QueueLocalDraw(Vector2.zero, float.MaxValue, colors[myIndex], StrokeKind.ForceFill);
         DrawStamps(localDrawStamps);
         QueueStamp(Vector2.zero, float.MaxValue, colors[myIndex], StrokeKind.ForceFill);

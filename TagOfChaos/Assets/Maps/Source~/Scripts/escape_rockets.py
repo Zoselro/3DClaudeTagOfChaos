@@ -33,11 +33,74 @@ def side(angle_deg, r, z):
     return (math.cos(a) * r, math.sin(a) * r, z)
 
 
+# ---------------- doorway + cockpit (2026-10-03, Request1003bPlan.md §6) ----------------
+# The fuselage used to be one closed solid, so opening the hatch only showed the same wall. cut_doorway() opens the hull
+# behind the hatch (slightly smaller than the closed hatch, so it stays hidden while closed) and lines the cut with a
+# double-sided jamb; cabin() adds an inward-facing room (walls, floor, ceiling) with a seat, a glowing console and a lamp
+# so the open door shows a little cockpit. Unity code is unchanged: Cabin is a static part found by nobody.
+def cut_doorway(g, half_w, z0, z1, wall, jamb_mat):
+    """Call right after the body lathe, while g holds only the body. Door faces -Y; box |x| < half_w, z0 < z < z1."""
+    bm = g.bm
+    for co, no in (((-half_w, 0, 0), (1, 0, 0)), ((half_w, 0, 0), (1, 0, 0)), ((0, 0, z0), (0, 0, 1)), ((0, 0, z1), (0, 0, 1))):
+        bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no)
+    eps = 1e-3
+
+    def in_box(c, pad):
+        return abs(c.x) < half_w + pad and z0 - pad < c.z < z1 + pad and c.y < 0
+
+    doomed = [f for f in bm.faces if in_box(f.calc_center_median(), -eps)]
+    bmesh.ops.delete(bm, geom=doomed, context='FACES')
+    rim = [e for e in bm.edges if len(e.link_faces) == 1 and all(in_box(v.co, eps) for v in e.verts)]
+    mi = g.mi(jamb_mat)
+
+    def inward(p):
+        r = math.hypot(p.x, p.y)
+        k = max(0.0, r - wall) / r if r > 1e-6 else 1.0
+        return Vector((p.x * k, p.y * k, p.z))
+
+    for e in rim:   # both windings: Unity draws one side only
+        a, b = e.verts[0].co.copy(), e.verts[1].co.copy()
+        for quad in ((a, b, inward(b), inward(a)), (inward(a), inward(b), b, a)):
+            f = bm.faces.new([bm.verts.new(p) for p in quad])
+            f.material_index = mi
+            g.keep_winding.add(f)
+    return len(doomed), len(rim)
+
+
+def cabin(u, name, r_in, z0, z1, seats=1, parent=None):
+    """Inward-facing room r_in x (z0..z1) behind the door: faintly glowing lilac walls/ceiling, floor and seats, seats facing the
+    back-wall console (screen + buttons), lamp. Sizes scale with r_in (spy rocket ~0.78 m, cake rocket ~2 m)."""
+    s = r_in / 0.78
+
+    def build(g):
+        walls = g.lathe([(r_in, z0), (r_in, z1)], 'ME_Cabin_Wall', seg=24, cap=False)
+        wall_faces = list({f for v in walls for f in v.link_faces})
+        bmesh.ops.reverse_faces(g.bm, faces=wall_faces)   # seen from inside (and invisible from outside, so the door is open)
+        g.keep_winding.update(wall_faces)
+        cyl(g, 'ME_Cabin_Floor', (0, 0, z0 - 0.06), r_in, 0.06, seg=24)     # floor (top faces up)
+        cyl(g, 'ME_Cabin_Wall', (0, 0, z1), r_in, 0.06, seg=24)              # ceiling (bottom faces down)
+        g.blob('ME_Glow_White', (0, 0, z1 - 0.06 * s), 0.09 * s, sz=(1, 1, 0.5), seg=10)   # lamp
+        # console on the back wall (+Y), facing the door
+        cy = r_in - 0.16 * s
+        g.rbox('ME_Gray_Light', (0, cy, z0), (0.7 * s, 0.26 * s, 0.55 * s), bevel=0.04 * s)
+        g.rbox('ME_Glow_Teal', (0, cy - 0.12 * s, z0 + 0.62 * s), (0.5 * s, 0.03 * s, 0.3 * s), bevel=0.01 * s)   # screen
+        for k, m in enumerate(('ME_Glow_Orange', 'ME_Red_Button', 'ME_Glow_Teal')):
+            g.blob(m, ((k - 1) * 0.16 * s, cy - 0.12 * s, z0 + 0.5 * s), 0.045 * s, seg=8)
+        # seats in a row, facing the console
+        for i in range(seats):
+            x = (i - (seats - 1) / 2) * 0.62 * s
+            sy = cy - 0.55 * s
+            g.rbox('ME_Cabin_Seat', (x, sy, z0), (0.44 * s, 0.4 * s, 0.32 * s), bevel=0.06 * s)            # cushion
+            g.rbox('ME_Cabin_Seat', (x, sy - 0.2 * s, z0), (0.44 * s, 0.1 * s, 0.85 * s), bevel=0.05 * s)  # backrest
+    return mesh_obj(u, name, build, parent=parent)
+
+
 def rocket_shell(u, body_mat, nose_mat, fin_mat, band_mat, stripe=None, window_mat='ME_Glow_Teal', extra=None):
     """Shared fuselage + hatch + flame + board; extra(g) adds map-specific decoration to the Body."""
     def body(g):
         segmat = (lambda k: stripe if (k // 3) % 2 == 0 else body_mat) if stripe else None
         g.lathe([(0, 0.55), (0.62, 0.55), (R_BODY, 1.1), (R_BODY + 0.05, 2.3), (R_BODY, 3.3)], body_mat, seg=24, segmat=segmat)
+        cut_doorway(g, 0.36, 1.12, 2.24, 0.15, band_mat)   # behind the hatch (closed hatch: |x| < 0.42, z 1.02..2.32); jamb reaches the cabin wall
         g.lathe([(R_BODY, 3.3), (0.72, 4.0), (0.42, 4.55), (0.12, 4.85), (0, 4.9)], nose_mat, seg=24)
         g.blob(nose_mat, (0, 0, 4.9), 0.14, seg=10)
         torus(g, band_mat, (0, 0, 3.3), R_BODY + 0.01, 0.07)
@@ -57,6 +120,7 @@ def rocket_shell(u, body_mat, nose_mat, fin_mat, band_mat, stripe=None, window_m
         if extra:
             extra(g)
     mesh_obj(u, 'Body', body)
+    cabin(u, 'Cabin', R_BODY - 0.12, 1.12, 2.42)
 
     def hatch(g):   # door extends +X from the hinge at origin, faces -Y
         g.rbox(body_mat, (0.42, 0, 0), (0.84, 0.1, 1.3), bevel=0.06)

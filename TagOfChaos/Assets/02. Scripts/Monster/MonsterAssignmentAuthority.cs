@@ -5,20 +5,20 @@ using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine;
 
-// 마스터 전용 — 가마솥 선착순 신청 확정 + 무입장 타임아웃 시 랜덤 배정(GameRule.md §2.1).
+// 마스터 전용 — 가마솥 선착순 신청 확정(GameRule.md §2.1). 괴물은 가마솥에 들어간 사람만 된다(인원표상 괴물이 2명이면
+// 두 사람이 각각 들어가야 한다).
+// (2026-10-03 사용자 요청: 정원이 찬 뒤 30초가 지나면 무작위로 괴물을 뽑던 기능은 삭제 — 예전 기한 Room Prop
+//  MonsterSelectDeadline이 남아 있으면 지우기만 한다.)
 //
-// 뽑는 괴물 수는 GameSettings.MonsterCount(인원에 맞게 제한, 기본 1)다. 인원을 늘릴 때 괴물 수도 설정만으로
-// 늘릴 수 있도록 MonsterActorNumbers 배열을 채우는 방식으로 일반화했다(Bug-fix-plan.md §27 확장성).
-// 타임아웃 기준 시각은 "정원이 찬 순간"이고 Room Prop(MonsterSelectDeadline)에 두므로 방장이 바뀌어도 이어진다
-// (§24.3 ⑰-B, research.md §8.13).
+// 뽑는 괴물 수는 인원표(GameSettings.MonsterCountFor)를 따른다. MonsterActorNumbers 배열을 채우는 방식이라
+// 인원이 늘어 괴물이 여럿이어도 같은 코드로 동작한다(Bug-fix-plan.md §27 확장성).
 public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCallback
 {
     // 온라인에서는 SetCustomProperties가 서버 응답 전까지 로컬 캐시에 반영되지 않는다(PUN 기본
     // BroadcastPropsChangeToAll=true). 응답이 오기 전 다음 프레임에 같은 요청을 다시 보내지 않도록 막는 플래그.
-    private bool deadlineRequested;
     private bool confirmRequested;
     private bool resetRequested;
-    private bool deadlineClearRequested; // 정원 미달 때 기한 삭제를 응답 전 매 프레임 다시 보내지 않도록(Bug-fix-plan.md §41 ㊹)
+    private bool deadlineClearRequested; // 남은 기한 삭제를 응답 전 매 프레임 다시 보내지 않도록(Bug-fix-plan.md §41 ㊹)
 
     public void OnEvent(EventData photonEvent)
     {
@@ -34,6 +34,8 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
         if (!(photonEvent.CustomData is int claimantActorNumber)) return;
         if (RoomState.IsMonster(claimantActorNumber)) return;
 
+// 괴물이 여럿 필요한 인원(7~8명 = 2명)은 가마솥에 들어간 사람만 한 명씩 괴물이 된다 — 무작위로 채우지 않는다(2026-10-03 사용자 결정).
+        // 자리가 다 찰 때까지 대기실 문구가 "가마솥에 들어가세요"를 보여 주고 시작 버튼은 잠겨 있다.
         ConfirmMonsters(AppendMonsters(new[] { claimantActorNumber }), "cauldron");
     }
 
@@ -41,41 +43,19 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
     {
         if (!PhotonNetwork.IsMasterClient || !RoomState.IsInRoom()) return;
         if (ResetSelectionIfRoomNotFull()) return;
-        if (RoomState.IsMonsterSelectionComplete()) return;
-
-        Room room = PhotonNetwork.CurrentRoom;
-        bool hasDeadline = RoomState.TryGetDouble(NetKeys.MonsterSelectDeadline, out double deadline);
-
-        if (!RoomState.IsRoomFull())
-        {
-            // 정원이 다시 줄면 대기 시간을 처음부터 다시 잰다.
-            deadlineRequested = false;
-            if (hasDeadline && !deadlineClearRequested)
-            {
-                deadlineClearRequested = true;
-                room.SetCustomProperties(new Hashtable { { NetKeys.MonsterSelectDeadline, null } });
-            }
-            return;
-        }
-
-        deadlineClearRequested = false;
-        if (!hasDeadline)
-        {
-            if (!deadlineRequested)
-            {
-                deadlineRequested = true;
-                room.SetCustomProperties(new Hashtable { { NetKeys.MonsterSelectDeadline, PhotonNetwork.Time + GameSettings.Current.MonsterSelectTimeout } });
-            }
-            return;
-        }
-        deadlineRequested = false;
-
-        if (PhotonNetwork.Time < deadline || confirmRequested) return;
-
-        ConfirmMonsters(AppendMonsters(PickRandomNonMonsters(MissingMonsterCount())), "timeout");
+        ClearLegacyDeadline();
     }
 
-    // 대기실에서 괴물이 나가면 그 사람만 목록에서 빼고, 모자란 자리는 가마솥/타임아웃으로 다시 뽑는다(Bug-fix-plan.md
+    // 예전 버전이 남긴 무작위 선정 기한(MonsterSelectDeadline)이 있으면 한 번 지운다 — 대기실 문구가 남은 초를 세지 않게.
+    private void ClearLegacyDeadline()
+    {
+        if (!RoomState.TryGetDouble(NetKeys.MonsterSelectDeadline, out _)) { deadlineClearRequested = false; return; }
+        if (deadlineClearRequested) return;
+        deadlineClearRequested = true;
+        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.MonsterSelectDeadline, null } });
+    }
+
+    // 대기실에서 괴물이 나가면 그 사람만 목록에서 빼고, 모자란 자리는 가마솥으로 다시 뽑는다(Bug-fix-plan.md
     // §24.4). 그러지 않으면 떠난 사람이 괴물로 남은 채 시작 버튼이 활성화돼 괴물 없는 판이 시작됐다.
     // (GameScene에서의 이탈은 RoomLifecycleWatcher가 처리한다.)
     public override void OnPlayerLeftRoom(Player otherPlayer)
@@ -111,7 +91,6 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
 
         resetRequested = true;
         confirmRequested = false;
-        deadlineRequested = false;
         PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
         {
             { NetKeys.MonsterActorNumbers, null },
@@ -127,28 +106,6 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
         if (propertiesThatChanged.ContainsKey(NetKeys.MonsterActorNumbers)) confirmRequested = false;
     }
 
-    private static int MissingMonsterCount()
-    {
-        int required = GameSettings.Current.MonsterCountFor(PhotonNetwork.CurrentRoom.PlayerCount);
-        return Mathf.Max(0, required - RoomState.MonsterCount());
-    }
-
-    private static int[] PickRandomNonMonsters(int count)
-    {
-        var candidates = new List<int>();
-        foreach (Player p in PhotonNetwork.PlayerList)
-            if (!RoomState.IsMonster(p.ActorNumber)) candidates.Add(p.ActorNumber);
-
-        var picked = new List<int>(count);
-        while (picked.Count < count && candidates.Count > 0)
-        {
-            int index = Random.Range(0, candidates.Count);
-            picked.Add(candidates[index]);
-            candidates.RemoveAt(index);
-        }
-        return picked.ToArray();
-    }
-
     private static int[] AppendMonsters(int[] newMonsters)
     {
         RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] current);
@@ -157,7 +114,7 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
 
     private void ConfirmMonsters(int[] monsterActorNumbers, string reason)
     {
-        if (confirmRequested || monsterActorNumbers.Length == 0) return; // 응답 전 중복 확정 방지(가마솥 신청과 타임아웃이 겹치는 경우 포함)
+        if (confirmRequested || monsterActorNumbers.Length == 0) return; // 응답 전 중복 확정 방지(가마솥 신청이 겹치는 경우)
         confirmRequested = true;
 
         var props = new Hashtable
@@ -165,10 +122,6 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
             { NetKeys.MonsterActorNumbers, monsterActorNumbers },
             { NetKeys.MonsterRevealTime, PhotonNetwork.Time },
         };
-        // 자리가 모두 찼을 때만 선정 기준 시각을 지운다 — 괴물이 여럿일 때 일부만 가마솥으로 확정됐다고 타이머가
-        // 처음부터 다시 돌지 않게 한다.
-        int required = GameSettings.Current.MonsterCountFor(PhotonNetwork.CurrentRoom.PlayerCount);
-        if (monsterActorNumbers.Length >= required) props[NetKeys.MonsterSelectDeadline] = null;
 
         PhotonNetwork.CurrentRoom.SetCustomProperties(props);
         Debug.Log($"[MonsterAssignment] Monsters confirmed: [{string.Join(",", monsterActorNumbers)}] (by {reason}).");

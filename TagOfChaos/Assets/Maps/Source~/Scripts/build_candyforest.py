@@ -132,10 +132,16 @@ def build():
     big = [('Macaron_Rock', 1.8, 2.6), ('Marshmallow_Stack', 1.8, 2.4), ('CakeSlice', 2.2, 3.0),
            ('Lollipop_GiantPink', 0.6, 0.8)]
     m.dressed = dress_paths(m, pal, spacing=6.5, band=(1.0, 7.0), cluster=(2, 4), seed=12, big=big, big_every=5)
-    # landmark base: a ring of giant sweets around the lollipop tree (cover inside the open plaza)
+    # landmark base: a ring of giant sweets around the centre (cover inside the open plaza)
+    # 2026-10-03: the two macaron rocks of this ring (k = 0 and 5 -> CAN_Macaron_Rock_165 / _166) stood in the way of the
+    # cake rocket rising from the centre and were removed (Request1003bPlan.md §5). The name is still consumed so every
+    # later object keeps its name; Unity's MapSceneBuilder.RemovedObjects lists the same names.
     for k in range(10):
         a = 2 * math.pi * k / 10
         nm = ('Macaron_Rock', 'Marshmallow_Stack', 'CakeSlice', 'CandyRock_Broken', 'SugarDrift')[k % 5]
+        if nm == 'Macaron_Rock':
+            m.nm(nm)
+            continue
         place(m, nm, 'GameplayProps', 9.5 * math.cos(a), 9.5 * math.sin(a), a, (1.6, 1.5, 1.9, 1.3, 2.0)[k % 5])
 
     # ---- terrain: extra hills / bowls (smooth, <= 20 deg), flat plaza ----

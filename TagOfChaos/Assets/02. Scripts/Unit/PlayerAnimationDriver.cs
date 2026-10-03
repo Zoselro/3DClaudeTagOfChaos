@@ -11,6 +11,9 @@ public class PlayerAnimationDriver
 
     public PlayerMoveState CurrentState => currentState;
 
+    // 상태가 바뀔 때(이전, 새) — 캐릭터 소리(CookieAudio). 점프는 같은 상태로 다시 들어가도(ReplayJump) 알린다.
+    public event System.Action<PlayerMoveState, PlayerMoveState> StateChanged;
+
     public PlayerAnimationDriver(Animator animator, float jumpFreezeNormalizedTime = 0.5f)
     {
         this.animator = animator;
@@ -28,8 +31,10 @@ public class PlayerAnimationDriver
         animator.ResetTrigger(previousState.ToString());
         animator.SetTrigger(newState.ToString());
 
+        PlayerMoveState old = previousState;
         previousState = newState;
         currentState = newState;
+        StateChanged?.Invoke(old, newState);
     }
 
     // 새로운 점프/낙하 이벤트가 시작될 때 항상 Jump 애니메이션을 처음부터 재생한다.
@@ -53,8 +58,10 @@ public class PlayerAnimationDriver
         // normalizedTime=0으로 전환하므로 이 블렌딩 자체가 발생하지 않는다.
         animator.Play("Jump", 0, 0f);
 
+        PlayerMoveState old = previousState;
         previousState = PlayerMoveState.Jump;
         currentState = PlayerMoveState.Jump;
+        StateChanged?.Invoke(old, PlayerMoveState.Jump);
 
         // Play()도 같은 프레임에는 아직 반영되지 않을 수 있어(다음 애니메이터 내부 평가에야 실제로
         // 반영됨), 그 사이 HandleJumpAnimationHold()가 "재생 전"의 오래된 normalizedTime을 보고

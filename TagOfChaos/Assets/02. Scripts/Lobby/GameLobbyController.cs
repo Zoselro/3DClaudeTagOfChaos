@@ -21,8 +21,9 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     // 찼는데도 시작 버튼이 꺼져 있는 이유(괴물 선정 대기)를 알 수 없었다(Bug-fix-plan.md §26.4 S1).
     [Header("Status Messages (set in inspector)")]
     [SerializeField] private string waitingPlayersFormat = "{0} / {1} waiting for players";          // {0}=인원, {1}=정원
-    [SerializeField] private string selectingMonsterFormat = "Choosing the monster... enter the cauldron or wait {0}s"; // {0}=남은 초
     [SerializeField] private string selectingMonsterNoTimerText = "Choosing the monster... enter the cauldron";
+    [Tooltip("괴물이 여럿 필요할 때. {0} = 필요한 괴물 수, {1} = 정해진 수, {2} = 가마솥에 더 들어가야 할 사람 수")]
+    [SerializeField] private string selectingMonstersFormat = "Choosing {0} monsters ({1}/{0}) - {2} more must enter the cauldron";
     [SerializeField] private string readyForMasterFormat = "Monster: {0} - you can start the game";   // {0}=괴물 닉네임 목록
     [SerializeField] private string readyForOthersFormat = "Monster: {0} - waiting for host {1} to start"; // {1}=방장 닉네임
 
@@ -33,7 +34,6 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
 
     private int lastKnownPlayerCount = -1;
     private int lastKnownHostActor = -1;
-    private int lastShownSeconds = int.MinValue;
     private readonly StringBuilder nameBuilder = new StringBuilder();
 
     private void Start()
@@ -69,11 +69,6 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
             RefreshStartButton(); // 요청 대기가 끝나면 버튼을 다시 활성화
         }
 
-        if (RoomState.TryGetDouble(NetKeys.MonsterSelectDeadline, out double deadline))
-        {
-            int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(deadline - PhotonNetwork.Time)));
-            if (seconds != lastShownSeconds) RefreshStatus();
-        }
     }
 
     public override void OnPlayerEnteredRoom(Player newPlayer)
@@ -120,9 +115,9 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
             return;
         }
 
-        if (propertiesThatChanged.ContainsKey(NetKeys.MonsterActorNumbers)
-            || propertiesThatChanged.ContainsKey(NetKeys.MonsterSelectDeadline))
-            RefreshStartButton();
+        // 괴물 선정뿐 아니라 방장이 방 설정으로 최대 인원을 바꿔도(Photon 기본 속성 MaxPlayers) 정원 판단이 바뀐다 —
+        // 예전에는 괴물 키만 봐서 인원을 줄여 정원이 차도 "인원 부족" 문구가 그대로 남았다(2026-10-03). 어떤 방 속성이든 다시 그린다.
+        RefreshStartButton();
     }
 
     private void RefreshPlayerList()
@@ -159,28 +154,21 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
 
         if (!IsRoomFull())
         {
-            lastShownSeconds = int.MinValue;
             statusText.text = string.Format(waitingPlayersFormat, room.PlayerCount, room.MaxPlayers);
             return;
         }
 
         if (!RoomState.IsMonsterSelectionComplete())
         {
-            if (RoomState.TryGetDouble(NetKeys.MonsterSelectDeadline, out double deadline))
-            {
-                int previous = lastShownSeconds;
-                lastShownSeconds = Mathf.Max(0, Mathf.CeilToInt((float)(deadline - PhotonNetwork.Time)));
-                if (previous >= 0 && previous != lastShownSeconds) UiSoundCues.CountdownTick(lastShownSeconds); // 괴물 선정 마지막 10초
-                statusText.text = string.Format(selectingMonsterFormat, lastShownSeconds);
-            }
-            else
-            {
-                statusText.text = selectingMonsterNoTimerText;
-            }
+            // 괴물은 가마솥에 들어간 사람만 된다. 여럿 필요하면(7~8명 = 2명) 몇 명이 더 들어가야 하는지 보여 준다(2026-10-03).
+            int required = GameSettings.Current.MonsterCountFor(room.PlayerCount);
+            int chosen = RoomState.MonsterCount();
+            statusText.text = required > 1
+                ? string.Format(selectingMonstersFormat, required, chosen, required - chosen)
+                : selectingMonsterNoTimerText;
             return;
         }
 
-        lastShownSeconds = int.MinValue;
         string monsterNames = BuildMonsterNames();
         if (RoomState.IsLocalHost())
         {

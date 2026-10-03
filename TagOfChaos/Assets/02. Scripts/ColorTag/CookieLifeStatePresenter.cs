@@ -57,6 +57,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
     private Vector3 originalScale = Vector3.one;
     private Color[] crumbColors;          // 몸 표면 색(칠한 색 + 스킨 색), 비동기로 채워진다
     private bool crumbsSpawned;
+    private bool squashPlayed;
 
     public bool IsBroken => appliedState == LifeState.Broken;
     public bool IsBeingGrabKilled { get; private set; }
@@ -83,6 +84,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
         grabKillDeadline = Time.time + monster.GrabKillDuration + GrabKillTimeoutMargin;
         crumbColors = null;
         crumbsSpawned = false;
+        squashPlayed = false;
         IsBeingGrabKilled = true;
         DisableCollision(); // 괴물 몸·다른 쿠키와 부딪히지 않도록 즉시
 
@@ -114,6 +116,11 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
         if (grabKillEnteredAnimation && progress < 0f) { FinishGrabKill("animation ended"); return; }
         if (Time.time >= grabKillDeadline) { FinishGrabKill("timeout"); return; }
 
+        if (!squashPlayed && progress >= monster.GrabKillSquashStart)
+        {
+            squashPlayed = true;
+            GameAudio.PlayAt(SoundId.MonsterSquash, transform.position); // 내리찍어 눌리는 순간(SoundPlan.md S4)
+        }
         if (!crumbsSpawned && progress >= monster.GrabKillCrumbTime) SpawnCrumbs();
         FollowGrabSocket(CrushScale(monster, progress));
     }
@@ -144,6 +151,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
     private void SpawnCrumbs()
     {
         crumbsSpawned = true;
+        GameAudio.PlayAt(SoundId.CookieCrumble, transform.position); // 부서져 가루가 되는 순간(SoundPlan.md S4)
         if (breakVfxPrefab == null) return;
 
         Vector3 position = grabbingMonster != null ? grabbingMonster.GrabSocket.position : transform.position + Vector3.up * bodyCenterHeight;

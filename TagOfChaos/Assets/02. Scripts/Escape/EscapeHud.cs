@@ -15,6 +15,7 @@ public class EscapeHud : MonoBehaviour
 {
     private const int MaxRequirementRows = 6;
     private static EscapeHud instance;
+    private readonly List<StolenNotice> pendingStolen = new List<StolenNotice>();
 
     private EscapeManager manager;
     private EscapeTextsSO texts;
@@ -75,6 +76,29 @@ public class EscapeHud : MonoBehaviour
         UiSoundCues.Toast(alert);
     }
 
+    // 스파이가 장치에서 뺀 재료 알림(Request1003bPlan.md §2): 방장이 정한 시각이 되면 띄운다. 괴물 화면에는 띄우지 않는다.
+    public static void ScheduleStolen(string itemId, int itemIndex, double showAt)
+    {
+        if (instance == null || RoomState.IsLocalMonster()) return;
+        instance.pendingStolen.Add(new StolenNotice { ItemId = itemId, ItemIndex = itemIndex, ShowAt = showAt });
+    }
+
+    private void TickStolenNotices()
+    {
+        for (int i = pendingStolen.Count - 1; i >= 0; i--)
+        {
+            StolenNotice n = pendingStolen[i];
+            EscapeState state = manager.State;
+            StolenNotice.Decision d = n.Decide(PhotonNetwork.Time, state != null && n.ItemIndex >= 0 && n.ItemIndex < state.Items.Count ? state.Items[n.ItemIndex].Loc : ItemLocation.Held);
+            if (d == StolenNotice.Decision.Wait) continue;
+            pendingStolen.RemoveAt(i);
+            if (d == StolenNotice.Decision.Cancel) continue;
+            ItemSO item = manager.Catalog.Find(n.ItemId);
+            string name = item != null ? item.DisplayName : n.ItemId;
+            Toast(string.Format(KoreanText.HasFinalConsonant(name) ? texts.stolenFromDeviceWithFinal : texts.stolenFromDeviceNoFinal, name), alert: true);
+        }
+    }
+
     public static void Notice(EscapeNoticeKind kind, string itemId)
     {
         if (instance == null) return;
@@ -83,14 +107,6 @@ public class EscapeHud : MonoBehaviour
         {
             case EscapeNoticeKind.SpyCaught: Toast(t.spyCaught, alert: true); break;
             case EscapeNoticeKind.DeviceComplete: Toast(t.deviceComplete); break;
-            case EscapeNoticeKind.StolenToRocket:
-            {
-                ItemSO item = instance.manager.Catalog.Find(itemId);
-                string name = item != null ? item.DisplayName : itemId;
-                string format = KoreanText.HasFinalConsonant(name) ? t.stolenToRocketWithFinal : t.stolenToRocketNoFinal;
-                Toast(string.Format(format, name));
-                break;
-            }
         }
     }
 
@@ -183,6 +199,7 @@ public class EscapeHud : MonoBehaviour
         bool showHud = GamePhaseState.Current != GamePhase.Result;
         if (hudCanvas.enabled != showHud) hudCanvas.enabled = showHud;
         if (!showHud) return;
+        TickStolenNotices();
         bool painting = GamePhaseState.Current == GamePhase.Paint;
         float barY = painting ? HotbarYAbovePalette : HotbarY;
         if (!Mathf.Approximately(hotbar.anchoredPosition.y, barY)) hotbar.anchoredPosition = new Vector2(0f, barY);

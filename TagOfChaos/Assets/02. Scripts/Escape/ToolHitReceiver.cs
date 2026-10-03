@@ -14,7 +14,11 @@ public static class ToolHitReceiver
         if (item == null || !item.IsTool) return;
 
         // 던진·쏜 사람 손에서 날아가는 모습. 물풍선은 떨어진 순간에 명중 처리를 한다.
-        Vector3? from = HandOf(d[1] is int sender ? sender : -1);
+        int senderActor = d[1] is int sender ? sender : -1;
+        Vector3? from = HandOf(senderActor);
+        // 쓴 사람은 누르는 순간 이미 들었다(ToolUser.Use). 다른 사람은 그 손에서 3D로(S5).
+        bool mine = PhotonNetwork.LocalPlayer != null && senderActor == PhotonNetwork.LocalPlayer.ActorNumber;
+        if (!mine) GameAudio.PlayAt(ToolUser.UseSound(item.Tool.Kind), from ?? point);
         if (item.Tool.Kind == ToolKind.WaterBalloon && from.HasValue)
         {
             ToolShotFx.ThrowBalloon(item, from.Value, point, () => Apply(item, targets, point, color));
@@ -35,6 +39,13 @@ public static class ToolHitReceiver
     private static void Apply(ItemSO item, int[] targets, Vector3 point, int color)
     {
         ToolFx.Play(item.Tool.Kind, point, item.Tint);
+        // 맞은 곳 소리(모두, 3D): 물풍선은 늘 터지고, 스턴건·뿅망치는 누군가 맞았을 때만(S5)
+        switch (item.Tool.Kind)
+        {
+            case ToolKind.WaterBalloon: GameAudio.PlayAt(SoundId.BalloonSplash, point); break;
+            case ToolKind.StunGun: if (targets.Length > 0) GameAudio.PlayAt(SoundId.StunHit, point); break;
+            case ToolKind.Hammer: if (targets.Length > 0) GameAudio.PlayAt(SoundId.HammerBonk, point); break;
+        }
 
         foreach (int viewId in targets)
         {

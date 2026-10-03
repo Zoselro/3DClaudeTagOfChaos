@@ -65,6 +65,14 @@ public class CoasterSequence : EscapeSequence
             if (seat == null) break;
             seats.Add(seat);
         }
+
+        // 소리(SoundPlan.md S6): 전구 딸깍딸깍 + 모터 시동 + 바퀴 불꽃 / 출발: 안전바 철컥 → 덜컹덜컹 달려 나감(앞 차를 따라감)
+        Transform front = cars.Count > 0 ? cars[0] : null;
+        AddCue(SoundId.CoasterBulbOn, CueClock.Completed, 0f, bulbs.Count > 0 ? bulbs[bulbs.Count / 2] : null);
+        AddCue(SoundId.CoasterStartup, CueClock.Completed, 0f, front);
+        AddCue(SoundId.CoasterSparks, CueClock.Completed, 0.3f, cars.Count > 0 ? cars[cars.Count / 2] : null);
+        AddCue(SoundId.CoasterLapBar, CueClock.Departed, 0f, front);
+        AddCue(SoundId.CoasterDepart, CueClock.Departed, RollStart, front);
     }
 
     public override void Tick(EscapeState state, double now)

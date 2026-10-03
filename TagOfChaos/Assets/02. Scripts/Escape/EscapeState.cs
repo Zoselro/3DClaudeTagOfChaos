@@ -16,7 +16,7 @@ public enum ItemLocation : byte
 // 문(DoorStates)과 같은 "방장만 쓴다" 방식이다. 재료·상자에는 PhotonView가 없다(최적화, §5.2).
 public sealed class EscapeState
 {
-    public const byte FormatVersion = 2; // 2: 완성·출발 시각, 탑승 대기(EscapeVisualPlan.md §4)
+    public const byte FormatVersion = 3; // 2: 완성·출발 시각, 탑승 대기(EscapeVisualPlan.md §4) / 3: 칸 자리 번호, 훔침 표시 삭제(2026-10-03)
 
     public struct Item
     {
@@ -26,7 +26,6 @@ public sealed class EscapeState
         public int B;
         public Vector3 Pos;
         public int Charges;
-        public bool StolenFromDevice; // 장치에서 훔친 재료(로켓에 끼울 때 알림, D40)
     }
 
     public struct Chest
@@ -43,6 +42,7 @@ public sealed class EscapeState
         public bool Prefilled; // 처음부터 채워진 칸(필요 없는 칸) — 표시만 하고 셈에서 뺀다
         public int ItemIndex;  // 끼워진 아이템(-1 = 비어 있음). 로켓 칸은 쓰지 않는다
         public bool RocketFilled;
+        public int Anchor;     // 모델의 칸 자리 번호(Slot_nn). 칸 모드는 일부 자리만 쓰므로 칸 번호와 다를 수 있다
 
         public bool Filled => Prefilled || ItemIndex >= 0 || RocketFilled;
         public bool Allows(string itemId) => Accepts != null && System.Array.IndexOf(Accepts, itemId) >= 0;
@@ -120,7 +120,6 @@ public sealed class EscapeState
                 w.Write(it.B);
                 w.Write(it.Pos.x); w.Write(it.Pos.y); w.Write(it.Pos.z);
                 w.Write((byte)Mathf.Clamp(it.Charges, 0, 255));
-                w.Write(it.StolenFromDevice);
             }
             w.Write(Chests.Count);
             foreach (Chest c in Chests)
@@ -162,7 +161,6 @@ public sealed class EscapeState
                         B = r.ReadInt32(),
                         Pos = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
                         Charges = r.ReadByte(),
-                        StolenFromDevice = r.ReadBoolean(),
                     });
                 }
                 int chests = r.ReadInt32();
@@ -199,6 +197,7 @@ public sealed class EscapeState
             w.Write(s.Prefilled);
             w.Write(s.ItemIndex);
             w.Write(s.RocketFilled);
+            w.Write((byte)Mathf.Clamp(s.Anchor, 0, 255));
         }
     }
 
@@ -214,6 +213,7 @@ public sealed class EscapeState
             s.Prefilled = r.ReadBoolean();
             s.ItemIndex = r.ReadInt32();
             s.RocketFilled = r.ReadBoolean();
+            s.Anchor = r.ReadByte();
             slots.Add(s);
         }
     }

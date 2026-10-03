@@ -131,6 +131,7 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
         groundDetector = new CharacterGroundDetector(groundLayer, GroundCheckDistance);
         stun = gameObject.AddComponent<StunReceiver>();
         stun.Init(5.2f);
+        gameObject.AddComponent<MonsterAudio>().Init(this); // 괴물 소리(SoundPlan.md S4)
         if (EscapeManager.IsActive) gameObject.AddComponent<MonsterEscapeState>().Init(this);
         if (!pv.IsMine) return;
 
@@ -410,14 +411,20 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
         ChangeState(MonsterMoveState.GrabKill);
     }
 
+    // 상태가 바뀔 때(이전, 새) — 괴물 소리(MonsterAudio). 본인·원격 모두 이 경로로 상태가 바뀐다.
+    public event System.Action<MonsterMoveState, MonsterMoveState> StateChanged;
+    public MonsterMoveState CurrentMoveState => currentState;
+
     private void ChangeState(MonsterMoveState newState)
     {
         if (animator == null || previousState == newState) return;
 
         animator.ResetTrigger(previousState.ToString());
         animator.SetTrigger(newState.ToString());
+        MonsterMoveState old = previousState;
         previousState = newState;
         currentState = newState;
+        StateChanged?.Invoke(old, newState);
     }
 
     public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)

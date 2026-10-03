@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -323,5 +324,77 @@ public class AudioTests
         {
             for (int i = 0; i < all.Length; i++) AudioVolumeSettings.Set(all[i], saved[i]);
         }
+    }
+
+    // S4(캐릭터·색칠·대기실) 소리는 클립이 있고, 본인만 듣는 소리는 2D다(SoundPlan.md S4).
+    [Test]
+    public void S4Sounds_HaveClips_AndRightSpace()
+    {
+        var catalog = Resources.Load<SoundCatalogSO>(SoundCatalogSO.ResourcePath);
+        SoundId[] world = { SoundId.CookieStep, SoundId.CookieJump, SoundId.CookieLand, SoundId.CookieDodge, SoundId.CookieGrab, SoundId.CookieRelease,
+            SoundId.CookieCrumble, SoundId.MonsterStep, SoundId.MonsterDash, SoundId.MonsterGrab, SoundId.MonsterSquash, SoundId.StunStars,
+            SoundId.Respawn, SoundId.DoorOpen, SoundId.DoorClose, SoundId.CauldronBubble, SoundId.CauldronSplash };
+        SoundId[] flat = { SoundId.MonsterAimLock, SoundId.PaintStroke, SoundId.PaintSlotRegistered, SoundId.PaintForceFill, SoundId.MonsterDeparted };
+        foreach (SoundId id in world.Concat(flat))
+        {
+            Assert.IsTrue(catalog.TryGet(id, out SoundCatalogSO.Entry e), id.ToString());
+            Assert.IsTrue(e.HasClip, $"{id} has a clip");
+            Assert.AreEqual(world.Contains(id) ? SoundSpace.World3D : SoundSpace.Flat2D, e.space, id.ToString());
+        }
+        Assert.IsTrue(catalog.TryGet(SoundId.CookieStep, out SoundCatalogSO.Entry step) && step.clips.Length >= 3, "Footsteps have variations.");
+    }
+
+    // S5(탈출 모드·도구) 소리는 클립이 있고, 본인만 듣는 소리는 2D다(SoundPlan.md S5).
+    [Test]
+    public void S5Sounds_HaveClips_AndRightSpace()
+    {
+        var catalog = Resources.Load<SoundCatalogSO>(SoundCatalogSO.ResourcePath);
+        SoundId[] world = { SoundId.ChestOpen, SoundId.ChestRespawn, SoundId.ItemPickup, SoundId.ItemDrop, SoundId.DeviceInsert, SoundId.DeviceComplete,
+            SoundId.BoardHop, SoundId.RocketInsert, SoundId.RocketHatch, SoundId.StunFire, SoundId.StunHit, SoundId.BalloonThrow, SoundId.BalloonSplash,
+            SoundId.HammerSwing, SoundId.HammerBonk };
+        SoundId[] flat = { SoundId.HeartBeat, SoundId.EscapeSuccessSelf, SoundId.StunAimHum };
+        foreach (SoundId id in world.Concat(flat))
+        {
+            Assert.IsTrue(catalog.TryGet(id, out SoundCatalogSO.Entry e), id.ToString());
+            Assert.IsTrue(e.HasClip, $"{id} has a clip");
+            Assert.AreEqual(world.Contains(id) ? SoundSpace.World3D : SoundSpace.Flat2D, e.space, id.ToString());
+        }
+        Assert.AreEqual(SoundId.HammerSwing, ToolUser.UseSound(ToolKind.Hammer));
+        Assert.AreEqual(SoundId.StunFire, ToolUser.UseSound(ToolKind.StunGun));
+        Assert.AreEqual(SoundId.BalloonThrow, ToolUser.UseSound(ToolKind.WaterBalloon));
+    }
+
+    // S6 맵 연출 소리: 경계를 지나는 프레임에 한 번, 늦게 들어왔거나 잠시 끊겨 이미 지난 경계는 0번(SoundPlan.md §6).
+    [Test]
+    public void SequenceCue_FiresOnceAtBoundary_NotWhenLate()
+    {
+        Assert.IsTrue(EscapeSequence.ShouldCue(0f, -1f, 0.02f), "completion frame");
+        Assert.IsTrue(EscapeSequence.ShouldCue(2f, 1.98f, 2.01f), "crossing");
+        Assert.IsFalse(EscapeSequence.ShouldCue(2f, 2.01f, 2.03f), "already crossed last frame");
+        Assert.IsFalse(EscapeSequence.ShouldCue(2f, 1.5f, 1.9f), "not yet");
+        Assert.IsFalse(EscapeSequence.ShouldCue(2f, -1f, 30f), "late join");
+        Assert.IsFalse(EscapeSequence.ShouldCue(2f, 1.9f, 2f + EscapeSequence.CueLateTolerance + 0.1f), "long hitch");
+        int fired = 0;
+        float before = -1f;
+        for (float t = 0f; t < 8f; t += 1f / 30f) { if (EscapeSequence.ShouldCue(3f, before, t)) fired++; before = t; }
+        Assert.AreEqual(1, fired, "one frame-by-frame pass fires once");
+    }
+
+    // S6(맵 연출·로켓·마녀) 소리는 클립이 있고, 연출은 3D, 마녀는 2D다.
+    [Test]
+    public void S6Sounds_HaveClips_AndRightSpace()
+    {
+        var catalog = Resources.Load<SoundCatalogSO>(SoundCatalogSO.ResourcePath);
+        var world = new List<SoundId> { SoundId.BoardSuck, SoundId.RocketIgnite, SoundId.RocketLiftoff };
+        foreach (SoundId id in Enum.GetValues(typeof(SoundId))) if ((int)id / 100 == 7) world.Add(id);
+        SoundId[] flat = { SoundId.WitchAppear, SoundId.WitchSlam };
+        foreach (SoundId id in world.Concat(flat))
+        {
+            Assert.IsTrue(catalog.TryGet(id, out SoundCatalogSO.Entry e), id.ToString());
+            Assert.IsTrue(e.HasClip, $"{id} has a clip");
+            Assert.AreEqual(world.Contains(id) ? SoundSpace.World3D : SoundSpace.Flat2D, e.space, id.ToString());
+        }
+        Assert.IsTrue(catalog.TryGet(SoundId.LanternFlicker, out SoundCatalogSO.Entry lantern));
+        Assert.LessOrEqual(lantern.maxDistance, 15f, "lantern crackle is heard only nearby");
     }
 }

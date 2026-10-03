@@ -12,6 +12,7 @@ class G:
     def __init__(self):
         self.bm = bmesh.new()
         self.mats = []
+        self.keep_winding = set()   # faces whose winding is deliberate (inward rooms, double-sided jambs) — mesh() won't flip them
 
     def mi(self, mat):
         if mat not in self.mats:
@@ -149,7 +150,7 @@ class G:
         for f in self.bm.faces:
             f.smooth = True
         self.bm.normal_update()
-        bmesh.ops.recalc_face_normals(self.bm, faces=self.bm.faces[:])
+        bmesh.ops.recalc_face_normals(self.bm, faces=[f for f in self.bm.faces if f not in self.keep_winding])
         self.bm.to_mesh(me)
         self.bm.free()
         for mt in self.mats:

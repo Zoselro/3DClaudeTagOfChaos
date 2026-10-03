@@ -8,7 +8,7 @@ using UnityEngine;
 // 탈출 모드 규칙 검증(EscapePlan.md §6). 규칙은 네트워크 없이 순수 계산만, 맵 배치는 씬을 열어 검사한다(§4.6).
 public class EscapeTests
 {
-    // §1.1 인원표: 총 인원 → 괴물·스파이, 쿠키(= 필요 재료) = 총 − 괴물 − 스파이
+    // §1.1 인원표: 총 인원 → 괴물(인원에 따라 늘어남)·스파이(5명부터 늘 1명), 쿠키(= 필요 재료) = 총 − 괴물 − 스파이
     [TestCase(4, 1, 0, 3)]
     [TestCase(5, 1, 1, 3)]
     [TestCase(6, 1, 1, 4)]
@@ -22,9 +22,26 @@ public class EscapeTests
         Assert.AreEqual(cookies, players - s.MonsterCountFor(players) - s.SpyCountFor(players));
     }
 
+    // 스파이는 인원이 늘어도 늘지 않는다 — 늘어나는 것은 괴물(2026-10-03)
+    [Test]
+    public void RoleTable_SpyIsAlwaysOne_MonstersGrow()
+    {
+        GameSettingsSO s = GameSettings.Current;
+        int lastMonsters = 0;
+        for (int players = 4; players <= 8; players++)
+        {
+            Assert.LessOrEqual(s.SpyCountFor(players), 1, $"{players} players: at most one spy.");
+            Assert.AreEqual(players >= s.SpyMinPlayers ? 1 : 0, s.SpyCountFor(players), $"{players} players");
+            Assert.GreaterOrEqual(s.MonsterCountFor(players), lastMonsters, "Monsters never shrink as players grow.");
+            Assert.GreaterOrEqual(players - s.MonsterCountFor(players) - s.SpyCountFor(players), 1, "At least one cookie.");
+            lastMonsters = s.MonsterCountFor(players);
+        }
+        Assert.AreEqual(5, s.MaxCookieCount);
+    }
+
     private static EscapeRecipeSO Recipe(string map) => EscapeCatalogSO.Current.RecipeFor(map);
 
-    // §1.6 칸 모드: 필요 칸 = N, 고정 칸은 항상 필요, 나머지 칸은 채워진 상태로 시작
+    // §1.6 칸 모드: 필요 칸 = N, 고정 칸은 항상 필요, 나머지 칸은 채워진 상태로 시작(최대 수 제한 없이 부를 때 = 모든 자리)
     [TestCase("CursedCandyCarnival", 3)]
     [TestCase("CursedCandyCarnival", 5)]
     [TestCase("HauntedBakery", 4)]
@@ -37,13 +54,20 @@ public class EscapeTests
         {
             List<RecipePlanner.PlannedSlot> slots = RecipePlanner.Plan(recipe, cookies, new System.Random(seed));
             Assert.AreEqual(cookies, slots.Count(s => s.Required), $"{map} seed {seed}");
-            int index = 0;
-            foreach (EscapeRecipeSO.SlotGroup g in recipe.Groups)
-            {
-                for (int k = 0; k < g.fixedRequired; k++) Assert.IsTrue(slots[index + k].Required, $"{map} fixed {g.item.ItemId}");
-                index += g.slotCount;
-            }
+            foreach (int anchor in FixedAnchors(recipe)) Assert.IsTrue(slots.Single(s => s.Anchor == anchor).Required, $"{map} fixed slot {anchor}");
         }
+    }
+
+    private static List<int> FixedAnchors(EscapeRecipeSO recipe)
+    {
+        var list = new List<int>();
+        int index = 0;
+        foreach (EscapeRecipeSO.SlotGroup g in recipe.Groups)
+        {
+            for (int k = 0; k < g.fixedRequired; k++) list.Add(index + k);
+            index += g.slotCount;
+        }
+        return list;
     }
 
     [Test]
@@ -55,42 +79,63 @@ public class EscapeTests
         Assert.IsTrue(slots.All(s => s.Required && s.Accepts.Length == recipe.CounterItems.Length));
     }
 
-    // 2026-10-03: 진저브레드 룬은 늘 최대 칸 수, (최대 − 필요)개는 채워진 채 시작한다.
-    [TestCase(3)]
-    [TestCase(4)]
-    [TestCase(5)]
-    public void Planner_CounterFillsCapacity_PrefillsSpareSlots(int required)
+    // 2026-10-03: 모든 맵이 늘 최대 칸 수(인원표의 최대 쿠키 수)만 쓰고, (최대 − 필요)개는 채워진 채 시작한다.
+    // 칸 모드는 모델의 칸 자리(8개) 중 고정 칸 + 무작위 자리로 최대 수만큼만 쓴다(Request1003bPlan.md §1, D1 = A).
+    [TestCase("GingerbreadVillage", 3)]
+    [TestCase("GingerbreadVillage", 5)]
+    [TestCase("CandyForest", 2)]
+    [TestCase("CandyForest", 4)]
+    [TestCase("CursedCandyCarnival", 2)]
+    [TestCase("CursedCandyCarnival", 5)]
+    [TestCase("HauntedBakery", 3)]
+    [TestCase("ChocolateFactory", 4)]
+    public void Planner_FillsCapacity_PrefillsSpareSlots(string map, int required)
     {
-        EscapeRecipeSO recipe = Recipe("GingerbreadVillage");
-        Assert.IsTrue(recipe.CounterFillsCapacity, "Gingerbread runes fill to capacity.");
+        EscapeRecipeSO recipe = Recipe(map);
+        Assert.IsTrue(recipe.FillsCapacity, $"{map} fills to capacity.");
         int capacity = GameSettings.Current.MaxCookieCount;
         Assert.AreEqual(5, capacity, "role table: 8 players - 2 monsters - 1 spy");
-        for (int seed = 0; seed < 20; seed++)
+        var anchorsSeen = new HashSet<int>();
+        for (int seed = 0; seed < 40; seed++)
         {
             List<RecipePlanner.PlannedSlot> slots = RecipePlanner.Plan(recipe, required, new System.Random(seed), capacity);
-            Assert.AreEqual(capacity, slots.Count);
+            Assert.AreEqual(capacity, slots.Count, $"{map} seed {seed}: always the max slot count");
             Assert.AreEqual(required, slots.Count(s => s.Required));
-            Assert.IsTrue(slots.Where(s => s.Required).All(s => s.Accepts.Length == recipe.CounterItems.Length), "needed slots accept any rune");
-            Assert.IsTrue(slots.Where(s => !s.Required).All(s => s.Accepts.Length == 1), "prefilled slots show one rune");
+            Assert.AreEqual(slots.Count, slots.Select(s => s.Anchor).Distinct().Count(), "each slot has its own model anchor");
+            if (recipe.Mode == RecipeMode.Counter)
+            {
+                Assert.IsTrue(slots.Where(s => s.Required).All(s => s.Accepts.Length == recipe.CounterItems.Length), "needed slots accept any color");
+                Assert.IsTrue(slots.Where(s => !s.Required).All(s => s.Accepts.Length == 1), "prefilled slots show one color");
+            }
+            else
+            {
+                foreach (int anchor in FixedAnchors(recipe)) Assert.IsTrue(slots.Any(s => s.Anchor == anchor && s.Required), $"{map}: fixed slot {anchor} is always needed");
+                foreach (RecipePlanner.PlannedSlot s in slots) anchorsSeen.Add(s.Anchor);
+            }
         }
+        if (recipe.Mode == RecipeMode.Slots)
+            Assert.Greater(anchorsSeen.Count, capacity, $"{map}: which anchors are used changes from game to game");
     }
 
-    // 다른 개수 모드(캔디숲)는 그대로 필요한 수만큼만.
+    // 스파이 훔침 알림(Request1003bPlan.md §2): 정한 시각 전에는 기다리고, 그때 재료가 다시 장치에 있으면 취소한다.
     [Test]
-    public void Planner_CounterWithoutFlag_IgnoresCapacity()
+    public void StolenNotice_WaitsThenShows_CancelsWhenPutBack()
     {
-        EscapeRecipeSO recipe = Recipe("CandyForest");
-        Assert.IsFalse(recipe.CounterFillsCapacity);
-        Assert.AreEqual(3, RecipePlanner.Plan(recipe, 3, new System.Random(1), 5).Count);
+        var n = new StolenNotice { ItemId = "Seatbelt", ItemIndex = 3, ShowAt = 100.0 };
+        Assert.AreEqual(StolenNotice.Decision.Wait, n.Decide(99.9, ItemLocation.Held));
+        Assert.AreEqual(StolenNotice.Decision.Show, n.Decide(100.0, ItemLocation.Held));
+        Assert.AreEqual(StolenNotice.Decision.Show, n.Decide(101.0, ItemLocation.Chest), "Put in the rocket (respawned in a chest) still shows.");
+        Assert.AreEqual(StolenNotice.Decision.Cancel, n.Decide(101.0, ItemLocation.Device), "Put back into the escape device → no notice.");
+        Assert.GreaterOrEqual(GameSettings.Current.StealNoticeDelaySeconds, 0f);
     }
 
     [Test]
     public void State_EncodeDecode_RoundTrips()
     {
         var s = new EscapeState { RequiredCount = 3 };
-        s.Items.Add(new EscapeState.Item { Id = "Gear", Loc = ItemLocation.Held, A = 2, B = 1, Pos = new Vector3(1, 2, 3), Charges = 3, StolenFromDevice = true });
+        s.Items.Add(new EscapeState.Item { Id = "Gear", Loc = ItemLocation.Held, A = 2, B = 1, Pos = new Vector3(1, 2, 3), Charges = 3 });
         s.Chests.Add(new EscapeState.Chest { Anchor = 7, Spy = true, Opened = true });
-        s.DeviceSlots.Add(new EscapeState.Slot { Label = "Gear", Accepts = new[] { "Gear" }, Prefilled = false, ItemIndex = 0 });
+        s.DeviceSlots.Add(new EscapeState.Slot { Label = "Gear", Accepts = new[] { "Gear" }, Prefilled = false, ItemIndex = 0, Anchor = 6 });
         s.RocketSlots.Add(new EscapeState.Slot { Label = "Oil", Accepts = new[] { "ChocolateOil" }, RocketFilled = true, ItemIndex = -1 });
         s.Escaped.Add(5);
         s.Boarded.Add(6);
@@ -101,7 +146,7 @@ public class EscapeTests
         Assert.AreEqual("Gear", d.Items[0].Id);
         Assert.AreEqual(ItemLocation.Held, d.Items[0].Loc);
         Assert.AreEqual(1, d.Items[0].B);
-        Assert.IsTrue(d.Items[0].StolenFromDevice);
+        Assert.AreEqual(6, d.DeviceSlots[0].Anchor);
         Assert.AreEqual(7, d.Chests[0].Anchor);
         Assert.IsTrue(d.Chests[0].Spy && d.Chests[0].Opened);
         Assert.IsTrue(d.DeviceSlots[0].Filled && d.RocketSlots[0].Filled);

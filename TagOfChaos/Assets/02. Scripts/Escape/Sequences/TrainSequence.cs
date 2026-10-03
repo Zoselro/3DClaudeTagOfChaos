@@ -72,6 +72,17 @@ public class TrainSequence : EscapeSequence
         lamp.color = new Color(1f, 0.85f, 0.55f);
         lamp.range = 14f;
         lamp.intensity = 0f;
+
+        // 소리(SoundPlan.md S6): 시동 칙칙(점점 빨라짐) / 출발: 기적 → 칙칙폭폭 가속(기관차를 따라감) → 기관차가 터널에 들어가는 순간 울림
+        Transform loco = cars.Count > 0 ? cars[0] : null;
+        AddCue(SoundId.TrainPuff, CueClock.Completed, 0f, smokePoint);
+        AddCue(SoundId.TrainWhistle, CueClock.Departed, 0f, whistle);
+        AddCue(SoundId.TrainChug, CueClock.Departed, WhistleSeconds, loco);
+        if (loco != null && tunnel != null && portal > carHome[0].z)
+        {
+            float tunnelAt = WhistleSeconds + Mathf.Sqrt(2f * (portal - carHome[0].z) / Acceleration);
+            if (tunnelAt < DepartureSeconds) AddCue(SoundId.TrainTunnel, CueClock.Departed, tunnelAt, tunnel);
+        }
     }
 
     public override void Tick(EscapeState state, double now)

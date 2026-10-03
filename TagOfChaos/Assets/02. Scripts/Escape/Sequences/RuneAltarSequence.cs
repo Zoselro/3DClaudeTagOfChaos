@@ -16,12 +16,15 @@ public class RuneAltarSequence : EscapeSequence
     private const float CloseSeconds = 1.2f;
     private const float HueSpeed = 0.35f;        // 무지개가 한 바퀴 도는 빠르기(초당)
     private const float FloatScale = 0.55f;
+    private const float FlickerSoundGap = 3f;    // 등불 하나가 지직거리는 소리의 최소 간격(초)
 
     private Transform ring, swirl, mouth;
     private Renderer[] glowRenderers = new Renderer[0];
     private Renderer[] portalRenderers = new Renderer[0];
     private readonly List<Light> lanterns = new List<Light>();
     private readonly List<float> lanternSeed = new List<float>();
+    private readonly List<bool> lanternDim = new List<bool>();
+    private readonly List<float> lanternSoundAt = new List<float>();
     private readonly List<Transform> floats = new List<Transform>();
     private readonly List<GameObject> floating = new List<GameObject>();
     private readonly List<float> floatReadyAt = new List<float>();
@@ -32,6 +35,7 @@ public class RuneAltarSequence : EscapeSequence
     public override float BoardReadySeconds => GlowSeconds + PortalOpenSeconds + 0.2f;
     public override float DepartureSeconds => FlashSeconds + CloseSeconds + 0.4f;
     public override Transform DepartureFocus => mouth != null ? mouth : BoardPoint;
+    public override SoundId BoardSound => SoundId.BoardSuck;
 
     private void Awake()
     {
@@ -57,6 +61,8 @@ public class RuneAltarSequence : EscapeSequence
             light.intensity = 1.6f;
             lanterns.Add(light);
             lanternSeed.Add(i * 1.7f);
+            lanternDim.Add(false);
+            lanternSoundAt.Add(0f);
         }
         // 돌 유적의 은은한 푸른 채움 빛(2026-10-03) — 깜빡이지 않는다. 길과 돌 색이 보일 만큼만.
         for (int i = 0; ; i++)
@@ -82,6 +88,13 @@ public class RuneAltarSequence : EscapeSequence
         altarLight.transform.position = mouth.position;
         altarLight.type = LightType.Point;
         altarLight.range = 22f;
+
+        // 소리(SoundPlan.md S6): 완성되면 제단이 울리기 시작(출발 끝까지 반복) + 빛나는 소리 → 포탈 열림 / 출발: 번쩍 → 닫힘
+        AddLoop(SoundId.AltarHum, (c, d) => c >= 0f && d < DepartureSeconds, mouth);
+        AddCue(SoundId.AltarGlow, CueClock.Completed, 0f, mouth);
+        AddCue(SoundId.PortalOpen, CueClock.Completed, GlowSeconds, mouth);
+        AddCue(SoundId.PortalFlash, CueClock.Departed, 0f, mouth);
+        AddCue(SoundId.PortalClose, CueClock.Departed, FlashSeconds, mouth);
     }
 
     public override void Tick(EscapeState state, double now)
@@ -93,7 +106,14 @@ public class RuneAltarSequence : EscapeSequence
         for (int i = 0; i < lanterns.Count; i++)
         {
             float n = Mathf.PerlinNoise(Time.time * 3f + lanternSeed[i], lanternSeed[i]);
-            lanterns[i].intensity = n < 0.25f ? 0.3f : 1.2f + n;
+            bool dim = n < 0.25f;
+            lanterns[i].intensity = dim ? 0.3f : 1.2f + n;
+            if (dim && !lanternDim[i] && Time.time >= lanternSoundAt[i])
+            {
+                lanternSoundAt[i] = Time.time + FlickerSoundGap;
+                GameAudio.PlayAt(SoundId.LanternFlicker, lanterns[i].transform.position); // 꺼질 듯 지직(가까이서만)
+            }
+            lanternDim[i] = dim;
         }
 
         // 제단 빛: 평소 희미한 보라 → 완성되면 무지개빛으로 밝아짐

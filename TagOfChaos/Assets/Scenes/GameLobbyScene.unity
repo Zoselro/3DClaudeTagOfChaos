@@ -16904,6 +16904,11 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 1331827098797998682, guid: c8e0fd40b4c64ce4b8f0b9eae85a4e70, type: 3}
+      propertyPath: selectingMonstersFormat
+      value: "\uC220\uB798 {0}\uBA85 \uC120\uC815 \uC911 ({1}/{0}) \u2014 \uAC00\uB9C8\uC1A5\uC5D0
+        {2}\uBA85 \uB354 \uB4E4\uC5B4\uAC00\uC138\uC694"
+      objectReference: {fileID: 0}
     - target: {fileID: 2902768698410604447, guid: c8e0fd40b4c64ce4b8f0b9eae85a4e70, type: 3}
       propertyPath: m_Name
       value: GameLobbyPanel

@@ -33,6 +33,7 @@ public class OvenSequence : EscapeSequence
     public override float BoardReadySeconds => WarmupSeconds + DoorSeconds + 0.2f;
     public override float DepartureSeconds => FlashAt + FlashSeconds + 0.6f;
     public override Transform DepartureFocus => mouth != null ? mouth : BoardPoint;
+    public override SoundId BoardSound => SoundId.BoardSuck;
 
     private void Awake()
     {
@@ -55,6 +56,13 @@ public class OvenSequence : EscapeSequence
         glow.type = LightType.Point;
         glow.range = 30f;
         glow.intensity = 0f;
+
+        // 소리(SoundPlan.md S6): 기계가 도는 동안 톱니 반복음, 시동 때 피스톤 칙, 문 구르는 소리(열림·닫힘), 출발 때 번쩍
+        AddLoop(SoundId.OvenGears, (c, d) => c >= 0f && d < DepartureSeconds, gearA);
+        AddCue(SoundId.OvenPiston, CueClock.Completed, 0f, piston);
+        AddCue(SoundId.OvenDoorRoll, CueClock.Completed, WarmupSeconds, doorPivot);
+        AddCue(SoundId.OvenDoorRoll, CueClock.Departed, 0f, doorPivot);
+        AddCue(SoundId.OvenFlash, CueClock.Departed, FlashAt, mouth);
     }
 
     // 문은 경첩이 원점인 맵 물체다. 굴러가게 하려고 둥근 문 한가운데에 축(피벗)을 만들어 그 아래로 옮긴다.

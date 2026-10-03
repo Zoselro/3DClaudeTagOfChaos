@@ -38,6 +38,8 @@ public class CauldronSplash : MonoBehaviour
         }
         GetComponent<Collider>().isTrigger = true;
         enabled = false;
+        // 가마솥이 끓는 소리(가까이 가면 들리는 3D 반복음, SoundPlan.md S4). 이 컴포넌트는 꺼 두므로 별도 컴포넌트가 낸다.
+        if (GetComponent<AmbientEmitter>() == null) gameObject.AddComponent<AmbientEmitter>().Configure(SoundId.CauldronBubble);
     }
 
     private void OnTriggerEnter(Collider other)
@@ -47,6 +49,7 @@ public class CauldronSplash : MonoBehaviour
         if (other.transform.IsChildOf(animator.transform)) return;   // 가마솥 자신의 부품 제외
 
         nextAllowedTime = Time.time + cooldown;
+        GameAudio.PlayAt(SoundId.CauldronSplash, transform.position); // 풍덩(SoundPlan.md S4)
         if (splashLayer >= 0) animator.SetLayerWeight(splashLayer, 1f);
         animator.SetTrigger(splashHash);
         splashStarted = false;
