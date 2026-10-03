@@ -27,6 +27,10 @@ public class SoundCatalogSO : ScriptableObject
         public SoundBus bus = SoundBus.Sfx;
         [Tooltip("3D: 이 거리에서 들리지 않게 된다(m)")]
         [Min(1f)] public float maxDistance = 15f;
+        [Tooltip("3D: 이 거리 안에서는 꽉 찬 음량(m)")]
+        [Min(0.1f)] public float minDistance = 1.5f;
+        [Tooltip("3D: 거리에 따라 줄어드는 모양(DistanceFadePlan.md §2.2)")]
+        public SoundFalloff falloff = SoundFalloff.Action;
         [Tooltip("같은 소리를 다시 낼 수 있는 최소 간격(초)")]
         [Min(0f)] public float cooldown = 0.05f;
         [Tooltip("같은 소리가 동시에 재생될 수 있는 수")]

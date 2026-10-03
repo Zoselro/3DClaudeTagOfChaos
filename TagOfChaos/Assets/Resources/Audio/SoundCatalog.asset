@@ -21,6 +21,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -32,6 +34,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -43,6 +47,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -54,6 +60,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -65,6 +73,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -76,6 +86,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -87,6 +99,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -98,6 +112,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -109,6 +125,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -120,6 +138,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -131,6 +151,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -142,6 +164,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -153,6 +177,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -164,6 +190,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -175,6 +203,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -185,6 +215,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 12
+    minDistance: 1.5
+    falloff: 0
     cooldown: 0
     maxInstances: 8
     importance: 0
@@ -196,6 +228,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 12
+    minDistance: 1.5
+    falloff: 0
     cooldown: 0
     maxInstances: 8
     importance: 0
@@ -206,6 +240,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 12
+    minDistance: 1.5
+    falloff: 0
     cooldown: 0
     maxInstances: 8
     importance: 0
@@ -216,6 +252,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 12
+    minDistance: 1.5
+    falloff: 0
     cooldown: 0
     maxInstances: 8
     importance: 0
@@ -226,6 +264,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -236,6 +276,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -246,6 +288,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -256,6 +300,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 30
+    minDistance: 3
+    falloff: 1
     cooldown: 0
     maxInstances: 4
     importance: 2
@@ -265,7 +311,9 @@ MonoBehaviour:
     pitchRange: {x: 0.95, y: 1.05}
     space: 1
     bus: 1
-    maxDistance: 30
+    maxDistance: 35
+    minDistance: 4
+    falloff: 1
     cooldown: 0
     maxInstances: 4
     importance: 2
@@ -275,7 +323,9 @@ MonoBehaviour:
     pitchRange: {x: 0.95, y: 1.05}
     space: 1
     bus: 1
-    maxDistance: 30
+    maxDistance: 35
+    minDistance: 4
+    falloff: 1
     cooldown: 0
     maxInstances: 4
     importance: 2
@@ -285,7 +335,9 @@ MonoBehaviour:
     pitchRange: {x: 0.95, y: 1.05}
     space: 1
     bus: 1
-    maxDistance: 30
+    maxDistance: 35
+    minDistance: 4
+    falloff: 1
     cooldown: 0
     maxInstances: 4
     importance: 2
@@ -296,6 +348,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -306,6 +360,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -316,6 +372,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -326,6 +384,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -336,6 +396,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -346,6 +408,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -356,6 +420,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -366,6 +432,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 1
@@ -377,6 +445,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 1
@@ -387,6 +457,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 1
@@ -398,6 +470,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 1
@@ -409,6 +483,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 1
@@ -419,6 +495,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 2
     importance: 1
@@ -429,6 +507,8 @@ MonoBehaviour:
     space: 1
     bus: 3
     maxDistance: 15
+    minDistance: 3
+    falloff: 3
     cooldown: 0.05
     maxInstances: 1
     importance: 1
@@ -439,6 +519,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 3
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -449,6 +531,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -459,6 +543,8 @@ MonoBehaviour:
     space: 0
     bus: 2
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -470,6 +556,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -480,6 +568,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -490,6 +580,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -500,6 +592,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -510,6 +604,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -520,6 +616,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -530,6 +628,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -540,6 +640,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -550,6 +652,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -560,6 +664,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -570,6 +676,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -580,6 +688,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -590,6 +700,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 1
     importance: 3
@@ -600,6 +712,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 1
     importance: 3
@@ -610,6 +724,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 1
     importance: 3
@@ -620,6 +736,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 1
     importance: 3
@@ -630,6 +748,8 @@ MonoBehaviour:
     space: 0
     bus: 1
     maxDistance: 20
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 1
     importance: 1
@@ -639,7 +759,9 @@ MonoBehaviour:
     pitchRange: {x: 0.95, y: 1.05}
     space: 1
     bus: 1
-    maxDistance: 20
+    maxDistance: 25
+    minDistance: 2
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -650,6 +772,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 20
+    minDistance: 2
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -659,7 +783,9 @@ MonoBehaviour:
     pitchRange: {x: 0.95, y: 1.05}
     space: 1
     bus: 1
-    maxDistance: 20
+    maxDistance: 15
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -669,7 +795,9 @@ MonoBehaviour:
     pitchRange: {x: 0.95, y: 1.05}
     space: 1
     bus: 1
-    maxDistance: 20
+    maxDistance: 22
+    minDistance: 2
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -679,7 +807,9 @@ MonoBehaviour:
     pitchRange: {x: 0.95, y: 1.05}
     space: 1
     bus: 1
-    maxDistance: 20
+    maxDistance: 12
+    minDistance: 1.5
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -690,6 +820,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 20
+    minDistance: 2
+    falloff: 2
     cooldown: 0.05
     maxInstances: 4
     importance: 1
@@ -700,6 +832,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -710,6 +844,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -720,6 +856,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -730,6 +868,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -740,6 +880,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -750,6 +892,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -760,6 +904,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -770,6 +916,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -780,6 +928,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -790,6 +940,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -800,6 +952,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -810,6 +964,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -820,6 +976,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -830,6 +988,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -840,6 +1000,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -850,6 +1012,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -860,6 +1024,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -870,6 +1036,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -880,6 +1048,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -890,6 +1060,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -900,6 +1072,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -910,6 +1084,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -920,6 +1096,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -930,6 +1108,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -940,6 +1120,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 60
+    minDistance: 8
+    falloff: 3
     cooldown: 0.05
     maxInstances: 2
     importance: 2
@@ -950,6 +1132,8 @@ MonoBehaviour:
     space: 1
     bus: 3
     maxDistance: 40
+    minDistance: 6
+    falloff: 3
     cooldown: 0
     maxInstances: 2
     importance: 1
@@ -960,6 +1144,8 @@ MonoBehaviour:
     space: 1
     bus: 3
     maxDistance: 40
+    minDistance: 6
+    falloff: 3
     cooldown: 0
     maxInstances: 2
     importance: 1
@@ -971,6 +1157,8 @@ MonoBehaviour:
     space: 1
     bus: 3
     maxDistance: 28
+    minDistance: 6
+    falloff: 3
     cooldown: 0
     maxInstances: 4
     importance: 1
@@ -981,6 +1169,8 @@ MonoBehaviour:
     space: 1
     bus: 3
     maxDistance: 40
+    minDistance: 6
+    falloff: 3
     cooldown: 0
     maxInstances: 2
     importance: 1
@@ -991,6 +1181,8 @@ MonoBehaviour:
     space: 1
     bus: 3
     maxDistance: 40
+    minDistance: 6
+    falloff: 3
     cooldown: 0
     maxInstances: 2
     importance: 1
@@ -1002,6 +1194,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 40
+    minDistance: 8
+    falloff: 3
     cooldown: 0
     maxInstances: 1
     importance: 1
@@ -1013,6 +1207,8 @@ MonoBehaviour:
     space: 1
     bus: 1
     maxDistance: 40
+    minDistance: 6
+    falloff: 3
     cooldown: 0
     maxInstances: 1
     importance: 1

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// 영역 환경음(2026-10-03, Request1003Plan.md §4): 듣는 사람(소리를 듣는 카메라)이 상자 안에 들어오면 2D 반복음을 서서히 키우고
+// 영역 환경음(2026-10-03, Request1003Plan.md §4): 듣는 위치(AudioListenerAnchor — 캐릭터 머리)가 상자 안에 들어오면 2D 반복음을 서서히 키우고
 // 배경음을 낮춘다. 나가면 반대로. 진저브레드 지하(나선 통로·터널·유적 홀)의 바람·물방울 소리에 쓴다.
 // 상자는 월드 좌표(여러 개 = 합집합). 배치는 에디터 도구(AmbientPlacer)가 한다.
 public class AmbientZone : MonoBehaviour
@@ -22,8 +22,7 @@ public class AmbientZone : MonoBehaviour
 
     private void Update()
     {
-        Camera listener = Camera.main;
-        bool inside = listener != null && Contains(listener.transform.position);
+        bool inside = Contains(AudioListenerAnchor.Position); // 듣는 위치 = 캐릭터 머리(DistanceFadePlan.md §2.1)
         float target = inside ? 1f : 0f;
         if (Mathf.Approximately(level, target) && (target == 0f || handle.IsPlaying)) return;
 

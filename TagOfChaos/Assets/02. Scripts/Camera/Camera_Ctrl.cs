@@ -37,6 +37,9 @@ public class Camera_Ctrl : MonoBehaviour
 
     public GameObject FollowTarget => m_Player;
 
+    // 카메라가 바라보는 점(따라가는 대상의 시선 높이). 소리를 듣는 위치로도 쓴다(AudioListenerAnchor, DistanceFadePlan.md §2.1).
+    public Vector3 FocusPoint => m_Player != null ? m_Player.transform.position + Vector3.up * m_TargetHeight : transform.position;
+
     public void InitCamera(GameObject player)
     {
         InitCamera(player, DefaultTargetHeight, -1f);

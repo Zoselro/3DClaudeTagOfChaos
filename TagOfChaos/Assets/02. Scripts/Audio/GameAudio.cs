@@ -28,6 +28,14 @@ public static class GameAudio
         else runtime.Play(id, true, target.position, target, false);
     }
 
+    // 캐릭터가 내는 소리(DistanceFadePlan.md §2.6): 내 캐릭터면 2D(듣는 위치가 내 머리라 3D면 좌우가 흔들린다), 남의 캐릭터면 그 몸을 따라가는 3D.
+    public static void PlayCharacter(SoundId id, IGameCharacter character)
+    {
+        if (character == null || !CharacterRegistry.IsAlive(character)) return;
+        if (character.View != null && character.View.IsMine) Play(id);
+        else PlayOn(id, character.gameObject.transform);
+    }
+
     // 반복음. 대상이 없으면 2D. 돌려받은 핸들로 멈춘다(대상이 파괴되면 저절로 멈춘다).
     public static AudioHandle StartLoop(SoundId id, Transform target)
     {

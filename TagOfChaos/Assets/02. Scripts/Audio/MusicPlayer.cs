@@ -21,6 +21,9 @@ public class MusicPlayer
     // 장소에 따른 배경음 배율(0~1) — 진저브레드 지하에 들어가면 동굴 소리가 들리게 낮춘다(AmbientZone).
     public float ZoneGain { get; set; } = 1f;
 
+    // 술래 접근 추격음이 클 때 배경음 배율(0~1, ChaseDirector) — 추격음이 묻히지 않게.
+    public float ChaseGain { get; set; } = 1f;
+
     public MusicId Current { get; private set; }
 
     public MusicPlayer(AudioSource deckA, AudioSource deckB, AudioSource stingerSource)
@@ -80,7 +83,7 @@ public class MusicPlayer
                 if (deck.isPlaying) deck.Stop();
                 continue;
             }
-            deck.volume = level[i] * entryVolume[i] * gain * duck * ZoneGain;
+            deck.volume = level[i] * entryVolume[i] * gain * duck * ZoneGain * ChaseGain;
         }
         stinger.volume = stingerVolume * gain;
     }

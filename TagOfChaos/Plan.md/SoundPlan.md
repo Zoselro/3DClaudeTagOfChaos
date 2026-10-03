@@ -293,6 +293,9 @@
 - ✅ 뒤로가기 제거(대기실·게임 화면 왼쪽 위 화살표, 방 설정 창 '뒤로' — 적용하면 저장 후 ESC 메뉴로, ESC로 닫힘). Play Mode 확인, 콘솔 0.
 - 남은 요청: 국가 설정, 진저브레드 지하 유적·룬 받침대, 지하 동굴 소리 → `Plan.md/Request1003Plan.md`(승인 대기).
 
+### S3.5 — 거리 기반 음량 감쇠 + 술래 접근 추격음 ✅ 완료(2026-10-03) → `Plan.md/DistanceFadePlan.md` §10
+- 듣는 위치를 캐릭터 머리로, 소리 종류별 감쇠 곡선 + 최소 거리, 층 감쇠, 들리지 않는 소리는 칸을 쓰지 않기, 내 소리는 2D. S4·S5는 이 위에서 값만 정한다.
+
 ### S4 — 캐릭터·색칠·대기실 소리 ⬜ (약 2시간)
 - `PlayerAnimationDriver`·`MonsterController`·`StunReceiver`·`CookieLifeStatePresenter`에 이벤트 추가, `CharacterAudio`·`PaintAudio`를 프리팹에 연결(에디터 도구).
 - 발소리: 속도·접지로 간격 계산(달리기만 — D3), 숨겨진·파괴된 쿠키는 조용.

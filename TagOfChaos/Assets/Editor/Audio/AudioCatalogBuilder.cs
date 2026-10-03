@@ -69,6 +69,25 @@ public static class AudioCatalogBuilder
         return withClips;
     }
 
+    // 이미 있는 3D 항목에 거리 감쇠 기본값(곡선·최소·최대 거리, DistanceFadePlan.md §3)을 채운다. 한 번 실행하는 정리용 —
+    // 그 뒤 에셋에서 고친 값은 다시 실행하지 않는 한 그대로 남는다.
+    [MenuItem("Tools/TagOfChaos/Audio/Apply Falloff Defaults")]
+    public static void ApplyFalloffDefaults()
+    {
+        var catalog = AssetDatabase.LoadAssetAtPath<SoundCatalogSO>(ResourcesFolder + "/SoundCatalog.asset");
+        if (catalog == null) { Debug.LogWarning("[Audio] SoundCatalog not found. Run Build Catalogs first."); return; }
+        int n = 0;
+        foreach (SoundCatalogSO.Entry e in catalog.Entries)
+        {
+            if (e == null || e.space != SoundSpace.World3D) continue;
+            SoundDefaults.ApplySpatial(e);
+            n++;
+        }
+        EditorUtility.SetDirty(catalog);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[Audio] Falloff defaults applied to {n} 3D sounds.");
+    }
+
     public static IEnumerable<SoundId> SoundIds() => ((SoundId[])Enum.GetValues(typeof(SoundId))).Where(id => id != SoundId.None);
     public static IEnumerable<MusicId> MusicIds() => ((MusicId[])Enum.GetValues(typeof(MusicId))).Where(id => id != MusicId.None);
 
@@ -193,7 +212,46 @@ public static class SoundDefaults
                 }
                 break;
         }
+        if (e.space == SoundSpace.World3D) ApplySpatial(e);
         return e;
+    }
+
+    // 3D 소리의 거리 감쇠 기본값(DistanceFadePlan.md §3, L4 — 표 그대로 시작해 플레이 후 조정).
+    public static void ApplySpatial(SoundCatalogSO.Entry e)
+    {
+        Spatial(e.id, out SoundFalloff falloff, out float min, out float max);
+        e.falloff = falloff;
+        e.minDistance = min;
+        e.maxDistance = max;
+    }
+
+    public static void Spatial(SoundId id, out SoundFalloff falloff, out float min, out float max)
+    {
+        switch (id)
+        {
+            case SoundId.CookieStep: case SoundId.CookieJump: case SoundId.CookieLand: case SoundId.CookieDodge:
+                falloff = SoundFalloff.Footstep; min = 1.5f; max = 12f; return;  // 쿠키는 작게(D3)
+            case SoundId.MonsterStep:
+                falloff = SoundFalloff.Heavy; min = 3f; max = 30f; return;       // 괴물은 크게 — 쿠키에게 경고
+            case SoundId.MonsterDash: case SoundId.MonsterGrab: case SoundId.MonsterSquash:
+                falloff = SoundFalloff.Heavy; min = 4f; max = 35f; return;
+            case SoundId.StunFire: falloff = SoundFalloff.Action; min = 2f; max = 25f; return; // 사거리(15 m)보다 넓게
+            case SoundId.StunHit: falloff = SoundFalloff.Action; min = 2f; max = 20f; return;
+            case SoundId.BalloonThrow: falloff = SoundFalloff.Action; min = 1.5f; max = 15f; return;
+            case SoundId.BalloonSplash: falloff = SoundFalloff.Action; min = 2f; max = 22f; return;
+            case SoundId.HammerSwing: falloff = SoundFalloff.Action; min = 1.5f; max = 12f; return;
+            case SoundId.HammerBonk: falloff = SoundFalloff.Action; min = 2f; max = 20f; return;
+            case SoundId.CauldronBubble: falloff = SoundFalloff.Landmark; min = 3f; max = 15f; return;
+            case SoundId.CauldronSplash: falloff = SoundFalloff.Action; min = 3f; max = 15f; return;
+            case SoundId.DeviceComplete: case SoundId.RocketIgnite: case SoundId.RocketLiftoff:
+                falloff = SoundFalloff.Landmark; min = 8f; max = 60f; return;
+            case SoundId.AmbFactory: falloff = SoundFalloff.Landmark; min = 6f; max = 28f; return;
+            case SoundId.CarouselSpin: falloff = SoundFalloff.Landmark; min = 8f; max = 40f; return;
+        }
+        int group = (int)id / 100;
+        if (group == 7) { falloff = SoundFalloff.Landmark; min = 8f; max = 60f; return; }  // 맵 연출
+        if (group == 8) { falloff = SoundFalloff.Landmark; min = 6f; max = 40f; return; }  // 환경음
+        falloff = SoundFalloff.Action; min = 1.5f; max = 15f;                               // 캐릭터·상자·아이템·설치 등
     }
 
     private static void Flat(SoundCatalogSO.Entry e, SoundBus bus)

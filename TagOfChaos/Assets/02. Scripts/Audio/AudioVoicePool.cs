@@ -1,8 +1,10 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 // 재생 칸(목소리) 배정 규칙(SoundPlan.md §2.3·§5). AudioSource와 분리한 순수 계산이라 EditMode에서 시험한다.
-// 칸은 미리 정해진 수만큼만 있고(재생마다 생성·파괴 없음), 꽉 차면 "중요도가 같거나 낮은 것 중 가장 오래된 것"을 뺏는다.
-// 모두 더 중요하면 새 소리를 버린다. 칸을 뺏거나 놓을 때마다 세대(generation)를 올려, 옛 핸들이 새 소리를 멈추지 못하게 한다.
+// 칸은 미리 정해진 수만큼만 있고(재생마다 생성·파괴 없음), 꽉 차면 "중요도가 낮은 것 → 같은 중요도면 지금 가장 작게 들리는 것
+// → 같으면 가장 오래된 것"을 뺏는다(DistanceFadePlan.md §2.5). 같은 중요도인데 새 소리가 그 칸보다 작게 들리면 새 소리를 버리고,
+// 모두 더 중요해도 버린다. 칸을 뺏거나 놓을 때마다 세대(generation)를 올려, 옛 핸들이 새 소리를 멈추지 못하게 한다.
 public class AudioVoicePool
 {
     private readonly bool[] busy;
@@ -10,6 +12,7 @@ public class AudioVoicePool
     private readonly SoundImportance[] importance;
     private readonly SoundId[] sound;
     private readonly int[] generation;
+    private readonly float[] audibility; // 지금 들리는 크기(0~1, 거리 감쇠). 2D 소리는 1
 
     public AudioVoicePool(int capacity)
     {
@@ -18,6 +21,7 @@ public class AudioVoicePool
         importance = new SoundImportance[capacity];
         sound = new SoundId[capacity];
         generation = new int[capacity];
+        audibility = new float[capacity];
     }
 
     public int Capacity => busy.Length;
@@ -25,9 +29,15 @@ public class AudioVoicePool
     public bool IsBusy(int voice) => busy[voice];
     public SoundId SoundAt(int voice) => sound[voice];
     public int GenerationOf(int voice) => generation[voice];
+    public float AudibilityOf(int voice) => audibility[voice];
+
+    // 재생 중인 칸의 들리는 크기를 갱신한다(AudioRuntime이 매 프레임).
+    public void SetAudibility(int voice, float value) => audibility[voice] = value;
+
+    public int Acquire(SoundId id, SoundImportance level, float now, out bool stolen) => Acquire(id, level, now, 1f, out stolen);
 
     // 칸 하나를 얻는다. 없으면 -1. stolen은 이미 재생 중이던 칸을 뺏었는지(호출한 쪽이 그 소리를 멈춘다).
-    public int Acquire(SoundId id, SoundImportance level, float now, out bool stolen)
+    public int Acquire(SoundId id, SoundImportance level, float now, float heard, out bool stolen)
     {
         stolen = false;
         int victim = -1;
@@ -35,19 +45,26 @@ public class AudioVoicePool
         {
             if (!busy[i]) { victim = i; break; }
             if (importance[i] > level) continue;
-            if (victim < 0 || importance[i] < importance[victim]
-                || (importance[i] == importance[victim] && startTime[i] < startTime[victim]))
-                victim = i;
+            if (victim < 0 || IsWeaker(i, victim)) victim = i;
         }
         if (victim < 0) return -1;
+        if (busy[victim] && importance[victim] == level && audibility[victim] > heard) return -1; // 더 잘 들리는 소리를 끊지 않는다
 
         stolen = busy[victim];
         busy[victim] = true;
         startTime[victim] = now;
         importance[victim] = level;
         sound[victim] = id;
+        audibility[victim] = heard;
         generation[victim]++;
         return victim;
+    }
+
+    private bool IsWeaker(int a, int b)
+    {
+        if (importance[a] != importance[b]) return importance[a] < importance[b];
+        if (!Mathf.Approximately(audibility[a], audibility[b])) return audibility[a] < audibility[b];
+        return startTime[a] < startTime[b];
     }
 
     public void Release(int voice)

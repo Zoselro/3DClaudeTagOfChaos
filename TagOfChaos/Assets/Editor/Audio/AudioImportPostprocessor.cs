@@ -5,12 +5,14 @@ using UnityEngine;
 // - BGM: 스트리밍(메모리에 통째로 올리지 않음), Vorbis 70%, 미리 로드 안 함.
 // - SFX/Ambience: 긴 반복음 — 압축한 채 메모리에, Vorbis 60%, 모노.
 // - 그 밖의 SFX: 짧은 소리 — 로드할 때 압축 해제(재생 중 CPU 0), 모노(3D 위치감).
+// - Chase: 추격음 층(DistanceFadePlan.md §9) — 동시에 여러 층이 돌므로 압축 해제, 모노. 효과음 카탈로그에는 들어가지 않는다(설정 SO가 직접 가짐).
 public class AudioImportPostprocessor : AssetPostprocessor
 {
     public const string AudioRoot = "Assets/10. Audio/";
     public const string MusicFolder = AudioRoot + "BGM/";
     public const string SoundFolder = AudioRoot + "SFX/";
     public const string AmbienceFolder = SoundFolder + "Ambience/";
+    public const string ChaseFolder = AudioRoot + "Chase/";
 
     private void OnPreprocessAudio()
     {
@@ -34,6 +36,15 @@ public class AudioImportPostprocessor : AssetPostprocessor
             settings.loadType = AudioClipLoadType.CompressedInMemory;
             settings.compressionFormat = AudioCompressionFormat.Vorbis;
             settings.quality = 0.6f;
+            settings.preloadAudioData = true;
+        }
+        else if (assetPath.StartsWith(ChaseFolder))
+        {
+            importer.forceToMono = true;
+            importer.loadInBackground = false;
+            settings.loadType = AudioClipLoadType.DecompressOnLoad;
+            settings.compressionFormat = AudioCompressionFormat.Vorbis;
+            settings.quality = 0.8f;
             settings.preloadAudioData = true;
         }
         else if (assetPath.StartsWith(SoundFolder))

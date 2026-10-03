@@ -1,16 +1,18 @@
 using UnityEngine;
 
 // 소리 재생의 실제 몸통(SoundPlan.md §2.3). 앱이 시작될 때 하나 만들어 씬이 바뀌어도 유지한다(DontDestroyOnLoad).
-// AudioSource는 여기서 미리 만든 칸만 쓴다 — 3D 24칸 + 2D 8칸 + 배경음 3칸(교차 전환 2 + 스팅어 1). 재생마다 생성·파괴하지 않는다.
+// AudioSource는 여기서 미리 만든 칸만 쓴다 — 3D 24칸 + 2D 8칸 + 배경음 3칸(교차 전환 2 + 스팅어 1) + 추격음 층(ChaseDirector). 재생마다 생성·파괴하지 않는다.
+// 소리를 듣는 AudioListener도 여기 하나만 둔다(AudioListenerAnchor — 캐릭터 머리 위치).
 // 게임 코드는 이 클래스를 직접 쓰지 않고 GameAudio를 통한다.
 public class AudioRuntime : MonoBehaviour
 {
     public const int WorldVoiceCount = 24;
     public const int FlatVoiceCount = 8;
 
-    // 3D 감쇠(§2.5): 가까이서는 또렷하고 멀어지면 빨리 작아져 최대 거리에서 0. x = 거리 / 최대 거리.
-    private static readonly AnimationCurve Rolloff = new AnimationCurve(
-        new Keyframe(0f, 1f), new Keyframe(0.1f, 0.62f), new Keyframe(0.25f, 0.33f), new Keyframe(0.5f, 0.12f), new Keyframe(1f, 0f));
+    // 거리 감쇠는 SpatialGain이 음량에 직접 곱한다(DistanceFadePlan.md §2.2 — 소리 종류별 곡선·최소 거리·층 감쇠). 유니티 감쇠는 평평하게 두고
+    // 좌우 위치감(팬)만 유니티에 맡긴다.
+    private static readonly AnimationCurve FlatRolloff = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 1f));
+    private const float UnityMaxDistance = 500f;
 
     private class Voice
     {
@@ -20,6 +22,11 @@ public class AudioRuntime : MonoBehaviour
         public SoundBus bus;
         public float baseVolume;
         public float fade = 1f; // 반복음을 서서히 키우고 줄일 때(AmbientZone)
+        public float spatial = 1f; // 거리 감쇠(SpatialGain, 2D는 1)
+        public SoundFalloff falloff;
+        public float minDistance;
+        public float maxDistance;
+        public AudioLowPassFilter filter; // 먼 소리 먹먹하게(L3) — 3D 칸만
     }
 
     private static AudioRuntime instance;
@@ -31,6 +38,8 @@ public class AudioRuntime : MonoBehaviour
     private readonly SoundCooldowns cooldowns = new SoundCooldowns();
     private MusicPlayer music;
     private MusicDirector director;
+    private ChaseDirector chase;
+    private AudioListenerAnchor listener;
 
     public static AudioRuntime Instance
     {
@@ -43,6 +52,7 @@ public class AudioRuntime : MonoBehaviour
 
     public MusicPlayer Music => music;
     public MusicDirector Director => director;
+    public ChaseDirector Chase => chase;
     public int BusyWorldVoices => worldPool.CountBusy();
     public int BusyFlatVoices => flatPool.CountBusy();
 
@@ -76,6 +86,8 @@ public class AudioRuntime : MonoBehaviour
         flatPool = new AudioVoicePool(FlatVoiceCount);
         music = new MusicPlayer(MakeSource("MusicA", false), MakeSource("MusicB", false), MakeSource("Stinger", false));
         director = new MusicDirector(music);
+        chase = new ChaseDirector(name => MakeSource(name, false, lowPass: true), music);
+        listener = AudioListenerAnchor.Create(transform);
         AudioVolumeSettings.Changed += ApplyVolumes;
     }
 
@@ -88,13 +100,19 @@ public class AudioRuntime : MonoBehaviour
     private Voice[] MakeVoices(string prefix, int count, bool world)
     {
         var voices = new Voice[count];
-        for (int i = 0; i < count; i++) voices[i] = new Voice { source = MakeSource(prefix + i, world) };
+        for (int i = 0; i < count; i++)
+        {
+            voices[i] = new Voice { source = MakeSource(prefix + i, world, lowPass: world) };
+            if (world) voices[i].filter = voices[i].source.GetComponent<AudioLowPassFilter>();
+        }
         return voices;
     }
 
-    private AudioSource MakeSource(string name, bool world)
+    // 꺼진 오브젝트에서 설정을 다 마친 뒤 켠다 — 켜진 채 AudioSource(기본 playOnAwake)에 필터를 붙이면 유니티가 "필터만 재생할 수 있다" 오류를 낸다.
+    private AudioSource MakeSource(string name, bool world, bool lowPass = false)
     {
         var child = new GameObject(name);
+        child.SetActive(false);
         child.transform.SetParent(transform, false);
         var src = child.AddComponent<AudioSource>();
         src.playOnAwake = false;
@@ -104,8 +122,11 @@ public class AudioRuntime : MonoBehaviour
         if (world)
         {
             src.rolloffMode = AudioRolloffMode.Custom;
-            src.SetCustomCurve(AudioSourceCurveType.CustomRolloff, Rolloff);
+            src.SetCustomCurve(AudioSourceCurveType.CustomRolloff, FlatRolloff);
+            src.maxDistance = UnityMaxDistance;
         }
+        if (lowPass) child.AddComponent<AudioLowPassFilter>().enabled = false; // 재생하는 동안만 켠다
+        child.SetActive(true);
         return src;
     }
 
@@ -119,27 +140,35 @@ public class AudioRuntime : MonoBehaviour
         float now = Time.unscaledTime;
         AudioVoicePool pool = world ? worldPool : flatPool;
         if (pool.CountPlaying(id) >= entry.maxInstances) return default;
+        Vector3 at = follow != null ? follow.position : position;
+        float heard = world ? SpatialGain.Evaluate(entry.falloff, at, AudioListenerAnchor.Position, entry.minDistance, entry.maxDistance) : 1f;
+        if (world && !loop && heard < SpatialGain.AudibleThreshold) return default; // 들리지 않는 한 번짜리 소리는 칸을 쓰지 않는다(§2.4)
         if (!loop && !cooldowns.TryUse(id, entry.cooldown, now)) return default;
 
-        int index = pool.Acquire(id, entry.importance, now, out _);
+        int index = pool.Acquire(id, entry.importance, now, heard, out _);
         if (index < 0) return default;
 
         Voice voice = (world ? worldVoices : flatVoices)[index];
         AudioSource src = voice.source;
-        src.Stop();
+        if (src.isPlaying) src.Stop();
         src.clip = entry.PickClip();
         src.pitch = entry.PickPitch();
         src.loop = loop;
         voice.bus = entry.bus;
         voice.baseVolume = entry.volume;
         voice.fade = 1f;
+        voice.spatial = heard;
+        voice.falloff = entry.falloff;
+        voice.minDistance = entry.minDistance;
+        voice.maxDistance = entry.maxDistance;
         voice.follow = follow;
         voice.following = follow != null;
         src.volume = VolumeOf(voice);
         if (world)
         {
-            src.maxDistance = entry.maxDistance;
-            src.transform.position = follow != null ? follow.position : position;
+            src.transform.position = at;
+            voice.filter.cutoffFrequency = SpatialGain.Cutoff(at, AudioListenerAnchor.Position, entry.minDistance, entry.maxDistance);
+            voice.filter.enabled = true;
         }
         src.Play();
         // 반복음은 아무 지점에서 시작한다 — 같은 소리를 내는 여러 곳(공장 기계 등)이 똑같이 겹쳐 울리지 않게
@@ -166,7 +195,10 @@ public class AudioRuntime : MonoBehaviour
         voice.source.volume = VolumeOf(voice);
     }
 
-    private static float VolumeOf(Voice voice) => voice.baseVolume * voice.fade * AudioVolumeSettings.Gain(voice.bus);
+    // 재생 중인 3D 소리의 지금 거리 감쇠(0~1). 시험·기록용.
+    public float SpatialOf(AudioHandle handle) => IsCurrent(handle) ? (handle.World ? worldVoices : flatVoices)[handle.Voice].spatial : 0f;
+
+    private static float VolumeOf(Voice voice) => voice.baseVolume * voice.fade * voice.spatial * AudioVolumeSettings.Gain(voice.bus);
 
     private bool IsCurrent(AudioHandle handle)
     {
@@ -180,19 +212,23 @@ public class AudioRuntime : MonoBehaviour
         Voice voice = (world ? worldVoices : flatVoices)[index];
         voice.follow = null;
         voice.following = false;
+        if (voice.filter != null) voice.filter.enabled = false;
         voice.source.clip = null;
         (world ? worldPool : flatPool).Release(index);
     }
 
     private void LateUpdate()
     {
+        listener.Tick();
         Sweep(worldVoices, worldPool, true);
         Sweep(flatVoices, flatPool, false);
         director.Tick(Time.unscaledTime);
+        chase.Tick(Time.unscaledDeltaTime);
         music.Tick(Time.unscaledDeltaTime, AudioVolumeSettings.Gain(SoundBus.Music));
     }
 
     // 끝난 칸을 돌려받고, 따라가는 소리는 위치를 맞춘다. 따라가던 대상이 사라지면 반복음은 멈추고 한 번짜리는 그 자리에서 끝까지 난다.
+    // 3D 칸은 매 프레임 듣는 위치와의 거리로 음량·먹먹함을 다시 정한다(듣는 사람이나 소리가 움직여도 맞게).
     private void Sweep(Voice[] voices, AudioVoicePool pool, bool world)
     {
         for (int i = 0; i < voices.Length; i++)
@@ -204,15 +240,27 @@ public class AudioRuntime : MonoBehaviour
                 Release(world, i);
                 continue;
             }
-            if (!voice.following) continue;
-            if (voice.follow == null)
+            if (voice.following)
             {
-                voice.following = false;
-                if (voice.source.loop) { voice.source.Stop(); Release(world, i); }
-                continue;
+                if (voice.follow == null)
+                {
+                    voice.following = false;
+                    if (voice.source.loop) { voice.source.Stop(); Release(world, i); continue; }
+                }
+                else if (world) voice.source.transform.position = voice.follow.position;
             }
-            if (world) voice.source.transform.position = voice.follow.position;
+            if (world) UpdateSpatial(voice, pool, i);
         }
+    }
+
+    private static void UpdateSpatial(Voice voice, AudioVoicePool pool, int index)
+    {
+        Vector3 at = voice.source.transform.position;
+        Vector3 ear = AudioListenerAnchor.Position;
+        voice.spatial = SpatialGain.Evaluate(voice.falloff, at, ear, voice.minDistance, voice.maxDistance);
+        voice.source.volume = VolumeOf(voice);
+        voice.filter.cutoffFrequency = SpatialGain.Cutoff(at, ear, voice.minDistance, voice.maxDistance);
+        pool.SetAudibility(index, voice.spatial);
     }
 
     private void ApplyVolumes()
