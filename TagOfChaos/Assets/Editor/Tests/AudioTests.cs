@@ -285,6 +285,25 @@ public class AudioTests
         }
     }
 
+    // 맵 바탕 환경음(S7): 실제 맵, 2D 반복음, 맵 하나에 하나, 진저브레드는 지하 동굴 영역과 겹치지 않는다.
+    [Test]
+    public void AmbientBeds_CoverMaps_AndStayOffTheCave()
+    {
+        var catalog = Resources.Load<SoundCatalogSO>(SoundCatalogSO.ResourcePath);
+        foreach (var map in AmbientPlacer.Beds)
+        {
+            Assert.Contains(map.Key.Replace("Game_", ""), MapSceneBuilder.MapNames, $"{map.Key} is not a map scene.");
+            Assert.IsTrue(catalog.TryGet(map.Value.Sound, out var entry) && entry.HasClip, $"{map.Value.Sound} needs a clip.");
+            Assert.AreEqual(SoundSpace.Flat2D, entry.space, $"{map.Value.Sound}: map beds are 2D.");
+            Assert.IsTrue(map.Value.Boxes.Any(b => b.Contains(new Vector3(130f, 2f, -130f)) && b.Contains(Vector3.up * 40f)), $"{map.Key}: bed covers the map.");
+            if (!AmbientPlacer.Zones.TryGetValue(map.Key, out AmbientPlacer.Zone[] zones)) continue;
+            foreach (AmbientPlacer.Zone zone in zones)
+                foreach (Bounds cave in zone.Boxes)
+                    Assert.IsTrue(map.Value.Boxes.All(b => b.min.y >= cave.max.y), $"{map.Key}: bed overlaps {zone.Name}.");
+        }
+        Assert.AreEqual(4, AmbientPlacer.Beds.Count, "every map but the factory (machines are its bed) has a bed");
+    }
+
     // ---- 음량 ----
 
     [Test]

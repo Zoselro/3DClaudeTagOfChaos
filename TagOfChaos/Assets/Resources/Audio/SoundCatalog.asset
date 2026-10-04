@@ -1197,28 +1197,30 @@ MonoBehaviour:
     maxInstances: 2
     importance: 0
   - id: 800
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 5e92061a23a4d7b44b69b5ab13b3f2cc, type: 3}
     volume: 1
     pitchRange: {x: 1, y: 1}
-    space: 1
+    space: 0
     bus: 3
     maxDistance: 40
     minDistance: 6
     falloff: 3
     cooldown: 0
-    maxInstances: 2
+    maxInstances: 1
     importance: 1
   - id: 801
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: b44f3a63847f67941bd2252910782447, type: 3}
     volume: 1
     pitchRange: {x: 1, y: 1}
-    space: 1
+    space: 0
     bus: 3
     maxDistance: 40
     minDistance: 6
     falloff: 3
     cooldown: 0
-    maxInstances: 2
+    maxInstances: 1
     importance: 1
   - id: 802
     clips:
@@ -1234,28 +1236,30 @@ MonoBehaviour:
     maxInstances: 4
     importance: 1
   - id: 803
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 39966502288503449a4afe4b533a913e, type: 3}
     volume: 1
     pitchRange: {x: 1, y: 1}
-    space: 1
+    space: 0
     bus: 3
     maxDistance: 40
     minDistance: 6
     falloff: 3
     cooldown: 0
-    maxInstances: 2
+    maxInstances: 1
     importance: 1
   - id: 804
-    clips: []
+    clips:
+    - {fileID: 8300000, guid: 7d8bf9d59f28b9044b282fcfdbe428f9, type: 3}
     volume: 1
     pitchRange: {x: 1, y: 1}
-    space: 1
+    space: 0
     bus: 3
     maxDistance: 40
     minDistance: 6
     falloff: 3
     cooldown: 0
-    maxInstances: 2
+    maxInstances: 1
     importance: 1
   - id: 805
     clips:
