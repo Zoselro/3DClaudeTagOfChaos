@@ -191,7 +191,7 @@ public static class SoundDefaults
             case 7: // 맵 연출
                 World(e, 60f, 2);
                 e.importance = SoundImportance.High;
-                if (id == SoundId.OvenGears || id == SoundId.AltarHum) e.pitchRange = Vector2.one; // 반복음
+                if (id == SoundId.OvenGears || id == SoundId.AltarHum) { e.pitchRange = Vector2.one; e.volume = 0.5f; } // 반복음 — 출발까지 계속 나므로 배경음보다 작게(S9 믹스)
                 else if (id == SoundId.LanternFlicker)
                 {
                     e.volume = 0.5f;          // 등불 여러 개가 따로 깜빡인다 — 작게, 가까이서만

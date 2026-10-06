@@ -304,6 +304,56 @@ public class AudioTests
         Assert.AreEqual(4, AmbientPlacer.Beds.Count, "every map but the factory (machines are its bed) has a bed");
     }
 
+    // ---- 소리 설정 창(S9) ----
+
+    [Test]
+    public void SoundSettingsPanel_HasRowForEverySlider()
+    {
+        var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<SoundSettingsPanel>(SoundSettingsInstaller.PrefabPath);
+        Assert.IsNotNull(prefab, "panel prefab");
+        var so = new UnityEditor.SerializedObject(prefab);
+        var rows = so.FindProperty("rows");
+        var kinds = new HashSet<int>();
+        for (int i = 0; i < rows.arraySize; i++)
+        {
+            var e = rows.GetArrayElementAtIndex(i);
+            Assert.IsNotNull(e.FindPropertyRelative("slider").objectReferenceValue, $"row {i} slider");
+            Assert.IsNotNull(e.FindPropertyRelative("value").objectReferenceValue, $"row {i} value text");
+            kinds.Add(e.FindPropertyRelative("kind").enumValueIndex);
+        }
+        Assert.AreEqual(Enum.GetValues(typeof(AudioVolumeSettings.Slider)).Length, kinds.Count, "one row per slider");
+        Assert.IsNotNull(so.FindProperty("closeButton").objectReferenceValue, "close button");
+    }
+
+    [Test]
+    public void EscMenus_AndLobby_OpenSoundSettings()
+    {
+        var core = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(SoundSettingsInstaller.CorePrefabPath).GetComponentInChildren<EscMenu>(true);
+        AssertEscWired(core, "GameSceneCore");
+        var lobbyYaml = System.IO.File.ReadAllText(SoundSettingsInstaller.LobbyScenePath);
+        string panelGuid = UnityEditor.AssetDatabase.AssetPathToGUID(SoundSettingsInstaller.PrefabPath);
+        Assert.IsTrue(lobbyYaml.Contains(panelGuid), "LobbyScene has the sound settings panel");
+        Assert.IsTrue(System.IO.File.ReadAllText(SoundSettingsInstaller.GameLobbyScenePath).Contains(panelGuid), "GameLobbyScene has the sound settings panel");
+    }
+
+    private static void AssertEscWired(EscMenu esc, string where)
+    {
+        Assert.IsNotNull(esc, where);
+        var so = new UnityEditor.SerializedObject(esc);
+        Assert.IsNotNull(so.FindProperty("soundButton").objectReferenceValue, where + " sound button");
+        Assert.IsNotNull(so.FindProperty("soundSettings").objectReferenceValue, where + " sound settings");
+    }
+
+    [Test]
+    public void SoundSettings_PercentAndPreview()
+    {
+        Assert.AreEqual("0%", SoundSettingsPanel.Percent(0f));
+        Assert.AreEqual("25%", SoundSettingsPanel.Percent(0.25f));
+        Assert.AreEqual("100%", SoundSettingsPanel.Percent(1.2f));
+        Assert.AreEqual(SoundId.ItemPickup, SoundSettingsPanel.PreviewSound(AudioVolumeSettings.Slider.Sfx));
+        Assert.AreEqual(SoundId.UiTick, SoundSettingsPanel.PreviewSound(AudioVolumeSettings.Slider.Ui));
+    }
+
     // ---- 음량 ----
 
     [Test]

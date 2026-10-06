@@ -1019,7 +1019,7 @@ MonoBehaviour:
   - id: 720
     clips:
     - {fileID: 8300000, guid: 46ee195e6750f6e469dd756834d0866a, type: 3}
-    volume: 1
+    volume: 0.5
     pitchRange: {x: 1, y: 1}
     space: 1
     bus: 1
@@ -1123,7 +1123,7 @@ MonoBehaviour:
   - id: 740
     clips:
     - {fileID: 8300000, guid: e05b3989c98bc2f43bef26f9876f4b5c, type: 3}
-    volume: 1
+    volume: 0.5
     pitchRange: {x: 1, y: 1}
     space: 1
     bus: 1

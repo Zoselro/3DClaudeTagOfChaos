@@ -417,3 +417,7 @@ Cute Dark Fantasy / Magical Candy World / Playful Horror / Cartoon Tension / Coo
 - 검증: SoundPlan.md S8 참고(테스트 전부 통과, 맵 5개·대기실·탈출 흐름 Play Mode 재생 기록, 콘솔 0).
 - 듣기용 요약: `Plan.md/AudioS8ListeningGuide.md`(묶음 5개 — 대표 소리·배경음 앞 20초·환경음).
 - 다음: 직접 들어 보시고 바꿀 소리를 알려 주시면 해당 스크립트 값만 고쳐 다시 뽑는다 → S9(음량 설정 창·전체 믹스·빌드 확인).
+
+### S9 믹스 조정(2026-10-06)
+- 맵 바탕 환경음 4개 −30 → −24 LUFS(게임 안 −36 — 공장 기계·가마솥과 같은 수준), 오븐 톱니·제단 웅웅 카탈로그 음량 0.5. `final_sfx.py`도 같은 값으로 고쳤다.
+- 소리 설정 창(막대 4개)과 빌드 확인은 SoundPlan.md S9.

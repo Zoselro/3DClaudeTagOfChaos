@@ -241,12 +241,12 @@ candy = mix((0, wind(T61, 600, 0.12, seed=901)),
             (0, 0.2 * scatter(T61, 30, lambda i: paper(0.25, seed=902 + i))),
             (0, 0.08 * scatter(T61, 8, lambda i: sparkle(1.5, 6, base=100, seed=940 + i))),
             (0, 0.05 * sub_drone(T61, 41, 0.05)))
-out_loop(A, "AmbCandyForest", reverb(candy, 0.6, 0.12)[:int(T61 * SR)], 60.0, 1.0, -30, ogg=True)
+out_loop(A, "AmbCandyForest", reverb(candy, 0.6, 0.12)[:int(T61 * SR)], 60.0, 1.0, -24, ogg=True)  # S9: 바탕음 −30 → −24 LUFS(공장 기계·가마솥과 같은 수준)
 ticks = place(T61, [(float(i), mix((0, soft_wood(1700 if i % 2 else 1300, 0.08, seed=950 + i % 5)), (0, 0.2 * tin_metal(3000, 0.05, seed=950)))) for i in range(61)])
 ginger = mix((0, 0.8 * wind(T61, 450, 0.08, seed=951)), (0, 0.3 * ticks),
              (0, 0.25 * scatter(T61, 6, lambda i: creak(0.6, 25, 45, (500, 1200), seed=960 + i))),
              (14.0, 0.25 * reverb(note1("F3", "tubular", 70, 2.5), 2.0, 0.4)), (44.0, 0.2 * reverb(note1("C4", "tubular", 65, 2.5), 2.0, 0.4)))
-out_loop(A, "AmbGingerbread", reverb(ginger, 0.8, 0.15)[:int(T61 * SR)], 60.0, 1.0, -30, ogg=True)
+out_loop(A, "AmbGingerbread", reverb(ginger, 0.8, 0.15)[:int(T61 * SR)], 60.0, 1.0, -24, ogg=True)  # S9: 바탕음 −30 → −24 LUFS(공장 기계·가마솥과 같은 수준)
 T17 = 17.0
 fbub = place(T17, [(r.uniform(0, 16.5), pop(r.uniform(80, 140), r.uniform(150, 240), 0.09) * r.uniform(0.4, 1)) for _ in range(40)])
 factory = mix((0, 0.25 * (np.sin(2 * np.pi * 55 * t_(T17)) + 0.4 * np.sin(2 * np.pi * 110 * t_(T17)))),
@@ -259,12 +259,12 @@ laugh = place(1.2, [(0.18 * k, growl(0.12, 330 - 15 * k, seed=1000 + k)) for k i
 carnival = mix((0, 0.9 * wind(T61, 500, 0.1, seed=1001)), (6.0, 0.35 * reverb(box_phrase(0), 1.8, 0.5)), (33.0, 0.3 * reverb(box_phrase(1), 1.8, 0.5)),
                (0, 0.2 * scatter(T61, 10, lambda i: paper(0.4, seed=1010 + i))), (0, 0.25 * scatter(T61, 6, lambda i: creak(0.7, 20, 35, (400, 900), seed=1020 + i))),
                (24.5, 0.04 * reverb(laugh, 2.0, 0.6)))  # Q4: 거의 안 들리게
-out_loop(A, "AmbCarnival", carnival[:int(T61 * SR)], 60.0, 1.0, -30, ogg=True)
+out_loop(A, "AmbCarnival", carnival[:int(T61 * SR)], 60.0, 1.0, -24, ogg=True)  # S9: 바탕음 −30 → −24 LUFS(공장 기계·가마솥과 같은 수준)
 ghost = lambda p: detune_layer(inst([(0, 4.0, p, 50)], GM["oohs"]), 25)
 bakery = mix((0, 0.6 * fire_crackle(T61, 20, seed=1030)), (0, 0.15 * np.sin(2 * np.pi * 70 * t_(T61)) * (0.7 + 0.3 * np.sin(2 * np.pi * 0.25 * t_(T61)))),
              (12.0, 0.22 * ghost("E3")), (41.0, 0.2 * ghost("D3")), (0, 0.35 * wind(T61, 300, 0.06, seed=1031)),
              (0, 0.15 * scatter(T61, 12, lambda i: paper(0.5, seed=1040 + i))))
-out_loop(A, "AmbBakery", reverb(bakery, 1.0, 0.15)[:int(T61 * SR)], 60.0, 1.0, -30, ogg=True)
+out_loop(A, "AmbBakery", reverb(bakery, 1.0, 0.15)[:int(T61 * SR)], 60.0, 1.0, -24, ogg=True)  # S9: 바탕음 −30 → −24 LUFS(공장 기계·가마솥과 같은 수준)
 drips = place(T61, [(r.uniform(0, 60), pop(r.uniform(1500, 2400), r.uniform(800, 1200), 0.03) * r.uniform(0.4, 1)) for _ in range(30)])
 cave = mix((0, 0.6 * sub_drone(T61, 36, 0.06)), (0, 0.5 * wind(T61, 300, 0.05, seed=1050)), (0, 0.6 * drips),
            (8.0, 0.1 * inst([(0, 10, "C4", 50), (0, 10, "G4", 40)], GM["choir"])), (38.0, 0.08 * inst([(0, 10, "C4", 50), (0, 10, "E4", 40)], GM["choir"])))

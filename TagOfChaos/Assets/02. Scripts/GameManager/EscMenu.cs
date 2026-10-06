@@ -4,6 +4,7 @@ using UnityEngine.UI;
 // ESC 메뉴(EscapeVisualPlan.md §1.2, 결정 Q4). 쿠키·스파이·괴물 모두 ESC로 연다. 열려 있는 동안(나가기 확인창 포함)
 // 이동·시점·상호작용 입력을 막고 커서를 풀어 버튼을 누를 수 있게 한다 — 괴물 1인칭 카메라는 매 프레임 커서를 잠그므로 이 값을 본다.
 // 게임은 멈추지 않는다(온라인). 버튼 목록은 Buttons 아래에 늘어서므로 나중에 "설정" 버튼(지금은 꺼 둠)을 켜기만 하면 된다.
+// "소리" 버튼(SoundPlan.md S9)은 모든 사람에게 보이고 소리 설정 창을 연다 — 창을 닫으면 메뉴로 돌아온다.
 // 문구는 프리팹·씬에서 입력한다(코드에 한글 금지).
 public class EscMenu : MonoBehaviour
 {
@@ -17,6 +18,9 @@ public class EscMenu : MonoBehaviour
     [SerializeField] private RoomSettingsMenu roomSettings; // 대기실에만 연결된다 — 없으면 설정 버튼을 숨긴다
     [SerializeField] private RectTransform box;             // 버튼이 하나 늘면 상자를 키운다
     [SerializeField, Min(0f)] private float settingsRowHeight = 70f;
+    [Header("Sound settings (everyone)")]
+    [SerializeField] private Button soundButton;
+    [SerializeField] private SoundSettingsPanel soundSettings;
     private float baseBoxHeight = -1f;
 
     public static EscMenu Instance { get; private set; }
@@ -25,7 +29,7 @@ public class EscMenu : MonoBehaviour
     public static bool IsOpen => Instance != null && Instance.Visible;
 
     private bool Visible => (panel != null && panel.activeSelf) || (confirmDialog != null && confirmDialog.activeSelf)
-                            || (roomSettings != null && roomSettings.IsOpen);
+                            || (roomSettings != null && roomSettings.IsOpen) || (soundSettings != null && soundSettings.IsOpen);
 
     private void Awake()
     {
@@ -38,6 +42,12 @@ public class EscMenu : MonoBehaviour
         {
             roomSettings.gameObject.SetActive(false);
             roomSettings.Closed += Open; // 설정 창에서 뒤로 → 메뉴
+        }
+        if (soundButton != null) soundButton.onClick.AddListener(OnSoundClicked);
+        if (soundSettings != null)
+        {
+            soundSettings.gameObject.SetActive(false);
+            soundSettings.Closed += Open; // 소리 창에서 닫기 → 메뉴
         }
         if (box != null) baseBoxHeight = box.sizeDelta.y;
     }
@@ -75,6 +85,14 @@ public class EscMenu : MonoBehaviour
         if (panel != null) panel.SetActive(false);
         if (confirmDialog != null) confirmDialog.SetActive(false);
         if (roomSettings != null && roomSettings.IsOpen) roomSettings.gameObject.SetActive(false);
+        if (soundSettings != null && soundSettings.IsOpen) soundSettings.Hide();
+    }
+
+    private void OnSoundClicked()
+    {
+        if (soundSettings == null) return;
+        if (panel != null) panel.SetActive(false);
+        soundSettings.Open();
     }
 
     private void OnSettingsClicked()
