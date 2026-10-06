@@ -26,7 +26,8 @@ public class AudioRuntime : MonoBehaviour
         public SoundFalloff falloff;
         public float minDistance;
         public float maxDistance;
-        public AudioLowPassFilter filter; // 먼 소리 먹먹하게(L3) — 3D 칸만
+        public AudioLowPassFilter filter; // 먼 소리 먹먹하게(L3) — 3D 칸, 2D 칸은 환경음 실내 먹먹함(IndoorZone)
+        public float wall; // 벽 너머 정도(0~1, IndoorZone — 3D는 소리와 듣는 사람 사이, 2D 환경음은 듣는 사람이 실내)
     }
 
     private static AudioRuntime instance;
@@ -102,8 +103,8 @@ public class AudioRuntime : MonoBehaviour
         var voices = new Voice[count];
         for (int i = 0; i < count; i++)
         {
-            voices[i] = new Voice { source = MakeSource(prefix + i, world, lowPass: world) };
-            if (world) voices[i].filter = voices[i].source.GetComponent<AudioLowPassFilter>();
+            voices[i] = new Voice { source = MakeSource(prefix + i, world, lowPass: true) };
+            voices[i].filter = voices[i].source.GetComponent<AudioLowPassFilter>();
         }
         return voices;
     }
@@ -163,13 +164,21 @@ public class AudioRuntime : MonoBehaviour
         voice.maxDistance = entry.maxDistance;
         voice.follow = follow;
         voice.following = follow != null;
-        src.volume = VolumeOf(voice);
         if (world)
         {
             src.transform.position = at;
-            voice.filter.cutoffFrequency = SpatialGain.Cutoff(at, AudioListenerAnchor.Position, entry.minDistance, entry.maxDistance);
+            voice.wall = IndoorZone.Separated(at, AudioListenerAnchor.Position) ? 1f : 0f;
+            voice.filter.cutoffFrequency = WorldCutoff(voice, at, AudioListenerAnchor.Position);
             voice.filter.enabled = true;
         }
+        else if (voice.bus == SoundBus.Ambience)
+        {
+            voice.wall = IndoorZone.ListenerLevel;
+            voice.filter.cutoffFrequency = SpatialGain.LogLerp(SpatialGain.OpenCutoffHz, IndoorZone.AmbienceCutoffHz, voice.wall);
+            voice.filter.enabled = true;
+        }
+        else voice.wall = 0f;
+        src.volume = VolumeOf(voice);
         src.Play();
         // 반복음은 아무 지점에서 시작한다 — 같은 소리를 내는 여러 곳(공장 기계 등)이 똑같이 겹쳐 울리지 않게
         if (loop && src.clip != null && src.clip.length > 0.1f) src.time = Random.Range(0f, src.clip.length * 0.95f);
@@ -198,7 +207,17 @@ public class AudioRuntime : MonoBehaviour
     // 재생 중인 3D 소리의 지금 거리 감쇠(0~1). 시험·기록용.
     public float SpatialOf(AudioHandle handle) => IsCurrent(handle) ? (handle.World ? worldVoices : flatVoices)[handle.Voice].spatial : 0f;
 
-    private static float VolumeOf(Voice voice) => voice.baseVolume * voice.fade * voice.spatial * AudioVolumeSettings.Gain(voice.bus);
+    // 재생 중인 소리의 지금 벽 너머 정도(0~1, IndoorZone)와 저역 통과 차단 주파수. 시험·기록용.
+    public float WallOf(AudioHandle handle) => IsCurrent(handle) ? (handle.World ? worldVoices : flatVoices)[handle.Voice].wall : 0f;
+    public float CutoffOf(AudioHandle handle) => IsCurrent(handle) ? (handle.World ? worldVoices : flatVoices)[handle.Voice].filter.cutoffFrequency : 0f;
+
+    private static float VolumeOf(Voice voice) =>
+        voice.baseVolume * voice.fade * voice.spatial * AudioVolumeSettings.Gain(voice.bus) * Mathf.Lerp(1f, WallGainOf(voice), voice.wall);
+
+    private static float WallGainOf(Voice voice) => voice.source.spatialBlend > 0f ? IndoorZone.WallGain : IndoorZone.AmbienceGain;
+
+    private static float WorldCutoff(Voice voice, Vector3 at, Vector3 ear) =>
+        Mathf.Min(SpatialGain.Cutoff(at, ear, voice.minDistance, voice.maxDistance), SpatialGain.LogLerp(SpatialGain.OpenCutoffHz, IndoorZone.WallCutoffHz, voice.wall));
 
     private bool IsCurrent(AudioHandle handle)
     {
@@ -220,6 +239,7 @@ public class AudioRuntime : MonoBehaviour
     private void LateUpdate()
     {
         listener.Tick();
+        IndoorZone.Tick(AudioListenerAnchor.Position, Time.unscaledDeltaTime);
         Sweep(worldVoices, worldPool, true);
         Sweep(flatVoices, flatPool, false);
         director.Tick(Time.unscaledTime);
@@ -250,7 +270,17 @@ public class AudioRuntime : MonoBehaviour
                 else if (world) voice.source.transform.position = voice.follow.position;
             }
             if (world) UpdateSpatial(voice, pool, i);
+            else if (voice.bus == SoundBus.Ambience) UpdateIndoorAmbience(voice);
         }
+    }
+
+    // 듣는 사람이 실내에 들어가면 바탕 환경음이 서서히 먹먹하고 작아진다(IndoorZone).
+    private static void UpdateIndoorAmbience(Voice voice)
+    {
+        if (Mathf.Approximately(voice.wall, IndoorZone.ListenerLevel)) return;
+        voice.wall = IndoorZone.ListenerLevel;
+        voice.filter.cutoffFrequency = SpatialGain.LogLerp(SpatialGain.OpenCutoffHz, IndoorZone.AmbienceCutoffHz, voice.wall);
+        voice.source.volume = VolumeOf(voice);
     }
 
     private static void UpdateSpatial(Voice voice, AudioVoicePool pool, int index)
@@ -258,8 +288,9 @@ public class AudioRuntime : MonoBehaviour
         Vector3 at = voice.source.transform.position;
         Vector3 ear = AudioListenerAnchor.Position;
         voice.spatial = SpatialGain.Evaluate(voice.falloff, at, ear, voice.minDistance, voice.maxDistance);
+        voice.wall = IndoorZone.Step(voice.wall, IndoorZone.Separated(at, ear), Time.unscaledDeltaTime);
         voice.source.volume = VolumeOf(voice);
-        voice.filter.cutoffFrequency = SpatialGain.Cutoff(at, ear, voice.minDistance, voice.maxDistance);
+        voice.filter.cutoffFrequency = WorldCutoff(voice, at, ear);
         pool.SetAudibility(index, voice.spatial);
     }
 

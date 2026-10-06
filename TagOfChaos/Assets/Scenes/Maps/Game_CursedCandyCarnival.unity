@@ -15,9 +15,9 @@ RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
   m_Fog: 1
-  m_FogColor: {r: 0.04, g: 0.08, b: 0.1, a: 1}
+  m_FogColor: {r: 0.08, g: 0.12, b: 0.1, a: 1}
   m_FogMode: 2
-  m_FogDensity: 0.007
+  m_FogDensity: 0.02
   m_LinearFogStart: 8
   m_LinearFogEnd: 35
   m_AmbientSkyColor: {r: 0.12230278, g: 0.30575696, b: 0.4892111, a: 1}
@@ -129,6 +129,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3982844}
   - component: {fileID: 3982845}
+  - component: {fileID: 3982846}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_B.011
   m_TagString: Untagged
@@ -161,7 +162,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.73
   m_Range: 9.9
   m_SpotAngle: 30
@@ -216,6 +217,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &3982846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3982843}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.73
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &4292387
 GameObject:
   m_ObjectHideFlags: 0
@@ -226,6 +244,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4292388}
   - component: {fileID: 4292389}
+  - component: {fileID: 4292390}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_A.006
   m_TagString: Untagged
@@ -258,7 +277,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.6, a: 1}
+  m_Color: {r: 0.885875, g: 0.360875, b: 0.58587503, a: 1}
   m_Intensity: 0.65
   m_Range: 9.4
   m_SpotAngle: 30
@@ -313,6 +332,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &4292390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4292387}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.65
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &4495479
 GameObject:
   m_ObjectHideFlags: 0
@@ -405,7 +441,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 2.5
   m_Range: 15
   m_SpotAngle: 30
@@ -695,7 +731,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.5
   m_Range: 25
   m_SpotAngle: 30
@@ -760,6 +796,7 @@ GameObject:
   m_Component:
   - component: {fileID: 45663173}
   - component: {fileID: 45663174}
+  - component: {fileID: 45663175}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.005
   m_TagString: Untagged
@@ -792,7 +829,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -847,6 +884,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &45663175
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 45663172}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.2
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &54056109
 GameObject:
   m_ObjectHideFlags: 0
@@ -857,6 +911,7 @@ GameObject:
   m_Component:
   - component: {fileID: 54056110}
   - component: {fileID: 54056111}
+  - component: {fileID: 54056112}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.007
   m_TagString: Untagged
@@ -889,7 +944,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.69
   m_Range: 16.6
   m_SpotAngle: 30
@@ -944,6 +999,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &54056112
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 54056109}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.69
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &66968069
 GameObject:
   m_ObjectHideFlags: 0
@@ -986,7 +1058,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.6, g: 0.3, b: 1, a: 1}
+  m_Color: {r: 0.567375, g: 0.342375, b: 0.867375, a: 1}
   m_Intensity: 0.68
   m_Range: 9.6
   m_SpotAngle: 30
@@ -1083,7 +1155,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -1180,7 +1252,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -1385,7 +1457,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.72
   m_Range: 16.7
   m_SpotAngle: 30
@@ -1482,7 +1554,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -1579,7 +1651,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -1644,6 +1716,7 @@ GameObject:
   m_Component:
   - component: {fileID: 161903749}
   - component: {fileID: 161903750}
+  - component: {fileID: 161903751}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.011
   m_TagString: Untagged
@@ -1676,7 +1749,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -1731,6 +1804,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &161903751
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 161903748}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.2
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &172521409
 GameObject:
   m_ObjectHideFlags: 0
@@ -1773,7 +1863,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -1870,7 +1960,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.76
   m_Range: 10.1
   m_SpotAngle: 30
@@ -1925,6 +2015,68 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &176324923
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -51
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.72755194
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.6860527
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3619144051820542242, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_Name
+      value: TW_DeflatedBalloons_00
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+--- !u!4 &176324924 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+  m_PrefabInstance: {fileID: 176324923}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &210717695
 GameObject:
   m_ObjectHideFlags: 0
@@ -1967,7 +2119,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -2064,7 +2216,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -2161,7 +2313,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -2258,7 +2410,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.5
   m_Range: 40
   m_SpotAngle: 30
@@ -2323,6 +2475,7 @@ GameObject:
   m_Component:
   - component: {fileID: 249614002}
   - component: {fileID: 249614003}
+  - component: {fileID: 249614004}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_B.005
   m_TagString: Untagged
@@ -2355,7 +2508,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.61
   m_Range: 9
   m_SpotAngle: 30
@@ -2410,6 +2563,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &249614004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 249614001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.61
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &252122593
 GameObject:
   m_ObjectHideFlags: 0
@@ -2452,7 +2622,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -2549,7 +2719,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.39
   m_Range: 6.6
   m_SpotAngle: 30
@@ -2646,7 +2816,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -2743,7 +2913,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -2874,7 +3044,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -2971,7 +3141,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -3285,7 +3455,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -3382,7 +3552,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -3479,7 +3649,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.71
   m_Range: 9.8
   m_SpotAngle: 30
@@ -3576,7 +3746,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.6, a: 1}
+  m_Color: {r: 0.885875, g: 0.360875, b: 0.58587503, a: 1}
   m_Intensity: 0.73
   m_Range: 9.9
   m_SpotAngle: 30
@@ -3673,7 +3843,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -3728,6 +3898,68 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &389119307
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -15
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.110930726
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 45
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.16065031
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.98701143
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7317898981645658560, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_Name
+      value: TW_TicketDoll_01
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9f69962207740614ba89985c51932186, type: 3}
+--- !u!4 &389119308 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+  m_PrefabInstance: {fileID: 389119307}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &392645296
 GameObject:
   m_ObjectHideFlags: 0
@@ -3738,6 +3970,7 @@ GameObject:
   m_Component:
   - component: {fileID: 392645297}
   - component: {fileID: 392645298}
+  - component: {fileID: 392645299}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_B.013
   m_TagString: Untagged
@@ -3770,7 +4003,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.79
   m_Range: 10.3
   m_SpotAngle: 30
@@ -3825,6 +4058,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &392645299
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 392645296}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.79
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &411208678
 GameObject:
   m_ObjectHideFlags: 0
@@ -3867,7 +4117,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.52
   m_Range: 15.7
   m_SpotAngle: 30
@@ -4072,7 +4322,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.12
   m_Range: 3.7
   m_SpotAngle: 30
@@ -4272,7 +4522,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.5
   m_Range: 50
   m_SpotAngle: 30
@@ -4337,6 +4587,7 @@ GameObject:
   m_Component:
   - component: {fileID: 437017202}
   - component: {fileID: 437017203}
+  - component: {fileID: 437017204}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_C.008
   m_TagString: Untagged
@@ -4369,7 +4620,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.6, g: 0.3, b: 1, a: 1}
+  m_Color: {r: 0.567375, g: 0.342375, b: 0.867375, a: 1}
   m_Intensity: 0.79
   m_Range: 10.3
   m_SpotAngle: 30
@@ -4424,6 +4675,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &437017204
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 437017201}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.79
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &439120529
 GameObject:
   m_ObjectHideFlags: 0
@@ -4574,6 +4842,7 @@ GameObject:
   m_Component:
   - component: {fileID: 473708368}
   - component: {fileID: 473708369}
+  - component: {fileID: 473708370}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.020
   m_TagString: Untagged
@@ -4606,7 +4875,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -4661,6 +4930,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &473708370
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 473708367}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.2
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &480463426
 GameObject:
   m_ObjectHideFlags: 0
@@ -4703,7 +4989,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.26
   m_Range: 5.4
   m_SpotAngle: 30
@@ -4876,6 +5162,7 @@ GameObject:
   m_Component:
   - component: {fileID: 511231683}
   - component: {fileID: 511231684}
+  - component: {fileID: 511231685}
   m_Layer: 0
   m_Name: LGT_CircusTent_Small.008
   m_TagString: Untagged
@@ -4908,7 +5195,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 1.91
   m_Range: 13.1
   m_SpotAngle: 30
@@ -4963,6 +5250,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &511231685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 511231682}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.91
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &524241288
 GameObject:
   m_ObjectHideFlags: 0
@@ -5005,7 +5309,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -5210,7 +5514,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -5416,7 +5720,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -5481,6 +5785,7 @@ GameObject:
   m_Component:
   - component: {fileID: 594053840}
   - component: {fileID: 594053841}
+  - component: {fileID: 594053842}
   m_Layer: 0
   m_Name: LGT_CircusTent_Small.017
   m_TagString: Untagged
@@ -5513,7 +5818,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 1.96
   m_Range: 13.3
   m_SpotAngle: 30
@@ -5568,6 +5873,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &594053842
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 594053839}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.96
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &614843320
 GameObject:
   m_ObjectHideFlags: 0
@@ -5578,6 +5900,7 @@ GameObject:
   m_Component:
   - component: {fileID: 614843321}
   - component: {fileID: 614843322}
+  - component: {fileID: 614843323}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_A.012
   m_TagString: Untagged
@@ -5610,7 +5933,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.6, a: 1}
+  m_Color: {r: 0.885875, g: 0.360875, b: 0.58587503, a: 1}
   m_Intensity: 0.64
   m_Range: 9.3
   m_SpotAngle: 30
@@ -5665,6 +5988,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &614843323
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 614843320}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.64
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &626368404
 GameObject:
   m_ObjectHideFlags: 0
@@ -5707,7 +6047,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.6, a: 1}
+  m_Color: {r: 0.885875, g: 0.360875, b: 0.58587503, a: 1}
   m_Intensity: 0.65
   m_Range: 9.4
   m_SpotAngle: 30
@@ -5804,7 +6144,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -6067,7 +6407,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -6122,6 +6462,130 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &663878703
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 2107940145361356672, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_Name
+      value: TW_ClownSign_00
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -12
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.0033739246
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 12
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.38300982
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.9237443
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+--- !u!4 &663878704 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+  m_PrefabInstance: {fileID: 663878703}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &669668887
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 48
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.009560674
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 18
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.5694504
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.8220258
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7317898981645658560, guid: 9f69962207740614ba89985c51932186, type: 3}
+      propertyPath: m_Name
+      value: TW_TicketDoll_00
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9f69962207740614ba89985c51932186, type: 3}
+--- !u!4 &669668888 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6270724221743375249, guid: 9f69962207740614ba89985c51932186, type: 3}
+  m_PrefabInstance: {fileID: 669668887}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &690519080
 GameObject:
   m_ObjectHideFlags: 0
@@ -6261,7 +6725,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.6, g: 0.3, b: 1, a: 1}
+  m_Color: {r: 0.567375, g: 0.342375, b: 0.867375, a: 1}
   m_Intensity: 0.76
   m_Range: 10.1
   m_SpotAngle: 30
@@ -6381,6 +6845,7 @@ GameObject:
   m_Component:
   - component: {fileID: 726608707}
   - component: {fileID: 726608708}
+  - component: {fileID: 726608709}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.015
   m_TagString: Untagged
@@ -6413,7 +6878,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.37
   m_Range: 15
   m_SpotAngle: 30
@@ -6468,6 +6933,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &726608709
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726608706}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.37
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &759836761
 GameObject:
   m_ObjectHideFlags: 0
@@ -6478,6 +6960,7 @@ GameObject:
   m_Component:
   - component: {fileID: 759836762}
   - component: {fileID: 759836763}
+  - component: {fileID: 759836764}
   m_Layer: 0
   m_Name: LGT_CircusTent_Small.004
   m_TagString: Untagged
@@ -6510,7 +6993,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 1.95
   m_Range: 13.3
   m_SpotAngle: 30
@@ -6565,6 +7048,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &759836764
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 759836761}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.95
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &772021125
 GameObject:
   m_ObjectHideFlags: 0
@@ -6575,6 +7075,7 @@ GameObject:
   m_Component:
   - component: {fileID: 772021126}
   - component: {fileID: 772021127}
+  - component: {fileID: 772021128}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_B.018
   m_TagString: Untagged
@@ -6607,7 +7108,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.62
   m_Range: 9.2
   m_SpotAngle: 30
@@ -6662,6 +7163,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &772021128
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 772021125}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.62
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &786708449
 GameObject:
   m_ObjectHideFlags: 0
@@ -6814,6 +7332,7 @@ GameObject:
   m_Component:
   - component: {fileID: 844487841}
   - component: {fileID: 844487842}
+  - component: {fileID: 844487843}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_C.006
   m_TagString: Untagged
@@ -6846,7 +7365,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.6, g: 0.3, b: 1, a: 1}
+  m_Color: {r: 0.567375, g: 0.342375, b: 0.867375, a: 1}
   m_Intensity: 0.63
   m_Range: 9.2
   m_SpotAngle: 30
@@ -6901,6 +7420,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &844487843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 844487840}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.63
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &845260583
 GameObject:
   m_ObjectHideFlags: 0
@@ -7405,7 +7941,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -7502,7 +8038,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -7707,7 +8243,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -7772,6 +8308,7 @@ GameObject:
   m_Component:
   - component: {fileID: 952650261}
   - component: {fileID: 952650262}
+  - component: {fileID: 952650263}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.002
   m_TagString: Untagged
@@ -7804,7 +8341,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.59
   m_Range: 16.1
   m_SpotAngle: 30
@@ -7859,6 +8396,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &952650263
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 952650260}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.59
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &957708545
 GameObject:
   m_ObjectHideFlags: 0
@@ -7869,6 +8423,7 @@ GameObject:
   m_Component:
   - component: {fileID: 957708546}
   - component: {fileID: 957708547}
+  - component: {fileID: 957708548}
   m_Layer: 0
   m_Name: LGT_CircusTent_Small
   m_TagString: Untagged
@@ -7901,7 +8456,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 1.19
   m_Range: 10.4
   m_SpotAngle: 30
@@ -7956,6 +8511,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &957708548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 957708545}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.19
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &964724045
 GameObject:
   m_ObjectHideFlags: 0
@@ -7998,7 +8570,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -8053,6 +8625,68 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &964966781
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 2107940145361356672, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_Name
+      value: TW_ClownSign_01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 33
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.035853855
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 27
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.42794386
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.9038053
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+--- !u!4 &964966782 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3073341488773922427, guid: c77c446ad93d26745b2cab464b652835, type: 3}
+  m_PrefabInstance: {fileID: 964966781}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &969163387
 GameObject:
   m_ObjectHideFlags: 0
@@ -8095,7 +8729,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 2.5
   m_Range: 15.2
   m_SpotAngle: 30
@@ -8192,7 +8826,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.67
   m_Range: 9.5
   m_SpotAngle: 30
@@ -8289,7 +8923,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -8386,7 +9020,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 2.5
   m_Range: 31.2
   m_SpotAngle: 30
@@ -8483,7 +9117,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -8548,6 +9182,7 @@ GameObject:
   m_Component:
   - component: {fileID: 993720590}
   - component: {fileID: 993720591}
+  - component: {fileID: 993720592}
   m_Layer: 0
   m_Name: LGT_CircusTent_Small.006
   m_TagString: Untagged
@@ -8580,7 +9215,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 1.86
   m_Range: 12.9
   m_SpotAngle: 30
@@ -8635,6 +9270,85 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &993720592
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 993720589}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.86
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
+--- !u!1001 &995493555
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 14.999999
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.023363966
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 9
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -0.49247476
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.87032676
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3636403772791440671, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_Name
+      value: TW_HeadlessHorse_Carnival_02
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+--- !u!4 &995493556 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+  m_PrefabInstance: {fileID: 995493555}
+  m_PrefabAsset: {fileID: 0}
 --- !u!64 &998788513
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -8721,7 +9435,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -8849,7 +9563,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.32
   m_Range: 6
   m_SpotAngle: 30
@@ -8914,6 +9628,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1072104849}
   - component: {fileID: 1072104850}
+  - component: {fileID: 1072104851}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp
   m_TagString: Untagged
@@ -8946,7 +9661,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -9001,6 +9716,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1072104851
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1072104848}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.2
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &1073537973
 GameObject:
   m_ObjectHideFlags: 0
@@ -9043,7 +9775,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -9877,7 +10609,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.62
   m_Range: 9.2
   m_SpotAngle: 30
@@ -10082,7 +10814,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -10179,7 +10911,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.27
   m_Range: 5.5
   m_SpotAngle: 30
@@ -10276,7 +11008,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -10373,7 +11105,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -10470,7 +11202,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 1.16
   m_Range: 10.2
   m_SpotAngle: 30
@@ -10567,7 +11299,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.35, b: 0.8, a: 1}
+  m_Color: {r: 0.8989125, g: 0.4114125, b: 0.7489125, a: 1}
   m_Intensity: 2.5
   m_Range: 110
   m_SpotAngle: 30
@@ -10686,7 +11418,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.31
   m_Range: 5.9
   m_SpotAngle: 30
@@ -10779,7 +11511,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.04, g: 0.08, b: 0.1, a: 1}
+  m_BackGroundColor: {r: 0.08, g: 0.12, b: 0.1, a: 1}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -11109,7 +11841,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.29
   m_Range: 5.7
   m_SpotAngle: 30
@@ -11164,6 +11896,68 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &1324987680
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.000000014901161
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 3.2558136
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -54
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.9999999
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.00049999985
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3636403772791440671, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_Name
+      value: TW_HeadlessHorse_Carnival_01
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+--- !u!4 &1324987681 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+  m_PrefabInstance: {fileID: 1324987680}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1343194228
 GameObject:
   m_ObjectHideFlags: 0
@@ -11206,7 +12000,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -11325,7 +12119,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.36
   m_Range: 6.4
   m_SpotAngle: 30
@@ -11390,6 +12184,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1362703819}
   - component: {fileID: 1362703820}
+  - component: {fileID: 1362703821}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_C
   m_TagString: Untagged
@@ -11422,7 +12217,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.6, g: 0.3, b: 1, a: 1}
+  m_Color: {r: 0.567375, g: 0.342375, b: 0.867375, a: 1}
   m_Intensity: 0.75
   m_Range: 10.1
   m_SpotAngle: 30
@@ -11477,6 +12272,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1362703821
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1362703818}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.75
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &1382723626
 GameObject:
   m_ObjectHideFlags: 0
@@ -11519,7 +12331,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -11629,6 +12441,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1440360160}
   - component: {fileID: 1440360161}
+  - component: {fileID: 1440360162}
   m_Layer: 0
   m_Name: LGT_CircusTent_Small.002
   m_TagString: Untagged
@@ -11661,7 +12474,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 1.49
   m_Range: 11.6
   m_SpotAngle: 30
@@ -11716,6 +12529,85 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1440360162
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1440360159}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.49
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
+--- !u!1001 &1445868115
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -48
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -45
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.91745365
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.39784268
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3636403772791440671, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+      propertyPath: m_Name
+      value: TW_HeadlessHorse_Carnival_00
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+--- !u!4 &1445868116 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3405569794877035186, guid: aaa110bd502831c4ab5b30d11c879887, type: 3}
+  m_PrefabInstance: {fileID: 1445868115}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1481757045
 GameObject:
   m_ObjectHideFlags: 0
@@ -11758,7 +12650,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -11963,7 +12855,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -12182,7 +13074,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -12279,7 +13171,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -12344,6 +13236,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1548872731}
   - component: {fileID: 1548872732}
+  - component: {fileID: 1548872733}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.018
   m_TagString: Untagged
@@ -12376,7 +13269,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.2
   m_Range: 14
   m_SpotAngle: 30
@@ -12431,6 +13324,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1548872733
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1548872730}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.2
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &1581201882
 GameObject:
   m_ObjectHideFlags: 0
@@ -12473,7 +13383,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.72
   m_Range: 9.9
   m_SpotAngle: 30
@@ -12570,7 +13480,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -12667,7 +13577,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -13090,7 +14000,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -13295,7 +14205,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -13392,7 +14302,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -13537,7 +14447,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 2.46
   m_Range: 14.9
   m_SpotAngle: 30
@@ -13602,6 +14512,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1748810755}
   - component: {fileID: 1748810756}
+  - component: {fileID: 1748810757}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.009
   m_TagString: Untagged
@@ -13634,7 +14545,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.33
   m_Range: 14.7
   m_SpotAngle: 30
@@ -13689,6 +14600,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1748810757
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1748810754}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.33
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &1771860174
 GameObject:
   m_ObjectHideFlags: 0
@@ -13762,7 +14690,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -14402,7 +15330,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.65
   m_Range: 9.4
   m_SpotAngle: 30
@@ -14467,6 +15395,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1937031514}
   - component: {fileID: 1937031515}
+  - component: {fileID: 1937031516}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_A.001
   m_TagString: Untagged
@@ -14499,7 +15428,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.6, a: 1}
+  m_Color: {r: 0.885875, g: 0.360875, b: 0.58587503, a: 1}
   m_Intensity: 0.64
   m_Range: 9.3
   m_SpotAngle: 30
@@ -14554,6 +15483,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1937031516
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1937031513}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.64
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &1942490674
 GameObject:
   m_ObjectHideFlags: 0
@@ -14596,7 +15542,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.6, g: 0.3, b: 1, a: 1}
+  m_Color: {r: 0.567375, g: 0.342375, b: 0.867375, a: 1}
   m_Intensity: 0.7
   m_Range: 9.7
   m_SpotAngle: 30
@@ -14651,6 +15597,130 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &1954058856
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -3
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.011214902
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -21
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.99744904
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.07138269
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3619144051820542242, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_Name
+      value: TW_DeflatedBalloons_02
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+--- !u!4 &1954058857 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+  m_PrefabInstance: {fileID: 1954058856}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1964912334
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 2305150247582550199, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_Name
+      value: TW_Shelter_CircusTent_00 (CUR_CircusTent_Small_11)
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -28.06836
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.01832821
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -54.43958
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+--- !u!4 &1964912335 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+  m_PrefabInstance: {fileID: 1964912334}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1969010406
 GameObject:
   m_ObjectHideFlags: 0
@@ -14693,7 +15763,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 2.11
   m_Range: 13.8
   m_SpotAngle: 30
@@ -14790,7 +15860,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -14845,6 +15915,49 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1 &1984808440
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1984808441}
+  m_Layer: 0
+  m_Name: TwistedProps
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 2147483647
+  m_IsActive: 1
+--- !u!4 &1984808441
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1984808440}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1964912335}
+  - {fileID: 2130103358}
+  - {fileID: 1445868116}
+  - {fileID: 1324987681}
+  - {fileID: 995493556}
+  - {fileID: 663878704}
+  - {fileID: 964966782}
+  - {fileID: 669668888}
+  - {fileID: 389119308}
+  - {fileID: 176324924}
+  - {fileID: 2032987037}
+  - {fileID: 1954058857}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2011773209
 GameObject:
   m_ObjectHideFlags: 0
@@ -14855,6 +15968,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2011773210}
   - component: {fileID: 2011773211}
+  - component: {fileID: 2011773212}
   m_Layer: 0
   m_Name: LGT_CarnivalLamp.026
   m_TagString: Untagged
@@ -14887,7 +16001,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.66
   m_Range: 16.5
   m_SpotAngle: 30
@@ -14942,6 +16056,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &2011773212
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2011773209}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.66
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1001 &2015374806
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -15092,7 +16223,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.55, b: 0.2, a: 1}
+  m_Color: {r: 0.9111625, g: 0.5736625, b: 0.3111625, a: 1}
   m_Intensity: 2.5
   m_Range: 25
   m_SpotAngle: 30
@@ -15255,6 +16386,68 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 0.7, z: 0.7}
   m_Center: {x: 0, y: 0.35, z: 0}
+--- !u!1001 &2032987036
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 42
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.016387079
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -42
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.92401487
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.38235655
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3619144051820542242, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+      propertyPath: m_Name
+      value: TW_DeflatedBalloons_01
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+--- !u!4 &2032987037 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1323532388155753749, guid: 850df16d3b440ba4a8864a3862ec61d9, type: 3}
+  m_PrefabInstance: {fileID: 2032987036}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2063049415
 GameObject:
   m_ObjectHideFlags: 0
@@ -15297,7 +16490,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.52
   m_Range: 15.7
   m_SpotAngle: 30
@@ -15362,6 +16555,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2082289728}
   - component: {fileID: 2082289729}
+  - component: {fileID: 2082289730}
   m_Layer: 0
   m_Name: LGT_Booth_Neon_B.015
   m_TagString: Untagged
@@ -15394,7 +16588,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.2, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.33735, g: 0.93735003, b: 0.86235, a: 1}
   m_Intensity: 0.6
   m_Range: 9
   m_SpotAngle: 30
@@ -15449,6 +16643,23 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &2082289730
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2082289727}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 0.6
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
 --- !u!1 &2091522090
 GameObject:
   m_ObjectHideFlags: 0
@@ -15491,7 +16702,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.43
   m_Range: 15.3
   m_SpotAngle: 30
@@ -15696,7 +16907,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -15858,7 +17069,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.75, b: 0.35, a: 1}
+  m_Color: {r: 0.9447875, g: 0.7572875, b: 0.4572875, a: 1}
   m_Intensity: 1.24
   m_Range: 14.2
   m_SpotAngle: 30
@@ -15955,7 +17166,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.6, b: 0.15, a: 1}
+  m_Color: {r: 0.91707504, g: 0.617075, b: 0.27957502, a: 1}
   m_Intensity: 0.27
   m_Range: 5.5
   m_SpotAngle: 30
@@ -16020,6 +17231,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2126349461}
   - component: {fileID: 2126349462}
+  - component: {fileID: 2126349463}
   m_Layer: 0
   m_Name: LGT_CircusTent_Small.013
   m_TagString: Untagged
@@ -16052,7 +17264,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 1, g: 0.3, b: 0.5, a: 1}
+  m_Color: {r: 0.883025, g: 0.358025, b: 0.508025, a: 1}
   m_Intensity: 1.29
   m_Range: 10.8
   m_SpotAngle: 30
@@ -16107,6 +17319,85 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &2126349463
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2126349460}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 105120735dbfe37459816e73bcf2da69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  baseIntensity: 1.29
+  jitter: 0.12
+  burstGap: {x: 3, y: 9}
+  burstBlinks: {x: 2, y: 5}
+  offLevel: 0.08
+--- !u!1001 &2130103357
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1984808441}
+    m_Modifications:
+    - target: {fileID: 2305150247582550199, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_Name
+      value: TW_Shelter_CircusTent_01 (CUR_CircusTent_Small_01)
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 32.95486
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.011383639
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -25.333118
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: -1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0.00000008742278
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+--- !u!4 &2130103358 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8873053615050258641, guid: 70bfda396502ce04c9d81e8bc061af0b, type: 3}
+  m_PrefabInstance: {fileID: 2130103357}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &2137306675
 GameObject:
   m_ObjectHideFlags: 0
@@ -16149,7 +17440,7 @@ Light:
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 2
-  m_Color: {r: 0.3, g: 1, b: 0.9, a: 1}
+  m_Color: {r: 0.41982502, g: 0.944825, b: 0.869825, a: 1}
   m_Intensity: 2.75
   m_Range: 25
   m_SpotAngle: 30
@@ -18215,7 +19506,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 87
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1183481486703716550
 Transform:
   m_ObjectHideFlags: 0
@@ -34641,7 +35932,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 87
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!1 &8882039061813024172
 GameObject:
   m_ObjectHideFlags: 0
@@ -35295,3 +36586,4 @@ SceneRoots:
   - {fileID: 1083758470}
   - {fileID: 711587124}
   - {fileID: 1728884836}
+  - {fileID: 1984808441}

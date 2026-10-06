@@ -3,6 +3,7 @@
     "references": [
         "TagOfChaos.Scripts",
         "TagOfChaos.Editor",
+        "Unity.Postprocessing.Runtime",
         "PhotonUnityNetworking",
         "PhotonRealtime",
         "UnityEngine.TestRunner",
