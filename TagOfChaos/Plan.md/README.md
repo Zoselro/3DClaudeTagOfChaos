@@ -7,7 +7,7 @@
 | 문서 | 무엇 | 상태 |
 |---|---|---|
 | `Claude.md` | 작업 규칙(폴더·코드·언어) | 항상 |
-| **`TwistedCandyPlan.md`** | **다음 작업** — 뒤틀린 과자 동화 개편(맵 분위기·망가진 소품·숨을 곳·색칠 위장·배경음/효과음 다시 만들기) | 📝 승인 대기 |
+| **`TwistedCandyPlan.md`** | 뒤틀린 과자 동화 개편(맵 분위기·망가진 소품·숨을 곳·색칠 위장·배경음/효과음 다시 만들기) — 작업 기록·다시 실행 순서 §10 | ✅ V0~V6 (2026-10-07) |
 | `GameRule.md` | 게임 규칙 명세(숨바꼭질·괴물·라운드) | 기준 문서 |
 | `EscapePlan.md` | 탈출 모드 명세(장치·재료·스파이·마녀) | 기준 문서 |
 | `SoundPlan.md` | 소리 시스템 구조와 작업 기록(S0~S9 ✅) | 기준 문서 |
@@ -18,9 +18,10 @@
 ## 남은 확인(옛 문서에서 옮김)
 | 항목 | 출처 |
 |---|---|
-| 캔디숲·공장·놀이공원·대기실 씬에 저장된 시험용 `GameObject`(OfflineModeBootstrap) — 출시 전에 제거 | SoundPlan S7·S9 |
+| 캔디숲·진저브레드·공장·놀이공원·베이커리·대기실 씬에 저장된 시험용 `GameObject`(OfflineModeBootstrap) — 출시 전에 제거(BuildSceneTests 6개 실패 원인) | SoundPlan S7·S9, TwistedCandyPlan V6 |
 | 빌드에서 소리·음량 설정 저장을 직접 들어 보고 확인, 멀티에서 다른 사람 소리 확인 | SoundPlan S9 |
-| `Builds/S9Check/` — 확인용 빌드, 필요 없으면 삭제 | SoundPlan S9 |
+| `Builds/S9Check/`·`Builds/V6Check/` — 확인용 빌드, 필요 없으면 삭제 | SoundPlan S9, TwistedCandyPlan V6 |
+| 두 사람 멀티에서 숨을 곳·실내 소리·새 소리 확인, 새 소리 크기를 실제 스피커로 조정 | TwistedCandyPlan V6 |
 | 대기실 점광원 14개 프레임 확인(프로파일링 미실시) | archive/GameLobbyScene.md |
 
 ## archive/ (끝난 계획·옛 판)

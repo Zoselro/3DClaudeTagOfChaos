@@ -4,7 +4,7 @@
 - 근거 조사: `Plan.md/research.md` **R8**(현재 오디오 자산 0개, 소리가 필요한 지점 목록과 코드 위치)
 - 규칙: 코드에 한글 금지(소리 ID는 영문 enum, 화면 문구는 씬·SO), OOP, 최적화, **승인 후 작업**
 - ✅ 승인됨(2026-10-02, “추천대로 진행”): §1 D1~D6 모두 추천안. S1부터 진행 중.
-- **2026-10-07: S0~S9 모두 ✅.** 다음 소리 작업(배경음·효과음을 "뒤틀린 과자 동화" 컨셉으로 다시 만들기)은 `TwistedCandyPlan.md` §5. S8 음원 방향 문서(`AudioProductionPlan.md`)는 `archive/`로 옮겼다.
+- **2026-10-07: S0~S9 모두 ✅.** 이어서 "뒤틀린 과자 동화" 개편으로 음원 53개를 같은 ID로 다시 만들어 교체했다(`TwistedCandyPlan.md` §10 V5, S8 판은 `Assets/10. Audio/Source~/s8_backup/`). 실내 소리(`IndoorZone` — 벽 너머 먹먹함)도 더했다(§10 V4). S8 음원 방향 문서(`AudioProductionPlan.md`)는 `archive/`로 옮겼다.
 
 ---
 
