@@ -41,7 +41,7 @@ public static class PlayerInput
     // 이동 입력(x=좌우, y=앞뒤), 각 축 -1~1.
     public static Vector2 Move => IsGameplaySuppressed
         ? Vector2.zero
-        : new Vector2(Input.GetAxisRaw(Bindings.HorizontalAxis), Input.GetAxisRaw(Bindings.VerticalAxis));
+        : EditorMove != Vector2.zero ? EditorMove : new Vector2(Input.GetAxisRaw(Bindings.HorizontalAxis), Input.GetAxisRaw(Bindings.VerticalAxis));
 
     // 카메라가 바라보는 방향 기준의 수평 이동 방향(정규화, 입력이 없으면 0). 쿠키·괴물 공용(3인칭 궤도 카메라 전제).
     public static Vector3 CameraRelativeMove(Transform cameraTransform)
@@ -57,7 +57,34 @@ public static class PlayerInput
     public static bool JumpPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.JumpKey);
     public static bool DodgePressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DodgeKey);
     public static bool GrabPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.GrabKey);
-    public static bool InteractPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.InteractKey);
+    public static bool InteractPressed => !IsGameplaySuppressed && (Input.GetKeyDown(Bindings.InteractKey) || EditorTakeInteractPress());
+    public static bool InteractHeld => !IsGameplaySuppressed && (Input.GetKey(Bindings.InteractKey) || EditorInteractHeld); // 상자·장치 길게 누르기(IHoldInteractable)
+
+#if UNITY_EDITOR
+    // Play Mode 자동 검증용(에디터 전용, 빌드에는 없다): E를 누른 것처럼 한 번 / 누르고 있는 것처럼.
+    // 누름은 처음 읽힌 프레임 한 번 동안만 true다(GetKeyDown처럼 같은 프레임의 여러 읽기에 모두 보인다).
+    public static bool EditorInteractPress;
+    public static bool EditorInteractHeld;
+    public static bool EditorSpectateNextPress;
+    public static Vector2 EditorMove; // 이동 키를 누른 것처럼(괴물·쿠키 걷기 소리 시험)
+    private static int editorPressFrame = -1, editorSpectateFrame = -1;
+    private static bool EditorTakeInteractPress() => TakeEditorPress(ref EditorInteractPress, ref editorPressFrame);
+    private static bool EditorTakeSpectateNextPress() => TakeEditorPress(ref EditorSpectateNextPress, ref editorSpectateFrame);
+    private static bool TakeEditorPress(ref bool request, ref int frame)
+    {
+        if (request)
+        {
+            request = false;
+            frame = Time.frameCount;
+        }
+        return frame == Time.frameCount;
+    }
+#else
+    private const bool EditorInteractHeld = false;
+    private static bool EditorTakeInteractPress() => false;
+    private static bool EditorTakeSpectateNextPress() => false;
+    private static readonly Vector2 EditorMove = Vector2.zero;
+#endif
     public static bool TentacleDashPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.TentacleDashKey);
     // 인벤토리(EscapePlan.md §1.9): G키로 떨어뜨리기, 숫자키 1~4로 칸 고르기, 마우스로 도구 쓰기.
     public static bool DropPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DropKey);
@@ -76,7 +103,7 @@ public static class PlayerInput
     }
 
     public static bool ToggleViewPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.ToggleViewKey);
-    public static bool SpectateNextPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.SpectateNextKey);
+    public static bool SpectateNextPressed => !IsGameplaySuppressed && (Input.GetKeyDown(Bindings.SpectateNextKey) || EditorTakeSpectateNextPress());
     public static bool ChatSubmitReleased => Input.GetKeyUp(Bindings.ChatSubmitKey);
 
     public static Vector2 PointerPosition => Input.mousePosition;

@@ -7,6 +7,7 @@
 | 문서 | 무엇 | 상태 |
 |---|---|---|
 | `Claude.md` | 작업 규칙(폴더·코드·언어) | 항상 |
+| **`Request1009Plan.md`** | 2026-10-09 요청 11건(상자 길게 누르기·상자/로비/로켓 소리·대기실·오븐·관전·회전목마·놀이공원 충돌체/잡기) — 결과 기록 §15 | ✅ R0~R6 (2026-10-09) · R7 결과 화면 곡 **승인 대기** |
 | **`TwistedCandyPlan.md`** | 뒤틀린 과자 동화 개편(맵 분위기·망가진 소품·숨을 곳·색칠 위장·배경음/효과음 다시 만들기) — 작업 기록·다시 실행 순서 §10 | ✅ V0~V6 (2026-10-07) |
 | `GameRule.md` | 게임 규칙 명세(숨바꼭질·괴물·라운드) | 기준 문서 |
 | `EscapePlan.md` | 탈출 모드 명세(장치·재료·스파이·마녀) | 기준 문서 |
@@ -20,9 +21,11 @@
 |---|---|
 | 캔디숲·진저브레드·공장·놀이공원·베이커리·대기실 씬에 저장된 시험용 `GameObject`(OfflineModeBootstrap) — 출시 전에 제거(BuildSceneTests 6개 실패 원인) | SoundPlan S7·S9, TwistedCandyPlan V6 |
 | 빌드에서 소리·음량 설정 저장을 직접 들어 보고 확인, 멀티에서 다른 사람 소리 확인 | SoundPlan S9 |
-| `Builds/S9Check/`·`Builds/V6Check/` — 확인용 빌드, 필요 없으면 삭제 | SoundPlan S9, TwistedCandyPlan V6 |
+| `Builds/S9Check/`·`Builds/V6Check/`·`Builds/R1009Check/` — 확인용 빌드, 필요 없으면 삭제 | SoundPlan S9, TwistedCandyPlan V6, Request1009 R6 |
 | 두 사람 멀티에서 숨을 곳·실내 소리·새 소리 확인, 새 소리 크기를 실제 스피커로 조정 | TwistedCandyPlan V6 |
-| 대기실 점광원 14개 프레임 확인(프로파일링 미실시) | archive/GameLobbyScene.md |
+| 대기실 점광원 14개 프레임 확인(프로파일링 미실시) — Request1009 R3에서 마녀 집 스포트 4개 추가 | archive/GameLobbyScene.md, Request1009 R3 |
+| 결과 화면 곡 후보(`Source~/twisted/review/Result_candidate.ogg`·징글 묶음 3개) 청취 → 승인되면 R7(`MusicId.Result`)로 넣기 | Request1009 R2·R7 |
+| 두 사람 이상 멀티: 관전 순환(탈출 = 일반 쿠키만, 부서짐 = 스파이 포함), 다른 사람을 따라 진저브레드 지하로 내려갈 때 동굴 소리, 길게 누르기 중 다른 사람이 먼저 연 상자 취소 | Request1009 R1·R4 |
 
 ## archive/ (끝난 계획·옛 판)
 | 묶음 | 문서 |

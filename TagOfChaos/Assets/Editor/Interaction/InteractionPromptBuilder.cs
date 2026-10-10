@@ -19,6 +19,8 @@ public static class InteractionPromptBuilder
     private const string PrefabFolder = ParentFolder + "/InteractionPromptUI";
     private const string PrefabPath = PrefabFolder + "/InteractionPromptUI.prefab";
     private const string CirclePath = PrefabFolder + "/PromptCircle.png";
+    private const string RingPath = PrefabFolder + "/PromptRing.png";
+    private const float RingSize = 76f; // 동그라미(56) 둘레에 두르는 길게 누르기 진행 링(Request1009Plan.md §1)
     private const string FontPath = "Assets/Fonts/NotoSansKR SDF.asset";
     private const int CircleSize = 128;
     private const float IconSize = 56f;
@@ -36,8 +38,11 @@ public static class InteractionPromptBuilder
             return;
         }
         var existing = AssetDatabase.LoadAssetAtPath<InteractionPromptUI>(PrefabPath);
-        if (existing != null && new SerializedObject(existing).FindProperty("iconRoot").objectReferenceValue != null) return;
-        Build(); // 없거나 옛 모양(iconRoot 없음)
+        if (existing != null) {
+            var so = new SerializedObject(existing);
+            if (so.FindProperty("iconRoot").objectReferenceValue != null && so.FindProperty("progressRing").objectReferenceValue != null) return;
+        }
+        Build(); // 없거나 옛 모양(iconRoot·진행 링 없음)
     }
 
     [MenuItem(MenuPath)]
@@ -45,6 +50,7 @@ public static class InteractionPromptBuilder
     {
         if (!AssetDatabase.IsValidFolder(PrefabFolder)) AssetDatabase.CreateFolder(ParentFolder, "InteractionPromptUI");
         Sprite circle = BuildCircleSprite();
+        Sprite ringSprite = BuildRingSprite();
         var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
 
         Scene preview = EditorSceneManager.NewPreviewScene();
@@ -74,6 +80,24 @@ public static class InteractionPromptBuilder
             iconImage.sprite = circle;
             iconImage.raycastTarget = false;
 
+            // 길게 누르기 진행 링: 12시에서 시계 방향으로 찬다. 평소에는 꺼 두고 InteractionPromptUI.SetProgress가 켠다.
+            var ringGo = new GameObject("ProgressRing", typeof(RectTransform), typeof(Image));
+            ringGo.transform.SetParent(icon.transform, false);
+            var ringRect = (RectTransform)ringGo.transform;
+            ringRect.anchorMin = ringRect.anchorMax = new Vector2(0.5f, 0.5f);
+            ringRect.pivot = new Vector2(0.5f, 0.5f);
+            ringRect.sizeDelta = new Vector2(RingSize, RingSize);
+            var ring = ringGo.GetComponent<Image>();
+            ring.sprite = ringSprite;
+            ring.type = Image.Type.Filled;
+            ring.fillMethod = Image.FillMethod.Radial360;
+            ring.fillOrigin = (int)Image.Origin360.Top;
+            ring.fillClockwise = true;
+            ring.fillAmount = 0f;
+            ring.color = new Color(1f, 0.82f, 0.35f, 1f);
+            ring.raycastTarget = false;
+            ring.enabled = false;
+
             TextMeshProUGUI key = CreateText("Key", icon.transform, font, 32f, FontStyles.Bold);
             var keyRect = key.rectTransform;
             keyRect.anchorMin = Vector2.zero;
@@ -99,6 +123,7 @@ public static class InteractionPromptBuilder
             serialized.FindProperty("iconRoot").objectReferenceValue = iconRect;
             serialized.FindProperty("keyLabel").objectReferenceValue = key;
             serialized.FindProperty("nameLabel").objectReferenceValue = nameText;
+            serialized.FindProperty("progressRing").objectReferenceValue = ring;
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             PrefabUtility.SaveAsPrefabAsset(root, PrefabPath, out bool saved);
@@ -123,6 +148,34 @@ public static class InteractionPromptBuilder
         text.color = Color.white;
         text.raycastTarget = false;
         return text;
+    }
+
+    // 진행 링 그림: 흰 고리(두께 9px/128), 가장자리 부드럽게. 색은 Image.color로 입힌다.
+    private static Sprite BuildRingSprite()
+    {
+        var tex = new Texture2D(CircleSize, CircleSize, TextureFormat.RGBA32, false);
+        float center = (CircleSize - 1) / 2f;
+        float outer = CircleSize / 2f - 1f;
+        const float width = 9f;
+        for (int y = 0; y < CircleSize; y++)
+        for (int x = 0; x < CircleSize; x++)
+        {
+            float d = Mathf.Sqrt((x - center) * (x - center) + (y - center) * (y - center));
+            float a = Mathf.Clamp01(outer - d + 0.5f) * Mathf.Clamp01(d - (outer - width) + 0.5f);
+            tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+        }
+        tex.Apply();
+        File.WriteAllBytes(RingPath, tex.EncodeToPNG());
+        Object.DestroyImmediate(tex);
+
+        AssetDatabase.ImportAsset(RingPath, ImportAssetOptions.ForceUpdate);
+        var importer = (TextureImporter)AssetImporter.GetAtPath(RingPath);
+        importer.textureType = TextureImporterType.Sprite;
+        importer.spriteImportMode = SpriteImportMode.Single;
+        importer.alphaIsTransparency = true;
+        importer.mipmapEnabled = false;
+        importer.SaveAndReimport();
+        return AssetDatabase.LoadAssetAtPath<Sprite>(RingPath);
     }
 
     // 반투명 어두운 원 + 흰 테두리. 가장자리는 부드럽게(안티에일리어싱).

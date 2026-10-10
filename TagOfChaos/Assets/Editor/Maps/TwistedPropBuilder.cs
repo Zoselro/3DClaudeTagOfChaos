@@ -8,14 +8,14 @@ using UnityEngine;
 // 2) FBX마다 프리팹(Assets/04. Prefabs/Twisted/<이름>.prefab): 오브젝트 이름 규칙으로 충돌체를 붙인다.
 //    COL_*   → 보이지 않는 BoxCollider(숨을 곳 벽·바닥처럼 정확한 모양이 필요한 곳)
 //    Decal_* → 충돌체 없음(바닥 자국)
-//    그 밖   → COL_가 하나도 없으면 오브젝트마다 메시 경계에 맞춘 BoxCollider(높이는 최소 2.6 m)
+//    그 밖   → COL_가 하나도 없으면 오브젝트마다 자기 메시 그대로의 MeshCollider(정적 오목). 예전의 메시 경계 상자 + 최소 높이 2.6 m는
+//              부품 사이 빈 곳까지 막아 없앴다(Request1009Plan.md §10). 낮은 소품 위에 올라선 쿠키는 괴물이 잡는다(§11 MaxGrabHeight).
 // 모든 오브젝트는 정적(배칭)이다. 다시 실행하면 프리팹을 덮어쓴다.
 public static class TwistedPropBuilder
 {
     public const string PrefabFolder = "Assets/04. Prefabs/Twisted";
     public const string CollisionPrefix = "COL_";
     public const string DecalPrefix = "Decal_";
-    public const float MinColliderHeight = 2.6f; // MapPassabilityCheck 쿠키 오르기 1.8 m보다 높게
 
     private static readonly Dictionary<string, Color> Neutrals = new Dictionary<string, Color>
     {
@@ -153,15 +153,17 @@ public static class TwistedPropBuilder
             if (f.sharedMesh == null || f.name.StartsWith(DecalPrefix)) continue;
             bool col = f.name.StartsWith(CollisionPrefix);
             if (explicitCollision && !col) continue;
-            Bounds b = f.sharedMesh.bounds;
-            if (!col && b.size.y < MinColliderHeight) // 낮은 소품 위에 쿠키만 올라가 괴물이 못 닿는 자리가 생기지 않게(쿠키는 1.8 m까지 오른다)
+            if (!col)
             {
-                b.max = new Vector3(b.max.x, b.min.y + MinColliderHeight, b.max.z);
+                var mesh = f.gameObject.AddComponent<MeshCollider>();
+                mesh.sharedMesh = f.sharedMesh;
+                mesh.convex = false;
+                continue;
             }
+            Bounds b = f.sharedMesh.bounds;
             var box = f.gameObject.AddComponent<BoxCollider>();
             box.center = b.center;
             box.size = b.size;
-            if (!col) continue;
             Object.DestroyImmediate(f.GetComponent<MeshRenderer>());
             Object.DestroyImmediate(f);
         }

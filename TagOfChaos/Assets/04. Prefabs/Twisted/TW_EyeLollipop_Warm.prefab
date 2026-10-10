@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 837565722418184198}
   - component: {fileID: 1282430923880061480}
   - component: {fileID: 341524756883190229}
-  - component: {fileID: 709906145282065769}
+  - component: {fileID: 5528915537654429941}
   m_Layer: 0
   m_Name: TW_EyeLollipop_Warm
   m_TagString: Untagged
@@ -92,8 +92,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &709906145282065769
-BoxCollider:
+--- !u!64 &5528915537654429941
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -110,6 +110,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 2.7210774, y: 4.6947455, z: 1.4579492}
-  m_Center: {x: -0.10946125, y: 2.3026273, z: 0.2704385}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2959467708922500008, guid: 22d6de753303bfa4dbd6b46227071b2f, type: 3}

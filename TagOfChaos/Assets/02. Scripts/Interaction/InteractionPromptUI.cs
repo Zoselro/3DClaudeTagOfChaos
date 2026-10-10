@@ -13,6 +13,8 @@ public class InteractionPromptUI : MonoBehaviour
     [SerializeField] private RectTransform iconRoot; // 동그라미(화면 좌표로 사물 위치를 따라간다)
     [SerializeField] private TMP_Text keyLabel;      // 동그라미 안 키 글자
     [SerializeField] private TMP_Text nameLabel;     // 아이콘 아래 사물 이름(선택)
+    [Tooltip("길게 누르기 진행 링(Image — Filled·Radial360). 0이면 숨긴다(Request1009Plan.md §1).")]
+    [SerializeField] private UnityEngine.UI.Image progressRing;
     [Tooltip("사물 기준점(InteractionPoint)에서 아이콘을 띄울 높이(m). 문은 기준점이 문짝 바닥이라 올려 준다.")]
     [SerializeField] private Vector3 worldOffset = new Vector3(0f, 1.2f, 0f);
 
@@ -57,6 +59,15 @@ public class InteractionPromptUI : MonoBehaviour
         worldAnchor = worldPoint + worldOffset;
         visible = true;
         UpdatePosition();
+    }
+
+    // 길게 누르기 진행(0~1). 0이면 링을 숨긴다.
+    public void SetProgress(float progress)
+    {
+        if (progressRing == null) return;
+        bool show = progress > 0f;
+        if (progressRing.enabled != show) progressRing.enabled = show;
+        if (show) progressRing.fillAmount = UnityEngine.Mathf.Clamp01(progress);
     }
 
     public void Hide()

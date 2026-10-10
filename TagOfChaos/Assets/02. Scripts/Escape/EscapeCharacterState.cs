@@ -43,7 +43,7 @@ public class EscapeCharacterState : MonoBehaviourPunCallbacks
         if ((waiting || escaped) && !spectating)
         {
             spectating = true;
-            if (TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode();
+            if (TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Escaped);
         }
         // 탈것이 출발한 순간(또는 쿠키 탈출구·스파이 로켓) 탈출 성공을 본인 속성에 쓴다
         if (escaped && !escapeHandled)

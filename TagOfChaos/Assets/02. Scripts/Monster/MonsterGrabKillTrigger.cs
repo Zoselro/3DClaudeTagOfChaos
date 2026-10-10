@@ -17,6 +17,17 @@ public class MonsterGrabKillTrigger : MonoBehaviour
     // GameRule.md v3.5) — ResetTrigger()는 MonsterController가 재생 시간 경과 후 호출한다.
     private bool onCooldown;
     private readonly RaycastHit[] aimHits = new RaycastHit[16];
+    private readonly RaycastHit[] sightHits = new RaycastHit[16];
+    private Transform eye;
+
+    private const float CookieChestHeight = 1f;
+    private const float FallbackEyeHeight = 3.27f; // MonsterPlayer 프리팹 EyeSocket 높이
+    private const float HandHeight = 1.6f;          // 잡는 손이 나가는 몸통 높이 — 차양 아래 카운터 위 쿠키는 눈에서는 간판에 가려도 손은 닿는다
+
+    private void Awake()
+    {
+        eye = monsterPv != null ? monsterPv.transform.Find("EyeSocket") : null;
+    }
 
     public bool IsOnCooldown => onCooldown;
     public float BodyFrontOffset => bodyFrontOffset;
@@ -32,6 +43,8 @@ public class MonsterGrabKillTrigger : MonoBehaviour
 
     // 화면 가운데에서 앞으로 구를 쏘아, 벽보다 가깝고 몸 앞면에서 잡기 거리 안에 있는 가장 가까운 쿠키를 고른다.
     // 3인칭이면 카메라가 괴물 뒤에 있으므로 최대 거리에 카메라~괴물 거리를 더한다.
+    // 구조물 위의 쿠키(Request1009Plan.md §11): 올려다보는 조준선은 쿠키보다 구조물 모서리·윗면에 먼저 맞는다. 그래서 막힌 것으로
+    // 보이는 쿠키도 괴물 눈 또는 손 높이에서 쿠키 가슴까지 직선이 비어 있으면 잡을 수 있다. 높이는 MaxGrabHeight까지.
     private HideOrSeekPlayer FindAimTarget()
     {
         Camera cam = Camera.main;
@@ -61,17 +74,46 @@ public class MonsterGrabKillTrigger : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             var cookie = aimHits[i].collider.GetComponentInParent<HideOrSeekPlayer>();
-            if (cookie == null || aimHits[i].distance >= bestDistance || aimHits[i].distance > blockDistance) continue;
+            if (cookie == null || aimHits[i].distance >= bestDistance) continue;
             if (!IsCatchable(cookie)) continue;
-
-            Vector3 toCookie = cookie.transform.position - center;
-            toCookie.y = 0f;
-            if (toCookie.magnitude > reachFromCenter) continue; // 몸 앞면에서 잡기 거리 밖
+            if (!InReach(center, cookie.transform.position, reachFromCenter, settings.MaxGrabHeight)) continue; // 몸 앞면에서 잡기 거리 밖·너무 높음
+            if (aimHits[i].distance > blockDistance && !HasLineOfSight(self, cookie)) continue;
 
             best = cookie;
             bestDistance = aimHits[i].distance;
         }
         return best;
+    }
+
+    // 수평 거리는 몸 중심에서 reach 안, 높이는 쿠키 발이 괴물 발보다 maxHeight 이하(아래쪽은 제한 없음 — 경사·계단 아래).
+    public static bool InReach(Vector3 monsterFeet, Vector3 cookieFeet, float reachFromCenter, float maxHeight)
+    {
+        Vector3 flat = cookieFeet - monsterFeet;
+        float rise = flat.y;
+        flat.y = 0f;
+        return flat.sqrMagnitude <= reachFromCenter * reachFromCenter && rise <= maxHeight;
+    }
+
+    private bool HasLineOfSight(Transform self, HideOrSeekPlayer cookie)
+    {
+        Vector3 to = cookie.transform.position + Vector3.up * CookieChestHeight;
+        Vector3 eyePoint = eye != null ? eye.position : self.position + Vector3.up * FallbackEyeHeight;
+        return LineClear(eyePoint, to, self, cookie.transform) || LineClear(self.position + Vector3.up * HandHeight, to, self, cookie.transform);
+    }
+
+    private bool LineClear(Vector3 from, Vector3 to, Transform self, Transform cookie)
+    {
+        Vector3 delta = to - from;
+        float length = delta.magnitude;
+        if (length < 0.01f) return true;
+        int count = Physics.RaycastNonAlloc(from, delta / length, sightHits, length, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            Transform t = sightHits[i].collider.transform;
+            if (t.IsChildOf(self) || t.IsChildOf(cookie)) continue;
+            return false;
+        }
+        return true;
     }
 
     private static bool IsCatchable(HideOrSeekPlayer cookie)

@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using Photon.Pun;
 using UnityEngine;
 
-// 파괴된 쿠키(hitCount>=2)의 관전 모드(GameRule.md §6.3). HideOrSeekPlayer.prefab에 부착, 로컬 소유자 전용 —
-// HideOrSeekPlayer.RequestGrabKill()이 파괴되는 순간 EnterSpectatorMode()를 호출한다.
+// 파괴된 쿠키(hitCount>=2)·탈출한 쿠키의 관전 모드(GameRule.md §6.3). HideOrSeekPlayer.prefab에 부착, 로컬 소유자 전용 —
+// 부서지는 순간(HideOrSeekPlayer·CookieLifeStatePresenter)·마녀에게 죽는 순간은 EnterSpectatorMode(Broken),
+// 탈것 탑승·탈출 순간(EscapeCharacterState)은 EnterSpectatorMode(Escaped)를 부른다. 누구를 볼 수 있는지는 SpectateRules(Request1009Plan.md §9).
 //
 // 이 컴포넌트는 "누구를 볼지"만 정하고, 카메라 조작은 쿠키·괴물과 같은 Camera_Ctrl에 맡긴다. 예전에는
 // Camera_Ctrl을 끄고 대상 등 뒤 고정 위치로 카메라를 직접 옮겨 우클릭 드래그 회전이 불가능했고, 대상 목록이
@@ -14,7 +15,7 @@ using UnityEngine;
 // FindObjectsByType로 훑고 카메라 설정도 타입으로 분기했다(research.md §12 E1). 새 캐릭터 종류가 생겨도 수정할 필요가 없다.
 public class SpectatorController : MonoBehaviourPunCallbacks
 {
-    // 관전 후보 규칙. 새 규칙이 필요하면 항목과 IsAllowedRole 조건만 추가한다.
+    // 부서진 쿠키가 괴물까지 볼 수 있는지(프리팹 설정). 탈출한 쿠키는 이 값과 상관없이 괴물·스파이를 보지 않는다(SpectateRules).
     public enum SpectateTargets
     {
         AliveCookies,             // 살아 있는 다른 쿠키만(기본, GameRule.md §6.3)
@@ -24,6 +25,8 @@ public class SpectatorController : MonoBehaviourPunCallbacks
     // 관전 대상이 바뀔 때 알린다(null = 관전 대상 없음/종료). 씬 UI(SpectatorLabel)가 구독한다 — 프리팹이 씬
     // 오브젝트를 직접 참조하지 않도록 이벤트로 분리했다.
     public static event System.Action<string> SpectateTargetChanged;
+    // 자기가 탄 탈것을 보는 중인지(true면 안내에 "Space: 다른 사람 보기").
+    public static event System.Action<bool> SpectatingVehicleChanged;
 
     [SerializeField] private PhotonView pv;
     [SerializeField] private SpectateTargets targets = SpectateTargets.AliveCookies;
@@ -35,12 +38,28 @@ public class SpectatorController : MonoBehaviourPunCallbacks
     private readonly List<IGameCharacter> candidates = new List<IGameCharacter>();
     private IGameCharacter currentTarget;
     private bool isSpectating;
+    private SpectatorKind kind;
+    private bool vehicleDismissed; // 탈것을 보다가 Space를 누르면 다시 탈것으로 돌아가지 않는다
+    private bool watchingVehicle;
     private Camera_Ctrl camCtrl;
 
-    public void EnterSpectatorMode()
+    public SpectatorKind Kind => kind;
+    public bool IsSpectating => isSpectating;
+
+    public void EnterSpectatorMode(SpectatorKind reason)
     {
-        if (!pv.IsMine || isSpectating) return;
+        if (!pv.IsMine) return;
+        if (isSpectating)
+        {
+            // 탈것에서 기다리다 마녀에게 죽는 등 이유가 바뀌면 후보 규칙만 바꾸고, 보던 대상이 더는 후보가 아니면 넘긴다.
+            SpectatorKind merged = SpectateRules.Merge(kind, reason);
+            if (merged == kind) return;
+            kind = merged;
+            if (camCtrl != null && !watchingVehicle && !IsCandidate(currentTarget)) SwitchToNext();
+            return;
+        }
         isSpectating = true;
+        kind = reason;
 
         camCtrl = Camera.main != null ? Camera.main.GetComponent<Camera_Ctrl>() : null;
         if (camCtrl == null)
@@ -56,8 +75,17 @@ public class SpectatorController : MonoBehaviourPunCallbacks
     {
         if (!pv.IsMine || !isSpectating || camCtrl == null) return;
 
+        // Space(InputBindings)는 언제나 먼저 — 탈것을 보는 중이어도 다음 사람으로 넘어간다(Request1009Plan.md §9).
+        bool next = PlayerInput.SpectateNextPressed;
+        Transform vehicle = vehicleDismissed ? null : VehicleFocus();
+        if (vehicle != null && next)
+        {
+            vehicleDismissed = true;
+            vehicle = null;
+        }
+
         // 탈것에 탄 쿠키는 기다리는 동안·출발하는 동안 자기가 탄 탈것을 본다(EscapeVisualPlan.md §4.3)
-        Transform vehicle = VehicleFocus();
+        SetWatchingVehicle(vehicle != null);
         if (vehicle != null)
         {
             if (camCtrl.FollowTarget != vehicle.gameObject)
@@ -68,13 +96,13 @@ public class SpectatorController : MonoBehaviourPunCallbacks
             }
             return;
         }
-        if (currentTarget == null && camCtrl.FollowTarget != null && Time.unscaledTime >= nextEmptyRetryTime)
+        if (!next && currentTarget == null && camCtrl.FollowTarget != null && Time.unscaledTime >= nextEmptyRetryTime)
         {
             SwitchToNext(); // 탈것을 보다가 끝났으면 다시 다른 쿠키를 본다
             nextEmptyRetryTime = Time.unscaledTime + EmptyRetryInterval;
         }
 
-        if (PlayerInput.SpectateNextPressed)
+        if (next)
         {
             SwitchToNext(); // 수동 전환(키는 InputBindings)
         }
@@ -105,9 +133,18 @@ public class SpectatorController : MonoBehaviourPunCallbacks
         return manager.Sequence.DepartureFocus;
     }
 
+    private void SetWatchingVehicle(bool value)
+    {
+        if (watchingVehicle == value) return;
+        watchingVehicle = value;
+        SpectatingVehicleChanged?.Invoke(value);
+    }
+
     private void OnDestroy()
     {
-        if (isSpectating) SpectateTargetChanged?.Invoke(null);
+        if (!isSpectating) return;
+        SpectateTargetChanged?.Invoke(null);
+        if (watchingVehicle) SpectatingVehicleChanged?.Invoke(false);
     }
 
     private void SwitchToNext()
@@ -149,16 +186,8 @@ public class SpectatorController : MonoBehaviourPunCallbacks
         if (character == null || !CharacterRegistry.IsAlive(character)) return false; // 퇴장 등으로 파괴됨
         PhotonView view = character.View;
         if (view == null || view.Owner == null || view.IsMine) return false; // 자기 자신(이미 파괴됨) 제외
-        return IsAllowedRole(character.Role) && character.IsSpectatable;
-    }
-
-    private bool IsAllowedRole(CharacterRole role)
-    {
-        switch (targets)
-        {
-            case SpectateTargets.AliveCookiesAndMonsters: return true;
-            default: return role == CharacterRole.Cookie;
-        }
+        return SpectateRules.IsCandidate(kind, character.Role, RoomState.IsSpy(view.Owner.ActorNumber), character.IsSpectatable,
+            targets == SpectateTargets.AliveCookiesAndMonsters);
     }
 
     private static int GetActorNumber(IGameCharacter character)

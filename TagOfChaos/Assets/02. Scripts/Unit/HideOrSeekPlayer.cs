@@ -146,11 +146,11 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
 
         // 파괴된 몸은 CookieLifeStatePresenter가 모든 클라이언트에서 렌더러·콜라이더를 끄고 비충돌 레이어로 옮긴다. 콜라이더가 꺼진 채
         // 중력을 받으면 바닥을 뚫고 떨어지므로 물리도 멈춘다(research.md §8.11).
-        rb.linearVelocity = Vector3.zero;
+        if (!rb.isKinematic) rb.linearVelocity = Vector3.zero;
         rb.isKinematic = true;
 
         // 연출 중이면 부서지는 순간 CookieLifeStatePresenter가 관전으로 넘긴다 — 그때까지 자기 쿠키가 잡혀 가는 모습을 본다.
-        if (!presented && TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode();
+        if (!presented && TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Broken);
     }
 
     private void Awake()
@@ -235,9 +235,9 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
             { NetKeys.HitCount, hitCount },
             { NetKeys.DeathCause, (int)DeathCause.Witch },
         });
-        rb.linearVelocity = Vector3.zero;
+        if (!rb.isKinematic) rb.linearVelocity = Vector3.zero; // 탈것에서 기다리던 쿠키는 이미 키네마틱(EscapeCharacterState)
         rb.isKinematic = true;
-        if (TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode();
+        if (TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Broken);
     }
 
     public override void OnEnable()

@@ -75,14 +75,124 @@ public static class TwistedAtmosphere
         },
     };
 
-    // 대기실(★★): 이미 어두운 밤 — 등불은 줄이고 깜빡이게, 가마솥 빛만 강하게, 안개 조금 더.
+    // 대기실(★★): 어두운 밤 — 등불 일부를 깜빡이게, 가마솥 빛만 강하게. 출발점에서 약 80 m 떨어진 마녀 집이 보이도록
+    // 안개를 옅게(0.03 → 0.012, Request1009Plan.md §5) 하고 집을 아래에서 올려 비춘다(ApplyWitchHouseLighting).
     public static readonly Look GameLobby = new Look
     {
-        Fog = new Color(0.08f, 0.07f, 0.12f), FogDensity = 0.03f,
-        Saturation = -25f, Temperature = -6f, Tint = 0f, Contrast = 15f, PostExposure = 0.3f, Vignette = 0.42f,
-        PointDesaturate = 0.25f, PointScale = 0.75f, FlickerPrefixes = new[] { "Light" }, FlickerEvery = 3,
+        Fog = new Color(0.08f, 0.07f, 0.12f), FogDensity = 0.012f,
+        Saturation = -25f, Temperature = -6f, Tint = 0f, Contrast = 15f, PostExposure = 0.5f, Vignette = 0.42f,
+        PointDesaturate = 0.25f, PointScale = 1f, FlickerPrefixes = new[] { "Light" }, FlickerEvery = 3,
         BoostPrefixes = new[] { "FireLight", "LiquidGlowLight" }, BoostScale = 1.6f,
     };
+
+    // §5 마녀 집 조명: V1에서 ×0.75로 줄인 등불을 한 번 되돌리고(TW_WitchHouse가 없고 V1이 이미 들어간 씬일 때만), 조명·창문 사본은 매번 같은 값으로.
+    public const string WitchHouseRootName = "TW_WitchHouse";
+    public const string WitchHousePath = "WitchCookieEnvironment/Witch_Cookie_House";
+    public const string LobbyMaterialFolder = "Assets/Maps/GameLobby/Materials";
+    private const float V1LobbyPointScale = 0.75f;
+    public const float WindowEmissionScale = 1.8f;
+    private static readonly string[] WindowMaterials = { "M_Window_Glass_Purple", "M_Window_Glass_Orange" };
+
+    private struct HouseLight
+    {
+        public string Name; public LightType Type; public Vector3 Position, Target; public Color Color; public float Intensity, Range, Angle;
+        public HouseLight(string name, LightType type, Vector3 pos, Vector3 target, Color color, float intensity, float range, float angle)
+        { Name = name; Type = type; Position = pos; Target = target; Color = color; Intensity = intensity; Range = range; Angle = angle; }
+    }
+
+    // 집(중심 (0, 10, 0), 19×21×19, 정문 +Z) 앞·양옆 바닥에서 올려 비추는 보라·주황 스포트 3개 + 지붕을 비추는 달빛 스포트.
+    private static readonly HouseLight[] HouseLights =
+    {
+        new HouseLight("TW_WitchHouse_Front", LightType.Spot, new Vector3(0f, 0.6f, 18f), new Vector3(0f, 9f, 0f), new Color(1f, 0.62f, 0.32f), 3.2f, 25f, 75f),
+        new HouseLight("TW_WitchHouse_Right", LightType.Spot, new Vector3(18f, 0.6f, 2f), new Vector3(0f, 9f, 0f), new Color(0.72f, 0.45f, 1f), 3.2f, 25f, 75f),
+        new HouseLight("TW_WitchHouse_Left", LightType.Spot, new Vector3(-18f, 0.6f, 2f), new Vector3(0f, 9f, 0f), new Color(0.72f, 0.45f, 1f), 3.2f, 25f, 75f),
+        new HouseLight("TW_WitchHouse_Moon", LightType.Spot, new Vector3(18f, 34f, 22f), new Vector3(0f, 14f, 0f), new Color(0.62f, 0.7f, 1f), 2.2f, 45f, 50f),
+    };
+
+    public static string ApplyWitchHouseLighting(bool restoreV1Lanterns)
+    {
+        GameObject root = GameObject.Find(WitchHouseRootName);
+        int restored = 0;
+        if (root == null)
+        {
+            root = new GameObject(WitchHouseRootName);
+            if (restoreV1Lanterns) foreach (Light l in Object.FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                if (l.type != LightType.Point || GameLobby.BoostPrefixes.Any(p => l.name.StartsWith(p))) continue;
+                l.intensity *= GameLobby.PointScale / V1LobbyPointScale;
+                var flicker = l.GetComponent<FlickerLight>();
+                if (flicker != null) flicker.EditorSetup(l.intensity, 0.12f, new Vector2(3f, 9f));
+                EditorUtility.SetDirty(l);
+                restored++;
+            }
+        }
+        foreach (HouseLight h in HouseLights)
+        {
+            Transform t = root.transform.Find(h.Name);
+            if (t == null) { t = new GameObject(h.Name).transform; t.SetParent(root.transform, false); }
+            t.position = h.Position;
+            t.rotation = Quaternion.LookRotation(h.Target - h.Position);
+            Light l = t.GetComponent<Light>();
+            if (l == null) l = t.gameObject.AddComponent<Light>();
+            l.type = h.Type; l.color = h.Color; l.intensity = h.Intensity; l.range = h.Range; l.spotAngle = h.Angle;
+            l.shadows = LightShadows.None;
+            l.renderMode = LightRenderMode.ForcePixel; // 멀리서도 픽셀 조명으로(정점 조명이면 집 벽이 뭉개진다)
+            EditorUtility.SetDirty(l);
+        }
+        return $"witch house lights {HouseLights.Length}, lanterns restored {restored}, windows {BrightenWindows()}";
+    }
+
+    // 창문 발광: 공유 재질은 그대로 두고 대기실 전용 사본(발광 ×1.8)을 집에만 끼운다(GingerbreadNeonDimmer와 같은 방식).
+    private static int BrightenWindows()
+    {
+        GameObject house = GameObject.Find(WitchHousePath);
+        if (house == null) return 0;
+        if (!AssetDatabase.IsValidFolder(LobbyMaterialFolder)) AssetDatabase.CreateFolder("Assets/Maps/GameLobby", "Materials");
+        var copies = new Dictionary<string, Material>();
+        int swapped = 0;
+        foreach (Renderer r in house.GetComponentsInChildren<Renderer>(true))
+        {
+            Material[] mats = r.sharedMaterials;
+            bool changed = false;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                if (mats[i] == null) continue;
+                string baseName = mats[i].name.Replace("_Lobby", "");
+                if (!WindowMaterials.Contains(baseName)) continue;
+                if (!copies.TryGetValue(baseName, out Material copy)) copies[baseName] = copy = LobbyWindowCopy(baseName);
+                if (copy == null || mats[i] == copy) continue;
+                mats[i] = copy; changed = true; swapped++;
+            }
+            if (changed) { r.sharedMaterials = mats; EditorUtility.SetDirty(r); }
+        }
+        return swapped;
+    }
+
+    private static Material LobbyWindowCopy(string baseName)
+    {
+        string src = AssetDatabase.FindAssets($"{baseName} t:Material").Select(AssetDatabase.GUIDToAssetPath).FirstOrDefault(p => System.IO.Path.GetFileNameWithoutExtension(p) == baseName);
+        if (src == null) return null;
+        var original = AssetDatabase.LoadAssetAtPath<Material>(src);
+        string path = $"{LobbyMaterialFolder}/{baseName}_Lobby.mat";
+        var copy = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (copy == null) { copy = new Material(original); AssetDatabase.CreateAsset(copy, path); }
+        else copy.CopyPropertiesFromMaterial(original);
+        copy.EnableKeyword("_EMISSION");
+        copy.SetColor("_EmissionColor", original.GetColor("_EmissionColor") * WindowEmissionScale);
+        EditorUtility.SetDirty(copy);
+        return copy;
+    }
+
+    [MenuItem(MenuRoot + "Apply Game Lobby Look")]
+    public static void ApplyGameLobbyOnly()
+    {
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+        var lobby = EditorSceneManager.OpenScene(GameLobbyScene, OpenSceneMode.Single);
+        Debug.Log($"[TwistedAtmosphere] GameLobby: {ApplyToOpenGameLobby()}");
+        EditorSceneManager.MarkSceneDirty(lobby);
+        EditorSceneManager.SaveScene(lobby);
+        AssetDatabase.SaveAssets();
+    }
 
     public static string MapScenePath(string map) => $"{MapSceneFolder}/Game_{map}.unity";
 
@@ -123,6 +233,7 @@ public static class TwistedAtmosphere
 
     public static string ApplyToOpenGameLobby()
     {
+        bool v1Applied = Object.FindFirstObjectByType<FlickerLight>(FindObjectsInactive.Include) != null; // V1 등불 ×0.75가 이미 들어간 씬
         string env = ApplyEnvironment(GameLobby);
         PostProcessProfile profile = LoadOrCreateProfile(GameLobbyProfile);
         if (!profile.TryGetSettings(out Bloom bloom)) bloom = AddSetting<Bloom>(profile);
@@ -155,7 +266,7 @@ public static class TwistedAtmosphere
             cam.allowHDR = true;
             EditorUtility.SetDirty(cam.gameObject);
         }
-        return env + $", PostFX -> {GameLobbyProfile}";
+        return env + $", PostFX -> {GameLobbyProfile}, {ApplyWitchHouseLighting(v1Applied)}";
     }
 
     // 로비(★): 같은 그림의 해 질 녘 판(채도 −42%, 회녹색, 바닥 안개, 비네트 — 원본은 그대로 둔다).

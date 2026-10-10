@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 842713963671362617}
   - component: {fileID: 7638607186008453819}
   - component: {fileID: 4048085403492677202}
-  - component: {fileID: 7763186179233502484}
+  - component: {fileID: 5297047171978341741}
   m_Layer: 0
   m_Name: TW_MeltingTree
   m_TagString: Untagged
@@ -89,8 +89,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &7763186179233502484
-BoxCollider:
+--- !u!64 &5297047171978341741
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -107,6 +107,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 3.5366893, y: 5.7299957, z: 3.0941072}
-  m_Center: {x: -0.1449365, y: 2.787941, z: 0.069909036}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2959467708922500008, guid: d5843bc5c6f768343a0f93920857609c, type: 3}

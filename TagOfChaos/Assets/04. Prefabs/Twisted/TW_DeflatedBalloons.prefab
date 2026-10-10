@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1323532388155753749}
   - component: {fileID: 2898229800875117225}
   - component: {fileID: 2138136024085399279}
-  - component: {fileID: 6440905392530911571}
+  - component: {fileID: 7631568990961793463}
   m_Layer: 0
   m_Name: TW_DeflatedBalloons
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &6440905392530911571
-BoxCollider:
+--- !u!64 &7631568990961793463
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 3.0765285, y: 2.6072733, z: 2.767157}
-  m_Center: {x: 0.2804796, y: 1.2963632, z: 0.26753074}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2959467708922500008, guid: d4a2fdc69d63f334f84a17194b561460, type: 3}

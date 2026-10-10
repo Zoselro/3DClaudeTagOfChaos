@@ -40,6 +40,7 @@ public static class MapSceneBuilder
     private static readonly HashSet<string> WalkableCategories = new HashSet<string> { "Ground", "Terrain" };
 
     public const float CarouselSecondsPerTurn = 40f;  // 결정 D11(사용자)
+    public const float CarouselSpinSign = -1f;        // 위에서 볼 때 반시계 — 말 머리 방향으로 달린다(Request1009Plan.md §8)
     public const float FerrisSecondsPerTurn = 60f;
     public const float MapHalfExtent = 172f;          // 외곽 투명 벽 안쪽(350 m 맵)
 
@@ -236,7 +237,7 @@ public static class MapSceneBuilder
         int convex = 0, keptConcave = 0, boundaryHidden = 0;
         var walkThrough = new List<string>();
         var largeStatic = new List<string>();
-        var boxed = new List<string>();
+        var gapConcave = new List<string>();
         foreach (Placed p in placed)
         {
             foreach (MeshCollider mc in p.Root.GetComponentsInChildren<MeshCollider>(true))
@@ -260,31 +261,27 @@ public static class MapSceneBuilder
                     continue;
                 }
                 // convex 껍질은 면 256개가 한도라, 넘으면 Unity가 오류를 내고 일부 껍질만 만든다. 실제로 구워 봐서 실패한
-                // 메시만 소품은 상자 충돌체로, 대형 구조물(탱크·돔 등)은 넓은 정적 구조물로 보고 오목 충돌체를 유지한다.
+                // 메시는 정적이므로 오목 충돌체를 유지한다. 예전에는 GameplayProps를 메시 경계 상자로 바꿨는데, 원뿔 텐트의 빈 모서리가
+                // 투명 벽이 됐다(Request1009Plan.md §10).
                 if (!ConvexHullFits(mc.sharedMesh))
                 {
-                    if (p.Category == "GameplayProps")
-                    {
-                        Bounds local = mc.sharedMesh.bounds;
-                        GameObject go = mc.gameObject;
-                        Object.DestroyImmediate(mc);
-                        var box = go.AddComponent<BoxCollider>();
-                        box.center = local.center;
-                        box.size = local.size;
-                        boxed.Add(go.name);
-                    }
-                    else
-                    {
-                        keptConcave++;
-                        largeStatic.Add(mc.name);
-                    }
+                    keptConcave++;
+                    largeStatic.Add(mc.name);
                     continue;
                 }
+                // 볼록 껍질이 차양 아래 같은 빈 곳을 메우면(쿠키가 서서 지나갈 만한 곳) 오목으로 둔다 — 검토한 목록만(§10, ConvexGapScanner).
                 mc.convex = true;
+                if (ConvexGapScanner.IsListed(mc.name) && ConvexGapScanner.IsStaticCandidate(mc) && ConvexGapScanner.GapArea(mc) >= ConvexGapScanner.MinGapArea)
+                {
+                    mc.convex = false;
+                    keptConcave++;
+                    gapConcave.Add(mc.name);
+                    continue;
+                }
                 convex++;
             }
         }
-        report.Add($"colliders: convex {convex}, box (hull over limit, props) {boxed.Count}, non-convex kept {keptConcave} (walk-through {walkThrough.Count}: {Short(walkThrough)}; hull over limit, structures {largeStatic.Count}: {Short(largeStatic)}), boundary renderers hidden {boundaryHidden}");
+        report.Add($"colliders: convex {convex}, non-convex kept {keptConcave} (walk-through {walkThrough.Count}: {Short(walkThrough)}; hull over limit {largeStatic.Count}: {Short(largeStatic)}; hull fills a gap {gapConcave.Count}: {Short(gapConcave)}), boundary renderers hidden {boundaryHidden}");
     }
 
     // 원본 FBX는 Ground·Terrain·MainStructures·GameplayProps에만 충돌 메시가 있다. 나머지 분류(장식·배경·조명 메시)에 충돌체를 붙인다
@@ -710,7 +707,7 @@ public static class MapSceneBuilder
             if (top != null)
             {
                 ClearStatic(top.gameObject);
-                AnimationClip spin = WriteSpinClip("Carousel_Top_Spin", "", "localEulerAnglesRaw.y", CarouselSecondsPerTurn, 1f, null);
+                AnimationClip spin = WriteCarouselSpinClip();
                 AttachLoopAnimator(top.gameObject, "Carousel_Top_Spin", spin, kinematic: true);
                 var mc = top.GetComponent<MeshCollider>();
                 MakeConvexIfFits(mc);
@@ -747,6 +744,56 @@ public static class MapSceneBuilder
                 report.Add("magic oven door: closed, opened only by the escape machine");
             }
         }
+    }
+
+    // 예전 빌드에서 GameplayProps 중 껍질 한도를 넘어 메시 경계 상자가 된 물체를 오목 MeshCollider로 되돌린다(맵을 다시 만들지 않고, §10).
+    [MenuItem(MenuRoot + "Fix Prop Box Colliders")]
+    public static void FixPropBoxCollidersMenu() => Debug.Log("[MapSceneBuilder] " + FixPropBoxColliders());
+
+    public static string FixPropBoxColliders()
+    {
+        if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "cancelled";
+        var report = new List<string>();
+        foreach (string map in MapNames)
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath(map), OpenSceneMode.Single);
+            var fixedNames = new List<string>();
+            foreach (BoxCollider box in Object.FindObjectsByType<BoxCollider>(FindObjectsSortMode.None))
+            {
+                var filter = box.GetComponent<MeshFilter>();
+                // 메시가 있는 GameplayProps의 상자는 예전 빌드가 껍질 한도를 넘은 메시에만 만들었다(다시 구워 보면 경고만 남는다)
+                if (box.isTrigger || filter == null || filter.sharedMesh == null || !UnderCategory(box.transform, "GameplayProps")) continue;
+                GameObject go = box.gameObject;
+                Object.DestroyImmediate(box);
+                go.AddComponent<MeshCollider>().sharedMesh = filter.sharedMesh;
+                fixedNames.Add(go.name);
+            }
+            if (fixedNames.Count > 0)
+            {
+                EditorSceneManager.MarkSceneDirty(scene);
+                EditorSceneManager.SaveScene(scene);
+            }
+            report.Add($"{map}: {fixedNames.Count} {Short(fixedNames)}");
+        }
+        return string.Join("; ", report);
+    }
+
+    private static bool UnderCategory(Transform t, string category)
+    {
+        for (; t != null; t = t.parent) if (t.name == category) return true;
+        return false;
+    }
+
+    private static AnimationClip WriteCarouselSpinClip() =>
+        WriteSpinClip("Carousel_Top_Spin", "", "localEulerAnglesRaw.y", CarouselSecondsPerTurn, CarouselSpinSign, null);
+
+    // 맵을 다시 만들지 않고 회전목마 클립만 다시 쓴다(같은 에셋이라 씬의 Animator 연결은 그대로).
+    [MenuItem(MenuRoot + "Fix Carousel Direction")]
+    public static void FixCarouselDirection()
+    {
+        AnimationClip clip = WriteCarouselSpinClip();
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[MapSceneBuilder] {clip.name}: 0 -> {360f * CarouselSpinSign} deg in {CarouselSecondsPerTurn}s");
     }
 
     // 한 바퀴(360°)를 secondsPerTurn에 도는 반복 클립. counterPaths의 자식은 같은 축으로 반대로 돌아 방향을 유지한다(관람차 곤돌라).

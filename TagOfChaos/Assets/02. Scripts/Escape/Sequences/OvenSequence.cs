@@ -17,6 +17,9 @@ public class OvenSequence : EscapeSequence
     private const float RollDistance = 16f;      // 문이 옆으로 굴러가는 거리(m)
     private const float GearSpeed = 70f;         // 큰 톱니 각속도(도/초)
     private const float GearRatio = 12f / 8f;    // 큰 톱니 12개 : 작은 톱니 8개
+    public const float BrightnessScale = 0.5f;   // 문이 열렸을 때 너무 밝다는 의견으로 빛 전체를 절반으로(Request1009Plan.md §6)
+    private const int FlashParticles = 60;
+    private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
 
     private Transform gearA, gearB, piston, needle, ovenLight, mouth, smokePoint;
     private Quaternion gearAHome, gearBHome, needleHome;
@@ -42,6 +45,7 @@ public class OvenSequence : EscapeSequence
         piston = FindDeep(transform, "Piston_Rod");
         needle = FindDeep(transform, "Gauge_Needle");
         ovenLight = FindDeep(transform, "Oven_Light");
+        DimOvenLight();
         mouth = FindDeep(transform, "Mouth") ?? transform;
         smokePoint = FindDeep(transform, "Smoke");
         if (gearA != null) gearAHome = gearA.localRotation;
@@ -116,10 +120,22 @@ public class OvenSequence : EscapeSequence
         }
         float burst = d >= FlashAt ? Mathf.Sin(Mathf.Clamp01((d - FlashAt) / FlashSeconds) * Mathf.PI) : 0f;
         glow.color = Color.Lerp(new Color(1f, 0.55f, 0.2f), new Color(1f, 0.97f, 0.9f), Mathf.Max(open, burst));
-        glow.intensity = power * 2.5f + open * 4f + burst * 14f;
+        glow.intensity = (power * 2.5f + open * 4f + burst * 14f) * BrightnessScale;
         glow.range = 30f + burst * 25f;
         if (d >= FlashAt && !flashed) { flashed = true; Flash(); }
         if (d < 0f) flashed = false;
+    }
+
+    // 문 안의 하얀 빛(Oven_Light): 재질 ME_Glow_White는 다른 탈출 장치와 공유하므로 이 렌더러만 MaterialPropertyBlock으로 발광을 줄인다.
+    private void DimOvenLight()
+    {
+        if (ovenLight == null) return;
+        var renderer = ovenLight.GetComponent<Renderer>();
+        if (renderer == null || renderer.sharedMaterial == null || !renderer.sharedMaterial.HasProperty(EmissionColorId)) return;
+        var block = new MaterialPropertyBlock();
+        renderer.GetPropertyBlock(block);
+        block.SetColor(EmissionColorId, renderer.sharedMaterial.GetColor(EmissionColorId) * BrightnessScale);
+        renderer.SetPropertyBlock(block);
     }
 
     public override void OnCookieBoarded(Vector3 from) => BoardingFx.Play(from, mouth.position, BoardingFx.Style.Suck);
@@ -196,6 +212,6 @@ public class OvenSequence : EscapeSequence
             color.color = grad;
             go.GetComponent<ParticleSystemRenderer>().material = EscapeVisuals.SoftParticleMaterial();
         }
-        flash.Emit(120);
+        flash.Emit(FlashParticles);
     }
 }

@@ -181,7 +181,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
         appliedState = LifeState.Broken;
         Debug.Log($"[CookieLife] view={pv.ViewID} crushed (via {reason})");
 
-        if (pv != null && pv.IsMine && TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode();
+        if (pv != null && pv.IsMine && TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Broken);
     }
 
     private void Start()

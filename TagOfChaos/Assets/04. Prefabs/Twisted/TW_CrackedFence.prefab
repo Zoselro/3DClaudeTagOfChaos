@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4373130246876707779}
   - component: {fileID: 4160520863374374290}
   - component: {fileID: 3593495038524574057}
-  - component: {fileID: 1806545676529102445}
+  - component: {fileID: 5120408066555681643}
   m_Layer: 0
   m_Name: TW_CrackedFence
   m_TagString: Untagged
@@ -90,8 +90,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1806545676529102445
-BoxCollider:
+--- !u!64 &5120408066555681643
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -108,6 +108,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 6, y: 2.6, z: 1.9972229}
-  m_Center: {x: 0, y: 1.240582, z: 0.7548505}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2959467708922500008, guid: dec023a9ddbcc404384594aad22f317b, type: 3}

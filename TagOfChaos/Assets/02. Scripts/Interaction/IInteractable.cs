@@ -17,6 +17,14 @@ public interface IInteractable
     void Interact(IGameCharacter character);
 }
 
+// 길게 눌러야 하는 사물(Request1009Plan.md §1 — 상자·탈출 장치·스파이 로켓). 지금 상태에서 몇 초 눌러야 하는지 사물이 정한다:
+// 0이면 지금처럼 누르는 즉시 Interact(예: 완성된 장치에 타기), 0보다 크면 CharacterInteractor가 그 시간 동안 누르고 있어야 Interact를 부른다.
+// 누르기는 각자 화면에서만 재고, 다 차면 지금과 같은 요청을 한 번 보낸다 — 방장 판정(EscapeAuthority)은 바뀌지 않는다.
+public interface IHoldInteractable : IInteractable
+{
+    float HoldSecondsFor(IGameCharacter character);
+}
+
 // 씬에 활성화된 상호작용 사물 목록. 사물이 OnEnable/OnDisable에서 스스로 등록·해제한다 —
 // 매 검사마다 물리 쿼리나 FindObjectsByType로 씬을 훑지 않는다(CharacterRegistry와 같은 방식).
 public static class InteractableRegistry

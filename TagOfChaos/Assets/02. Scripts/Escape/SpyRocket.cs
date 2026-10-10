@@ -6,8 +6,10 @@ using UnityEngine;
 // 모델(EscapeVisualPlan.md §3.4): 칸마다 Slot_nn_Empty / Slot_nn_Filled 중 하나를 보여주고(이름이 Spin으로 시작하는 부품은 돈다),
 // 스파이가 타면 Hatch가 열렸다 닫힌다. 출발 시각(SpyEscapedAt)부터 바닥 Flame이 서서히 커지고, 떨리다가 가속하며 떠오른다.
 // 모든 화면이 공통 시계(PhotonNetwork.Time)로 같은 장면을 본다.
-public class SpyRocket : MonoBehaviour, IInteractable, IInteractionLabel
+// 재료 넣기는 장치와 같이 E를 holdSeconds(2초) 누르고 있어야 하고, 완성 뒤 타기는 즉시(Request1009Plan.md §1).
+public class SpyRocket : MonoBehaviour, IHoldInteractable, IInteractionLabel
 {
+    [SerializeField, Min(0f)] private float holdSeconds = 2f;
     [SerializeField, Min(0.5f)] private float interactionRange = 3f;
 
     private EscapeManager manager;
@@ -204,6 +206,12 @@ public class SpyRocket : MonoBehaviour, IInteractable, IInteractionLabel
         if (inv == null) return false;
         if (inv.HeldItem != null && RocketNeeds(manager.State, manager.Catalog, inv.HeldItem.ItemId)) return true;
         return manager.State.RocketComplete && !inv.HandsLocked; // 두 손 아이템을 든 채로는 탈 수 없다(§1.5)
+    }
+
+    public float HoldSecondsFor(IGameCharacter character)
+    {
+        PlayerInventory inv = PlayerInventory.Local;
+        return manager != null && manager.State != null && inv != null && inv.HeldItem != null && RocketNeeds(manager.State, manager.Catalog, inv.HeldItem.ItemId) ? holdSeconds : 0f;
     }
 
     public void Interact(IGameCharacter character)

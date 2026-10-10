@@ -137,7 +137,7 @@ public class Camera_Ctrl : MonoBehaviour
     }
 
     // 우클릭으로 시점을 돌리는 동안에만 커서를 잠근다(research.md §8.8). 잠그지 않으면 드래그 중 커서가 창
-    // 가장자리에 걸려 회전이 멈추거나 창 밖을 클릭하게 된다. 평소에는 풀어 둬야 색칠·UI 조작이 가능하다.
+    // 가장자리에 걸려 회전이 멈추거나 창 밖을 클릭하게 된다. 평소에는 풀어 둬EEAAAAAAAA야 색칠·UI 조작이 가능하다.
     void UpdateCursorLock()
     {
         if (PlayerInput.CameraRotatePressed) Cursor.lockState = CursorLockMode.Locked;

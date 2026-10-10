@@ -83,6 +83,8 @@ public class GameSettingsSO : ScriptableObject
     [SerializeField, Min(0.5f)] private float grabReachFromFront = 2f;
     [Tooltip("조준 판정 구의 반지름(m). 조준이 조금 빗나가도 잡히게 한다.")]
     [SerializeField, Min(0.05f)] private float grabAimRadius = 0.4f;
+    [Tooltip("괴물 발에서 잡을 수 있는 쿠키 발까지의 최대 높이(m). 구조물 위에 올라간 쿠키도 이 높이까지는 잡는다(Request1009Plan.md §11).")]
+    [SerializeField, Min(0f)] private float maxGrabHeight = 6f;
 
     [Header("Monster View (GameFixPlan.md F6)")]
     [Tooltip("괴물이 판을 시작할 때의 시점.")]
@@ -132,6 +134,7 @@ public class GameSettingsSO : ScriptableObject
     public int CharacterSyncRate => characterSyncRate;
     public float GrabReachFromFront => grabReachFromFront;
     public float GrabAimRadius => grabAimRadius;
+    public float MaxGrabHeight => maxGrabHeight;
     public MonsterViewMode MonsterDefaultView => monsterDefaultView;
     public bool AllowMonsterViewToggle => allowMonsterViewToggle;
     public float CookieSpawnRange => cookieSpawnRange;

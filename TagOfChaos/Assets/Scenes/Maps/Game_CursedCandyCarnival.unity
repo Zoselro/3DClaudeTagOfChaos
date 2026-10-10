@@ -1393,6 +1393,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &83333197
 BoxCollider:
@@ -3391,6 +3392,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &340619242
 BoxCollider:
@@ -4258,6 +4260,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &411391935
 BoxCollider:
@@ -5130,6 +5133,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &510781222
 BoxCollider:
@@ -5450,6 +5454,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &524889397
 BoxCollider:
@@ -5654,6 +5659,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b0eeb0c7cf83a5469a9a24df4fd229c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  holdSeconds: 2
   interactionRange: 3
 --- !u!136 &557823528
 CapsuleCollider:
@@ -6285,6 +6291,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &630515378
 BoxCollider:
@@ -6319,6 +6326,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f444b0ef9adad44cb3f559fd2d9dae0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  holdSeconds: 2
   interactionRange: 3.8
   slotRingRadius: 1.6
   slotHeight: 1.2
@@ -7769,6 +7777,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &881243837
 BoxCollider:
@@ -7877,6 +7886,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &883150798
 BoxCollider:
@@ -8179,6 +8189,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &917200079
 BoxCollider:
@@ -9916,6 +9927,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1080920142
 BoxCollider:
@@ -10545,6 +10557,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1111222527
 BoxCollider:
@@ -10750,6 +10763,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1137958602
 BoxCollider:
@@ -12791,6 +12805,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1487242227
 BoxCollider:
@@ -13936,6 +13951,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1639094244
 BoxCollider:
@@ -14141,6 +14157,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1674920843
 BoxCollider:
@@ -14387,7 +14404,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   testRoomName: OfflineTestRoom
-  autoCreateRoom: 0
+  autoCreateRoom: 1
   spawnAsMonster: 0
   spawnAsSpy: 0
 --- !u!4 &1728884836
@@ -14831,6 +14848,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1894462471
 BoxCollider:
@@ -14939,6 +14957,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1901684701
 BoxCollider:
@@ -16159,6 +16178,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &2015374810
 BoxCollider:
@@ -16364,6 +16384,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &2028747064
 BoxCollider:
@@ -16843,6 +16864,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &2107859590
 BoxCollider:
@@ -18451,7 +18473,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7772687244353359782, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!33 &678751567949525075
@@ -20515,7 +20537,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5055278778082850319, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!4 &1687232411396866414
@@ -21654,7 +21676,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5055278778082850319, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!4 &2320823927390116537
@@ -24686,7 +24708,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5055278778082850319, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!1 &3797034260323887046
@@ -25747,7 +25769,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 7121584489708363393, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!64 &4312519158302551609
@@ -27534,7 +27556,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 7121584489708363393, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!33 &5215420361888825396
@@ -28257,7 +28279,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -1952923153910129597, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!64 &5581330607652393338
@@ -28715,7 +28737,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7772687244353359782, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!33 &5784486745297262267
@@ -29050,7 +29072,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 7121584489708363393, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!23 &5898608943726060632
@@ -29546,7 +29568,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -1952923153910129597, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!23 &6065245440740065443
@@ -29988,7 +30010,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7772687244353359782, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!4 &6269210414591443318
@@ -30025,7 +30047,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5055278778082850319, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!23 &6298498758850226888
@@ -30992,7 +31014,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5055278778082850319, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!33 &6616839949270308674
@@ -31054,8 +31076,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &6620844006105703201
-BoxCollider:
+--- !u!64 &6620844006105703201
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -31072,9 +31094,10 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 11.536459, y: 10.35, z: 11.535516}
-  m_Center: {x: -0.0003809929, y: 5.175, z: 0.00086450577}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2930843961672300799, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!1 &6625525552973614320
 GameObject:
   m_ObjectHideFlags: 0
@@ -31855,8 +31878,8 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5423125920510159645}
   m_Mesh: {fileID: 2930843961672300799, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
---- !u!65 &6991269646928790378
-BoxCollider:
+--- !u!64 &6991269646928790378
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -31873,9 +31896,10 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 11.536459, y: 10.35, z: 11.535516}
-  m_Center: {x: -0.0003809929, y: 5.175, z: 0.00086450577}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2930843961672300799, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!23 &6991928061379632891
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -33171,7 +33195,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7772687244353359782, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!4 &7611337958142782168
@@ -33531,7 +33555,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7772687244353359782, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!1 &7766693597468481184
@@ -34749,8 +34773,8 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2756828758683170292}
   m_Mesh: {fileID: 2930843961672300799, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
---- !u!65 &8329098564520728533
-BoxCollider:
+--- !u!64 &8329098564520728533
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -34767,9 +34791,10 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 11.536459, y: 10.35, z: 11.535516}
-  m_Center: {x: -0.0003809929, y: 5.175, z: 0.00086450577}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2930843961672300799, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!1 &8362356960585934428
 GameObject:
   m_ObjectHideFlags: 0
@@ -34908,8 +34933,8 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 87
   m_IsActive: 1
---- !u!65 &8378776160034074242
-BoxCollider:
+--- !u!64 &8378776160034074242
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -34926,9 +34951,10 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 11.536459, y: 10.35, z: 11.535516}
-  m_Center: {x: -0.0003809929, y: 5.175, z: 0.00086450577}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2930843961672300799, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!33 &8388204158731045279
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -34979,7 +35005,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 7121584489708363393, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!23 &8468041796012639024
@@ -36103,7 +36129,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 1
+  m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5055278778082850319, guid: 1b18b816777d4c9485866124f4e009d2, type: 3}
 --- !u!4 &9029585878203745355

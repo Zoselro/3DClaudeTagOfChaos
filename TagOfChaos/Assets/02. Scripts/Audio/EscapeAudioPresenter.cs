@@ -6,9 +6,11 @@ using UnityEngine;
 // 두 번(즉시 적용 + 방 속성 응답) 들어오지만 두 번째는 차이가 없어 소리도 없다. 처음 받은 상태(늦게 들어온 경우)는 소리 없이 기억만 한다.
 // - 상자 열림·다시 채워짐, 줍기(본인 2D·남 3D)·떨어뜨리기, 장치에 끼우기·빼기(같은 소리 — D3), 장치 완성(+스팅어),
 //   로켓에 끼우기, 탈것에 타기(쿠키 — 폴짝 또는 빨려 듦, 맵 연출이 정함)·로켓 해치(스파이), 내 탈출 성공(2D), 타임어택 마지막 10초 심장 박동(2D).
+// 상자에서 나온 재료를 손에 쥐는 소리는 뚜껑 소리(ChestOpen) 뒤 ChestPickupDelay초에 낸다(Request1009Plan.md §2 — 두 소리가 겹치면 "얻는 소리"만 들렸다).
 public class EscapeAudioPresenter : MonoBehaviour
 {
     private const int HeartBeatFromSeconds = 10;
+    public const float ChestPickupDelay = 0.3f;
 
     private EscapeManager manager;
     private EscapeState previous;
@@ -49,6 +51,7 @@ public class EscapeAudioPresenter : MonoBehaviour
             if (b.Loc == ItemLocation.Held && (a.Loc != ItemLocation.Held || a.A != b.A))
             {
                 if (a.Loc == ItemLocation.Device) GameAudio.PlayAt(SoundId.DeviceInsert, SlotPosition(a.A)); // 스파이가 장치에서 뺌
+                else if (a.Loc == ItemLocation.Chest) StartCoroutine(PlayOnActorLater(SoundId.ItemPickup, b.A, ChestPickupDelay));
                 else PlayOnActor(SoundId.ItemPickup, b.A);
             }
             else if (a.Loc == ItemLocation.Held && b.Loc == ItemLocation.Ground) GameAudio.PlayAt(SoundId.ItemDrop, b.Pos);
@@ -91,6 +94,12 @@ public class EscapeAudioPresenter : MonoBehaviour
     }
 
     private Vector3 SlotPosition(int slot) => manager.Device != null ? manager.Device.SlotPosition(slot) : manager.DevicePosition;
+
+    private System.Collections.IEnumerator PlayOnActorLater(SoundId id, int actor, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        PlayOnActor(id, actor);
+    }
 
     private static bool PlayOnActor(SoundId id, int actor)
     {

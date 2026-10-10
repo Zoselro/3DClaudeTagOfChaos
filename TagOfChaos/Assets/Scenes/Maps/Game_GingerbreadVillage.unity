@@ -1485,6 +1485,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &38772718
 BoxCollider:
@@ -2625,6 +2626,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &82727302
 BoxCollider:
@@ -3606,6 +3608,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &143003350
 BoxCollider:
@@ -5008,6 +5011,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &233869731
 BoxCollider:
@@ -6216,6 +6220,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &296849077
 BoxCollider:
@@ -6906,6 +6911,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &327434348
 BoxCollider:
@@ -7596,6 +7602,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &337142683
 BoxCollider:
@@ -7801,6 +7808,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &343086585
 BoxCollider:
@@ -8865,6 +8873,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &404828025
 BoxCollider:
@@ -9908,6 +9917,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &470997559
 BoxCollider:
@@ -11568,6 +11578,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &550770663
 BoxCollider:
@@ -16236,6 +16247,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &817278528
 BoxCollider:
@@ -18086,6 +18098,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &901316209
 BoxCollider:
@@ -21506,6 +21519,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1107849192
 BoxCollider:
@@ -22599,6 +22613,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b0eeb0c7cf83a5469a9a24df4fd229c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  holdSeconds: 2
   interactionRange: 3
 --- !u!136 &1134198040
 CapsuleCollider:
@@ -22709,6 +22724,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1134727407
 BoxCollider:
@@ -24981,6 +24997,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1272980630
 BoxCollider:
@@ -25575,6 +25592,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f444b0ef9adad44cb3f559fd2d9dae0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  holdSeconds: 2
   interactionRange: 3.8
   slotRingRadius: 1.6
   slotHeight: 1.2
@@ -26298,6 +26316,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1332931035
 BoxCollider:
@@ -27031,7 +27050,7 @@ MonoBehaviour:
   testRoomName: OfflineTestRoom
   autoCreateRoom: 1
   spawnAsMonster: 0
-  spawnAsSpy: 0
+  spawnAsSpy: 1
 --- !u!4 &1368088568
 Transform:
   m_ObjectHideFlags: 0
@@ -32035,6 +32054,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1585138071
 BoxCollider:
@@ -34856,6 +34876,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1730519450
 BoxCollider:
@@ -40102,6 +40123,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   lid: {fileID: 0}
+  holdSeconds: 2
   interactionRange: 2.2
 --- !u!65 &1941893329
 BoxCollider:

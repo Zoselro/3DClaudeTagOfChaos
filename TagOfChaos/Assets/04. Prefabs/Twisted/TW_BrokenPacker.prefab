@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 579883444450969680}
   - component: {fileID: 642201678664606082}
   - component: {fileID: 6581056785528958133}
-  - component: {fileID: 645575540237451685}
+  - component: {fileID: 8250956254053352527}
   m_Layer: 0
   m_Name: TW_BrokenPacker
   m_TagString: Untagged
@@ -91,8 +91,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &645575540237451685
-BoxCollider:
+--- !u!64 &8250956254053352527
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -109,6 +109,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 4.0484476, y: 3, z: 3.103788}
-  m_Center: {x: -0.12577611, y: 1.5, z: 0.6518939}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2959467708922500008, guid: dea8fa9323afdeb4c9e0a93ec6b5c01a, type: 3}

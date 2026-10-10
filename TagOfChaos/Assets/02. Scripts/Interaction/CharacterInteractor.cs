@@ -7,6 +7,8 @@ using UnityEngine.EventSystems;
 // 씬이 바뀌어도 유지한다 — 조종 중인 캐릭터는 CharacterRegistry, 사물은 InteractableRegistry에서 찾는다.
 // 쓸 수 있는 캐릭터: IGameCharacter.CanInteract가 true인 캐릭터(파괴·들림 중인 쿠키, 처형·돌진 중인 괴물 제외). 채팅 중에는
 // PlayerInput.InteractPressed가 억제되고, 안내 문구는 IsTypingInUi로 숨긴다.
+// 길게 누르는 사물(IHoldInteractable — 상자·장치, Request1009Plan.md §1)은 정한 시간 동안 E를 누르고 있어야 Interact를 부르고,
+// 그동안 아이콘 둘레에 진행 링을 채운다. 떼거나 · 다른 사물로 바뀌거나 · 쓸 수 없게 되면 취소된다(HoldProgress).
 public class CharacterInteractor : MonoBehaviour
 {
     private const float CheckInterval = 0.1f;
@@ -18,6 +20,7 @@ public class CharacterInteractor : MonoBehaviour
     private IGameCharacter localCharacter;
     private IInteractable focused;
     private float nextCheckTime;
+    private readonly HoldProgress hold = new HoldProgress();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
@@ -44,12 +47,37 @@ public class CharacterInteractor : MonoBehaviour
         // 괴물이 조준한 쿠키가 있으면 E키는 잡기가 우선이다 — 문 등 다른 상호작용보다 먼저(GameFixPlan.md F1-1).
         if (PlayerInput.InteractPressed && localCharacter is MonsterController monster && monster.TryGrabAimTarget()) return;
 
+        if (hold.Active)
+        {
+            UpdateHold();
+            return;
+        }
+
         if (focused == null || !PlayerInput.InteractPressed) return;
 
         // 검사 주기(0.1초) 사이에 상태가 바뀌었을 수 있으므로 누른 순간 다시 확인한다.
         Refresh();
         if (focused == null) return;
+        float seconds = focused is IHoldInteractable holdable ? holdable.HoldSecondsFor(localCharacter) : 0f;
+        if (seconds > 0f)
+        {
+            hold.Begin(focused, seconds, Time.time);
+            prompt?.SetProgress(0f);
+            return;
+        }
         focused.Interact(localCharacter);
+    }
+
+    // 누르고 있는 동안: 초점 사물은 0.1초마다 갱신되므로 같은 사물을 계속 보고 있는지·쓸 수 있는지 매 프레임 확인한다.
+    private void UpdateHold()
+    {
+        var target = hold.Target as IInteractable;
+        bool usable = localCharacter != null && localCharacter.CanInteract && InteractableRegistry.IsAlive(target) && target.CanInteract(localCharacter);
+        HoldProgress.Result result = hold.Tick(focused, PlayerInput.InteractHeld, usable, Time.time);
+        prompt?.SetProgress(hold.Progress);
+        if (result != HoldProgress.Result.Completed) return;
+        Refresh(); // 완료 순간 상태를 다시 확인(사물이 그 사이 사라졌을 수 있다)
+        if (focused == target) target.Interact(localCharacter);
     }
 
     private void Refresh()
@@ -65,6 +93,7 @@ public class CharacterInteractor : MonoBehaviour
         if (focused != null && !grabAiming)
             prompt.Show(PlayerInput.Bindings.InteractKey, focused.InteractionPoint, (focused as IInteractionLabel)?.GetLabel(localCharacter));
         else prompt.Hide();
+        if (!hold.Active) prompt.SetProgress(0f);
     }
 
     private static IGameCharacter FindLocalCharacter()

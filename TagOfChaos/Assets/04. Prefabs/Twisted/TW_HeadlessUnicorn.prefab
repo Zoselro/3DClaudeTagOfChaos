@@ -44,7 +44,7 @@ GameObject:
   - component: {fileID: 1565483411675965362}
   - component: {fileID: 7771800357231996064}
   - component: {fileID: 6829275604569817703}
-  - component: {fileID: 1089611826949541184}
+  - component: {fileID: 1281576431556603402}
   m_Layer: 0
   m_Name: Body
   m_TagString: Untagged
@@ -124,8 +124,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &1089611826949541184
-BoxCollider:
+--- !u!64 &1281576431556603402
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -142,9 +142,10 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 3.56, y: 3.7705557, z: 3.56}
-  m_Center: {x: 0, y: 1.8852779, z: 0}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 2959467708922500008, guid: a4c7d3434075ffd4f832a14370b5330d, type: 3}
 --- !u!1 &7881441270233564642
 GameObject:
   m_ObjectHideFlags: 0
@@ -156,7 +157,7 @@ GameObject:
   - component: {fileID: 2966126598308596293}
   - component: {fileID: 7063045198558112920}
   - component: {fileID: 6609126753414200147}
-  - component: {fileID: 4132320284650273208}
+  - component: {fileID: 3453730662022347706}
   m_Layer: 0
   m_Name: Part_Head
   m_TagString: Untagged
@@ -236,8 +237,8 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &4132320284650273208
-BoxCollider:
+--- !u!64 &3453730662022347706
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -254,6 +255,7 @@ BoxCollider:
   m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1.3572745, y: 2.6, z: 0.76720995}
-  m_Center: {x: -0.027935624, y: 1.3072, z: -0.066131085}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -6167547905248396052, guid: a4c7d3434075ffd4f832a14370b5330d, type: 3}

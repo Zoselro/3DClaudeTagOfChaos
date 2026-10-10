@@ -5,8 +5,11 @@ using UnityEngine;
 // 쿠키 탈출 장치(EscapePlan.md §1.6, §5.5): 재료 칸 표시, 설치, 스파이 훔치기, 완성 뒤 쿠키 탈출구.
 // 칸 모양은 자식 "Slot_00".."Slot_nn"이 있으면 그 위치를 쓰고(Blender 모델), 없으면 장치 둘레에 만든다.
 // 빈 칸 = 어두운 받침(Socket), 채워진 칸 = 재료 모양(Part). 완성되면 "ESC_Glow"를 켜고 맵별 연출을 한다.
-public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
+// 재료 넣기·빼앗기(스파이)는 E를 holdSeconds(2초) 누르고 있어야 한다 — 둘이 같은 시간이라 동작으로 스파이가 드러나지 않는다.
+// 완성 뒤 타기는 지금처럼 누르는 즉시(Request1009Plan.md §1).
+public class EscapeDevice : MonoBehaviour, IHoldInteractable, IInteractionLabel
 {
+    [SerializeField, Min(0f)] private float holdSeconds = 2f;
     [SerializeField, Min(0.5f)] private float interactionRange = 3.8f; // 모델 본체(최대 6 m 길이) 끝에서도 닿게
     [SerializeField, Min(0.5f)] private float slotRingRadius = 1.6f;
     [SerializeField] private float slotHeight = 1.2f;
@@ -231,6 +234,8 @@ public class EscapeDevice : MonoBehaviour, IInteractable, IInteractionLabel
         if (complete) return BoardingOpen(); // 쿠키는 탑승, 스파이는 "들어갈 수 없음"(같은 아이콘 — 정체가 드러나지 않게, D35)
         return ActionSlot(out _) >= 0;
     }
+
+    public float HoldSecondsFor(IGameCharacter character) => complete ? 0f : holdSeconds;
 
     public void Interact(IGameCharacter character)
     {

@@ -1090,6 +1090,8 @@ MonoBehaviour:
   labelText: {fileID: 2757765336922357030}
   format: "\uAD00\uC804 \uC911: {0}  (Space: \uB2E4\uC74C \xB7 \uC6B0\uD074\uB9AD
     \uB4DC\uB798\uADF8: \uC2DC\uC810 \uD68C\uC804)"
+  vehicleText: "\uD0C8\uAC83\uC744 \uBCF4\uB294 \uC911  (Space: \uB2E4\uB978 \uC0AC\uB78C
+    \uBCF4\uAE30)"
 --- !u!1 &2046520044859616455
 GameObject:
   m_ObjectHideFlags: 0
