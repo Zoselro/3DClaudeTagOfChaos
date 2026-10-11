@@ -327,6 +327,32 @@ public class Request1011Tests
         Assert.AreEqual(28f, entry.clip.length, 0.1f, "§18.6 Lobby_Long1_25_Bass2 (28 s)");
     }
 
+    // ---- §20 결과 화면 곡(Result_A)·고장 오븐 톱니(GearB2) ----
+
+    [Test]
+    public void ResultMusic_IsResultALoop()
+    {
+        Assert.AreEqual(MusicId.Result, MusicRules.Select(new MusicContext { Scene = MusicScene.Bakery, Phase = GamePhase.Result }));
+        Assert.IsTrue(MusicCatalogSO.IsLoopById(MusicId.Result), "result song loops while the result board is shown");
+        var catalog = AssetDatabase.LoadAssetAtPath<MusicCatalogSO>("Assets/Resources/Audio/MusicCatalog.asset");
+        Assert.IsTrue(catalog.TryGet(MusicId.Result, out MusicCatalogSO.Entry entry));
+        Assert.IsTrue(entry.loop);
+        Assert.AreEqual(72f, entry.clip.length, 0.1f, "Result_A (E minor 3/4 60, 24 bars)");
+    }
+
+    [Test]
+    public void OvenBroken_IsGearB2Loop()
+    {
+        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/10. Audio/SFX/Device/OvenBroken.wav");
+        Assert.AreEqual(8f, clip.length, 0.01f, "8 s seamless loop");
+        float[] data = new float[clip.samples * clip.channels];
+        Assert.IsTrue(clip.GetData(data, 0));
+        // GearB2: 쇠끼리 부딪히는 높은 소리라 이웃 샘플 차이(고음 성분)가 크다 — 예전 증기·쿵 소리보다 훨씬 거칠다
+        double diff = 0, level = 0;
+        for (int i = 1; i < data.Length; i++) { diff += Mathf.Abs(data[i] - data[i - 1]); level += Mathf.Abs(data[i]); }
+        Assert.Greater(diff / level, 0.17, "metal-on-metal (bright) rather than low thuds — old steam/thud loop was 0.10");
+    }
+
     // ---- §19 로켓 뒤 마녀·쿠키 탈출 뒤 처단·훔치기 10초·강퇴 ----
 
     [Test]

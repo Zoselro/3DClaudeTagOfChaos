@@ -129,6 +129,7 @@ public enum MusicId
     Lobby = 1,
     GameLobby = 2,
     MonsterWait = 3,
+    Result = 4,          // 판이 끝난 뒤 결과 화면(징글 뒤, Request1009Plan.md §20.1 Result_A)
     CandyForestPaint = 10,
     CandyForestHunt = 11,
     GingerbreadPaint = 12,

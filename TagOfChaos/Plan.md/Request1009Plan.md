@@ -233,7 +233,7 @@
 | R8 | 청취 의견(2026-10-09): 탑승·탈출 성공·스파이 로켓·상자 소리 싱크·결과 징글·상자 z-fighting | 음원 교체, Play Mode 기록, 상자 면 간격 측정·사진 | ✅ 2026-10-09 — §15 R8 |
 | R9 | 괴물 잡기 소리 그로테스크(후보 3개 → 3번째 승인 2026-10-10) | 음원 교체, Play Mode 소리 시점·사진 | ✅ 2026-10-10 — §15 R9 |
 | R10 | 괴물 발소리 질척·그로테스크(후보 승인 2026-10-10) | 음원 교체, Play Mode 걷기 기록 | ✅ 2026-10-10 — §15 R10 |
-| R7 | (결과 곡 승인 뒤) `MusicId.Result` 추가·규칙·시험·카탈로그 | Play Mode 결과 단계 재생 기록 | ⬜ 승인 대기 |
+| R7 | (결과 곡 승인 뒤) `MusicId.Result` 추가·규칙·시험·카탈로그 | Play Mode 결과 단계 재생 기록 | ✅ 2026-10-11 — §20.3(R2 후보 대신 새 후보 `Result_A`) |
 
 순서 이유: R1은 코드 변경이 가장 크고 다른 것과 겹치지 않는다. R5는 충돌체를 바꾸므로 통행 테스트를 마지막에 한 번 더 돌린다. R7은 결과 곡 청취 승인 뒤에만.
 
@@ -924,4 +924,12 @@ Windows 설정 → 소리 → **앱 볼륨 및 장치 기본 설정**에서 앱�
 | `OvenBroken_GearD` 녹슨 큰 톱니 | 느리고 무겁게 "끼익… 쿵" 한 이씩 겨우 넘어감 + 한 번 이가 부러져 쇳조각이 떨어짐 |
 - 청취 묶음: `reel_gears.ogg`(지금 소리 → A×2 → B×2 → C×2 → D×2), 순서 `reel_gears_order.txt`. 고음 잡음(3 kHz 이상) 비율·끊김 정도로 확인: 지금 소리는 평평한 잡음, 후보는 툭툭 끊기는 기계음.
 - 고르면: `OvenBroken.ogg`를 백업(`Source~/r1011_backup/`) 뒤 교체(같은 GUID) → 베이커리 Play Mode에서 완성 전 재생 확인.
-- 만든 코드: `audio/final/r1011_result.py`, `audio/final/r1011_gears.py`.
+- **2차(2026-10-11 요청: "중간중간 퉁 소리 대신 철과 철이 부딪히는 소리")**: 1차의 덜컥·쿵에 섞인 낮은 쿵(`low_thud`)·낮은 주철 울림·저음 웅을 빼고 `steel_clash`(날카로운 딱 + 오래 울리는 높은 비조화 공명 두 벌이 어긋나 떨림 + 작게 두 번 튕김, 300 Hz 아래 자름)로 바꿈 → `OvenBroken_Gear{A,B,C,D}2.ogg`, 청취 `reel_gears2.ogg`(1차 A → A2·B2·C2·D2 각 2번). 200 Hz 아래 비율 A 96→28%, B 81→26%, C 91→10%, D 99→0%. A2·C2는 쇳소리 순간이 커서 평균 크기가 2 dB·0.6 dB 작다(넣을 때 맞춤).
+- **결정**: 결과 화면 곡 = **`Result_A`**(사용자 2026-10-11). 넣기는 톱니 선택과 함께(§20.1 "고르면" 절차).
+- 만든 코드: `audio/final/r1011_result.py`, `audio/final/r1011_gears.py`, `audio/final/r1011_gears2.py`.
+
+## 20.3 넣기 결과 ✅ 2026-10-11 (결정: 결과 곡 `Result_A`, 고장 오븐 `OvenBroken_GearB2`)
+- **결과 화면 곡**: `MusicId.Result = 4`(반복 곡 구간) 추가(`Audio/SoundId.cs`), `MusicRules.Select`가 결과 단계에 `Result`를 고름(로비 곡은 로비 씬에서만). 음원 `Assets/10. Audio/BGM/Result.ogg`(= `Result_A`, 72초 반복, −20 LUFS, 원본 `Source~/r1011/final/BGM/Result.ogg`), 카탈로그는 `Tools/TagOfChaos/Audio/Build Catalogs`로 다시 만듦(loop 켬, 볼륨 1).
+- **고장 오븐**: `Assets/10. Audio/SFX/Device/OvenBroken.wav`를 `OvenBroken_GearB2`로 교체(같은 파일·GUID, 8초 반복, −21 LUFS). 예전 소리 백업 `Source~/r1011_backup/SFX/Device/OvenBroken.wav`, 원본 `Source~/r1011/final/SFX/Device/OvenBroken.wav`. 소리 쪽 코드(`OvenSequence.AddLoop`)는 그대로.
+- **시험**: `AudioTests.Music_SelectTable`(결과 단계 = `Result`) 수정, 새 `Request1011Tests.ResultMusic_IsResultALoop`(규칙·반복·카탈로그 클립 72초)·`OvenBroken_IsGearB2Loop`(8초, 이웃 샘플 차이 비율 > 0.17 — 쇳소리처럼 밝음, 예전 증기·쿵 소리는 0.10). `Request1011Tests` 50개·`AudioTests` 58개 통과. 전체 EditMode 265개: 통과 258, 실패 6·보류 1(기존 항목 그대로). 빌드 `Builds/R1011Check/` 성공(오류 0, 경고 1 기존 글꼴). 컴파일 오류·경고 0.
+- **Play Mode(베이커리, 나 = 스파이, 처단으로 끝냄)**: 시작부터 탈출구 완성 전까지 `OvenBroken`(새 톱니, 반복) 재생 → 23초 결과 단계: 실패 징글 `JgEscapeFail`과 함께 `Result`가 0.03 → 0.20(4초 동안 커짐) → 28초 징글이 끝난 뒤 `Result` 0.40으로 반복. 콘솔 오류는 검증용 감시 코드(MCPDynamicCode)의 것 1건뿐, 게임 코드 오류·경고 0.

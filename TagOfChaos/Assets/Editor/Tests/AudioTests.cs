@@ -216,7 +216,7 @@ public class AudioTests
             if (scene == MusicScene.Other) expected = MusicId.None;
             else if (scene == MusicScene.Lobby) expected = MusicId.Lobby;
             else if (scene == MusicScene.GameLobby) expected = waiting || monsterInGame ? MusicId.MonsterWait : MusicId.GameLobby;
-            else if (phase == GamePhase.Result) expected = MusicId.Lobby;
+            else if (phase == GamePhase.Result) expected = MusicId.Result;
             else if (monster) expected = MusicId.None;                         // 괴물은 맵 곡 없음
             else if (phase == GamePhase.Lobby || phase == GamePhase.Paint) expected = mapPaint[scene];
             else expected = MusicId.None;                                       // 변장이 끝나면 끈다

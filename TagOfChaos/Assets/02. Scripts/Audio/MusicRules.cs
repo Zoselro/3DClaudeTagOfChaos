@@ -14,7 +14,7 @@ public static class MusicRules
 {
     public const float SceneFadeSeconds = 1.5f; // 씬이 바뀌었을 때
     public const float PhaseFadeSeconds = 2.5f; // 같은 씬에서 단계가 바뀌었을 때
-    public const float ResultFadeSeconds = 4f;  // 결과 징글 뒤로 로비 곡이 천천히 들어온다
+    public const float ResultFadeSeconds = 4f;  // 결과 징글 뒤로 결과 곡이 천천히 들어온다
 
     public static MusicScene SceneFromName(string sceneName)
     {
@@ -41,9 +41,9 @@ public static class MusicRules
         }
 
         // 맵(사용자 결정 2026-10-03): 쿠키는 변장 시간에만 맵 곡을 듣고, 변장이 끝나면(합류 대기·추격·타임어택) 배경음을 끈다 —
-        // 그때부터는 효과음·환경음·스팅어만. 괴물은 맵에 들어와도 맵 곡이 없다. 결과는 징글 뒤 로비 곡.
+        // 그때부터는 효과음·환경음·스팅어만. 괴물은 맵에 들어와도 맵 곡이 없다. 결과는 징글 뒤 결과 곡(로비 곡은 28초 한 번 재생이라 따로, §20.1).
         // (MusicId의 …Hunt·TimeAttack 곡은 쓰지 않지만 ID 번호를 지키려고 남겨 둔다.)
-        if (c.Phase == GamePhase.Result) return MusicId.Lobby;
+        if (c.Phase == GamePhase.Result) return MusicId.Result;
         if (c.LocalIsMonster) return MusicId.None;
         return c.Phase == GamePhase.Lobby || c.Phase == GamePhase.Paint ? MapPaint(c.Scene) : MusicId.None;
     }
