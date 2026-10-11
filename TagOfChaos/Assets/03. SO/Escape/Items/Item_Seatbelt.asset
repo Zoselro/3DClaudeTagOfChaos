@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: Seatbelt
   displayName: "\uC548\uC804\uBCA8\uD2B8"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: a3c79fa45e07b164996d92ca4cfd87e7, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: 755b619c4c4fefc478df8da5cbe850a3, type: 3}
   tint: {r: 0.35, g: 0.45, b: 0.6, a: 1}
   holdType: 1

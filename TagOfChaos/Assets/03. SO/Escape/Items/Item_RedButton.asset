@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: RedButton
   displayName: "\uB808\uB4DC \uBC84\uD2BC"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 529529cae507f974782422c007f045af, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: b6a4fd90c3f5b75418c3183df68727fd, type: 3}
   tint: {r: 0.9, g: 0.1, b: 0.1, a: 1}
   holdType: 1

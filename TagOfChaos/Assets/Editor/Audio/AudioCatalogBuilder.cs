@@ -192,6 +192,7 @@ public static class SoundDefaults
                 World(e, 60f, 2);
                 e.importance = SoundImportance.High;
                 if (id == SoundId.OvenGears || id == SoundId.AltarHum) { e.pitchRange = Vector2.one; e.volume = 0.5f; } // 반복음 — 출발까지 계속 나므로 배경음보다 작게(S9 믹스)
+                else if (id == SoundId.OvenBroken) { e.pitchRange = Vector2.one; e.volume = 0.75f; } // 반복음 — 음원이 톱니보다 4dB 작아(피크 제한) 조금 크게
                 else if (id == SoundId.LanternFlicker)
                 {
                     e.volume = 0.5f;          // 등불 여러 개가 따로 깜빡인다 — 작게, 가까이서만

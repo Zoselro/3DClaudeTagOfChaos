@@ -42,11 +42,13 @@ public class CookieAudio : MonoBehaviour
             case PlayerMoveState.Jump: Play(SoundId.CookieJump); break;
             case PlayerMoveState.Dodge: Play(SoundId.CookieDodge); break;
             case PlayerMoveState.Held: grabCheckAt = Time.time + GrabConfirmDelay; break;
+            case PlayerMoveState.Carried: Play(SoundId.CookieGrab); break; // 다른 쿠키에게 들림(처형과 구분된 상태라 확인 대기 없음)
             case PlayerMoveState.Run: nextStep = Time.time; break;
         }
         if (from == PlayerMoveState.Jump && (to == PlayerMoveState.Idle || to == PlayerMoveState.Walk || to == PlayerMoveState.Run))
             Play(SoundId.CookieLand);
         if (from == PlayerMoveState.Held && to != PlayerMoveState.Broken && !IsGrabKilled) Play(SoundId.CookieRelease);
+        if (from == PlayerMoveState.Carried && to != PlayerMoveState.Broken && to != PlayerMoveState.Held) Play(SoundId.CookieRelease);
     }
 
     private void Update()

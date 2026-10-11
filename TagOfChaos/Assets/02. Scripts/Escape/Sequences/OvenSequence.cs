@@ -5,6 +5,8 @@ using UnityEngine;
 //   3~6초      : 맵의 둥근 오븐 문(HAU_MagicOven_Door)이 옆으로 굴러가며 서서히 열리고, 안이 하얗게 빛난다 → 탈 수 있음
 //   탑승        : 쿠키가 경사 발판을 올라 문 앞에서 타면 빛 속으로 빨려 들어간다(BoardingFx.Suck)
 //   출발        : 문이 굴러 돌아와 닫히고, 오븐 안에서 큰 빛이 번쩍인다
+// 소리: 완성 전에는 고장 난 오븐 반복음(OvenBroken — 걸렸다 꺼지는 모터·헛도는 톱니·스파크, Request1009Plan.md §16.7),
+// 완성되는 순간 멈추고 지금 소리(톱니 반복음·피스톤·문)로 넘어간다.
 // 문은 아무나 열 수 없는 일반 물체다(MapSceneBuilder). 모델 이름 규칙은 escape_devices.py(device_bakery)와 같다.
 public class OvenSequence : EscapeSequence
 {
@@ -62,6 +64,7 @@ public class OvenSequence : EscapeSequence
         glow.intensity = 0f;
 
         // 소리(SoundPlan.md S6): 기계가 도는 동안 톱니 반복음, 시동 때 피스톤 칙, 문 구르는 소리(열림·닫힘), 출발 때 번쩍
+        AddLoop(SoundId.OvenBroken, (c, d) => c < 0f, gearA); // 완성 전(c = -1)
         AddLoop(SoundId.OvenGears, (c, d) => c >= 0f && d < DepartureSeconds, gearA);
         AddCue(SoundId.OvenPiston, CueClock.Completed, 0f, piston);
         AddCue(SoundId.OvenDoorRoll, CueClock.Completed, WarmupSeconds, doorPivot);

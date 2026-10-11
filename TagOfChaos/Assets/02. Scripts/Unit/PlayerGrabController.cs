@@ -2,15 +2,14 @@ using System.Collections;
 using Photon.Pun;
 using UnityEngine;
 
-// 쿠키↔쿠키 그랩/캐리 시작·해제(그랩버 측, GameRule.md §4.1). 소유권 이전 없이 carrySocket을
-// 로컬로 추적하는 방식 — 들린 쿠키는 자기 자신의 PhotonView를 그대로 유지한 채, 자기 FixedUpdate()에서
-// 그랩버의 carrySocket 위치를 따라간다(HideOrSeekPlayer.TryFollowCarrier() 참고).
+// 쿠키↔쿠키 그랩/캐리 시작·해제(그랩버 측, GameRule.md §4.1). 소유권 이전 없이 들린 쿠키는 자기 PhotonView를 그대로 유지하고,
+// 모든 화면이 그 몸을 그랩버의 두 손 위에 놓는다(CarriedBodyPresenter, Request1009Plan.md §16.3 — 예전의 등 뒤 carrySocket은 쓰지 않는다).
+// 그랩버 화면은 들린 쿠키의 동기화가 오기 전에도 바로 손 위에 놓이도록 그 쿠키에 로컬로 알려 둔다.
 [RequireComponent(typeof(PhotonView))]
 public class PlayerGrabController : MonoBehaviour
 {
     [SerializeField] private PhotonView pv;
     [SerializeField] private HideOrSeekPlayer self;
-    [SerializeField] private Transform carrySocket; // 캐릭터 등/어깨 위치 — 그랩한 쿠키가 붙는 지점
     [SerializeField] private float grabRange = 1.5f;
     [SerializeField] private LayerMask cookieLayer; // 프리팹에서 Cookie 레이어(쿠키 루트 캡슐)로 설정(research.md §8.6)
 
@@ -21,7 +20,6 @@ public class PlayerGrabController : MonoBehaviour
     private HideOrSeekPlayer carriedPlayer;
     private readonly Collider[] overlapBuffer = new Collider[16]; // OverlapSphere 할당 제거
 
-    public Transform CarrySocket => carrySocket;
     public bool IsCarrying => carriedPlayer != null;
 
     // 들고 있던 쿠키가 방을 나가 파괴되면 Unity의 == null 비교는 true가 되지만 참조는 남아 있다. 정리가 필요한지는
@@ -63,9 +61,10 @@ public class PlayerGrabController : MonoBehaviour
 
             targetPv.RPC(HideOrSeekPlayer.RpcOnGrabbedByOwner, targetPv.Owner, pv.ViewID);
             carriedPlayer = target;
+            target.SetLocalCarrierOverride(pv.ViewID);
             // 들고 있는 쿠키(이 클라이언트에서는 원격·키네마틱)가 내 몸을 밀어내지 않도록 서로의 충돌을 무시한다.
             SetCollisionIgnored(gameObject, target.gameObject, true);
-            if (self != null) self.SetCarryLayerWeight(1f);
+            if (self != null) self.SetCarry(CarryReason.Cookie, true);
             return;
         }
     }
@@ -79,11 +78,12 @@ public class PlayerGrabController : MonoBehaviour
             var targetPv = carriedPlayer.View;
             if (targetPv != null && targetPv.Owner != null)
                 targetPv.RPC(HideOrSeekPlayer.RpcOnReleased, targetPv.Owner);
+            carriedPlayer.SetLocalCarrierOverride(-1);
             StartCoroutine(RestoreCollisionLater(carriedPlayer.gameObject));
         }
 
         carriedPlayer = null;
-        if (self != null) self.SetCarryLayerWeight(0f);
+        if (self != null) self.SetCarry(CarryReason.Cookie, false);
     }
 
     private IEnumerator RestoreCollisionLater(GameObject released)

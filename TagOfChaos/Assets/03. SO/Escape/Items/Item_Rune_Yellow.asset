@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: Rune_Yellow
   displayName: "\uB8EC"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: bb5c7a6382ba3cb42b2aac792099bead, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: badaf03cec4d90840aa368c9b8223310, type: 3}
   tint: {r: 1, g: 0.9, b: 0.15, a: 1}
   holdType: 1

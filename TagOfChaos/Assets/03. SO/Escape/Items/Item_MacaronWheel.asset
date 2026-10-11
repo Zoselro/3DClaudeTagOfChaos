@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: MacaronWheel
   displayName: "\uB9C8\uCE74\uB871 \uBC14\uD034"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: f0ee1e6b6ffbe554e8e5df4e00b61ab5, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: 9726b01569f34e74c9d71774c7b4f4dc, type: 3}
   tint: {r: 1, g: 0.6, b: 0.75, a: 1}
   holdType: 1

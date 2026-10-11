@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: CookieWheel
   displayName: "\uCFE0\uD0A4 \uBC14\uD034"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 61ce9f93099c2854d891952ac06678c6, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: e45b4c067c358584ab963ebe80d724ae, type: 3}
   tint: {r: 0.8, g: 0.55, b: 0.3, a: 1}
   holdType: 1

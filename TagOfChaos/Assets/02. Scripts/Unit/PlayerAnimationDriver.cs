@@ -1,5 +1,13 @@
 using UnityEngine;
 
+[System.Flags]
+public enum CarryReason
+{
+    None = 0,
+    Cookie = 1,        // 다른 쿠키를 들었다
+    TwoHandedItem = 2, // 두 손 아이템을 들었다
+}
+
 public class PlayerAnimationDriver
 {
     private readonly Animator animator;
@@ -96,10 +104,23 @@ public class PlayerAnimationDriver
     private const string CarryLayerName = "Carry";
     private const int MissingLayer = -2;
     private int carryLayerIndex = -1; // -1=아직 조회 전, -2=레이어 없음
+    private CarryReason carryReasons;
+
+    // 두 손 드는 자세(상체 "Carry" 레이어)를 켜는 이유 — 다른 쿠키를 들었거나 두 손 아이템을 들었을 때(Request1009Plan.md §16.4).
+    // 이유가 하나라도 있으면 켠다(이유마다 따로 켜고 끄므로 한쪽이 다른 쪽을 끄지 않는다).
+    public void SetCarry(CarryReason reason, bool on)
+    {
+        CarryReason next = on ? carryReasons | reason : carryReasons & ~reason;
+        if (next == carryReasons && carryLayerIndex != -1) return;
+        carryReasons = next;
+        SetCarryLayerWeight(carryReasons != CarryReason.None ? 1f : 0f);
+    }
+
+    public bool IsCarryPoseOn => carryReasons != CarryReason.None;
 
     // Carry Avatar Mask 레이어 가중치 제어(GameRule.md §4.1) — PlayerAnimator.controller의 "Carry" 레이어
     // (상체 마스크 CarryUpperBody, research.md §8.9).
-    public void SetCarryLayerWeight(float weight)
+    private void SetCarryLayerWeight(float weight)
     {
         if (animator == null) return;
         if (carryLayerIndex == MissingLayer) return;

@@ -46,31 +46,31 @@ public static class TwistedAtmosphere
         {
             Fog = new Color(0.42f, 0.44f, 0.42f), FogDensity = 0.018f, AmbientScale = 0.75f,
             OverrideSun = true, SunColor = new Color(0.8f, 0.85f, 0.9f), SunIntensity = 0.6f,
-            Saturation = -35f, Temperature = -8f, Tint = -14f, Contrast = 18f, PostExposure = 0f, Vignette = 0.42f,
+            Saturation = -35f, Temperature = -8f, Tint = -14f, Contrast = 18f, PostExposure = 0f, Vignette = 0f,
             PointDesaturate = 0.5f, PointScale = 0.8f, FlickerPrefixes = new[] { "CAN_", "LGT_Fill" }, FlickerEvery = 25,
         },
         ["GingerbreadVillage"] = new Look
         {
             Fog = new Color(0.12f, 0.14f, 0.2f), FogDensity = 0.016f,
-            Saturation = -45f, Temperature = -8f, Tint = -4f, Contrast = 20f, PostExposure = 0.9f, Vignette = 0.45f,
+            Saturation = -45f, Temperature = -8f, Tint = -4f, Contrast = 20f, PostExposure = 0.9f, Vignette = 0f,
             PointDesaturate = 0.3f, PointScale = 0.85f, FlickerPrefixes = new[] { "GIN_Lamp" }, FlickerEvery = 2,
         },
         ["ChocolateFactory"] = new Look
         {
             Fog = new Color(0.3f, 0.24f, 0.18f), FogDensity = 0.022f,
-            Saturation = -30f, Temperature = 12f, Tint = 0f, Contrast = 20f, PostExposure = 0.5f, Vignette = 0.45f,
+            Saturation = -30f, Temperature = 12f, Tint = 0f, Contrast = 20f, PostExposure = 0.5f, Vignette = 0f,
             PointDesaturate = 0.2f, PointScale = 0.9f, FlickerPrefixes = new[] { "LGT_CandyMachine", "LGT_ArchWindow" }, FlickerEvery = 3,
         },
         ["CursedCandyCarnival"] = new Look
         {
             Fog = new Color(0.08f, 0.12f, 0.1f), FogDensity = 0.02f,
-            Saturation = -50f, Temperature = -4f, Tint = -22f, Contrast = 25f, PostExposure = 1.0f, Vignette = 0.5f,
+            Saturation = -50f, Temperature = -4f, Tint = -22f, Contrast = 25f, PostExposure = 1.0f, Vignette = 0f,
             PointDesaturate = 0.25f, FlickerPrefixes = new[] { "LGT_CarnivalLamp", "LGT_Booth", "LGT_CircusTent" }, FlickerEvery = 2,
         },
         ["HauntedBakery"] = new Look
         {
             Fog = new Color(0.15f, 0.17f, 0.22f), FogDensity = 0.016f,
-            Saturation = -40f, Temperature = -18f, Tint = 0f, Contrast = 18f, PostExposure = 0.6f, Vignette = 0.45f,
+            Saturation = -40f, Temperature = -18f, Tint = 0f, Contrast = 18f, PostExposure = 0.6f, Vignette = 0f,
             PointDesaturate = 0.3f, FlickerPrefixes = new[] { "LGT_WallLantern", "LGT_Table" }, FlickerEvery = 3,
         },
     };
@@ -80,7 +80,7 @@ public static class TwistedAtmosphere
     public static readonly Look GameLobby = new Look
     {
         Fog = new Color(0.08f, 0.07f, 0.12f), FogDensity = 0.012f,
-        Saturation = -25f, Temperature = -6f, Tint = 0f, Contrast = 15f, PostExposure = 0.5f, Vignette = 0.42f,
+        Saturation = -25f, Temperature = -6f, Tint = 0f, Contrast = 15f, PostExposure = 0.5f, Vignette = 0f,
         PointDesaturate = 0.25f, PointScale = 1f, FlickerPrefixes = new[] { "Light" }, FlickerEvery = 3,
         BoostPrefixes = new[] { "FireLight", "LiquidGlowLight" }, BoostScale = 1.6f,
     };
@@ -195,6 +195,18 @@ public static class TwistedAtmosphere
     }
 
     public static string MapScenePath(string map) => $"{MapSceneFolder}/Game_{map}.unity";
+
+    // 모든 맵·대기실 후처리 프로필에서 비네트를 지운다(Request1009Plan.md §16.5). 지운 프로필 수.
+    [MenuItem(MenuRoot + "Remove Vignette (All Profiles)")]
+    public static int RemoveAllVignettes()
+    {
+        int removed = 0;
+        foreach (string guid in AssetDatabase.FindAssets("t:PostProcessProfile", new[] { "Assets/Maps" }))
+            if (RemoveVignette(AssetDatabase.LoadAssetAtPath<PostProcessProfile>(AssetDatabase.GUIDToAssetPath(guid)))) removed++;
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[TwistedAtmosphere] Removed vignette from {removed} profiles.");
+        return removed;
+    }
 
     [MenuItem(MenuRoot + "Apply Twisted Atmosphere (All)")]
     public static void ApplyAll()
@@ -355,10 +367,26 @@ public static class TwistedAtmosphere
         grading.tint.Override(look.Tint);
         grading.contrast.Override(look.Contrast);
         grading.postExposure.Override(look.PostExposure);
-        if (!profile.TryGetSettings(out Vignette vignette)) vignette = AddSetting<Vignette>(profile);
-        vignette.intensity.Override(look.Vignette);
-        vignette.smoothness.Override(0.55f);
+        // 비네트(화면 가장자리 어둡게)는 시야가 좁아 보여 지웠다(Request1009Plan.md §16.5). 값이 0이면 설정 자체를 뺀다.
+        if (look.Vignette > 0f)
+        {
+            if (!profile.TryGetSettings(out Vignette vignette)) vignette = AddSetting<Vignette>(profile);
+            vignette.intensity.Override(look.Vignette);
+            vignette.smoothness.Override(0.55f);
+        }
+        else RemoveVignette(profile);
         EditorUtility.SetDirty(profile);
+    }
+
+    // 프로필에서 비네트 설정과 그 하위 에셋을 지운다. 지웠으면 true.
+    public static bool RemoveVignette(PostProcessProfile profile)
+    {
+        if (profile == null || !profile.TryGetSettings(out Vignette vignette)) return false;
+        profile.RemoveSettings<Vignette>();
+        if (AssetDatabase.Contains(vignette)) AssetDatabase.RemoveObjectFromAsset(vignette);
+        Object.DestroyImmediate(vignette, true);
+        EditorUtility.SetDirty(profile);
+        return true;
     }
 
     private static PostProcessProfile LoadOrCreateProfile(string path)

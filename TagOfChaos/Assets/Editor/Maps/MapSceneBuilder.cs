@@ -59,11 +59,11 @@ public static class MapSceneBuilder
     private static readonly Dictionary<string, Mood> Moods = new Dictionary<string, Mood>
     {
         ["CandyForest"] = new Mood { Ambient = 0.42f, Directional = 1.0f, FogDensity = 0.006f, BloomIntensity = 0.8f, BloomThreshold = 1.2f, BloomDiffusion = 6f, Saturation = 10f },
-        ["ChocolateFactory"] = new Mood { Ambient = 0.32f, Directional = 0.75f, FogDensity = 0.004f, BloomIntensity = 1.0f, BloomThreshold = 1.2f, BloomDiffusion = 6.5f, Temperature = 15f, Vignette = 0.15f },
-        ["GingerbreadVillage"] = new Mood { Ambient = 0.22f, Directional = 0.25f, FogDensity = 0.006f, BloomIntensity = 1.2f, BloomThreshold = 1.2f, BloomDiffusion = 7f, Temperature = -5f, Vignette = 0.25f },
-        ["HauntedBakery"] = new Mood { Ambient = 0.3f, Directional = 0.35f, FogDensity = 0.005f, BloomIntensity = 0.7f, BloomThreshold = 1.5f, BloomDiffusion = 7f, Tint = 15f, Vignette = 0.2f,
+        ["ChocolateFactory"] = new Mood { Ambient = 0.32f, Directional = 0.75f, FogDensity = 0.004f, BloomIntensity = 1.0f, BloomThreshold = 1.2f, BloomDiffusion = 6.5f, Temperature = 15f, Vignette = 0f },
+        ["GingerbreadVillage"] = new Mood { Ambient = 0.22f, Directional = 0.25f, FogDensity = 0.006f, BloomIntensity = 1.2f, BloomThreshold = 1.2f, BloomDiffusion = 7f, Temperature = -5f, Vignette = 0f },
+        ["HauntedBakery"] = new Mood { Ambient = 0.3f, Directional = 0.35f, FogDensity = 0.005f, BloomIntensity = 0.7f, BloomThreshold = 1.5f, BloomDiffusion = 7f, Tint = 15f, Vignette = 0f,
             EmissionScale = new Dictionary<string, float> { ["M_Neon_"] = 0.4f, ["M_Window_Yellow"] = 0.6f, ["M_Oven_Fire"] = 0.6f, ["M_Lantern_Glow"] = 0.7f, ["M_Glow_Yellow"] = 0.7f } },
-        ["CursedCandyCarnival"] = new Mood { Ambient = 0.28f, Directional = 0.3f, FogDensity = 0.007f, BloomIntensity = 0.7f, BloomThreshold = 1.5f, BloomDiffusion = 7.5f, Contrast = 5f, Vignette = 0.2f,
+        ["CursedCandyCarnival"] = new Mood { Ambient = 0.28f, Directional = 0.3f, FogDensity = 0.007f, BloomIntensity = 0.7f, BloomThreshold = 1.5f, BloomDiffusion = 7.5f, Contrast = 5f, Vignette = 0f,
             EmissionScale = new Dictionary<string, float> { ["M_Neon_"] = 0.4f, ["M_Lantern_Glow"] = 0.7f, ["M_Glow_Yellow"] = 0.7f } },
     };
 

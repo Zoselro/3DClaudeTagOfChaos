@@ -43,7 +43,7 @@ public class TwistedTests
         Assert.IsTrue(volume.sharedProfile.TryGetSettings(out ColorGrading grading));
         Assert.AreEqual(look.Saturation, grading.saturation.value, 0.01f);
         Assert.AreEqual(look.PostExposure, grading.postExposure.value, 0.01f);
-        Assert.IsTrue(volume.sharedProfile.TryGetSettings(out Vignette _), $"{map}: vignette missing");
+        Assert.IsFalse(volume.sharedProfile.TryGetSettings(out Vignette _), $"{map}: vignette must stay removed (Request1009Plan.md §16.5)");
         Assert.Greater(Object.FindObjectsByType<FlickerLight>(FindObjectsSortMode.None).Length, 0, $"{map}: no broken (flickering) lights");
     }
 
@@ -55,6 +55,7 @@ public class TwistedTests
         Assert.NotNull(volume, "Waiting room needs its PostFX volume.");
         Assert.AreEqual(TwistedAtmosphere.GameLobbyProfile, AssetDatabase.GetAssetPath(volume.sharedProfile));
         Assert.NotNull(Camera.main.GetComponent<PostProcessLayer>());
+        Assert.IsFalse(volume.sharedProfile.TryGetSettings(out Vignette _), "Waiting room vignette must stay removed (Request1009Plan.md §16.5).");
 
         EditorSceneManager.OpenScene(TwistedAtmosphere.LobbyScene, OpenSceneMode.Single);
         var bg = Object.FindObjectsByType<UnityEngine.UI.Image>(FindObjectsInactive.Include, FindObjectsSortMode.None).First(i => i.name == "BackGround");

@@ -29,7 +29,7 @@ public static class SoundSettingsInstaller
         (AudioVolumeSettings.Slider.Ui, "Row_Ui", "UI"),
     };
 
-    private class Style
+    public class Style
     {
         public Sprite boxSprite; public Color boxColor = new Color(0.15f, 0.12f, 0.2f, 0.95f); public Color dimColor = new Color(0f, 0f, 0f, 0.55f);
         public Sprite buttonSprite; public Color buttonColor = Color.white; public ColorBlock buttonColors = ColorBlock.defaultColorBlock;
@@ -46,6 +46,7 @@ public static class SoundSettingsInstaller
         GameObject core = PrefabUtility.LoadPrefabContents(CorePrefabPath);
         Style style = ReadStyle(core.GetComponentInChildren<EscMenu>(true));
         SoundSettingsPanel prefab = EnsurePanelPrefab(style);
+        EnsureOutputRow(style);
         string coreResult = InstallInEscMenu(core.GetComponentInChildren<EscMenu>(true), prefab);
         PrefabUtility.SaveAsPrefabAsset(core, CorePrefabPath);
         PrefabUtility.UnloadPrefabContents(core);
@@ -68,7 +69,7 @@ public static class SoundSettingsInstaller
 
     // ---------------- style ----------------
 
-    private static Style ReadStyle(EscMenu esc)
+    public static Style ReadStyle(EscMenu esc)
     {
         var s = new Style();
         if (esc == null) return s;
@@ -138,6 +139,56 @@ public static class SoundSettingsInstaller
         PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
         Object.DestroyImmediate(root);
         return AssetDatabase.LoadAssetAtPath<SoundSettingsPanel>(PrefabPath);
+    }
+
+    // 출력 장치 줄(Request1009Plan.md §16.6): 이미 만든 프리팹에 없으면 막대 4줄 아래에 넣고 상자를 한 줄 키운다.
+    // 영어 임시 문구로 만들고, 한글 문구는 프리팹에서 입력한다.
+    public const string OutputRowName = "Row_Output";
+    private static readonly string[] OutputLabels = { "Speakers", "Headphones", "Headset" };
+
+    [MenuItem("Tools/TagOfChaos/Audio/Add Output Device Row")]
+    public static void AddOutputRowMenu()
+    {
+        GameObject core = PrefabUtility.LoadPrefabContents(CorePrefabPath);
+        Style style = ReadStyle(core.GetComponentInChildren<EscMenu>(true));
+        PrefabUtility.UnloadPrefabContents(core);
+        Debug.Log("[Audio] Output row: " + EnsureOutputRow(style));
+    }
+
+    public static string EnsureOutputRow(Style style)
+    {
+        GameObject root = PrefabUtility.LoadPrefabContents(PrefabPath);
+        try
+        {
+            Transform box = root.transform.Find("Box");
+            if (box == null) return "no Box";
+            if (box.Find(OutputRowName) != null) return "already";
+
+            var row = Child(box, OutputRowName);
+            SetRect(row, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -100f - Rows.Length * RowHeight), new Vector2(-60f, 56f), new Vector2(0.5f, 1f));
+            TMP_Text label = Text(row, "Label", "Output", 28f, style.font, style.textColor, TextAlignmentOptions.MidlineLeft);
+            SetRect(label.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(10f, 0f), new Vector2(150f, 0f), new Vector2(0f, 0.5f));
+
+            var buttons = new Button[OutputLabels.Length];
+            const float left = 170f, gap = 8f, width = 122f;
+            for (int i = 0; i < OutputLabels.Length; i++)
+            {
+                Button b = CreateButton(row, "Output_" + (OutputMode)i, OutputLabels[i], style);
+                SetRect((RectTransform)b.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(left + i * (width + gap), 0f), new Vector2(width, 50f), new Vector2(0f, 0.5f));
+                b.GetComponentInChildren<TMP_Text>().fontSize = 22f;
+                buttons[i] = b;
+            }
+            ((RectTransform)box).sizeDelta += new Vector2(0f, RowHeight);
+
+            var so = new SerializedObject(root.GetComponent<SoundSettingsPanel>());
+            SerializedProperty list = so.FindProperty("outputButtons");
+            list.arraySize = buttons.Length;
+            for (int i = 0; i < buttons.Length; i++) list.GetArrayElementAtIndex(i).objectReferenceValue = buttons[i];
+            so.ApplyModifiedPropertiesWithoutUndo();
+            PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
+            return "added";
+        }
+        finally { PrefabUtility.UnloadPrefabContents(root); }
     }
 
     private static Slider CreateSlider(Transform parent, Style style)

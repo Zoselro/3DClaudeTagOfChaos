@@ -41,6 +41,7 @@ public class AudioRuntime : MonoBehaviour
     private MusicDirector director;
     private ChaseDirector chase;
     private AudioListenerAnchor listener;
+    private AudioHighPassFilter lowCut;
 
     public static AudioRuntime Instance
     {
@@ -89,7 +90,9 @@ public class AudioRuntime : MonoBehaviour
         director = new MusicDirector(music);
         chase = new ChaseDirector(name => MakeSource(name, false, lowPass: true), music);
         listener = AudioListenerAnchor.Create(transform);
+        lowCut = listener.gameObject.AddComponent<AudioHighPassFilter>(); // 듣는 쪽 필터 = 모든 소리(헤드셋 저음 자르기)
         AudioVolumeSettings.Changed += ApplyVolumes;
+        ApplyOutputMode();
     }
 
     private void OnDestroy()
@@ -296,9 +299,26 @@ public class AudioRuntime : MonoBehaviour
 
     private void ApplyVolumes()
     {
+        ApplyOutputMode();
         ApplyVolumes(worldVoices, worldPool);
         ApplyVolumes(flatVoices, flatPool);
     }
+
+    // 출력 장치(Request1009Plan.md §16.6): 3D 칸의 좌우 퍼짐과 듣는 쪽 저음 자르기. AudioSettings.speakerMode는 바꾸지 않는다(바꾸면 모든 소리가 다시 시작).
+    private void ApplyOutputMode()
+    {
+        OutputProfile profile = AudioVolumeSettings.CurrentOutput;
+        foreach (Voice voice in worldVoices) voice.source.spread = profile.Spread;
+        if (lowCut != null)
+        {
+            lowCut.enabled = profile.LowCutHz > 0f;
+            if (lowCut.enabled) lowCut.cutoffFrequency = profile.LowCutHz;
+        }
+    }
+
+    // 지금 3D 칸의 좌우 퍼짐·저음 자르기(시험·기록용).
+    public float WorldSpread => worldVoices.Length > 0 ? worldVoices[0].source.spread : 0f;
+    public float LowCutHz => lowCut != null && lowCut.enabled ? lowCut.cutoffFrequency : 0f;
 
     private static void ApplyVolumes(Voice[] voices, AudioVoicePool pool)
     {

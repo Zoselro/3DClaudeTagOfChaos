@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: Hammer
   displayName: "\uBFC5\uB9DD\uCE58"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: e4e2e0411a46d2247bb2276ed11f662f, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: f4209d1f112ba674789f9bb2361b19ac, type: 3}
   tint: {r: 1, g: 0.4, b: 0.6, a: 1}
   holdType: 0

@@ -1068,6 +1068,19 @@ MonoBehaviour:
     cooldown: 0.05
     maxInstances: 2
     importance: 2
+  - id: 724
+    clips:
+    - {fileID: 8300000, guid: 32ba97d45fc485146b4e290c686c281c, type: 3}
+    volume: 0.75
+    pitchRange: {x: 1, y: 1}
+    space: 1
+    bus: 1
+    maxDistance: 60
+    minDistance: 8
+    falloff: 3
+    cooldown: 0.05
+    maxInstances: 2
+    importance: 2
   - id: 730
     clips:
     - {fileID: 8300000, guid: 57b245de60eb37b4bb5968e3f604791a, type: 3}

@@ -3,25 +3,29 @@ using UnityEngine;
 
 // 들린 쿠키(로컬 소유자) 쪽의 캐리 추종 — HideOrSeekPlayer에서 분리한 협력 클래스(research.md §12 E6).
 // CharacterGroundDetector/PlayerAnimationDriver와 같은 "조정자(MonoBehaviour)가 소유하는 순수 C# 클래스" 스타일이다.
-// 소유권 이전 없이 자기 PhotonView를 유지한 채, 드는 쪽 CarrySocket 위치를 매 물리 스텝 로컬로 따라간다(GameRule.md §4.1).
+// 소유권 이전 없이 자기 PhotonView를 유지한 채, 드는 쪽 두 손 위치를 매 물리 스텝 로컬로 따라간다(GameRule.md §4.1).
+// 보이는 몸은 CarriedBodyPresenter가 매 프레임(LateUpdate) 손 위에 다시 놓는다 — 여기는 물리 몸(Rigidbody) 위치만(Request1009Plan.md §16.3).
 public class PlayerCarryFollower
 {
-    // 들린 쿠키는 드는 쪽 등(CarrySocket)에 겹쳐 있으므로, 그 자리에서 충돌을 되살리면 물리 엔진이 겹침을
+    // 들린 쿠키는 드는 쪽 몸 앞(두 손 위)에 겹쳐 있으므로, 그 자리에서 충돌을 되살리면 물리 엔진이 겹침을
     // 풀면서 위로 튕겨냈다(Play Mode 실측: 내려놓는 순간 y=1.4 → 4.75). 두 캡슐 반지름 합(약 0.92m)보다 먼
     // 드는 쪽 정면에 먼저 내려놓은 뒤 충돌을 복원한다.
     private const float ReleaseDropDistance = 1.2f;
 
     private readonly GameObject self;
     private readonly Rigidbody rb;
+    private readonly CarriedBodyPresenter body;
     private int carrierViewId = -1;
     private GameObject carrierObject; // 충돌 무시를 되돌릴 때 쓰는 캐시
 
     public bool IsCarried => carrierViewId >= 0;
+    public int CarrierViewId => carrierViewId;
 
-    public PlayerCarryFollower(GameObject self, Rigidbody rb)
+    public PlayerCarryFollower(GameObject self, Rigidbody rb, CarriedBodyPresenter body)
     {
         this.self = self;
         this.rb = rb;
+        this.body = body;
     }
 
     // 드는 쪽에 붙는다. 들린 동안에는 위치를 직접 대입하므로 물리 시뮬레이션(중력·충돌 반발)을 끄고,
@@ -49,8 +53,10 @@ public class PlayerCarryFollower
         {
             Transform carrier = carrierObject.transform;
             Vector3 dropPos = carrier.position + carrier.forward * ReleaseDropDistance;
+            Quaternion upright = CarryPose.UprightFacing(dropPos, carrier.position); // 눕혀 들었던 몸을 세워 드는 쪽을 보게
             rb.position = dropPos;
-            self.transform.position = dropPos;
+            rb.rotation = upright;
+            self.transform.SetPositionAndRotation(dropPos, upright);
             Physics.SyncTransforms();
             PlayerGrabController.SetCollisionIgnored(self, carrierObject, false);
         }
@@ -66,18 +72,16 @@ public class PlayerCarryFollower
         return true;
     }
 
-    // 매 FixedUpdate 호출. 드는 쪽의 CarrySocket으로 이동했으면 true, 드는 쪽이 사라졌으면(방 퇴장·파괴) false —
+    // 매 FixedUpdate 호출. 드는 쪽 두 손 위로 이동했으면 true, 드는 쪽이 사라졌으면(방 퇴장·파괴) false —
     // 이때 호출부가 Detach로 스스로 내려와야 공중에 고정된 채 남지 않는다.
     public bool TryFollow()
     {
         if (carrierViewId < 0) return false;
+        if (body == null || !body.TryPose(carrierViewId, out Vector3 position, out Quaternion rotation)) return false;
 
-        PhotonView carrierPv = PhotonView.Find(carrierViewId);
-        var carrierGrab = carrierPv != null ? carrierPv.GetComponent<PlayerGrabController>() : null;
-        if (carrierGrab == null || carrierGrab.CarrySocket == null) return false;
-
-        rb.position = carrierGrab.CarrySocket.position;
-        self.transform.position = rb.position;
+        rb.position = position;
+        rb.rotation = rotation;
+        self.transform.SetPositionAndRotation(position, rotation);
         return true;
     }
 }

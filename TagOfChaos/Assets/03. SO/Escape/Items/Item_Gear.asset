@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: Gear
   displayName: "\uAE30\uC5B4"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 7af06e5f40e1bc44b84fea8365b643c0, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: 8e57a06c81d2ac24fab989560c0f198e, type: 3}
   tint: {r: 0.75, g: 0.75, b: 0.8, a: 1}
   holdType: 1

@@ -98,6 +98,7 @@ public enum SoundId
     OvenPiston = 721,
     OvenDoorRoll = 722,
     OvenFlash = 723,
+    OvenBroken = 724, // 완성 전 고장 난 오븐 반복음(Request1009Plan.md §16.7)
     TrainPuff = 730,
     TrainWhistle = 731,
     TrainChug = 732,

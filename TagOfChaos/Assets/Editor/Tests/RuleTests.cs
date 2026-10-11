@@ -275,10 +275,10 @@ public class RuleTests
         {
             go.transform.SetPositionAndRotation(new Vector3(1, 2, 3), Quaternion.Euler(0, 90, 0));
             PhotonStream writer = CreateWriteStream();
-            new PlayerNetworkSync().Write(writer, go.transform, PlayerMoveState.Dodge, true);
+            new PlayerNetworkSync().Write(writer, go.transform, PlayerMoveState.Dodge, true, 1007);
 
             object[] sent = writer.ToArray();
-            Assert.AreEqual(4, sent.Length);
+            Assert.AreEqual(5, sent.Length);
             Assert.AreEqual((int)PlayerMoveState.Dodge, sent[2]); // 상태는 int로 전송
 
             var reader = new PhotonStream(false, sent);
@@ -289,6 +289,7 @@ public class RuleTests
                 sync.Read(reader, target.transform);
                 Assert.AreEqual(PlayerMoveState.Dodge, sync.RemoteState);
                 Assert.IsTrue(sync.RemoteIsCarrying);
+                Assert.AreEqual(1007, sync.RemoteCarrierViewId);
                 Assert.AreEqual(new Vector3(1, 2, 3), target.transform.position); // 첫 수신은 스냅
             }
             finally { Object.DestroyImmediate(target); }

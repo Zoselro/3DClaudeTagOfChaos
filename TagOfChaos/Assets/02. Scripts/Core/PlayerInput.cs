@@ -53,7 +53,7 @@ public static class PlayerInput
         return (forward * move.y + right * move.x).normalized;
     }
 
-    public static bool RunHeld => !IsGameplaySuppressed && Input.GetKey(Bindings.RunKey);
+    public static bool RunHeld => !IsGameplaySuppressed && (Input.GetKey(Bindings.RunKey) || EditorRunHeld);
     public static bool JumpPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.JumpKey);
     public static bool DodgePressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DodgeKey);
     public static bool GrabPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.GrabKey);
@@ -67,6 +67,7 @@ public static class PlayerInput
     public static bool EditorInteractHeld;
     public static bool EditorSpectateNextPress;
     public static Vector2 EditorMove; // 이동 키를 누른 것처럼(괴물·쿠키 걷기 소리 시험)
+    public static bool EditorRunHeld; // 달리기 키를 누른 것처럼(들고 달리기 자세 시험)
     private static int editorPressFrame = -1, editorSpectateFrame = -1;
     private static bool EditorTakeInteractPress() => TakeEditorPress(ref EditorInteractPress, ref editorPressFrame);
     private static bool EditorTakeSpectateNextPress() => TakeEditorPress(ref EditorSpectateNextPress, ref editorSpectateFrame);
@@ -84,6 +85,7 @@ public static class PlayerInput
     private static bool EditorTakeInteractPress() => false;
     private static bool EditorTakeSpectateNextPress() => false;
     private static readonly Vector2 EditorMove = Vector2.zero;
+    private const bool EditorRunHeld = false;
 #endif
     public static bool TentacleDashPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.TentacleDashKey);
     // 인벤토리(EscapePlan.md §1.9): G키로 떨어뜨리기, 숫자키 1~4로 칸 고르기, 마우스로 도구 쓰기.

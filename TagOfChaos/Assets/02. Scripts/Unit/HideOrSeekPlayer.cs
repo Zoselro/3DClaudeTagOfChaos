@@ -40,7 +40,13 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     private PlayerNetworkSync networkSync;
     private PlayerGrabController grabController;
     private PlayerCarryFollower carryFollower;
+    private CarriedBodyPresenter carriedBody;
     private CookieLifeStatePresenter lifePresenter;
+
+    // 그랩버 화면이 들린 쿠키에게 바로 알려 두는 값 — 들린 사람의 동기화(RemoteCarrierViewId)가 도착할 때까지 쓴다.
+    private const float CarrierOverrideSeconds = 0.6f;
+    private int carrierOverrideId = -1;
+    private float carrierOverrideUntil = -1f;
 
     // 다른 클래스가 이 캐릭터에 보내는 RPC 이름 — 메서드 이름을 바꾸면 컴파일 단계에서 함께 바뀐다(research.md §12 E3).
     public const string RpcOnGrabbedByOwner = nameof(OnGrabbedByOwner);
@@ -75,13 +81,30 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
 
     public bool IsBroken => hitCount >= 2;
 
-    public void SetCarryLayerWeight(float weight) => animationDriver.SetCarryLayerWeight(weight);
+    public void SetCarry(CarryReason reason, bool on) => animationDriver.SetCarry(reason, on);
+
+    // 이 쿠키를 들고 있는 쿠키의 ViewID(-1 = 안 들림). 본인은 자기 상태, 남의 화면은 그랩버 로컬 값 → 동기화 값 순.
+    public int CurrentCarrierViewId
+    {
+        get
+        {
+            if (pv != null && pv.IsMine) return carryFollower != null ? carryFollower.CarrierViewId : -1;
+            if (Time.time < carrierOverrideUntil) return carrierOverrideId;
+            return networkSync != null ? networkSync.RemoteCarrierViewId : -1;
+        }
+    }
+
+    public void SetLocalCarrierOverride(int carrierViewId)
+    {
+        carrierOverrideId = carrierViewId;
+        carrierOverrideUntil = Time.time + CarrierOverrideSeconds;
+    }
 
     [PunRPC]
     private void OnGrabbedByOwner(int newCarrierViewId)
     {
         if (!pv.IsMine || IsBroken) return;
-        if (carryFollower.TryAttach(newCarrierViewId)) animationDriver.ChangeState(PlayerMoveState.Held);
+        if (carryFollower.TryAttach(newCarrierViewId)) animationDriver.ChangeState(PlayerMoveState.Carried);
     }
 
     [PunRPC]
@@ -98,7 +121,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
             animationDriver.ChangeState(PlayerMoveState.Idle);
     }
 
-    // 들린 동안 매 FixedUpdate마다 드는 쪽 CarrySocket을 따라간다. 드는 쪽이 방을 나갔거나 파괴돼 사라졌으면
+    // 들린 동안 매 FixedUpdate마다 드는 쪽 두 손 위를 따라간다. 드는 쪽이 방을 나갔거나 파괴돼 사라졌으면
     // 공중에 고정된 채 남지 않도록 스스로 내려온다.
     private bool TryFollowCarrier()
     {
@@ -140,7 +163,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         if (grabController != null) grabController.Release();
         ReleaseFromCarrierLocally();
 
-        // 괴물 손에 붙잡혀 들려 가는 동안은 매달려 떠 있는 모션(Held — 쿠키끼리 들 때와 같은 Cookie_Hanging_Idle)을 재생한다.
+        // 괴물 손에 붙잡혀 들려 가는 동안은 매달려 떠 있는 모션(Held — Cookie_Hanging_Idle)을 재생한다(쿠키끼리 들 때는 Carried).
         // 상태는 위치 동기화로 원격 화면에도 전달된다. 부서지는 순간 몸이 숨겨지므로 따로 되돌리지 않는다(Bug-fix-plan.md §36).
         animationDriver.ChangeState(presented ? PlayerMoveState.Held : PlayerMoveState.Broken);
 
@@ -167,7 +190,9 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         groundDetector = new CharacterGroundDetector(groundLayer, groundCheckOffset);
         rb = GetComponent<Rigidbody>();
         grabController = GetComponent<PlayerGrabController>();
-        carryFollower = new PlayerCarryFollower(gameObject, rb);
+        carriedBody = gameObject.AddComponent<CarriedBodyPresenter>();
+        carriedBody.Init(this, animator);
+        carryFollower = new PlayerCarryFollower(gameObject, rb, carriedBody);
         lifePresenter = GetComponent<CookieLifeStatePresenter>();
         stun = gameObject.AddComponent<StunReceiver>();
         stun.Init(2.3f);
@@ -277,10 +302,11 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     // 위치를 맡으므로 보간하지 않는다(R4.7-6).
     private void UpdateRemote()
     {
-        if (lifePresenter == null || !lifePresenter.IsBeingGrabKilled)
+        // 들린 몸은 CarriedBodyPresenter가 이 화면의 그랩버 손 위에 놓으므로 보간하지 않는다(이중 지연 제거, Request1009Plan.md §16.3).
+        if ((lifePresenter == null || !lifePresenter.IsBeingGrabKilled) && CurrentCarrierViewId < 0)
             networkSync.Interpolate(transform, Time.deltaTime);
         animationDriver.ChangeState(networkSync.RemoteState);
-        animationDriver.SetCarryLayerWeight(networkSync.RemoteIsCarrying ? 1f : 0f);
+        animationDriver.SetCarry(CarryReason.Cookie, networkSync.RemoteIsCarrying);
     }
 
     // 본인 캐릭터가 들림·기절·파괴·탑승으로 잠긴 동안. 회피 중이었으면 끝낸다 — 예전에는 회피 타이머가 멈춘 채 남아, 풀린 뒤
@@ -471,7 +497,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
 
         if (stream.IsWriting) // 로컬 플레이어의 상태 정보 송신
         {
-            networkSync.Write(stream, transform, animationDriver.CurrentState, grabController != null && grabController.IsCarrying);
+            networkSync.Write(stream, transform, animationDriver.CurrentState, grabController != null && grabController.IsCarrying, carryFollower.CarrierViewId);
         }
         else // 원격 플레이어의 상태 정보 수신
         {

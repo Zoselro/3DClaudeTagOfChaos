@@ -6,6 +6,7 @@ using UnityEngine.UI;
 // 소리 설정 창(SoundPlan.md S9, 결정 D4): 전체·배경음·효과음·UI 막대 4개. 값은 AudioVolumeSettings가 기기에 바로 저장하고
 // 재생 중인 소리에도 바로 반영한다(되돌리기 버튼 없음 — 움직이는 대로 들린다). 환경음은 효과음 막대를 따른다.
 // 대기실·맵은 ESC 메뉴의 "소리" 버튼(모든 사람)이, 로비는 화면 위 "소리" 버튼이 연다. 닫기 버튼·ESC로 닫는다.
+// 아래 줄: 출력 장치(스피커·헤드폰·헤드셋) 버튼 3개(Request1009Plan.md §16.6) — 누르면 바로 바뀌고 오른쪽에서 짧은 소리를 들려준다.
 // 프리팹은 에디터 도구(SoundSettingsInstaller)가 만들고, 문구는 프리팹에서 입력한다(코드에 한글 금지).
 public class SoundSettingsPanel : MonoBehaviour
 {
@@ -18,9 +19,14 @@ public class SoundSettingsPanel : MonoBehaviour
     }
 
     private const float PreviewInterval = 0.15f;
+    private const float OutputPreviewSide = 3f; // 출력 장치 미리 듣기: 듣는 위치 오른쪽 몇 m에서
+    private static readonly Color OutputSelected = new Color(1f, 0.78f, 0.35f);
+    private static readonly Color OutputNormal = new Color(1f, 1f, 1f, 0.55f);
 
     [SerializeField] private Row[] rows = new Row[0];
     [SerializeField] private Button closeButton;
+    [Tooltip("OutputMode 순서(스피커·헤드폰·헤드셋)")]
+    [SerializeField] private Button[] outputButtons = new Button[0];
     [Tooltip("ESC 메뉴가 없는 화면(로비)에서는 창이 직접 ESC로 닫힌다")]
     [SerializeField] private bool closeOnEscape;
 
@@ -31,6 +37,7 @@ public class SoundSettingsPanel : MonoBehaviour
 
     public bool IsOpen => gameObject.activeSelf;
     public int RowCount => rows.Length;
+    public int OutputButtonCount => outputButtons.Length;
 
     private void Awake()
     {
@@ -44,6 +51,30 @@ public class SoundSettingsPanel : MonoBehaviour
             row.slider.onValueChanged.AddListener(v => OnChanged(kind, v));
         }
         if (closeButton != null) closeButton.onClick.AddListener(Close);
+        for (int i = 0; i < outputButtons.Length; i++)
+        {
+            if (outputButtons[i] == null) continue;
+            OutputMode mode = (OutputMode)i;
+            outputButtons[i].onClick.AddListener(() => SelectOutput(mode));
+        }
+    }
+
+    public void SelectOutput(OutputMode mode)
+    {
+        AudioVolumeSettings.SetOutput(mode);
+        SyncOutput();
+        Vector3 side = Camera.main != null ? Camera.main.transform.right : Vector3.right;
+        GameAudio.PlayAt(SoundId.ItemPickup, AudioListenerAnchor.Position + side * OutputPreviewSide); // 오른쪽에서 들리는 정도로 차이를 들어 본다
+    }
+
+    private void SyncOutput()
+    {
+        OutputMode current = AudioVolumeSettings.Output;
+        for (int i = 0; i < outputButtons.Length; i++)
+        {
+            if (outputButtons[i] == null || !(outputButtons[i].targetGraphic is Graphic g)) continue;
+            g.color = i == (int)current ? OutputSelected : OutputNormal;
+        }
     }
 
     private void OnEnable() => Sync();
@@ -78,6 +109,7 @@ public class SoundSettingsPanel : MonoBehaviour
             if (row.slider != null) row.slider.SetValueWithoutNotify(v);
             if (row.value != null) row.value.text = Percent(v);
         }
+        SyncOutput();
         syncing = false;
     }
 

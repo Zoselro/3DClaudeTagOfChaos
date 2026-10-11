@@ -74,6 +74,12 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     // 변장(색칠) 시간에는 상자 열기·줍기·도구·설치·로켓·탈출을 모두 막는다(EscapeVisualPlan.md §1.3).
     public static bool ActionsAllowed => GamePhaseState.Current != GamePhase.Paint;
 
+    // 상자는 변장 시간에는 숨긴다(Request1009Plan.md §16.1). 각 화면이 단계로 계산 — 네트워크 변경 없음.
+    public static bool ChestsVisibleIn(GamePhase phase) => phase != GamePhase.Paint;
+    private const float PhaseCheckSeconds = 0.2f;
+    private bool? chestsShown; // null = 아직 그린 적 없음(판 중간 입장은 연출 없이 바로 보임)
+    private float nextPhaseCheck;
+
     // ---------------- lifecycle ----------------
 
     private void Awake()
@@ -115,6 +121,11 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     private void Update()
     {
         if (!RoomState.IsInRoom()) return;
+        if (State != null && Time.unscaledTime >= nextPhaseCheck)
+        {
+            nextPhaseCheck = Time.unscaledTime + PhaseCheckSeconds;
+            if (ChestsVisibleIn(GamePhaseState.Current) != chestsShown) RefreshViews();
+        }
         if (!PhotonNetwork.IsMasterClient)
         {
             TrackBrokenPlayers(asMaster: false); // 방장이 아니어도 잡힌 사람을 기억해 둔다 — 방장이 되면 다시 알리지 않게(research.md R4.10-9)
@@ -189,12 +200,15 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     private void RefreshViews()
     {
         var used = new bool[chests.Length];
-        for (int c = 0; c < State.Chests.Count; c++)
+        bool show = ChestsVisibleIn(GamePhaseState.Current);
+        bool appear = show && chestsShown == false;
+        chestsShown = show;
+        for (int c = 0; show && c < State.Chests.Count; c++)
         {
             int anchor = State.Chests[c].Anchor;
             if (anchor < 0 || anchor >= chests.Length || chests[anchor] == null) continue;
             used[anchor] = true;
-            chests[anchor].Show(c, State.Chests[c]);
+            chests[anchor].Show(c, State.Chests[c], appear);
         }
         for (int a = 0; a < chests.Length; a++)
             if (!used[a] && chests[a] != null) chests[a].Hide();

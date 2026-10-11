@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   itemId: CandyCell_Yellow
   displayName: "\uC54C\uC0AC\uD0D5 \uC804\uC9C0"
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 5cb78b540c1f1df49baae576c045d707, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: 1830e215a697d474692d0ae918f93ce3, type: 3}
   tint: {r: 1, g: 0.9, b: 0.15, a: 1}
   holdType: 1
