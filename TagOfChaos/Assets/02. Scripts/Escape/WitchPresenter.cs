@@ -2,19 +2,31 @@ using Photon.Pun;
 using UnityEngine;
 
 // 마녀 타임어택 연출(EscapePlan.md §1.2, §5.7, D38). 맵 밖(WITCH_Anchor)에 아주 크게 선다.
-// - 스파이가 떠난 순간(SpyEscapedAt)부터 5초 동안 알파 0 → 1(0 → 255)로 서서히 나타난다.
+// - 마녀가 나타나는 시각(WitchAppearAt — 로켓이 날아간 뒤, 또는 쿠키 탈것이 떠난 뒤, Request1009Plan.md §19)부터 3초 동안 알파 0 → 1로 서서히 나타난다.
 // - 타임어택 동안 뒷모습에서 앞모습으로 천천히 돌아선다. 진행률은 공통 시계(PhotonNetwork.Time) 기준이라 모든 화면이 같고,
 //   늦게 들어온 사람도 바로 맞는 자세가 된다.
-// - 타이머가 0이 되어 WitchStrike가 기록되면 손으로 맵을 내리친다(카메라 흔들림). 죽음 처리는 각 캐릭터가 한다.
+// - 타이머가 0이 되어 WitchStrike가 기록되면 두 팔을 들어 주먹을 쥐고 두 주먹으로 맵을 내리친다(Strike 동작). 주먹이 닿는 순간
+//   (StrikeImpactSeconds) 카메라가 흔들리고 충격음이 나며, 그때 남은 생명체가 죽는다(죽음 처리는 각 캐릭터, Request1009Plan.md §18.2).
+// - 모델: 허수아비 마녀(Blender 리깅, 프리팹 WITCH_Scarecrow — 동작 Idle·Rise·Strike). 나타날 때 숙인 자세에서 일어선다(Rise).
+// - 나타나는 동안 모든 화면의 카메라가 얼굴 정면으로 갔다 온다(WitchRevealCamera, §18.4) — 얼굴 위치·방향을 FacePoint·FaceForward로 준다.
 // - 소리(SoundPlan.md S6, 모두 2D): 나타나기 시작 = 바람·웃음(WitchAppear), 다 나타남 = 스팅어(StWitchAppear — 타임어택 시작의
 //   StSpyLaunch와 겹치지 않게), 내리침 = 충격(WitchSlam). 늦게 들어와 이미 지난 순간이면 내지 않는다.
-// Blender 모델이 자식 "Model"로 있으면 그것을 쓰고, 없으면 도형으로 만든 임시 마녀를 쓴다.
+// 자식 "Model"이 있으면 그것을 쓰고(애니메이터가 있으면 동작으로, 없으면 SlamArm 회전으로 내리침), 없으면 도형으로 만든 임시 마녀를 쓴다.
 public class WitchPresenter : MonoBehaviour
 {
     private static readonly int ColorId = Shader.PropertyToID("_Color");
     private const float RaisedArmAngle = -150f;
+    public const float DefaultFadeSeconds = 3f;      // 카메라가 얼굴에 닿는 3초에 다 나타나게(§18.8 Q6, 예전 5초)
+    public const float StrikeImpactSeconds = 0.95f;  // Strike 동작에서 주먹이 맵에 닿는 시각(Blender anim.py IMPACT와 같음)
+    public const float ImpactGraceSeconds = 1f;      // 이 화면의 마녀가 충격을 알리지 못할 때(없음·멈춤) 그만큼 늦게라도 죽음 처리
+    private static readonly int RiseTrigger = Animator.StringToHash("Rise");
+    private static readonly int StrikeTrigger = Animator.StringToHash("Strike");
 
-    [SerializeField, Min(0.1f)] private float fadeInSeconds = 5f;
+    public static WitchPresenter Current { get; private set; }
+    // 이 화면에서 주먹이 맵에 닿은 순간(늦게 들어온 화면은 내리침을 처음 본 순간). 남은 생명체는 이때 죽는다 — 화면의 충격과 죽음이 같은 프레임.
+    public static event System.Action Impacted;
+
+    [SerializeField, Min(0.1f)] private float fadeInSeconds = DefaultFadeSeconds;
     [SerializeField, Min(1f)] private float height = 90f;
     [SerializeField] private Transform model;
     [SerializeField] private Transform slamArm;
@@ -29,6 +41,17 @@ public class WitchPresenter : MonoBehaviour
     private float strikeTime;
     private Quaternion faceMap;   // 앞모습(맵을 바라봄)
     private Quaternion faceAway;  // 뒷모습
+    private Animator animator;
+    private Transform head, hat;
+    private bool impactDone;
+
+    // 지금 보이는지(타임어택 중), 얼굴 가운데(월드)와 얼굴이 보는 방향 — 등장 카메라용.
+    public bool IsShown => model != null && model.gameObject.activeSelf;
+    public Vector3 FacePoint => head != null
+        ? (hat != null ? Vector3.Lerp(head.position, hat.position, 0.3f) : head.position)
+        : model.position + Vector3.up * height * 0.78f;
+    public Vector3 FaceForward => model != null ? model.forward : transform.forward;
+    public float Height => height;
 
     private void Awake()
     {
@@ -39,6 +62,11 @@ public class WitchPresenter : MonoBehaviour
         if (slamArm != null) slamArm.localRotation = Quaternion.Euler(RaisedArmAngle, 0f, 0f); // 내리치기 전: 손을 머리 위로 든 자세
         renderers = model.GetComponentsInChildren<Renderer>(true);
         block = new MaterialPropertyBlock();
+        animator = model.GetComponentInChildren<Animator>(true);
+        head = FindDeep(model, "Head");
+        hat = FindDeep(model, "Hat1");
+        Current = this;
+        if (Camera.main != null && Camera.main.GetComponent<WitchRevealCamera>() == null) Camera.main.gameObject.AddComponent<WitchRevealCamera>();
 
         Vector3 toMap = -transform.position;
         toMap.y = 0f;
@@ -49,8 +77,9 @@ public class WitchPresenter : MonoBehaviour
 
     private void Update()
     {
-        // 타임어택이 있을 때만 나타난다(남은 쿠키가 없으면 로켓만 떠나고 마녀는 없다, D10)
-        if (!RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double escapedAt) || !RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out _))
+        // 마녀가 오는 판(타임어택 또는 쿠키 탈출 뒤 처단)에서 나타날 시각이 되었을 때만(남은 쿠키가 없으면 로켓만 떠나고 마녀는 없다, D10)
+        WitchMode mode = WitchTimeline.Mode;
+        if (mode == WitchMode.None || !WitchTimeline.TryGetAppearAt(out double escapedAt) || PhotonNetwork.Time < escapedAt)
         {
             if (model.gameObject.activeSelf) model.gameObject.SetActive(false);
             activeBefore = false;
@@ -64,6 +93,7 @@ public class WitchPresenter : MonoBehaviour
                 for (int i = 0; i < renderers.Length && i < fadeMaterials.Length; i++) renderers[i].sharedMaterials = fadeMaterials[i];
             EscapeHud.Toast(EscapeTextsSO.Current.witchComing, alert: true);
             if (PhotonNetwork.Time - escapedAt < LateSoundSeconds) GameAudio.Play(SoundId.WitchAppear);
+            if (animator != null && PhotonNetwork.Time - escapedAt < fadeInSeconds) animator.SetTrigger(RiseTrigger); // 숙인 자세에서 일어선다
         }
 
         float elapsed = (float)(PhotonNetwork.Time - escapedAt);
@@ -79,7 +109,9 @@ public class WitchPresenter : MonoBehaviour
             }
         }
 
-        float total = RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double end) ? (float)(end - escapedAt) : 60f;
+        // 타임어택: 남은 시간 동안 천천히 돌아선다 / 처단: 나타나는 동안 바로 맵을 향한다
+        float total = mode == WitchMode.Purge ? fadeInSeconds
+            : RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double end) ? (float)(end - escapedAt) : 60f;
         float turn = Mathf.Clamp01(elapsed / Mathf.Max(1f, total));
         model.rotation = Quaternion.Slerp(faceAway, faceMap, Mathf.SmoothStep(0f, 1f, turn));
 
@@ -87,11 +119,21 @@ public class WitchPresenter : MonoBehaviour
         {
             struck = true;
             strikeTime = Time.time;
-            CameraShake.Add(SlamShakeStrength, SlamShakeSeconds); // 카메라가 LateUpdate에서 더한다(research.md R4.7-9)
-            if (activeBefore) GameAudio.Play(SoundId.WitchSlam);
+            impactDone = !activeBefore; // 늦게 들어와 이미 내리친 상태면 흔들림·소리 없이
+            if (animator != null) animator.SetTrigger(StrikeTrigger);
+            if (impactDone) Impacted?.Invoke();
         }
         activeBefore = true;
-        if (struck) AnimateSlam(Time.time - strikeTime);
+        if (!struck) return;
+        float since = Time.time - strikeTime;
+        if (animator == null) AnimateSlam(since);
+        if (!impactDone && since >= (animator != null ? StrikeImpactSeconds : 0f))
+        {
+            impactDone = true; // 주먹이 맵에 닿는 순간
+            CameraShake.Add(SlamShakeStrength, SlamShakeSeconds); // 카메라가 LateUpdate에서 더한다(research.md R4.7-9)
+            GameAudio.Play(SoundId.WitchSlam);
+            Impacted?.Invoke();
+        }
     }
 
     public static float FadeAlpha(double escapedAt, double now, float fadeSeconds) =>
@@ -160,6 +202,7 @@ public class WitchPresenter : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (Current == this) Current = null;
         if (fadeMaterials == null) return;
         foreach (Material[] set in fadeMaterials)
             foreach (Material m in set) if (m != null) Destroy(m);

@@ -12,4 +12,6 @@ public static class NetEventCodes
     public const byte EscapeNotice = 8;  // 방장이 모두에게 보내는 알림(EscapeNoticeKind) — 스파이 잡힘, 로켓에 끼움 등
     public const byte ToolHit = 9;       // 방장이 승인한 도구 명중 — 맞은 사람 본인이 기절·떨어뜨리기·색칠을 처리한다
     public const byte RoomSettingsRequest = 10; // research.md R5-22 — 호스트가 방장에게 방 설정(인원·제한시간·타임어택) 변경을 요청
+    public const byte KickRequest = 11; // Request1009Plan.md §19.6 — 호스트가 방장에게 대기실 강퇴를 요청(내용: 대상 액터 번호)
+    public const byte Kicked = 12;      // 방장이 강퇴 대상에게만 보낸다(내용: 대상 액터 번호) — 받은 사람은 방을 나간다
 }

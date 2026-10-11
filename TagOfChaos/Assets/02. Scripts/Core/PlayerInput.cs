@@ -30,10 +30,13 @@ public static class PlayerInput
     // 마우스(시점 회전·색칠)는 막지 않는다. 정적 값이라 켠 쪽(GameManager)이 비활성·파괴될 때 반드시 되돌린다.
     public static bool IsGameplaySuppressed
     {
-        get => chatSuppressed || IsMenuOpen;
+        get => chatSuppressed || IsMenuOpen || CutsceneActive;
         set => chatSuppressed = value;
     }
     private static bool chatSuppressed;
+
+    // 모두가 함께 보는 짧은 연출(마녀 등장 카메라, Request1009Plan.md §18.4) 동안 true — 조작을 멈춘다. 켠 쪽(WitchRevealCamera)이 끝나면 되돌린다.
+    public static bool CutsceneActive { get; set; }
 
     // ESC 메뉴(나가기 확인창 포함)가 열려 있는 동안 true(EscapeVisualPlan.md §1.2). 키 입력에 더해 시점 회전도 막는다.
     public static bool IsMenuOpen { get; set; }

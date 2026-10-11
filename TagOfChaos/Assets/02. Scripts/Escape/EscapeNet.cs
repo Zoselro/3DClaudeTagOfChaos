@@ -18,6 +18,7 @@ public enum EscapeOp : byte
     RocketBoard = 8,
     Exit = 9,         // 쿠키 탈출구
     ToolUse = 10,     // A = 인벤토리 칸, B = 물풍선 색, Pos = 맞힌 지점, Targets = 맞은 캐릭터 ViewID
+    StealBegin = 11,  // A = 탈출 장치 칸 — 스파이가 빼기를 길게 누르기 시작했다(방장이 시각을 기억해 Steal을 검사, Request1009Plan.md §19.5)
 }
 
 public enum EscapeNoticeKind : byte

@@ -76,7 +76,8 @@ public static class UiSoundInstaller
         PrefabFolders.SelectMany(folder => AssetDatabase.FindAssets("t:Prefab", new[] { folder }).Select(AssetDatabase.GUIDToAssetPath))
                      .Where(path => AssetDatabase.LoadAssetAtPath<GameObject>(path).GetComponentInChildren<Button>(true) != null);
 
-    private static int Attach(IEnumerable<Button> buttons)
+    // 버튼마다 UI 소리 컴포넌트를 붙인다(이미 있으면 건너뜀). 다른 설치 도구(SoundSettingsInstaller)도 쓴다.
+    public static int Attach(IEnumerable<Button> buttons)
     {
         int n = 0;
         foreach (Button b in buttons)

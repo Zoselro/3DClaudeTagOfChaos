@@ -38,7 +38,8 @@ public class MusicCatalogSO : ScriptableObject
     private void OnValidate() => lookup = null;
 
     // 반복 곡이 아닌 것(스팅어·징글)은 ID 구간으로 정한다(SoundId.cs 주석의 구간 규칙).
-    public static bool IsLoopById(MusicId id) => (int)id < 100;
+    // 로비 곡은 예외로 한 번만 재생한다 — 밝게 시작해 무너지며 끝나는 28초 곡(Request1009Plan.md §18.6).
+    public static bool IsLoopById(MusicId id) => (int)id < 100 && id != MusicId.Lobby;
 
 #if UNITY_EDITOR
     public void EditorSetEntries(Entry[] value)

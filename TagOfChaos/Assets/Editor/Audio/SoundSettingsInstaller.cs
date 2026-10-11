@@ -141,10 +141,11 @@ public static class SoundSettingsInstaller
         return AssetDatabase.LoadAssetAtPath<SoundSettingsPanel>(PrefabPath);
     }
 
-    // 출력 장치 줄(Request1009Plan.md §16.6): 이미 만든 프리팹에 없으면 막대 4줄 아래에 넣고 상자를 한 줄 키운다.
-    // 영어 임시 문구로 만들고, 한글 문구는 프리팹에서 입력한다.
+    // 출력 장치 줄(Request1009Plan.md §17): 막대 4줄 아래 "출력 장치" 이름 + 장치 드롭다운 + 새로고침 버튼.
+    // 예전(§16.6) 버튼 3개 줄이 있으면 지우고 다시 만든다. 영어 임시 문구로 만들고, 한글 문구는 프리팹에서 입력한다.
     public const string OutputRowName = "Row_Output";
-    private static readonly string[] OutputLabels = { "Speakers", "Headphones", "Headset" };
+    public const string OutputDropdownName = "OutputDropdown";
+    public const string OutputRefreshName = "OutputRefreshButton";
 
     [MenuItem("Tools/TagOfChaos/Audio/Add Output Device Row")]
     public static void AddOutputRowMenu()
@@ -162,33 +163,67 @@ public static class SoundSettingsInstaller
         {
             Transform box = root.transform.Find("Box");
             if (box == null) return "no Box";
-            if (box.Find(OutputRowName) != null) return "already";
+            Transform old = box.Find(OutputRowName);
+            if (old != null && old.Find(OutputDropdownName) != null) return "already";
+            bool grow = old == null;
+            if (old != null) Object.DestroyImmediate(old.gameObject); // §16.6 버튼 3개 줄
 
             var row = Child(box, OutputRowName);
             SetRect(row, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0f, -100f - Rows.Length * RowHeight), new Vector2(-60f, 56f), new Vector2(0.5f, 1f));
             TMP_Text label = Text(row, "Label", "Output", 28f, style.font, style.textColor, TextAlignmentOptions.MidlineLeft);
             SetRect(label.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(10f, 0f), new Vector2(150f, 0f), new Vector2(0f, 0.5f));
 
-            var buttons = new Button[OutputLabels.Length];
-            const float left = 170f, gap = 8f, width = 122f;
-            for (int i = 0; i < OutputLabels.Length; i++)
-            {
-                Button b = CreateButton(row, "Output_" + (OutputMode)i, OutputLabels[i], style);
-                SetRect((RectTransform)b.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(left + i * (width + gap), 0f), new Vector2(width, 50f), new Vector2(0f, 0.5f));
-                b.GetComponentInChildren<TMP_Text>().fontSize = 22f;
-                buttons[i] = b;
-            }
-            ((RectTransform)box).sizeDelta += new Vector2(0f, RowHeight);
+            TMP_Dropdown dropdown = CreateDropdown(row, style);
+            SetRect((RectTransform)dropdown.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(170f, 0f), new Vector2(280f, 50f), new Vector2(0f, 0.5f));
+            Button refresh = CreateButton(row, OutputRefreshName, "Refresh", style);
+            SetRect((RectTransform)refresh.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(460f, 0f), new Vector2(100f, 50f), new Vector2(0f, 0.5f));
+            refresh.GetComponentInChildren<TMP_Text>().fontSize = 20f;
+            UiSoundInstaller.Attach(new[] { refresh });
+            if (grow) ((RectTransform)box).sizeDelta += new Vector2(0f, RowHeight);
 
             var so = new SerializedObject(root.GetComponent<SoundSettingsPanel>());
-            SerializedProperty list = so.FindProperty("outputButtons");
-            list.arraySize = buttons.Length;
-            for (int i = 0; i < buttons.Length; i++) list.GetArrayElementAtIndex(i).objectReferenceValue = buttons[i];
+            so.FindProperty("outputDropdown").objectReferenceValue = dropdown;
+            so.FindProperty("outputRefreshButton").objectReferenceValue = refresh;
             so.ApplyModifiedPropertiesWithoutUndo();
             PrefabUtility.SaveAsPrefabAsset(root, PrefabPath);
             return "added";
         }
         finally { PrefabUtility.UnloadPrefabContents(root); }
+    }
+
+    // 장치 이름이 길어 글자를 줄이고, 펼친 목록은 6줄 높이(넘치면 스크롤).
+    private static TMP_Dropdown CreateDropdown(Transform parent, Style style)
+    {
+        var res = new TMP_DefaultControls.Resources
+        {
+            standard = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd"),
+            background = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd"),
+            inputField = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/InputFieldBackground.psd"),
+            knob = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd"),
+            checkmark = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Checkmark.psd"),
+            dropdown = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/DropdownArrow.psd"),
+            mask = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UIMask.psd"),
+        };
+        GameObject go = TMP_DefaultControls.CreateDropdown(res);
+        go.name = OutputDropdownName;
+        go.transform.SetParent(parent, false);
+        var dropdown = go.GetComponent<TMP_Dropdown>();
+        foreach (TMP_Text t in go.GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (style.font != null) t.font = style.font;
+            t.fontSize = 20f;
+            t.color = style.labelColor;
+            t.textWrappingMode = TextWrappingModes.NoWrap;
+            t.overflowMode = TextOverflowModes.Ellipsis;
+        }
+        var template = (RectTransform)go.transform.Find("Template");
+        if (template != null) template.sizeDelta = new Vector2(template.sizeDelta.x, 6 * 40f);
+        Transform item = go.transform.Find("Template/Viewport/Content/Item");
+        if (item != null) ((RectTransform)item).sizeDelta = new Vector2(((RectTransform)item).sizeDelta.x, 40f);
+        Transform content = go.transform.Find("Template/Viewport/Content");
+        if (content != null) ((RectTransform)content).sizeDelta = new Vector2(((RectTransform)content).sizeDelta.x, 40f);
+        dropdown.options.Clear();
+        return dropdown;
     }
 
     private static Slider CreateSlider(Transform parent, Style style)

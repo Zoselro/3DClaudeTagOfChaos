@@ -5,7 +5,7 @@ using UnityEngine;
 //   평소       : 제단 빛은 희미한 보라, 낡은 등불(Lantern_nn)이 깜빡인다, 돌 유적은 푸른 채움 빛(CaveLight_nn)
 //   완성 0~2초 : 제단이 무지개빛으로 빛나며 점점 밝아진다
 //   2~4초      : 제단 위에 포탈(무지개 고리 + 소용돌이)이 열린다 → 탈 수 있음
-//   탑승        : 쿠키가 포탈 속으로 빨려 들어가(BoardingFx.Suck) 포탈 안에 둥둥 떠서 기다린다
+//   탑승        : 쿠키가 포탈 속으로 빨려 들어가(BoardingFx.Suck) 사라진다 — 포탈 안에 떠 있는 인형은 두지 않는다(Request1009Plan.md §18.1)
 //   출발        : 포탈이 무지개빛으로 크게 번쩍이며 닫힌다
 // 모델 이름 규칙은 escape_devices.py(device_gingerbread)와 같다.
 public class RuneAltarSequence : EscapeSequence
@@ -15,7 +15,6 @@ public class RuneAltarSequence : EscapeSequence
     private const float FlashSeconds = 1.2f;
     private const float CloseSeconds = 1.2f;
     private const float HueSpeed = 0.35f;        // 무지개가 한 바퀴 도는 빠르기(초당)
-    private const float FloatScale = 0.55f;
     private const float FlickerSoundGap = 3f;    // 등불 하나가 지직거리는 소리의 최소 간격(초)
 
     private Transform ring, swirl, mouth;
@@ -25,12 +24,8 @@ public class RuneAltarSequence : EscapeSequence
     private readonly List<float> lanternSeed = new List<float>();
     private readonly List<bool> lanternDim = new List<bool>();
     private readonly List<float> lanternSoundAt = new List<float>();
-    private readonly List<Transform> floats = new List<Transform>();
-    private readonly List<GameObject> floating = new List<GameObject>();
-    private readonly List<float> floatReadyAt = new List<float>();
     private Light altarLight;
     private MaterialPropertyBlock block;
-    private int hopsPlayed;
 
     public override float BoardReadySeconds => GlowSeconds + PortalOpenSeconds + 0.2f;
     public override float DepartureSeconds => FlashSeconds + CloseSeconds + 0.4f;
@@ -76,13 +71,6 @@ public class RuneAltarSequence : EscapeSequence
             fill.intensity = 1.3f;
             fill.shadows = LightShadows.None;
         }
-        for (int i = 0; ; i++)
-        {
-            Transform f = FindDeep(transform, $"Float_{i:00}");
-            if (f == null) break;
-            floats.Add(f);
-        }
-
         altarLight = new GameObject("AltarLight").AddComponent<Light>();
         altarLight.transform.SetParent(transform, false);
         altarLight.transform.position = mouth.position;
@@ -142,48 +130,9 @@ public class RuneAltarSequence : EscapeSequence
         altarLight.intensity = power * 1.8f + open * 1.5f + flash * 4f;
         altarLight.range = 20f + flash * 10f;
 
-        UpdateFloating(state != null ? state.Waiting.Count : 0, portalShown);
     }
 
-    public override void OnCookieBoarded(Vector3 from)
-    {
-        int slot = Mathf.Min(hopsPlayed, floats.Count - 1);
-        hopsPlayed++;
-        while (slot >= 0 && floatReadyAt.Count <= slot) floatReadyAt.Add(0f);
-        if (slot >= 0) floatReadyAt[slot] = Time.time + 0.9f;
-        BoardingFx.Play(from, mouth.position, BoardingFx.Style.Suck);
-    }
-
-    // 탄 쿠키는 포탈 안에서 둥둥 떠 기다린다(작게, 천천히 돌며).
-    private void UpdateFloating(int count, bool portalShown)
-    {
-        count = portalShown ? Mathf.Min(count, floats.Count) : 0;
-        if (count == 0 && !portalShown) hopsPlayed = 0;
-        for (int i = 0; i < floats.Count; i++)
-        {
-            bool show = i < count && (i >= floatReadyAt.Count || Time.time >= floatReadyAt[i]);
-            while (floating.Count <= i) floating.Add(null);
-            if (show && floating[i] == null) floating[i] = CreateFloater(floats[i]);
-            else if (!show && floating[i] != null) { Destroy(floating[i]); floating[i] = null; }
-            if (floating[i] != null)
-            {
-                floating[i].transform.localPosition = Vector3.up * (0.15f * Mathf.Sin(Time.time * 2f + i));
-                floating[i].transform.localRotation = Quaternion.Euler(0f, Time.time * 40f + i * 50f, 10f * Mathf.Sin(Time.time + i));
-            }
-        }
-    }
-
-    private static GameObject CreateFloater(Transform anchor)
-    {
-        EscapeCatalogSO catalog = EscapeCatalogSO.Current;
-        GameObject model = catalog != null && catalog.PassengerModel != null
-            ? Instantiate(catalog.PassengerModel, anchor, false)
-            : GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        model.transform.SetParent(anchor, false);
-        model.transform.localScale = Vector3.one * FloatScale;
-        foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) Destroy(c);
-        return model;
-    }
+    public override void OnCookieBoarded(Vector3 from) => BoardingFx.Play(from, mouth.position, BoardingFx.Style.Suck);
 
     private void Tint(Renderer[] renderers, Color color, float intensity)
     {

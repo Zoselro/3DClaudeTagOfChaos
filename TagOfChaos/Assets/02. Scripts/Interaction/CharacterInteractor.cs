@@ -63,6 +63,7 @@ public class CharacterInteractor : MonoBehaviour
         {
             hold.Begin(focused, seconds, Time.time);
             prompt?.SetProgress(0f);
+            (focused as IHoldStartListener)?.OnHoldStarted(localCharacter);
             return;
         }
         focused.Interact(localCharacter);

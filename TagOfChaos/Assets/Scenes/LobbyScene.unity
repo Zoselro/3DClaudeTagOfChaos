@@ -7506,6 +7506,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1695540471}
     - target: {fileID: 1688678913625039236, guid: 9f2424703544926439374a554cc5d669, type: 3}
+      propertyPath: kickedMessage
+      value: "\uBC29\uC7A5\uC5D0 \uC758\uD574 \uAC15\uD1F4\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+      objectReference: {fileID: 0}
+    - target: {fileID: 1688678913625039236, guid: 9f2424703544926439374a554cc5d669, type: 3}
       propertyPath: refreshButton
       value: 
       objectReference: {fileID: 585928206}

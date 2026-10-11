@@ -25,6 +25,12 @@ public interface IHoldInteractable : IInteractable
     float HoldSecondsFor(IGameCharacter character);
 }
 
+// 길게 누르기를 시작한 순간을 알아야 하는 사물(스파이 빼기 — 방장이 시작 시각부터 10초를 검사, Request1009Plan.md §19.5).
+public interface IHoldStartListener
+{
+    void OnHoldStarted(IGameCharacter character);
+}
+
 // 씬에 활성화된 상호작용 사물 목록. 사물이 OnEnable/OnDisable에서 스스로 등록·해제한다 —
 // 매 검사마다 물리 쿼리나 FindObjectsByType로 씬을 훑지 않는다(CharacterRegistry와 같은 방식).
 public static class InteractableRegistry

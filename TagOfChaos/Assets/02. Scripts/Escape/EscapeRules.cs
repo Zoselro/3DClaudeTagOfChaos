@@ -25,10 +25,19 @@ public static class EscapeRules
 
     // timeAttack: 스파이가 떠났는가. witchStruckFor: 마녀가 내리친 뒤 지난 시간(초, 안 내리쳤으면 음수).
     // departing: 쿠키 탈것이 출발 연출 중 — 연출이 끝날 때까지 끝 판정을 미룬다(EscapeVisualPlan.md §4.3).
+    // purge: 쿠키가 모두 탈출했는데 스파이가 남아 마녀가 괴물·스파이를 없애러 왔다(Request1009Plan.md §19.4) — purgeStrikeAt(클로즈업이 끝난 순간)에
+    // 내리치고, 그때까지는 방 제한시간이 끝나도 기다린다(연출 도중 끝나지 않게).
     public static Decision Evaluate(IReadOnlyList<PlayerInfo> players, bool timeAttack, double now, double gameEnd, bool hasGameEnd,
-        double timeAttackEnd, float witchStruckFor, bool departing = false)
+        double timeAttackEnd, float witchStruckFor, bool departing = false, bool purge = false, double purgeStrikeAt = 0)
     {
         if (departing && witchStruckFor < 0f) return Decision.None;
+
+        if (purge)
+        {
+            if (witchStruckFor >= WitchSlamSeconds) return Decision.EndWitchStrike;
+            if (witchStruckFor >= 0f) return Decision.None; // 내리치는 중
+            return now >= purgeStrikeAt ? Decision.StrikeWitch : Decision.None;
+        }
 
         int activeCookies = 0, activeSpies = 0;
         foreach (PlayerInfo p in players)

@@ -5,9 +5,10 @@ using UnityEngine;
 // 쿠키 탈출 장치(EscapePlan.md §1.6, §5.5): 재료 칸 표시, 설치, 스파이 훔치기, 완성 뒤 쿠키 탈출구.
 // 칸 모양은 자식 "Slot_00".."Slot_nn"이 있으면 그 위치를 쓰고(Blender 모델), 없으면 장치 둘레에 만든다.
 // 빈 칸 = 어두운 받침(Socket), 채워진 칸 = 재료 모양(Part). 완성되면 "ESC_Glow"를 켜고 맵별 연출을 한다.
-// 재료 넣기·빼앗기(스파이)는 E를 holdSeconds(2초) 누르고 있어야 한다 — 둘이 같은 시간이라 동작으로 스파이가 드러나지 않는다.
+// 재료 넣기는 E를 holdSeconds(2초), 스파이 빼기는 EscapeAuthority.StealHoldSeconds(10초) 누르고 있어야 한다(Request1009Plan.md §19.5) —
+// 빼기는 누르기 시작할 때 StealBegin을 보내 방장도 10초를 검사한다(조작한 클라이언트가 바로 빼지 못하게).
 // 완성 뒤 타기는 지금처럼 누르는 즉시(Request1009Plan.md §1).
-public class EscapeDevice : MonoBehaviour, IHoldInteractable, IInteractionLabel
+public class EscapeDevice : MonoBehaviour, IHoldInteractable, IHoldStartListener, IInteractionLabel
 {
     [SerializeField, Min(0f)] private float holdSeconds = 2f;
     [SerializeField, Min(0.5f)] private float interactionRange = 3.8f; // 모델 본체(최대 6 m 길이) 끝에서도 닿게
@@ -235,7 +236,19 @@ public class EscapeDevice : MonoBehaviour, IHoldInteractable, IInteractionLabel
         return ActionSlot(out _) >= 0;
     }
 
-    public float HoldSecondsFor(IGameCharacter character) => complete ? 0f : holdSeconds;
+    public float HoldSecondsFor(IGameCharacter character)
+    {
+        if (complete) return 0f;
+        return ActionSlot(out bool steal) >= 0 && steal ? EscapeAuthority.StealHoldSeconds : holdSeconds;
+    }
+
+    // 빼기를 누르기 시작했다 — 방장에게 그 칸과 시각을 알린다(다 누르면 지금처럼 Steal).
+    public void OnHoldStarted(IGameCharacter character)
+    {
+        if (complete || manager == null) return;
+        int slot = ActionSlot(out bool steal);
+        if (slot >= 0 && steal) manager.Request(EscapeOp.StealBegin, slot);
+    }
 
     public void Interact(IGameCharacter character)
     {

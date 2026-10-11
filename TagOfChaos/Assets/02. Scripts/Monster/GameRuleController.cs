@@ -64,15 +64,21 @@ public class GameRuleController : MonoBehaviourPunCallbacks
         if (struck && witchStruckAt < 0f) witchStruckAt = Time.time;
         bool hasEnd = RoomState.TryGetDouble(NetKeys.GameEndTime, out double gameEnd);
         RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double timeAttackEnd);
+        // 쿠키가 모두 탈출한 뒤 남은 스파이·괴물을 마녀가 없애러 왔다(Request1009Plan.md §19.4)
+        double appearAt = 0;
+        bool purge = WitchTimeline.Mode == WitchMode.Purge && WitchTimeline.TryGetAppearAt(out appearAt);
+        double purgeStrikeAt = purge ? WitchTimeline.PurgeStrikeAt(appearAt) : 0;
 
         switch (EscapeRules.Evaluate(escapePlayers, timeAttack, PhotonNetwork.Time, gameEnd, hasEnd, timeAttackEnd,
-                     struck ? Time.time - witchStruckAt : -1f, EscapeManager.Instance.IsDeparting(PhotonNetwork.Time)))
+                     struck ? Time.time - witchStruckAt : -1f, EscapeManager.Instance.IsDeparting(PhotonNetwork.Time), purge, purgeStrikeAt))
         {
             case EscapeRules.Decision.StrikeWitch:
                 if (!witchRequested)
                 {
                     witchRequested = true;
-                    PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.WitchStrike, 1 } });
+                    // 내리친 이유를 값으로 남긴다 — 처단(2)이면 일반 쿠키는 죽지 않는다(EscapeCharacterState)
+                    int strike = (int)(purge ? WitchMode.Purge : WitchMode.TimeAttack);
+                    PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.WitchStrike, strike } });
                 }
                 break;
             case EscapeRules.Decision.EndAllResolved: FinishEscape(EscapeEndReason.AllResolved); break;

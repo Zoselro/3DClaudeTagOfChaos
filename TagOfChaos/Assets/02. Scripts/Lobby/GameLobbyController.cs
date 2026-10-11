@@ -26,6 +26,8 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     [SerializeField] private string selectingMonstersFormat = "Choosing {0} monsters ({1}/{0}) - {2} more must enter the cauldron";
     [SerializeField] private string readyForMasterFormat = "Monster: {0} - you can start the game";   // {0}=괴물 닉네임 목록
     [SerializeField] private string readyForOthersFormat = "Monster: {0} - waiting for host {1} to start"; // {1}=방장 닉네임
+    [Tooltip("강퇴 확인 문구. {0} = 대상 닉네임(Request1009Plan.md §19.6)")]
+    [SerializeField] private string kickConfirmFormat = "Kick {0}?";
 
     // 시작 요청 후 방장 응답(씬 전환)을 기다리는 동안 버튼을 잠시 막는다 — 방장 교체 순간에 요청이 무시됐으면 다시 누를 수 있다.
     private const float StartRequestCooldown = 2f;
@@ -35,6 +37,9 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     private int lastKnownPlayerCount = -1;
     private int lastKnownHostActor = -1;
     private readonly StringBuilder nameBuilder = new StringBuilder();
+
+    // 강퇴: 응답하지 않는 대상은 방장이 연결을 끊는다 — PUN 2.55는 보내는 쪽·받는 쪽 모두 켜 두어야 한다.
+    private void Awake() => PhotonNetwork.EnableCloseConnection = true;
 
     private void Start()
     {
@@ -92,7 +97,17 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     // 방장 쪽: 호스트의 시작·방 설정 요청을 받아 각 Authority로 실행한다(요청자·조건은 그 안에서 다시 확인).
     public void OnEvent(EventData photonEvent)
     {
+        if (photonEvent.Code == NetEventCodes.Kicked)
+        {
+            if (LobbyKick.IsForMe(photonEvent.Sender, photonEvent.CustomData)) LeaveKicked();
+            return;
+        }
         if (!PhotonNetwork.IsMasterClient) return;
+        if (photonEvent.Code == NetEventCodes.KickRequest)
+        {
+            if (photonEvent.CustomData is int target) KickAsMaster(photonEvent.Sender, target);
+            return;
+        }
         if (photonEvent.Code == NetEventCodes.StartGameRequest)
         {
             GameStartAuthority.Result result = GameStartAuthority.TryStart(photonEvent.Sender);
@@ -128,7 +143,50 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
         {
             var item = Instantiate(playerListItemPrefab, playerListContent);
             item.SetNickname(p.NickName);
+            Player target = p;
+            item.SetKick(LobbyKick.LocalCanKick(target), () => ConfirmKick(target));
         }
+    }
+
+    // ---------------- 강퇴(Request1009Plan.md §19.6) ----------------
+
+    private void ConfirmKick(Player target)
+    {
+        ConfirmDialog dialog = FindFirstObjectByType<RoomExitController>()?.Dialog;
+        string message = string.Format(kickConfirmFormat, DisplayName(target));
+        if (dialog != null) dialog.Show(message, () => Kick(target));
+        else Kick(target);
+    }
+
+    private void Kick(Player target)
+    {
+        if (!LobbyKick.LocalCanKick(target)) return; // 확인하는 사이 나갔거나 판이 시작됐다
+        if (PhotonNetwork.IsMasterClient) KickAsMaster(PhotonNetwork.LocalPlayer.ActorNumber, target.ActorNumber);
+        else LobbyKick.SendRequest(target.ActorNumber);
+    }
+
+    private void KickAsMaster(int sender, int target)
+    {
+        if (LobbyKick.Handle(sender, target)) StartCoroutine(CloseIfStillHere(target));
+    }
+
+    // 대상이 정해진 시간 뒤에도 방에 남아 있으면(응답하지 않음) 연결을 끊는다.
+    private System.Collections.IEnumerator CloseIfStillHere(int target)
+    {
+        yield return new WaitForSecondsRealtime(LobbyKick.CloseConnectionDelay);
+        if (!PhotonNetwork.IsMasterClient || !RoomState.IsInRoom()) yield break;
+        Player player = PhotonNetwork.CurrentRoom.GetPlayer(target);
+        if (player != null) PhotonNetwork.CloseConnection(player);
+    }
+
+    // 강퇴됐다: 로비 화면이 알려 주도록 남기고 평소 나가기 경로로 나간다.
+    private void LeaveKicked()
+    {
+        Debug.Log("[LobbyKick] Kicked by the host. Leaving the room.");
+        LobbyKick.MarkKicked();
+        RoomExitController exit = FindFirstObjectByType<RoomExitController>();
+        if (exit != null) exit.OnClickBackBtn();
+        else PhotonNetwork.LeaveRoom();
     }
 
     // 시작 버튼은 호스트에게만 보이고(사용자 요구: "시작 버튼이 보이는 사람은 항상 방장(방을 만든 사람)"), 시작 조건을

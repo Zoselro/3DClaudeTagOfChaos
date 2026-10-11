@@ -23,7 +23,9 @@ public class RoomLifecycleWatcher : MonoBehaviourPunCallbacks
         int[] remaining = monsters.Where(a => a != otherPlayer.ActorNumber).ToArray();
         var props = new Hashtable { { NetKeys.MonsterActorNumbers, remaining } };
 
-        if (remaining.Length == 0)
+        // 쿠키가 모두 탈출한 뒤 마녀가 스파이·괴물을 없애는 중이면(Request1009Plan.md §19.4) 대기실로 돌려보내지 않고 연출·결과까지 간다.
+        bool witchPurging = WitchTimeline.Mode == WitchMode.Purge && !RoomState.TryGetInt(NetKeys.GameResult, out _);
+        if (remaining.Length == 0 && !witchPurging)
         {
             monstersGoneAt = PhotonNetwork.Time;
             props[NetKeys.MonsterDepartedAt] = monstersGoneAt.Value; // 목록 갱신과 한 번에 보낸다

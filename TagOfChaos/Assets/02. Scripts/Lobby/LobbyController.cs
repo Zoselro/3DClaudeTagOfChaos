@@ -35,6 +35,7 @@ public class LobbyController : MonoBehaviourPunCallbacks
     [SerializeField] private string roomNameExistsMessage = "A room with this name already exists.";
     [SerializeField] private string noRoomAvailableMessage = "No room is available to join.";
     [SerializeField] private string cannotJoinRoomMessage = "Cannot join this room.";
+    [SerializeField] private string kickedMessage = "You were kicked by the host."; // Request1009Plan.md §19.6
     [SerializeField] private string regionMoveFailedMessage = "Could not follow the room to the new region.";
 
     private readonly Dictionary<string, RoomInfo> cachedRoomList = new Dictionary<string, RoomInfo>();
@@ -68,6 +69,7 @@ public class LobbyController : MonoBehaviourPunCallbacks
     private void Start()
     {
         userIdInput.text = !string.IsNullOrEmpty(PhotonNetwork.NickName) ? PhotonNetwork.NickName : "Player" + Random.Range(1000, 10000); // 기본값, 직접 수정 가능
+        if (LobbyKick.ConsumeKickedNotice()) ShowError(kickedMessage); // 대기실에서 강퇴되어 돌아왔다
         PhotonNetwork.SerializationRate = GameSettings.Current.CharacterSyncRate; // 캐릭터 동기화 빈도(research.md §12.4)
 
         string region = CurrentRegion ?? PhotonRegions.Saved;

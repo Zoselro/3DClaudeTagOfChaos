@@ -41,7 +41,9 @@ public class AudioRuntime : MonoBehaviour
     private MusicDirector director;
     private ChaseDirector chase;
     private AudioListenerAnchor listener;
-    private AudioHighPassFilter lowCut;
+    private AudioSource[] ownedSources;   // 이 몸통이 가진 모든 재생 칸(효과음·배경음·추격음)
+    private bool[] loopWasPlaying;        // 직전 프레임에 재생 중이던 반복음 — 소리 엔진이 다시 시작되면 되살린다
+    private float[] loopTime;
 
     public static AudioRuntime Instance
     {
@@ -90,14 +92,18 @@ public class AudioRuntime : MonoBehaviour
         director = new MusicDirector(music);
         chase = new ChaseDirector(name => MakeSource(name, false, lowPass: true), music);
         listener = AudioListenerAnchor.Create(transform);
-        lowCut = listener.gameObject.AddComponent<AudioHighPassFilter>(); // 듣는 쪽 필터 = 모든 소리(헤드셋 저음 자르기)
         AudioVolumeSettings.Changed += ApplyVolumes;
-        ApplyOutputMode();
+        ownedSources = GetComponentsInChildren<AudioSource>(true);
+        loopWasPlaying = new bool[ownedSources.Length];
+        loopTime = new float[ownedSources.Length];
+        AudioSettings.OnAudioConfigurationChanged += OnAudioConfigurationChanged;
+        OutputDevices.ApplySaved(); // 고른 출력 장치(Request1009Plan.md §17) — 아직 아무 소리도 없을 때 적용
     }
 
     private void OnDestroy()
     {
         AudioVolumeSettings.Changed -= ApplyVolumes;
+        AudioSettings.OnAudioConfigurationChanged -= OnAudioConfigurationChanged;
         if (instance == this) instance = null;
     }
 
@@ -241,6 +247,7 @@ public class AudioRuntime : MonoBehaviour
 
     private void LateUpdate()
     {
+        RecordLoops();
         listener.Tick();
         IndoorZone.Tick(AudioListenerAnchor.Position, Time.unscaledDeltaTime);
         Sweep(worldVoices, worldPool, true);
@@ -299,26 +306,48 @@ public class AudioRuntime : MonoBehaviour
 
     private void ApplyVolumes()
     {
-        ApplyOutputMode();
         ApplyVolumes(worldVoices, worldPool);
         ApplyVolumes(flatVoices, flatPool);
     }
 
-    // 출력 장치(Request1009Plan.md §16.6): 3D 칸의 좌우 퍼짐과 듣는 쪽 저음 자르기. AudioSettings.speakerMode는 바꾸지 않는다(바꾸면 모든 소리가 다시 시작).
-    private void ApplyOutputMode()
+    // ---------------- 출력 장치(Request1009Plan.md §17) ----------------
+
+    // 출력 장치를 바꾼 뒤 소리 엔진을 다시 열어 새 장치로 소리를 낸다. 다시 열면 재생 중인 소리가 모두 멈추므로
+    // 직전 프레임에 돌던 반복음(배경음·추격음·환경음·장치음)을 같은 위치에서 되살린다(한 번짜리 소리는 짧아 버린다).
+    public void ReopenOutput()
     {
-        OutputProfile profile = AudioVolumeSettings.CurrentOutput;
-        foreach (Voice voice in worldVoices) voice.source.spread = profile.Spread;
-        if (lowCut != null)
+        RecordLoops();
+        AudioSettings.Reset(AudioSettings.GetConfiguration());
+        RestoreLoops();
+    }
+
+    // 장치를 꽂거나 뽑으면 Unity가 스스로 소리 엔진을 다시 연다 — 같은 방법으로 되살리고 설정 창에 알린다.
+    private void OnAudioConfigurationChanged(bool deviceWasChanged)
+    {
+        RestoreLoops();
+        if (deviceWasChanged) OutputDevices.NotifyDevicesChanged();
+    }
+
+    private void RecordLoops()
+    {
+        for (int i = 0; i < ownedSources.Length; i++)
         {
-            lowCut.enabled = profile.LowCutHz > 0f;
-            if (lowCut.enabled) lowCut.cutoffFrequency = profile.LowCutHz;
+            AudioSource s = ownedSources[i];
+            loopWasPlaying[i] = s != null && s.loop && s.isPlaying && s.clip != null;
+            if (loopWasPlaying[i]) loopTime[i] = s.time;
         }
     }
 
-    // 지금 3D 칸의 좌우 퍼짐·저음 자르기(시험·기록용).
-    public float WorldSpread => worldVoices.Length > 0 ? worldVoices[0].source.spread : 0f;
-    public float LowCutHz => lowCut != null && lowCut.enabled ? lowCut.cutoffFrequency : 0f;
+    private void RestoreLoops()
+    {
+        for (int i = 0; i < ownedSources.Length; i++)
+        {
+            AudioSource s = ownedSources[i];
+            if (!loopWasPlaying[i] || s == null || s.clip == null || s.isPlaying) continue;
+            s.time = Mathf.Repeat(loopTime[i], s.clip.length);
+            s.Play();
+        }
+    }
 
     private static void ApplyVolumes(Voice[] voices, AudioVoicePool pool)
     {

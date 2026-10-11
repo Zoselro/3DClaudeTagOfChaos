@@ -47,7 +47,9 @@ public static class NetKeys
     public const string EscapeState = "EscapeState";           // byte[] — EscapeState.Encode(방장만 쓴다)
     public const string SpyEscapedAt = "SpyEscapedAt";         // double — 로켓이 떠난 시각(타임어택 시작)
     public const string TimeAttackEndTime = "TimeAttackEndTime"; // double
-    public const string WitchStrike = "WitchStrike";           // int 1 — 마녀가 내리쳤다
+    public const string WitchStrike = "WitchStrike";           // int WitchMode — 마녀가 내리쳤다(1 타임어택 끝, 2 쿠키 탈출 뒤 처단)
+    public const string WitchMode = "WitchMode";               // int WitchMode — 마녀가 오는 이유(Request1009Plan.md §19)
+    public const string WitchAppearAt = "WitchAppearAt";       // double — 마녀가 나타나기 시작하는 시각(앞 샷: 로켓·탈출구가 끝난 뒤)
     public const string EscapeEndReason = "EscapeEndReason";   // int — EscapeEndReason
     public const string RevealedSpies = "RevealedSpies";       // int[] — 게임이 끝난 뒤 결과 화면용으로 공개
 
@@ -106,6 +108,8 @@ public static class NetKeys
         new Scope(SpyEscapedAt, Target.Room, Lifetime.Round),
         new Scope(TimeAttackEndTime, Target.Room, Lifetime.Round),
         new Scope(WitchStrike, Target.Room, Lifetime.Round),
+        new Scope(WitchMode, Target.Room, Lifetime.Round),
+        new Scope(WitchAppearAt, Target.Room, Lifetime.Round),
         new Scope(EscapeEndReason, Target.Room, Lifetime.Round),
         new Scope(RevealedSpies, Target.Room, Lifetime.Round),
         new Scope(HitCount, Target.Player, Lifetime.Round),

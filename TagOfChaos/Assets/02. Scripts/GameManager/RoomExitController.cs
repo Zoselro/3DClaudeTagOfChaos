@@ -14,6 +14,8 @@ public class RoomExitController : MonoBehaviourPunCallbacks
     [SerializeField] private string leaveConfirmMessage = "Leave to the lobby?";
     [SerializeField] private string leaveLogFormat = "\n<color=#ff0000>[{0}] left the room</color>";
 
+    public ConfirmDialog Dialog => confirmDialog; // 강퇴 확인(GameLobbyController)도 같은 확인창을 쓴다
+
     // 나가기: 곧바로 나가지 않고 확인창부터 띄운다
     public void OnClickBackButtonPressed()
     {
