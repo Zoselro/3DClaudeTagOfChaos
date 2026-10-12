@@ -101,6 +101,14 @@ public class EscapeDevice : MonoBehaviour, IHoldInteractable, IHoldStartListener
         return anchorCache[i];
     }
 
+    // 모델의 칸 자리(Slot_nn) 위치. 모델에 그 자리가 없으면 false.
+    public bool TryAnchorPosition(int anchorIndex, out Vector3 position)
+    {
+        Transform anchor = anchorIndex >= 0 ? SlotAnchor(anchorIndex) : null;
+        position = anchor != null ? anchor.position : transform.position;
+        return anchor != null;
+    }
+
     // 장치 칸 i(상태의 칸 번호)의 월드 위치 — 끼우기·빼기 소리를 그 자리에서 낸다. 칸 자리가 없으면 장치 중심.
     public Vector3 SlotPosition(int i)
     {

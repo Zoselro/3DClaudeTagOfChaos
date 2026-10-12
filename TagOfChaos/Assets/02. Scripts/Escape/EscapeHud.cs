@@ -83,6 +83,13 @@ public class EscapeHud : MonoBehaviour
         instance.pendingStolen.Add(new StolenNotice { ItemId = itemId, ItemIndex = itemIndex, ShowAt = showAt });
     }
 
+    // 로켓에 넣은 재료가 다른 상자(또는 장치 옆 바닥)에 다시 생김(Request1009Plan.md §22.6 M4) — 훔침 알림과 같은 규칙으로 기다렸다 띄운다.
+    public static void ScheduleRespawned(string itemId, int itemIndex, double showAt, bool onGround)
+    {
+        if (instance == null || RoomState.IsLocalMonster()) return;
+        instance.pendingStolen.Add(new StolenNotice { ItemId = itemId, ItemIndex = itemIndex, ShowAt = showAt, Respawned = true, OnGround = onGround });
+    }
+
     private void TickStolenNotices()
     {
         for (int i = pendingStolen.Count - 1; i >= 0; i--)
@@ -95,7 +102,7 @@ public class EscapeHud : MonoBehaviour
             if (d == StolenNotice.Decision.Cancel) continue;
             ItemSO item = manager.Catalog.Find(n.ItemId);
             string name = item != null ? item.DisplayName : n.ItemId;
-            Toast(string.Format(KoreanText.HasFinalConsonant(name) ? texts.stolenFromDeviceWithFinal : texts.stolenFromDeviceNoFinal, name), alert: true);
+            Toast(string.Format(n.Template(texts, KoreanText.HasFinalConsonant(name)), name), alert: true);
         }
     }
 

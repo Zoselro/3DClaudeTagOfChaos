@@ -56,15 +56,18 @@ public sealed class EscapeAuthority
         int cookies = Mathf.Max(1, players - monsters - spies);
         s.RequiredCount = cookies;
 
-        foreach (RecipePlanner.PlannedSlot p in RecipePlanner.Plan(recipe, cookies, rng, GameSettings.Current.MaxCookieCount))
-            s.DeviceSlots.Add(new EscapeState.Slot { Label = p.Label, Accepts = p.Accepts, Prefilled = !p.Required, ItemIndex = -1, Anchor = p.Anchor });
-
+        // 로켓 칸을 먼저 만들어, 그 재료 종류가 이번 판 필요 칸에 반드시 들어가게 넘긴다(Request1009Plan.md §22.6 M3).
+        var rocketAccepts = new List<string[]>();
         foreach (EscapeRecipeSO.RocketSlot r in recipe.RocketSlots)
         {
             var accepts = new List<string>();
             if (r.accepts != null) foreach (ItemSO it in r.accepts) if (it != null) accepts.Add(it.ItemId);
-            s.RocketSlots.Add(new EscapeState.Slot { Label = r.label, Accepts = accepts.ToArray(), ItemIndex = -1, Anchor = s.RocketSlots.Count });
+            rocketAccepts.Add(accepts.ToArray());
+            s.RocketSlots.Add(new EscapeState.Slot { Label = r.label, Accepts = rocketAccepts[rocketAccepts.Count - 1], ItemIndex = -1, Anchor = s.RocketSlots.Count });
         }
+
+        foreach (RecipePlanner.PlannedSlot p in RecipePlanner.Plan(recipe, cookies, rng, GameSettings.Current.MaxCookieCount, rocketAccepts))
+            s.DeviceSlots.Add(new EscapeState.Slot { Label = p.Label, Accepts = p.Accepts, Prefilled = !p.Required, ItemIndex = -1, Anchor = p.Anchor });
 
         // 상자: 일반 = 필요 재료 × 3, 스파이 = 스파이 1명당 2개(§1.4). 상자 자리 중에서 무작위.
         var anchors = new List<int>();
@@ -94,7 +97,7 @@ public sealed class EscapeAuthority
             if (item == null) continue;
             var entry = new EscapeState.Item { Id = item.ItemId, Charges = item.IsTool ? item.Tool.Charges : 0 };
             if (i < normalIndices.Count) { entry.Loc = ItemLocation.Chest; entry.A = normalIndices[i]; }
-            else { entry.Loc = ItemLocation.Ground; entry.Pos = manager.DevicePosition + Random.insideUnitSphere.WithY(0f) * 3f; }
+            else { entry.Loc = ItemLocation.Ground; entry.Pos = manager.DeviceDropPoint(s.DeviceSlots, rng.Next()); } // 상자가 모자라면 장치 옆 바닥(§22.5 문제 8)
             s.Items.Add(entry);
         }
 
@@ -110,7 +113,16 @@ public sealed class EscapeAuthority
         State = s;
         Commit();
         Debug.Log($"[EscapeAuthority] Initialized {recipe.MapName}: cookies={cookies} spies={spies} deviceSlots={s.DeviceSlots.Count} " +
-                  $"chests={s.Chests.Count} items={s.Items.Count}");
+                  $"chests={s.Chests.Count} items={s.Items.Count} needs={NeededSummary(s)}");
+    }
+
+    // 초기화 로그용: 이번 판 필요 칸의 재료(멀티 시험에서 로그로 확인, Request1009Plan.md §22.6 M3).
+    private static string NeededSummary(EscapeState s)
+    {
+        var names = new List<string>();
+        foreach (EscapeState.Slot slot in s.DeviceSlots)
+            if (!slot.Prefilled) names.Add(slot.Accepts.Length == 1 ? slot.Accepts[0] : "Any");
+        return string.Join(",", names);
     }
 
     private string PickSpawn(EscapeState.Slot slot) => slot.Accepts[rng.Next(slot.Accepts.Length)];
@@ -302,7 +314,10 @@ public sealed class EscapeAuthority
         slot.RocketFilled = true;
         State.RocketSlots[rocketSlot] = slot;
 
-        RespawnInEmptyChest(item); // 로켓에 끼울 때는 알리지 않는다 — 장치에서 뺀 순간 n초 뒤에 알린다(AnnounceStolen, 2026-10-03)
+        // 훔친 순간의 알림(AnnounceStolen)과 별개로, 다시 생긴 것을 같은 지연 뒤 알린다(Request1009Plan.md §22.6 M4·B1) — 넣는 순간 바로
+        // 알리면 훔침 알림보다 먼저 뜨거나 스파이가 로켓 앞에 있음을 드러낸다.
+        bool onGround = RespawnInEmptyChest(item);
+        AnnounceRespawn(item, onGround);
         return true;
     }
 
@@ -562,16 +577,17 @@ public sealed class EscapeAuthority
     }
 
     // 로켓에 끼운 재료는 열려 있던 빈 일반 상자 하나에 닫힌 모습으로 다시 생긴다(§1.4, Request1009Plan.md §18.3).
-    private void RespawnInEmptyChest(int item)
+    // 빈 상자가 없으면 장치 옆 바닥에 높이를 맞춰 놓는다(§22.6 M4·B5 — 예전에는 장치 중심 좌표 그대로라 모델 안에 묻힐 수 있었다). 바닥이면 true.
+    private bool RespawnInEmptyChest(int item)
     {
         int chest = PickRespawnChest(State, rng.Next());
         EscapeState.Item it = State.Items[item];
         if (chest < 0)
         {
             it.Loc = ItemLocation.Ground;
-            it.Pos = manager.DevicePosition;
+            it.Pos = manager.DeviceDropPoint(State.DeviceSlots, rng.Next());
             State.Items[item] = it;
-            return;
+            return true;
         }
         EscapeState.Chest ch = State.Chests[chest];
         ch.Opened = false;
@@ -579,6 +595,7 @@ public sealed class EscapeAuthority
         it.Loc = ItemLocation.Chest;
         it.A = chest;
         State.Items[item] = it;
+        return false;
     }
 
     // 다시 생길 상자(순수 계산): 열려 있고 빈 일반 상자 중 하나 → 없으면 빈 일반 상자(처음부터 비어 닫힌 것) 중 하나 → 없으면 -1(바닥).
@@ -642,17 +659,25 @@ public sealed class EscapeAuthority
 
     // 스파이가 장치에서 재료를 뺐다는 알림(2026-10-03, Request1003bPlan.md §2): 괴물이 아닌 사람에게만, 설정한 초 뒤에 띄우도록 "보여 줄 시각"을 담아
     // 지금 보낸다(각자 그 시각을 기다리므로 그사이 방장이 바뀌어도 그대로 뜬다). 그사이 재료가 다시 장치에 끼워졌으면 받은 쪽이 띄우지 않는다.
-    private void AnnounceStolen(int item)
+    private void AnnounceStolen(int item) =>
+        SendDelayedNoticeToCookies(new object[] { (byte)EscapeNoticeKind.StolenFromDevice, State.Items[item].Id, item, StealNoticeTime() });
+
+    private void AnnounceRespawn(int item, bool onGround) =>
+        SendDelayedNoticeToCookies(new object[] { (byte)EscapeNoticeKind.Respawned, State.Items[item].Id, item, StealNoticeTime(), onGround });
+
+    private static double StealNoticeTime() => PhotonNetwork.Time + GameSettings.Current.StealNoticeDelaySeconds;
+
+    // 괴물이 아닌 사람(쿠키·스파이)에게만 보낸다.
+    private static void SendDelayedNoticeToCookies(object[] content)
     {
         var targets = new List<int>();
         foreach (Player p in RoomState.Players) if (!RoomState.IsMonster(p.ActorNumber)) targets.Add(p.ActorNumber);
         if (targets.Count == 0) return;
-        double showAt = PhotonNetwork.Time + GameSettings.Current.StealNoticeDelaySeconds;
         // 오프라인 방은 대상 지정(TargetActors)을 무시하고 아무에게도 보내지 않으므로 모두에게(혼자뿐)
         var options = PhotonNetwork.OfflineMode ? new RaiseEventOptions { Receivers = ReceiverGroup.All } : new RaiseEventOptions { TargetActors = targets.ToArray() };
-        PhotonNetwork.RaiseEvent(NetEventCodes.EscapeNotice, new object[] { (byte)EscapeNoticeKind.StolenFromDevice, State.Items[item].Id, item, showAt },
-            options, SendOptions.SendReliable);
+        PhotonNetwork.RaiseEvent(NetEventCodes.EscapeNotice, content, options, SendOptions.SendReliable);
     }
+
 
     public void Commit()
     {
@@ -670,9 +695,4 @@ public sealed class EscapeAuthority
             (list[i], list[j]) = (list[j], list[i]);
         }
     }
-}
-
-public static class EscapeVectorExtensions
-{
-    public static Vector3 WithY(this Vector3 v, float y) => new Vector3(v.x, y, v.z);
 }

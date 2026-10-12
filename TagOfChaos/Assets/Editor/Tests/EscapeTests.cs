@@ -129,6 +129,30 @@ public class EscapeTests
         Assert.GreaterOrEqual(GameSettings.Current.StealNoticeDelaySeconds, 0f);
     }
 
+    // 로켓에 넣은 재료가 다시 생긴 알림(Request1009Plan.md §22.6 M4): 같은 대기 규칙 + 상자/바닥·받침에 맞는 문장.
+    [Test]
+    public void RespawnedNotice_UsesItsOwnTexts_AndTheSameWaitRule()
+    {
+        EscapeTextsSO t = EscapeTextsSO.Current;
+        var chest = new StolenNotice { ItemId = "Gear", ItemIndex = 2, ShowAt = 50.0, Respawned = true };
+        var ground = new StolenNotice { ItemId = "Gear", ItemIndex = 2, ShowAt = 50.0, Respawned = true, OnGround = true };
+        var stolen = new StolenNotice { ItemId = "Gear", ItemIndex = 2, ShowAt = 50.0 };
+        Assert.AreEqual(StolenNotice.Decision.Wait, chest.Decide(49.0, ItemLocation.Chest));
+        Assert.AreEqual(StolenNotice.Decision.Show, chest.Decide(50.0, ItemLocation.Chest));
+        Assert.AreEqual(StolenNotice.Decision.Cancel, chest.Decide(51.0, ItemLocation.Device), "already back in the device");
+        Assert.AreEqual(t.respawnedInChestWithFinal, chest.Template(t, true));
+        Assert.AreEqual(t.respawnedInChestNoFinal, chest.Template(t, false));
+        Assert.AreEqual(t.respawnedOnGroundWithFinal, ground.Template(t, true));
+        Assert.AreEqual(t.respawnedOnGroundNoFinal, ground.Template(t, false));
+        Assert.AreEqual(t.stolenFromDeviceNoFinal, stolen.Template(t, false));
+        foreach (string s in new[] { t.respawnedInChestWithFinal, t.respawnedInChestNoFinal, t.respawnedOnGroundWithFinal, t.respawnedOnGroundNoFinal })
+        {
+            StringAssert.Contains("{0}", s);
+            Assert.IsTrue(s.Any(c => c >= '\uAC00' && c <= '\uD7A3'), $"Korean text in the asset: {s}");
+        }
+        Assert.AreEqual(5, (int)EscapeNoticeKind.Respawned, "new notice value; 2 stays reserved");
+    }
+
     [Test]
     public void State_EncodeDecode_RoundTrips()
     {

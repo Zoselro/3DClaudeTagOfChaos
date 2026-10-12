@@ -23,7 +23,7 @@ MonoBehaviour:
   - item: {fileID: 11400000, guid: 6475a1301b7b8234e96c7ec856da57ec, type: 2}
     label: 
     slotCount: 2
-    fixedRequired: 1
+    fixedRequired: 0
   - item: {fileID: 11400000, guid: 71523912ab7f1564fa5759d430a310b6, type: 2}
     label: 
     slotCount: 2

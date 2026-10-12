@@ -7,19 +7,32 @@ using UnityEngine;
 [DefaultExecutionOrder(-50)]
 public class CarriedBodyPresenter : MonoBehaviour
 {
+    // 남의 화면에서는 내려놓은 위치가 동기화되기 전 겹쳐 있어, 접촉을 바로 되살리면 그 자리의 캐릭터가 밀려난다.
+    private const float RemoteRestoreDelay = 0.5f;
+    private static readonly string[] CharacterLayers = { "Cookie", "Monster" };
+
     private HideOrSeekPlayer self;
     private Transform hips;
+    private CapsuleCollider rootCapsule;
+    private LayerMask normalExclude;
+    private LayerMask carriedExclude;
+    private bool carriedCollisionOff;
+    private float restoreAt = -1f;
 
     public void Init(HideOrSeekPlayer owner, Animator animator)
     {
         self = owner;
         hips = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.Hips) : null;
+        rootCapsule = GetComponent<CapsuleCollider>();
+        normalExclude = rootCapsule != null ? rootCapsule.excludeLayers : (LayerMask)0;
+        carriedExclude = normalExclude | LayerMask.GetMask(CharacterLayers);
     }
 
     private void LateUpdate()
     {
         if (self == null) return;
         int carrier = self.CurrentCarrierViewId;
+        UpdateCarriedCollision(carrier >= 0);
         if (carrier < 0) return;
         if (TryPose(carrier, out Vector3 position, out Quaternion rotation))
             transform.SetPositionAndRotation(position, rotation);
@@ -40,5 +53,25 @@ public class CarriedBodyPresenter : MonoBehaviour
             : new Vector3(0f, 0.8f, 0f);
         position = CarryPose.RootFor(CarryPose.CarriedHips(hands, carrier.rotation), rotation, hipsLocal);
         return true;
+    }
+    // 들린 몸은 어떤 캐릭터(쿠키·괴물)와도 부딪히지 않는다 — 모든 화면에서(Request1009Plan.md §22.6 M5). 눕혀 들린 캡슐이 드는 쪽 앞뒤로
+    // 튀어나와 지나가는 캐릭터를 막았다. 바닥(Default)은 빼지 않는다 — 본인 화면은 내려놓는 순간 물리가 다시 켜진다.
+    private void UpdateCarriedCollision(bool carried)
+    {
+        if (rootCapsule == null) return;
+        if (carried)
+        {
+            restoreAt = -1f;
+            if (carriedCollisionOff) return;
+            carriedCollisionOff = true;
+            rootCapsule.excludeLayers = carriedExclude;
+            return;
+        }
+        if (!carriedCollisionOff) return;
+        if (restoreAt < 0f) restoreAt = Time.time + (self.View != null && self.View.IsMine ? 0f : RemoteRestoreDelay);
+        if (Time.time < restoreAt) return;
+        carriedCollisionOff = false;
+        restoreAt = -1f;
+        rootCapsule.excludeLayers = normalExclude;
     }
 }

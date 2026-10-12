@@ -74,7 +74,7 @@ public static class EscapeAssetsBuilder
                 new[] { G(redButton, 1, 1), G(gear, 1, 1), G(battery, 3, 0), G(toolbox, 3, 0, "Repair") }, null, null,
                 new[] { R(gear), R(battery) }, toolbox, fillsCapacity: true),
             Recipe("ChocolateFactory", EscapeExitKind.ChocolateTrain, RecipeMode.Slots,
-                new[] { G(macaronWheel, 2, 1), G(cookieWheel, 2, 1), G(oil, 2, 0), G(gear, 2, 0) }, null, null,
+                new[] { G(macaronWheel, 2, 1), G(cookieWheel, 2, 0), G(oil, 2, 0), G(gear, 2, 0) }, null, null,
                 new[] { R(oil), R(gear) }, toolbox, fillsCapacity: true),
             Recipe("GingerbreadVillage", EscapeExitKind.RuneAltar, RecipeMode.Counter, null, "Rune", runes,
                 new[] { R(runes), R(runes) }, toolbox, fillsCapacity: true), // 모든 맵: 늘 최대 수만 쓰고 남는 칸은 켜진 채 시작(2026-10-03)

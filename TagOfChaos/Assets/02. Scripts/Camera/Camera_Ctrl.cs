@@ -47,7 +47,7 @@ public class Camera_Ctrl : MonoBehaviour
 
     public void InitCamera(GameObject player, float targetHeight, float distance)
     {
-        SetFollowTarget(player, targetHeight, distance, keepRotation: false);
+         SetFollowTarget(player, targetHeight, distance, keepRotation: false);
     }
 
     // 추적 대상만 바꾼다. keepRotation=true면 우클릭 드래그로 돌려 둔 현재 각도를 유지해, 관전 대상을 순환할 때

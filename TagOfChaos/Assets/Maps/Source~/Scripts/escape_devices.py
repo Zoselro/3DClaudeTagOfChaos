@@ -292,8 +292,8 @@ def device_factory():
         cyl(g, 'ME_Gray_Dark', (0, -2.3, 2.3), 0.32, 1.1, seg=14, r2=0.55)                     # chimney
         torus(g, 'ME_Gold', (0, -2.3, 3.4), 0.55, 0.08, seg=16)
         g.blob('ME_Gold', (0, -1.1, 2.45), 0.42, sz=(1, 1, 0.9), seg=14)                       # steam dome
-        for x in (-0.5, 0.5):                                                                  # oil tank cradles
-            g.rbox('ME_Gray_Dark', (x, -0.05, 2.35), (0.6, 0.6, 0.18), bevel=0.05)
+        for x in (-1.1, 1.1):                    # oil tank shelves on the boiler sides (Request1009Plan.md §22.6 M2 — was on the roof, out of reach)
+            g.rbox('ME_Gray_Dark', (x, -2.1, 1.05), (0.5, 0.56, 0.16), bevel=0.05)
         g.rbox('ME_Purple_Deep', (0, 1.55, 0.45), (1.9, 2.0, 2.3), bevel=0.2)                  # cab
         g.rbox('ME_Teal', (0, 1.55, 2.75), (2.2, 2.3, 0.25), bevel=0.1)
         for x in (-0.96, 0.96):
@@ -311,8 +311,8 @@ def device_factory():
     turn = (0, 0, math.pi / 2)                                                                 # part axle -> sideways
     for i, (x, y) in enumerate(((0.98, -1.9), (-0.98, -1.9), (0.98, -0.2), (-0.98, -0.2))):    # wheels
         empty(u, f'Slot_{i:02d}', (x, y, 0.3), parent=lo, rot=turn)
-    for i, x in enumerate((0.5, -0.5)):                                                        # oil tanks
-        empty(u, f'Slot_{4 + i:02d}', (x, -0.05, 2.8), parent=lo)
+    for i, x in enumerate((1.2, -1.2)):                                                        # oil tanks (side shelves, ~1.3 m above the platform)
+        empty(u, f'Slot_{4 + i:02d}', (x, -2.1, 1.5), parent=lo)
     for i, x in enumerate((1.05, -1.05)):                                                      # gearboxes
         empty(u, f'Slot_{6 + i:02d}', (x, -1.05, 0.95), parent=lo, rot=turn)
     empty(u, 'Smoke', (0, -2.3, 3.55), parent=lo)

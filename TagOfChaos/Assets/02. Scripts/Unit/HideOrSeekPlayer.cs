@@ -290,7 +290,13 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         Collider rootCollider = GetComponent<CapsuleCollider>();
         Collider bodyMeshCollider = transform.Find(BodyMeshName)?.GetComponent<Collider>();
         if (rootCollider != null && bodyMeshCollider != null)
+        {
             Physics.IgnoreCollision(rootCollider, bodyMeshCollider, true);
+            // Mesh_0은 칠하기 레이캐스트(Collider.Raycast) 전용이다 — 물리 접촉은 모두 끈다(Request1009Plan.md §22.6 M5). 바인드 포즈(팔 벌린 자세,
+            // 너비 1.88 m)에 고정돼 남의 화면에서는 보이는 몸보다 넓은 벽이 됐고, 들리면 몸과 함께 누워 길을 막았다.
+            // excludeLayers는 접촉만 거르고 검사(괴물 조준·시야·바닥 맞춤)는 그대로 이 콜라이더를 맞힌다.
+            bodyMeshCollider.excludeLayers = ~0;
+        }
         else
             Debug.LogError($"[HideOrSeekPlayer] '{BodyMeshName}' collider or root CapsuleCollider is missing on {name}.");
     }

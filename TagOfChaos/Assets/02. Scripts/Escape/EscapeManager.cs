@@ -268,6 +268,11 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 {
                     if (n.Length >= 4 && n[2] is int itemIndex && n[3] is double showAt) EscapeHud.ScheduleStolen(n[1] as string, itemIndex, showAt);
                 }
+                else if ((EscapeNoticeKind)kind == EscapeNoticeKind.Respawned)
+                {
+                    if (n.Length >= 5 && n[2] is int itemIndex && n[3] is double showAt && n[4] is bool onGround)
+                        EscapeHud.ScheduleRespawned(n[1] as string, itemIndex, showAt, onGround);
+                }
                 else EscapeHud.Notice((EscapeNoticeKind)kind, n[1] as string);
                 break;
             case NetEventCodes.ToolHit:
@@ -292,6 +297,51 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
 
     public ItemSO ItemDef(int index) =>
         State != null && index >= 0 && index < State.Items.Count ? catalog.Find(State.Items[index].Id) : null;
+
+    // 장치 옆 바닥(Request1009Plan.md §22.6 M4·B5): 이번 판에 쓰는 장치 칸 자리 하나에서 장치 중심 반대쪽으로 조금씩 나가며, 그 자리 주변
+    // 바닥 높이(둘레 5 m 바닥 높이의 중앙값 ±DropFloorTolerance)에 닿는 첫 자리에 놓는다 — 제단 받침·차체 위가 아니라 쿠키가 서는 바닥.
+    // (장치 오브젝트의 위치는 맵에 따라 바닥이 아니다 — 진저브레드는 지하 제단과 떨어진 맵 원점.)
+    // 칸 자리는 모두 쿠키가 닿는 곳(EscapeReachabilityTests)이라 그 옆 바닥도 닿는다. 상태가 아직 없을 수 있어(판 초기화 중) 칸 목록을 받는다.
+    public Vector3 DeviceDropPoint(List<EscapeState.Slot> slots, int roll)
+    {
+        Vector3 center = DevicePosition;
+        Vector3 anchor = center;
+        bool found = false;
+        if (device != null && slots != null && slots.Count > 0)
+            found = device.TryAnchorPosition(slots[(roll & int.MaxValue) % slots.Count].Anchor, out anchor);
+        Vector3 dir = anchor - center;
+        dir.y = 0f;
+        if (!found || dir.sqrMagnitude < 0.0001f)
+        {
+            dir = Quaternion.Euler(0f, (roll & 0xFFFF) / 65536f * 360f, 0f) * Vector3.forward;
+            anchor = center;
+        }
+        dir.Normalize();
+        float floor = FloorHeightAround(anchor);
+        for (int i = 1; i <= DropSteps; i++)
+        {
+            Vector3 p = SnapToGround(anchor + dir * (DropStep * i));
+            if (Mathf.Abs(p.y - floor) <= DropFloorTolerance) return p;
+        }
+        return SnapToGround(anchor + dir * FallbackDropRadius);
+    }
+
+    // 둘레 DropFloorRadius m 바닥 높이의 중앙값 — 장치 몸체 위가 아닌, 쿠키가 걸어 다니는 바닥 높이.
+    private float FloorHeightAround(Vector3 p)
+    {
+        var heights = new List<float>(DropFloorSamples);
+        for (int i = 0; i < DropFloorSamples; i++)
+            heights.Add(SnapToGround(p + Quaternion.Euler(0f, i * 360f / DropFloorSamples, 0f) * Vector3.forward * DropFloorRadius).y);
+        heights.Sort();
+        return heights[heights.Count / 2];
+    }
+
+    private const float DropStep = 0.8f;
+    private const int DropSteps = 4;
+    private const float DropFloorTolerance = 0.6f;
+    private const float DropFloorRadius = 5f;
+    private const int DropFloorSamples = 12;
+    private const float FallbackDropRadius = 2.5f;
 
     public Vector3 SnapToGround(Vector3 pos)
     {

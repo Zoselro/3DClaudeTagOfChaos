@@ -11,6 +11,8 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
     private const float AppearSeconds = 0.35f;
     private const float AppearOvershoot = 1.08f;
     private const int AppearDust = 14;
+    private const float LidCloseSeconds = 0.4f;
+    private const int RecloseDust = 6;
 
     [SerializeField] private Transform lid;
     [SerializeField, Min(0f)] private float holdSeconds = 2f;
@@ -23,6 +25,7 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
     private bool registered;
     private Vector3 baseScale = Vector3.one;
     private float appearStart = -1f;
+    private float lidCloseStart = -1f;
     private ParticleSystem dust;
 
     public Vector3 InteractionPoint => transform.position;
@@ -40,6 +43,8 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
     // appear: 숨어 있던 상자가 변장 시간이 끝나 처음 나타나는 순간이면 튀어나오는 연출을 한다.
     public void Show(int index, EscapeState.Chest chest, bool appear = false)
     {
+        // 열려 있던 상자에 재료가 다시 생겨 닫힌 모습으로 돌아갈 때는 뚜껑을 천천히 닫는다(Request1009Plan.md §22.6 M4) — 근처 쿠키가 알아보게.
+        bool reclosing = gameObject.activeSelf && chestIndex == index && data.Opened && !chest.Opened;
         chestIndex = index;
         data = chest;
         if (!gameObject.activeSelf)
@@ -47,7 +52,9 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
             gameObject.SetActive(true);
             if (appear) BeginAppear();
         }
-        if (lid != null) lid.localRotation = Quaternion.Euler(chest.Opened ? OpenLidAngle : 0f, 0f, 0f);
+        if (reclosing) BeginLidClose();
+        else if (chest.Opened) { lidCloseStart = -1f; SetLid(1f); }
+        else if (lidCloseStart < 0f) SetLid(0f); // 닫는 중이면 그대로 둔다
         SetRegistered(!chest.Opened);
     }
 
@@ -62,6 +69,27 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
     {
         SetRegistered(false);
         EndAppear();
+        EndLidClose();
+    }
+
+    private void BeginLidClose()
+    {
+        lidCloseStart = Time.time;
+        if (dust == null) dust = CreateDust();
+        dust.Emit(RecloseDust);
+    }
+
+    private void EndLidClose()
+    {
+        if (lidCloseStart < 0f) return;
+        lidCloseStart = -1f;
+        SetLid(data.Opened ? 1f : 0f);
+    }
+
+    // open01: 0 = 닫힘, 1 = 열림
+    private void SetLid(float open01)
+    {
+        if (lid != null) lid.localRotation = Quaternion.Euler(OpenLidAngle * open01, 0f, 0f);
     }
 
     private void BeginAppear()
@@ -81,6 +109,12 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
 
     private void Update()
     {
+        if (lidCloseStart >= 0f)
+        {
+            float lt = (Time.time - lidCloseStart) / LidCloseSeconds;
+            if (lt >= 1f) EndLidClose();
+            else SetLid(1f - Mathf.SmoothStep(0f, 1f, lt));
+        }
         if (appearStart < 0f) return;
         float t = (Time.time - appearStart) / AppearSeconds;
         if (t >= 1f) EndAppear();

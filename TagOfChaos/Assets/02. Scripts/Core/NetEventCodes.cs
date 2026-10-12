@@ -14,4 +14,5 @@ public static class NetEventCodes
     public const byte RoomSettingsRequest = 10; // research.md R5-22 — 호스트가 방장에게 방 설정(인원·제한시간·타임어택) 변경을 요청
     public const byte KickRequest = 11; // Request1009Plan.md §19.6 — 호스트가 방장에게 대기실 강퇴를 요청(내용: 대상 액터 번호)
     public const byte Kicked = 12;      // 방장이 강퇴 대상에게만 보낸다(내용: 대상 액터 번호) — 받은 사람은 방을 나간다
+    public const byte LobbyDoorState = 13; // Request1009Plan.md §22.6 M1 — 판 도중 대기실에서 기다리는 괴물끼리 문 상태를 나눈다(문 ID, 상태)
 }

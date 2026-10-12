@@ -22,6 +22,14 @@ public class EscapeTextsSO : ScriptableObject
     public string stolenFromDeviceWithFinal = "The spy took the {0}!";
     [Tooltip("받침 없을 때. {0} = 재료 이름")]
     public string stolenFromDeviceNoFinal = "The spy took the {0}!";
+    [Tooltip("스파이가 로켓에 넣은 재료가 다른 상자에 다시 생긴 뒤 n초 후(괴물 제외). 받침 있을 때. {0} = 재료 이름")]
+    public string respawnedInChestWithFinal = "The {0} the spy used is back in another chest";
+    [Tooltip("받침 없을 때. {0} = 재료 이름")]
+    public string respawnedInChestNoFinal = "The {0} the spy used is back in another chest";
+    [Tooltip("빈 상자가 없어 탈출 장치 옆 바닥에 놓였을 때. 받침 있을 때. {0} = 재료 이름")]
+    public string respawnedOnGroundWithFinal = "The {0} the spy used dropped next to the escape";
+    [Tooltip("받침 없을 때. {0} = 재료 이름")]
+    public string respawnedOnGroundNoFinal = "The {0} the spy used dropped next to the escape";
     public string youAreSpy = "You are the SPY";
     public string spyBadge = "SPY";
     public string deviceComplete = "The escape is open!";
