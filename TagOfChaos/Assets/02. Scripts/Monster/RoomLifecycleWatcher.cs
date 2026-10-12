@@ -14,25 +14,30 @@ public class RoomLifecycleWatcher : MonoBehaviourPunCallbacks
     {
         if (monstersGoneAt.HasValue) return;
         if (!PhotonNetwork.IsMasterClient) return; // 떠난 사람이 방장이었어도 PUN은 방장 교체 후 이 콜백을 부른다
-        if (!RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters)) return;
+        int[] monsters = MonsterRoster.Current(); // 방장이 마지막으로 보낸 목록 — 응답 전에 두 번째 괴물이 나가도 이어서 계산(F-04)
         if (!monsters.Contains(otherPlayer.ActorNumber)) return; // 쿠키가 나간 건 이 경로와 무관(쿠키는 파괴되면 관전만 함)
 
         // 목록 갱신과 남은 수 판단을 방금 계산한 배열로 한다. 예전에는 SetCustomProperties 직후 캐시를 다시
         // 읽었는데, 온라인(PUN 기본 BroadcastPropsChangeToAll=true)에서는 서버 응답 전까지 캐시가 옛 값이라
         // 항상 "괴물 1명 남음"으로 보여 경고·복귀가 일어나지 않았다(Bug-fix-plan.md §24.4 ⑱).
-        int[] remaining = monsters.Where(a => a != otherPlayer.ActorNumber).ToArray();
+        int[] remaining = MonsterRoster.Remaining(monsters, PhotonNetwork.CurrentRoom.Players.Keys);
         var props = new Hashtable { { NetKeys.MonsterActorNumbers, remaining } };
 
-        // 쿠키가 모두 탈출한 뒤 마녀가 스파이·괴물을 없애는 중이면(Request1009Plan.md §19.4) 대기실로 돌려보내지 않고 연출·결과까지 간다.
-        bool witchPurging = WitchTimeline.Mode == WitchMode.Purge && !RoomState.TryGetInt(NetKeys.GameResult, out _);
-        if (remaining.Length == 0 && !witchPurging)
+        // 괴물 없이도 판을 이어 가는 경우(Request1009Plan.md §19.4·§21): 마녀 처단 중, 또는 스파이 로켓이 떠나 마녀 타이머가 켜진 뒤.
+        // 이때도 목록은 갱신한다(빈 배열) — 마녀 사망·결과 화면·추격 음악이 "괴물 없음"을 본다. 결과가 이미 났으면 결과 화면이 처리한다.
+        bool witchPurging = WitchTimeline.Mode == WitchMode.Purge;
+        bool spyRocketLaunched = RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _);
+        bool resultDecided = RoomState.TryGetInt(NetKeys.GameResult, out _);
+        if (remaining.Length == 0 && !MonsterRoster.ReturnWhenMonstersGone(spyRocketLaunched, witchPurging, resultDecided))
+            Debug.Log($"[RoomLifecycle] All monsters left (last: actor {otherPlayer.ActorNumber}) — the round continues (rocket launched: {spyRocketLaunched}, purge: {witchPurging}, result: {resultDecided}).");
+        else if (remaining.Length == 0)
         {
             monstersGoneAt = PhotonNetwork.Time;
             props[NetKeys.MonsterDepartedAt] = monstersGoneAt.Value; // 목록 갱신과 한 번에 보낸다
             Debug.Log($"[RoomLifecycle] All monsters left (last: actor {otherPlayer.ActorNumber}). Returning to lobby in {GameSettings.Current.MonsterDepartureReturnDelay}s.");
         }
 
-        PhotonNetwork.CurrentRoom.SetCustomProperties(props);
+        AuthorityProps.SetRoom(props);
     }
 
     // 경고 도중 방장이 바뀌면 새 방장이 복귀를 이어받는다 — 시각은 Room Prop에 남아 있다.

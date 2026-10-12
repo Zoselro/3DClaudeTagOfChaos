@@ -171,7 +171,8 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
         Debug.Log($"[CookieLife] view={pv.ViewID} crumbs x{crumbCount} ({(crumbColors != null ? crumbColors.Length + " surface colors" : "fallback color")})");
     }
 
-    // 부서지는 순간: 숨기고, 본인 클라이언트는 관전으로 넘어간다. 가루가 아직이면(애니메이션이 빨리 끝남 등) 여기서 터뜨린다.
+    // 부서지는 순간: 숨긴다. 가루가 아직이면(애니메이션이 빨리 끝남 등) 여기서 터뜨린다. 파괴 확정(방장이 쓴 HitCount)은 따로 오므로
+    // 확정이 없으면(방장이 거절) 주기적 맞춤(Reconcile)이 다시 보이게 되돌린다. 관전 전환은 확정된 뒤에만(EnterSpectatorIfConfirmed).
     private void FinishGrabKill(string reason)
     {
         if (!crumbsSpawned) SpawnCrumbs();
@@ -180,8 +181,15 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
         ApplyBroken();
         appliedState = LifeState.Broken;
         Debug.Log($"[CookieLife] view={pv.ViewID} crushed (via {reason})");
+        EnterSpectatorIfConfirmed();
+    }
 
-        if (pv != null && pv.IsMine && TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Broken);
+    // 본인 쿠키가 방장 확정으로 부서졌으면 관전으로 넘어간다(같은 이유로 여러 번 불러도 SpectatorController가 한 번만 처리).
+    private void EnterSpectatorIfConfirmed()
+    {
+        if (!PaintPhaseController.IsPaintScene) return; // 대기실: 이전 판 HitCount가 초기화 전에 잠깐 남아 있어도 관전으로 넘어가지 않는다
+        if (pv == null || !pv.IsMine || pv.Owner == null || !RoomState.IsBroken(pv.Owner)) return;
+        if (TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Broken);
     }
 
     private void Start()
@@ -212,7 +220,9 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
     {
         if (pv == null || pv.Owner == null) return;
         if (IsBeingGrabKilled) return; // 붙잡힘 동안에는 부서지는 순간(FinishGrabKill)까지 숨기기를 미룬다
-        LifeState desired = RoomState.IsBroken(pv.Owner) ? LifeState.Broken : LifeState.Alive;
+        // 대기실에서는 늘 살아 있는 모습 — 이전 판 HitCount가 방장의 초기화 전에 잠깐 남아 있다(2026-10-12 멀티 시험).
+        LifeState desired = PaintPhaseController.IsPaintScene && RoomState.IsBroken(pv.Owner) ? LifeState.Broken : LifeState.Alive;
+        if (desired == LifeState.Broken) EnterSpectatorIfConfirmed(); // 처형 연출이 먼저 끝나고 확정이 나중에 온 경우·마녀
         if (desired == appliedState) return;
 
         if (desired == LifeState.Broken) ApplyBroken();

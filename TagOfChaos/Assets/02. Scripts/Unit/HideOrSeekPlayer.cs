@@ -20,6 +20,8 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
 
     private float baseSpeed;
     private const float DodgeSpeedMultiplier = 2f;
+    // 낼 수 있는 가장 빠른 속도(회피) — 방장이 위치 조작을 감지할 때 쓴다(S-15).
+    public float MaxMoveSpeed => Mathf.Max(speed, baseSpeed) * DodgeSpeedMultiplier;
 
     [Header("States")]
     [SerializeField] private bool isJump;
@@ -52,12 +54,16 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     public const string RpcOnGrabbedByOwner = nameof(OnGrabbedByOwner);
     public const string RpcOnReleased = nameof(OnReleased);
     public const string RpcRequestGrabKill = nameof(RequestGrabKill);
+    public const string RpcOnGrabRejected = nameof(OnGrabRejected);
+
+    // 이 쿠키가 다른 쿠키를 들고 있는지(본인은 자기 상태, 원격은 동기화 값) — 들기 대상 고르기·거절에 쓴다.
+    public bool IsCarryingSomeone => pv != null && pv.IsMine ? grabController != null && grabController.IsCarrying : networkSync != null && networkSync.RemoteIsCarrying;
 
     // 이 쿠키 자신의 상태로 이동이 잠겼는지(파괴·들림). 채팅 같은 입력 차단은 캐릭터 종류와 무관하게 PlayerInput.IsGameplaySuppressed가
     // 맡는다 — 예전에는 채팅이 이 값을 직접 켜 쿠키만 잠겼고, 잠긴 동안 Update가 멈춰 걷기 애니메이션이 남았다(Bug-fix-plan.md §41 ㊵).
     // 탈출·로켓 탑승한 몸은 숨겨지고 물리가 멈추므로(EscapeCharacterState) 이동도 잠근다.
-    public bool IsMovementLocked => IsBroken || (carryFollower != null && carryFollower.IsCarried) || (stun != null && stun.IsStunned)
-                                    || (pv != null && pv.Owner != null && (RoomState.HasEscaped(pv.Owner) || EscapeManager.IsWaiting(pv.Owner.ActorNumber)));
+    public bool IsMovementLocked => IsBroken || awaitingDeathUntil > 0f || (carryFollower != null && carryFollower.IsCarried) || (stun != null && stun.IsStunned)
+                                    || (pv != null && pv.Owner != null && EscapeManager.HasLeftMap(pv.Owner.ActorNumber));
     private StunReceiver stun; // 도구에 맞아 기절(EscapePlan.md §1.8)
 
     // 외부에서 "이 인스턴스가 내 캐릭터인지" 판별할 수단 (GameManager의 채팅 이동잠금이 참조)
@@ -69,17 +75,21 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     public PhotonView View => pv;
     // 괴물에게 붙잡혀 부서지는 중인 쿠키도 부서지는 순간까지 관전 대상으로 남긴다 — 파괴 판정은 잡힌 즉시 기록되지만 관전자도
     // 잡힌 본인처럼 분쇄 연출을 끝까지 보게 한다(Bug-fix-plan.md §38).
-    public bool IsSpectatable => pv != null && pv.Owner != null && !RoomState.HasEscaped(pv.Owner) // 탈출한 쿠키는 숨겨진다
-        && !EscapeManager.IsWaiting(pv.Owner.ActorNumber)                                           // 탈것에 탄 쿠키도 숨겨진다
+    public bool IsSpectatable => pv != null && pv.Owner != null && !EscapeManager.HasLeftMap(pv.Owner.ActorNumber) // 탈것에 탔거나 탈출한 쿠키는 숨겨진다
         && (!RoomState.IsBroken(pv.Owner) || (lifePresenter != null && lifePresenter.IsBeingGrabKilled));
     public bool CanInteract => !IsMovementLocked; // 파괴·들림 중에는 상호작용 불가(채팅 중에는 InteractPressed가 억제된다)
     public float CameraTargetHeight => Camera_Ctrl.CookieTargetHeight;
     public float CameraDistance => -1f; // Camera_Ctrl 인스펙터 기본 거리
 
-    // GrabKill로 파괴됐는지 여부(0=정상, 2=파괴) — GameRule.md §4.4, (A) 확정으로 1(균열)은 도달 불가능
-    private int hitCount;
+    // 파괴됐는지 — 방장이 처형·마녀를 확정해 쓴 HitCount로만 정한다(AuditFixPlan.md §8.1). 예전에는 본인이 자기 값을 써서
+    // 조작된 클라이언트는 잡혀도 죽지 않을 수 있었다.
+    // 파괴는 맵에서만 의미가 있다 — 대기실로 돌아온 직후에는 이전 판 HitCount가 방장의 초기화(RoundStateResetter)가 도착할 때까지
+    // 잠깐 남아 있어, 대기실 쿠키가 잠기고 관전으로 넘어가던 문제(2026-10-12 멀티 시험)를 막는다.
+    public bool IsBroken => PaintPhaseController.IsPaintScene && pv != null && pv.Owner != null && RoomState.IsBroken(pv.Owner);
 
-    public bool IsBroken => hitCount >= 2;
+    // 본인: 붙잡혀 처형 연출을 시작했지만 방장의 확정(HitCount)을 기다리는 중 — 이 시각까지 확정이 없으면(방장이 거절) 풀린다.
+    private const float GrabKillConfirmTimeout = 4f;
+    private float awaitingDeathUntil = -1f;
 
     public void SetCarry(CarryReason reason, bool on) => animationDriver.SetCarry(reason, on);
 
@@ -100,18 +110,44 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         carrierOverrideUntil = Time.time + CarrierOverrideSeconds;
     }
 
+    // 다른 쿠키가 나를 들었다(드는 쪽 → 내 주인에게만). 보낸 사람이 그 드는 쪽 캐릭터의 주인이고, 내가 이미 들렸거나 누군가를 들고 있지 않고,
+    // 가까울 때만 받아들인다(F-01). 거절하면 드는 쪽에 알려 그 화면의 들기를 되돌린다.
     [PunRPC]
-    private void OnGrabbedByOwner(int newCarrierViewId)
+    private void OnGrabbedByOwner(int newCarrierViewId, PhotonMessageInfo info)
     {
-        if (!pv.IsMine || IsBroken) return;
+        if (pv == null || !pv.IsMine) return; // pv == null: 대기 괴물이 보관 중인(아직 깨어나지 않은) 캐릭터(NetHold)
+        PhotonView carrierView = PhotonView.Find(newCarrierViewId);
+        bool senderOwnsCarrier = carrierView != null && carrierView != pv && info.Sender != null && carrierView.Owner == info.Sender
+                                 && carrierView.GetComponent<HideOrSeekPlayer>() != null;
+        float distance = carrierView != null ? Vector3.Distance(carrierView.transform.position, transform.position) : float.MaxValue;
+        float range = grabController != null ? grabController.GrabRange : 1.5f;
+        if (!NetSecurityRules.CanAcceptCarry(IsBroken || awaitingDeathUntil > 0f, carryFollower.IsCarried, IsCarryingSomeone, senderOwnsCarrier, distance, range)
+            || EscapeManager.HasLeftMap(pv.Owner.ActorNumber))
+        {
+            if (carrierView != null && info.Sender != null) carrierView.RPC(RpcOnGrabRejected, info.Sender, pv.ViewID);
+            return;
+        }
         if (carryFollower.TryAttach(newCarrierViewId)) animationDriver.ChangeState(PlayerMoveState.Carried);
     }
 
+    // 나를 들고 있는 쪽만 내려놓을 수 있다(F-01 — 예전에는 아무나 보내도 떨어졌다).
     [PunRPC]
-    private void OnReleased()
+    private void OnReleased(PhotonMessageInfo info)
     {
-        if (!pv.IsMine) return;
+        if (pv == null || !pv.IsMine || !carryFollower.IsCarried) return;
+        PhotonView carrierView = PhotonView.Find(carryFollower.CarrierViewId);
+        if (carrierView != null && info.Sender != null && carrierView.Owner != info.Sender) return;
         ReleaseFromCarrierLocally();
+    }
+
+    // 내가 들려던 쿠키가 거절했다(드는 쪽 캐릭터에서 받는다). 보낸 사람이 그 쿠키의 주인일 때만.
+    [PunRPC]
+    private void OnGrabRejected(int targetViewId, PhotonMessageInfo info)
+    {
+        if (pv == null || !pv.IsMine || grabController == null) return;
+        PhotonView target = PhotonView.Find(targetViewId);
+        if (target == null || target.Owner != info.Sender) return;
+        grabController.OnGrabRejected(targetViewId);
     }
 
     // 파괴 상태면 키네마틱·잠금을 그대로 유지하고, 아니면 물리와 Idle 애니메이션을 되돌린다.
@@ -136,6 +172,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     [PunRPC]
     private void RequestGrabKill(int monsterViewId, PhotonMessageInfo info)
     {
+        if (pv == null) return; // 대기 괴물이 보관 중인(아직 깨어나지 않은) 캐릭터(NetHold) — PUN은 꺼진 컴포넌트에도 RPC를 부른다
         // 보낸 사람이 그 괴물 캐릭터의 주인인지 확인한다 — 아무 클라이언트나 쿠키를 파괴할 수 없게(research.md R4.10-2).
         PhotonView monsterView = PhotonView.Find(monsterViewId);
         MonsterController monster = monsterView != null ? monsterView.GetComponent<MonsterController>() : null;
@@ -144,20 +181,19 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
             Debug.LogWarning($"[HideOrSeekPlayer] Ignored GrabKill on view {pv.ViewID}: sender {info.Sender?.ActorNumber} does not own monster view {monsterViewId}.");
             return;
         }
-        if (pv.IsMine && IsBroken) return;
+        if (IsBroken) return;
+
+        // 방장이 확정을 검증한다 — 처형 연출이 몸을 괴물 손으로 옮기기 전, 방장 화면의 실제 위치로(S-06).
+        // 확정하면 방장이 HitCount·DeathCause·CatchCount를 쓰고, 아이템은 EscapeAuthority.OnPlayerBroken이 그 자리에 떨어뜨린다(D11).
+        if (PhotonNetwork.IsMasterClient) GrabKillAuthority.TryConfirm(this, monster, info.Sender);
 
         // 붙잡힘 연출을 먼저 시작해야 곧이어 오는 HitCount 변경에 즉시 사라지지 않는다.
         bool presented = lifePresenter != null && lifePresenter.BeginGrabKill(monster);
 
-        if (!pv.IsMine) return; // 본인 클라이언트만 자기 상태 확정(소유권 원칙)
+        if (!pv.IsMine) return;
 
-        hitCount = 2;
-        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable
-        {
-            { NetKeys.HitCount, hitCount },
-            { NetKeys.DeathCause, (int)DeathCause.Monster },
-        });
-        if (TryGetComponent(out PlayerInventory inventory)) inventory.RequestDropAll(); // 잡히면 인벤토리의 모든 아이템이 그 자리에 떨어진다(D11)
+        // 본인: 연출만 맞춘다. 파괴 확정은 방장이 쓴 HitCount로 온다(OnPlayerPropertiesUpdate). 확정이 오지 않으면 풀린다.
+        awaitingDeathUntil = Time.time + GrabKillConfirmTimeout;
 
         // 들고 있던 쿠키는 내려놓고, 들려 있었다면 캐리 관계를 끊는다.
         if (grabController != null) grabController.Release();
@@ -172,8 +208,29 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         if (!rb.isKinematic) rb.linearVelocity = Vector3.zero;
         rb.isKinematic = true;
 
-        // 연출 중이면 부서지는 순간 CookieLifeStatePresenter가 관전으로 넘긴다 — 그때까지 자기 쿠키가 잡혀 가는 모습을 본다.
-        if (!presented && TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Broken);
+        // 관전 전환은 파괴가 확정된 뒤 CookieLifeStatePresenter가 한다(부서지는 순간 또는 확정이 도착한 순간 중 늦은 쪽).
+    }
+
+    // 방장이 내 파괴를 확정했다(처형 또는 마녀): 들기 관계를 끊고 물리를 멈춘다. 관전 전환은 CookieLifeStatePresenter.
+    public override void OnPlayerPropertiesUpdate(Photon.Realtime.Player targetPlayer, Hashtable changedProps)
+    {
+        if (pv == null || !pv.IsMine || targetPlayer != pv.Owner || !changedProps.ContainsKey(NetKeys.HitCount) || !IsBroken) return;
+        awaitingDeathUntil = -1f;
+        if (grabController != null) grabController.Release();
+        ReleaseFromCarrierLocally();
+        if (!rb.isKinematic) rb.linearVelocity = Vector3.zero;
+        rb.isKinematic = true;
+    }
+
+    // 처형 확정이 오지 않았다(방장이 거절했거나 방장이 바뀌는 사이 사라짐): 다시 움직일 수 있게 되돌린다.
+    private void CancelAwaitedDeath()
+    {
+        awaitingDeathUntil = -1f;
+        if (IsBroken) return;
+        rb.isKinematic = false;
+        rb.linearVelocity = Vector3.zero;
+        animationDriver.ChangeState(PlayerMoveState.Idle);
+        Debug.LogWarning($"[HideOrSeekPlayer] Grab kill on view {pv.ViewID} was not confirmed by the master. Released.");
     }
 
     private void Awake()
@@ -250,20 +307,6 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         if (pv.IsMine) gameObject.AddComponent<PlayerInventory>().Init(this, escape);
     }
 
-    // 마녀가 내리쳤다(EscapePlan.md §1.2). 본인 클라이언트만 자기 상태를 확정한다(잡혔을 때와 같은 소유권 원칙).
-    public void KillByWitch()
-    {
-        if (!pv.IsMine || IsBroken) return;
-        hitCount = 2;
-        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable
-        {
-            { NetKeys.HitCount, hitCount },
-            { NetKeys.DeathCause, (int)DeathCause.Witch },
-        });
-        if (!rb.isKinematic) rb.linearVelocity = Vector3.zero; // 탈것에서 기다리던 쿠키는 이미 키네마틱(EscapeCharacterState)
-        rb.isKinematic = true;
-        if (TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Broken);
-    }
 
     public override void OnEnable()
     {
@@ -283,6 +326,12 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         {
             UpdateRemote();
             return;
+        }
+
+        if (awaitingDeathUntil > 0f && (IsBroken || Time.time >= awaitingDeathUntil))
+        {
+            if (IsBroken) awaitingDeathUntil = -1f;
+            else CancelAwaitedDeath();
         }
 
         if (IsMovementLocked)

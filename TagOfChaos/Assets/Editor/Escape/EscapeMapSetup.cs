@@ -113,6 +113,7 @@ public static class EscapeMapSetup
         var root = new GameObject(RootName);
         SceneManager.MoveGameObjectToScene(root, scene);
         var manager = root.AddComponent<EscapeManager>();
+        BindSceneReferences(manager, map);
 
         EscapeDevice deviceComp = BuildDevice(root.transform, map, exitKind, device.Value, avoid.Count > 0 ? avoid[0] : Vector3.back * 50f, deviceForward);
         if (exitKind == EscapeExitKind.ChocolateTrain && deviceForward != null) FitTrainTunnel(deviceComp.transform, deviceForward.Value);
@@ -131,6 +132,7 @@ public static class EscapeMapSetup
         WitchPresenter witchComp = witch.AddComponent<WitchPresenter>();
 
         manager.EditorBind(anchors, deviceComp, rocketComp, witchComp);
+        BindSceneReferences(manager, map);
         return $"[EscapeMapSetup] {map}: device {Fmt(device.Value)}, rocket {Fmt(rocket.Value)} ({Dist(device.Value, rocket.Value):F0} m apart), " +
                $"chest slots {chests.Count}/{ChestSlotCount} from {chestCandidates.Count} candidates, witch {Fmt(witch.transform.position)}";
     }
@@ -148,6 +150,23 @@ public static class EscapeMapSetup
         if (found == null) return null;
         forward = found.transform.forward;
         return found.transform.position;
+    }
+
+    // 씬 이름·오브젝트 이름 규칙에 기대지 않도록 레시피와 오븐 문을 직접 연결한다(AuditFixPlan.md F-21).
+    // 장치 연출(OvenSequence)은 장치가 만들어진 뒤에 붙으므로 Apply 끝에서도 한 번 더 부른다.
+    public static void BindSceneReferences(EscapeManager manager, string map)
+    {
+        EscapeCatalogSO catalog = EscapeCatalogSO.Current;
+        var so = new SerializedObject(manager);
+        so.FindProperty("recipeOverride").objectReferenceValue = catalog != null ? catalog.RecipeFor(map) : null;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        foreach (OvenSequence oven in manager.GetComponentsInChildren<OvenSequence>(true))
+        {
+            GameObject door = GameObject.Find("HAU_MagicOven_Door");
+            var ovenSo = new SerializedObject(oven);
+            ovenSo.FindProperty("mapDoor").objectReferenceValue = door != null ? door.transform : null;
+            ovenSo.ApplyModifiedPropertiesWithoutUndo();
+        }
     }
 
     // 맵별 탈출 연출(EscapeSequence)을 장치에 붙인다.

@@ -81,7 +81,7 @@ public class PaintPhaseController : MonoBehaviourPunCallbacks
             assignedColors[i] = shuffledColors[i % shuffledColors.Length];
         }
 
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
+        AuthorityProps.SetRoom(new Hashtable
         {
             { NetKeys.ForcedPaintActorNumbers, actorNumbers },
             { NetKeys.ForcedPaintColors, assignedColors },

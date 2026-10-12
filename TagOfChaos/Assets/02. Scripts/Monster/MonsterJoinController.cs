@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 // 합류 시각을 기준으로 GameEndTime(GameSettings.SurvivalDuration 후)을 마스터가 세팅하고, 괴물 소유 클라이언트 각자가
 // 자기 몫의 MonsterPlayer를 로컬로 스폰한다(PlayerSpawner.cs와 동일한 InRoom 대기 관례는
 // 이미 색칠 페이즈 진입 시점에 보장돼 있으므로 별도 대기 불필요).
-public class MonsterJoinController : MonoBehaviourPunCallbacks
+public class MonsterJoinController : MonoBehaviour
 {
     private const string MonsterSpawnPointName = SceneSpawnPoints.Monster;
     private const string MonsterPrefabName = "MonsterPlayer";
@@ -54,7 +54,7 @@ public class MonsterJoinController : MonoBehaviourPunCallbacks
 
         joinRequested = true;
         double joinTime = PhotonNetwork.Time;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
+        AuthorityProps.SetRoom(new Hashtable
         {
             { NetKeys.MonsterJoined, 1 },
             { NetKeys.GameEndTime, joinTime + RoomState.TimeLimitSeconds() }, // 방장이 정한 제한시간(EscapePlan.md §1.7)

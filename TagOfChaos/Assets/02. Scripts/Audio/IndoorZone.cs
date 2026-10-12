@@ -22,7 +22,6 @@ public class IndoorZone : MonoBehaviour
 
     // 듣는 사람이 실내에 있는 정도(0~1, 서서히 바뀐다). 바탕 환경음 먹먹함에 쓴다.
     public static float ListenerLevel => listenerLevel;
-    public static int ActiveCount => Active.Count;
 
     private void OnEnable() => Active.Add(this);
 
@@ -38,8 +37,6 @@ public class IndoorZone : MonoBehaviour
         foreach (Bounds b in boxes) if (b.Contains(local)) return true;
         return false;
     }
-
-    public Bounds[] LocalBoxes => boxes;
 
     public static IndoorZone At(Vector3 point)
     {

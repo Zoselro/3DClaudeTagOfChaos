@@ -53,7 +53,7 @@ public static class RoomSettingsAuthority
             room.IsOpen = false;
             room.IsVisible = false;
         }
-        room.SetCustomProperties(props);
+        AuthorityProps.SetRoom(props);
         return clampedPlayers > players ? Result.PlayersRaised : Result.Applied; // 지금 인원보다 적게 고르면 올려서 알린다
     }
 

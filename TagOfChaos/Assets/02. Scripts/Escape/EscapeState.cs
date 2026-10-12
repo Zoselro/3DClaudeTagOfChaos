@@ -16,7 +16,7 @@ public enum ItemLocation : byte
 // 문(DoorStates)과 같은 "방장만 쓴다" 방식이다. 재료·상자에는 PhotonView가 없다(최적화, §5.2).
 public sealed class EscapeState
 {
-    public const byte FormatVersion = 3; // 2: 완성·출발 시각, 탑승 대기(EscapeVisualPlan.md §4) / 3: 칸 자리 번호, 훔침 표시 삭제(2026-10-03)
+    public const byte FormatVersion = 4; // 2: 완성·출발 시각, 탑승 대기(EscapeVisualPlan.md §4) / 3: 칸 자리 번호, 훔침 표시 삭제(2026-10-03) / 4: Revision(F-18)
 
     public struct Item
     {
@@ -49,6 +49,7 @@ public sealed class EscapeState
     }
 
     public int RequiredCount;
+    public int Revision; // 방장이 커밋할 때마다 1씩 오른다 — 방장 화면은 늦게 도착한 옛 상태를 무시한다(F-18)
     public readonly List<Item> Items = new List<Item>();
     public readonly List<Chest> Chests = new List<Chest>();
     public readonly List<Slot> DeviceSlots = new List<Slot>();
@@ -111,6 +112,7 @@ public sealed class EscapeState
         {
             w.Write(FormatVersion);
             w.Write(RequiredCount);
+            w.Write(Revision);
             w.Write(Items.Count);
             foreach (Item it in Items)
             {
@@ -149,7 +151,7 @@ public sealed class EscapeState
             using (var r = new BinaryReader(ms))
             {
                 if (r.ReadByte() != FormatVersion) return null;
-                var s = new EscapeState { RequiredCount = r.ReadInt32() };
+                var s = new EscapeState { RequiredCount = r.ReadInt32(), Revision = r.ReadInt32() };
                 int items = r.ReadInt32();
                 for (int i = 0; i < items; i++)
                 {
@@ -184,6 +186,11 @@ public sealed class EscapeState
     }
 
     public EscapeState Clone() => Decode(Encode());
+
+    // 탈출 판정의 단일 기준(방장이 쓴 상태만 — 본인이 쓰는 속성은 믿지 않는다, AuditFixPlan.md §8.2).
+    // 탈출 = 탈것이 출발해 탈출했거나 스파이 로켓에 탔다. 맵을 떠남 = 탈출 + 탈것에 타서 출발을 기다리는 중.
+    public bool HasEscaped(int actor) => Escaped.Contains(actor) || Boarded.Contains(actor);
+    public bool HasLeftMap(int actor) => Waiting.Contains(actor) || HasEscaped(actor);
 
     private static void WriteSlots(BinaryWriter w, List<Slot> slots)
     {

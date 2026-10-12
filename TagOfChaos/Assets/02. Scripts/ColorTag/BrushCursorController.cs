@@ -4,7 +4,7 @@ using UnityEngine;
 // 색칠 페이즈 중 로컬 플레이어의 마우스 위치를 3D 붓 모델로 표시한다. OS 하드웨어 커서는
 // 캐릭터 표면 위에 있을 때만 숨기고, 스와치 UI 등을 조작할 때는 그대로 보여준다.
 // (GameRule.md §3 자유 색칠 재작성 — 활성 여부를 PaintPhaseEndTime 기반으로 매 프레임 판정한다.)
-public class BrushCursorController : MonoBehaviourPunCallbacks
+public class BrushCursorController : MonoBehaviour
 {
     [SerializeField] private BrushSettingsSO brushSettings;
     [SerializeField] private ColorPaletteSO palette;
@@ -20,9 +20,8 @@ public class BrushCursorController : MonoBehaviourPunCallbacks
         Cursor.visible = true;
     }
 
-    public override void OnDisable()
+    private void OnDisable()
     {
-        base.OnDisable();
         Cursor.visible = true;
     }
 

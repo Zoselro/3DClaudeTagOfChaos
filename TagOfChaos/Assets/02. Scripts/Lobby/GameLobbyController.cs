@@ -41,6 +41,9 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     // 강퇴: 응답하지 않는 대상은 방장이 연결을 끊는다 — PUN 2.55는 보내는 쪽·받는 쪽 모두 켜 두어야 한다.
     private void Awake() => PhotonNetwork.EnableCloseConnection = true;
 
+    // 게임 씬에서는 끈다(F-17): 켜 둔 채 넘어가면 방장이 아닌 사람이 방장이 된 뒤 보낸 연결 끊기 요청에 게임 중에도 응한다.
+    private void OnDestroy() => PhotonNetwork.EnableCloseConnection = false;
+
     private void Start()
     {
         if (!PhotonNetwork.InRoom || PhotonNetwork.CurrentRoom == null) return; // 방에 들어오지 않은 채 씬만 단독 실행된 경우 방어
@@ -52,9 +55,12 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     // AutomaticallySyncScene으로 뒤따라 입장하는 클라이언트는 Start() 시점에 룸 상태(인원수/방장 여부)를
     // 아직 완전히 따라잡지 못했을 수 있다 — 화면 값이 실제 값과 달라지면 다음 프레임에 스스로 바로잡는
     // 안전망. 괴물 선정 남은 시간은 초가 바뀔 때만 문구를 갱신한다.
+    private bool regionMovePending;
+
     private void Update()
     {
         if (!PhotonNetwork.InRoom || PhotonNetwork.CurrentRoom == null) return;
+        if (regionMovePending) ApplyRegionMove();
 
         int currentCount = PhotonNetwork.CurrentRoom.PlayerCount;
         int currentHost = RoomState.HostActor();
@@ -123,16 +129,30 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     // 안전망은 인원수/방장 여부만 감시해 Room Props 변화는 잡지 못한다.
     public override void OnRoomPropertiesUpdate(Hashtable propertiesThatChanged)
     {
-        // 호스트가 서버 지역을 바꿨다: 모두 새 지역의 같은 방으로 옮겨 간다(RegionMove).
-        if (propertiesThatChanged.TryGetValue(NetKeys.RegionMove, out object move) && RegionMove.TryDecode(move, out string region, out string token))
+        // 호스트가 서버 지역을 바꿨다: 모두 새 지역의 같은 방으로 옮겨 간다(RegionMove). 받는 즉시 모두 방을 나가므로 방장이 쓴 값인지
+        // 확인한 뒤(쓴 사람 기록은 이 콜백 직후 도착 — 다음 프레임) 옮긴다. 조작된 클라이언트 하나가 대기실 전원을 내보낼 수 있었다(S-12).
+        if (propertiesThatChanged.ContainsKey(NetKeys.RegionMove))
         {
-            RegionMove.Begin(region, token);
+            regionMovePending = true;
             return;
         }
 
         // 괴물 선정뿐 아니라 방장이 방 설정으로 최대 인원을 바꿔도(Photon 기본 속성 MaxPlayers) 정원 판단이 바뀐다 —
         // 예전에는 괴물 키만 봐서 인원을 줄여 정원이 차도 "인원 부족" 문구가 그대로 남았다(2026-10-03). 어떤 방 속성이든 다시 그린다.
         RefreshStartButton();
+    }
+
+    private void ApplyRegionMove()
+    {
+        regionMovePending = false;
+        if (!PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue(NetKeys.RegionMove, out object move)
+            || !RegionMove.TryDecode(move, out string region, out string token)) return;
+        if (!RoomPropertyGuard.WrittenByMaster(NetKeys.RegionMove))
+        {
+            Debug.LogWarning("[GameLobby] Ignored a region move that was not written by the master client.");
+            return;
+        }
+        RegionMove.Begin(region, token);
     }
 
     private void RefreshPlayerList()

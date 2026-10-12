@@ -23,7 +23,6 @@ public class PlayerInventory : MonoBehaviour
 
     public int Selected { get; private set; }
     public ItemSO HeldItem => ItemAt(Selected);
-    public int HeldItemIndex => heldItems[Selected];
     public bool HandsLocked => HeldItem != null && HeldItem.LocksSlotSwitch;
     public event System.Action Changed;
 

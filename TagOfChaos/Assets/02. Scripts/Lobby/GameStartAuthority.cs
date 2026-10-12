@@ -67,7 +67,7 @@ public static class GameStartAuthority
         // 판마다 새 값을 쓰므로 이전 판의 값이 남아 색칠 페이즈가 시작되지 않던 문제도 함께 막는다.
         // 이번 판 맵도 같은 요청으로 기록한다 — 괴물은 시작 신호(PaintPhaseEndTime)를 받을 때 맵 이름도 함께 받는다(GameScenePlan.md §3.2).
         lastMap = map;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
+        AuthorityProps.SetRoom(new Hashtable
         {
             { NetKeys.PaintPhaseEndTime, PhotonNetwork.Time + settings.SceneLoadGrace + settings.PaintPhaseDuration },
             { NetKeys.GameMapScene, map },

@@ -32,8 +32,6 @@ public class MusicPlayer
         stinger = stingerSource;
     }
 
-    public bool IsStingerPlaying => stinger.isPlaying;
-
     // 같은 곡이면 아무것도 하지 않는다(단계가 같으면 매번 불려도 끊기지 않게). 클립이 없는 곡이면 지금 곡만 줄인다.
     public void Play(MusicId id, float fade)
     {

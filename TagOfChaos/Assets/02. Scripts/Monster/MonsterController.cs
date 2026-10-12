@@ -9,7 +9,7 @@ using UnityEngine.Serialization;
 //
 // 이동 방식은 Rigidbody 물리 기반으로 확정됨(사용자 확인, GameRule.md v3.4) — HideOrSeekPlayer.cs와
 // 동일한 패턴(로컬만 실제 물리 시뮬레이션, 원격은 isKinematic)을 그대로 따른다.
-public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRespawnable, IGameCharacter
+public class MonsterController : MonoBehaviour, IPunObservable, IRespawnable, IGameCharacter
 
 {
     [SerializeField] private PhotonView pv;
@@ -114,15 +114,13 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
     private StunReceiver stun; // 도구에 맞아 기절(EscapePlan.md §1.8, D24 — 괴물은 세 도구 모두에 기절)
     public bool IsStunned => stun != null && stun.IsStunned;
 
-    public override void OnEnable()
+    private void OnEnable()
     {
-        base.OnEnable();
         CharacterRegistry.Register(this);
     }
 
-    public override void OnDisable()
+    private void OnDisable()
     {
-        base.OnDisable();
         CharacterRegistry.Unregister(this);
     }
 
@@ -152,12 +150,25 @@ public class MonsterController : MonoBehaviourPunCallbacks, IPunObservable, IRes
         viewSwitcher.Init(this, eyeSocket != null ? eyeSocket : transform);
     }
 
+    // 괴물 캐릭터는 괴물로 정해진 사람만 만든다(MonsterJoinController). 조작된 클라이언트가 PhotonNetwork.Instantiate로 직접 만든
+    // 괴물은 방장이 지우고, 다른 화면은 숨긴다(AuditFixPlan.md §2 — 가짜 괴물로 처형을 보내는 경로 차단). 오프라인 시험은 제외.
+    private bool RejectIfNotMonster()
+    {
+        if (PhotonNetwork.OfflineMode || !RoomState.IsInRoom() || pv == null || pv.Owner == null || !RoomState.HasMonster()) return false;
+        if (RoomState.IsMonster(pv.Owner.ActorNumber)) return false;
+        Debug.LogWarning($"[MonsterController] Actor {pv.Owner.ActorNumber} is not a monster but owns a monster character. Removing it.");
+        if (PhotonNetwork.IsMasterClient) PhotonNetwork.Destroy(gameObject);
+        else gameObject.SetActive(false);
+        return true;
+    }
+
     // 조준한 쿠키를 잡는다(GameFixPlan.md F1). CharacterInteractor가 E키 입력 때 다른 상호작용보다 먼저 부른다.
     public bool TryGrabAimTarget() => grabKillTrigger != null && grabKillTrigger.TryGrabAimTarget();
     public bool HasGrabAimTarget => grabKillTrigger != null && grabKillTrigger.AimTarget != null;
 
     private void Start()
     {
+        if (RejectIfNotMonster()) return;
         rb = GetComponent<Rigidbody>();
         rb.isKinematic = !pv.IsMine; // 원격은 물리 시뮬레이션 끔(HideOrSeekPlayer.Start()와 동일 이유)
         if (pv.IsMine)

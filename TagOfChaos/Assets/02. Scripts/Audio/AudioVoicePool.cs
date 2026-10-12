@@ -24,12 +24,9 @@ public class AudioVoicePool
         audibility = new float[capacity];
     }
 
-    public int Capacity => busy.Length;
-
     public bool IsBusy(int voice) => busy[voice];
     public SoundId SoundAt(int voice) => sound[voice];
     public int GenerationOf(int voice) => generation[voice];
-    public float AudibilityOf(int voice) => audibility[voice];
 
     // 재생 중인 칸의 들리는 크기를 갱신한다(AudioRuntime이 매 프레임).
     public void SetAudibility(int voice, float value) => audibility[voice] = value;

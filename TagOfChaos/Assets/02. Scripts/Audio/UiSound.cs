@@ -13,9 +13,6 @@ public class UiSound : MonoBehaviour, IPointerEnterHandler
 
     private Button button;
 
-    public SoundId Click => click;
-    public SoundId Hover => hover;
-
     private void Awake()
     {
         button = GetComponent<Button>();

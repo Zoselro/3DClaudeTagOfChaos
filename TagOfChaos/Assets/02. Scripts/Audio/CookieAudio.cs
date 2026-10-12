@@ -84,7 +84,7 @@ public class CookieAudio : MonoBehaviour
         {
             var owner = cookie.View != null ? cookie.View.Owner : null;
             if (owner == null) return true;
-            return !RoomState.HasEscaped(owner) && !EscapeManager.IsWaiting(owner.ActorNumber) && !RoomState.IsBroken(owner);
+            return !EscapeManager.HasLeftMap(owner.ActorNumber) && !RoomState.IsBroken(owner);
         }
     }
 

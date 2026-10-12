@@ -13,7 +13,7 @@ using UnityEngine;
 //
 // 후보는 캐릭터 공통 계약(IGameCharacter)과 CharacterRegistry로만 찾는다 — 예전에는 쿠키·괴물 타입을 각각
 // FindObjectsByType로 훑고 카메라 설정도 타입으로 분기했다(research.md §12 E1). 새 캐릭터 종류가 생겨도 수정할 필요가 없다.
-public class SpectatorController : MonoBehaviourPunCallbacks
+public class SpectatorController : MonoBehaviour
 {
     // 부서진 쿠키가 괴물까지 볼 수 있는지(프리팹 설정). 탈출한 쿠키는 이 값과 상관없이 괴물·스파이를 보지 않는다(SpectateRules).
     public enum SpectateTargets
@@ -44,7 +44,6 @@ public class SpectatorController : MonoBehaviourPunCallbacks
     private Camera_Ctrl camCtrl;
 
     public SpectatorKind Kind => kind;
-    public bool IsSpectating => isSpectating;
 
     public void EnterSpectatorMode(SpectatorKind reason)
     {

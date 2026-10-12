@@ -25,12 +25,7 @@ public class BoardingFx : MonoBehaviour
         fx.style = style;
         fx.started = Time.time;
 
-        EscapeCatalogSO catalog = EscapeCatalogSO.Current;
-        GameObject model = catalog != null && catalog.PassengerModel != null
-            ? Instantiate(catalog.PassengerModel, go.transform, false)
-            : GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        if (model.transform.parent != go.transform) model.transform.SetParent(go.transform, false);
-        foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) Destroy(c);
+        EscapeVisuals.CreatePassenger(go.transform, null);
         if (style == Style.Suck)
         {
             fx.glow = go.AddComponent<Light>();

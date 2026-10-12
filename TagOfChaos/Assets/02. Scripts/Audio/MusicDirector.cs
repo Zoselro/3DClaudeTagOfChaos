@@ -68,31 +68,22 @@ public class MusicDirector
     private static bool AreMonstersKnown() =>
         RoomState.IsInRoom() && RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters) && monsters.Length > 0;
 
-    // 내 결과로 징글을 고른다. 탈출 판정은 결과 화면과 같은 기준(Room의 탈출 표시 + 탈출 상태의 탑승·탈출 목록) — 판정이
-    // 여러 곳에 흩어진 문제는 research.md R4.11-21에서 한 곳으로 모은다.
+    // 내 결과로 징글을 고른다. 탈출 판정은 결과 화면과 같은 기준(EscapeManager.HasEscaped — 방장이 쓴 탈출 상태, F-07).
     private static MusicId Jingle(GameResult result)
     {
         Player local = PhotonNetwork.LocalPlayer;
         bool localIsMonster = RoomState.IsLocalMonster();
-        bool survivedOrEscaped = result == GameResult.EscapeEnded ? HasLeftMap(local) : !RoomState.IsBroken(local);
+        bool survivedOrEscaped = result == GameResult.EscapeEnded ? local != null && EscapeManager.HasEscaped(local.ActorNumber) : !RoomState.IsBroken(local);
         bool anyCookieEscaped = false; // 스파이의 로켓 탈출은 세지 않는다(결과 화면의 괴물 승리 기준과 같게)
         if (result == GameResult.EscapeEnded)
         {
             RoomState.TryGetIntArray(NetKeys.SpyActorNumbers, out int[] spies);
-            foreach (Player p in PhotonNetwork.PlayerList)
+            foreach (Player p in RoomState.Players)
             {
                 if (RoomState.IsMonster(p.ActorNumber) || (spies != null && System.Array.IndexOf(spies, p.ActorNumber) >= 0)) continue;
-                if (HasLeftMap(p)) { anyCookieEscaped = true; break; }
+                if (EscapeManager.HasEscaped(p.ActorNumber)) { anyCookieEscaped = true; break; }
             }
         }
         return MusicRules.JingleFor(result, localIsMonster, survivedOrEscaped, anyCookieEscaped);
-    }
-
-    private static bool HasLeftMap(Player p)
-    {
-        if (p == null) return false;
-        if (RoomState.HasEscaped(p)) return true;
-        EscapeState state = EscapeManager.Instance != null ? EscapeManager.Instance.State : null;
-        return state != null && (state.Escaped.Contains(p.ActorNumber) || state.Boarded.Contains(p.ActorNumber));
     }
 }

@@ -25,8 +25,6 @@ public class FlickerLight : MonoBehaviour
     private float nextBlink;
     private bool off;
 
-    public float BaseIntensity => baseIntensity;
-
     public void EditorSetup(float intensity, float jitterAmount, Vector2 gap)
     {
         baseIntensity = intensity;

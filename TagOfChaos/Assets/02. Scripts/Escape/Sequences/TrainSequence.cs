@@ -141,19 +141,7 @@ public class TrainSequence : EscapeSequence
         }
     }
 
-    private static GameObject CreatePassenger(Transform seat)
-    {
-        EscapeCatalogSO catalog = EscapeCatalogSO.Current;
-        GameObject model = catalog != null && catalog.PassengerModel != null
-            ? Instantiate(catalog.PassengerModel, seat, false)
-            : GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        model.transform.SetParent(seat, false);
-        model.transform.localPosition = Vector3.zero;
-        model.transform.localRotation = Quaternion.identity;
-        model.transform.localScale = Vector3.one * SeatedScale;
-        foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) Destroy(c);
-        return model;
-    }
+    private static GameObject CreatePassenger(Transform seat) => EscapeVisuals.CreatePassenger(seat, SeatedScale);
 
     // 굴뚝 연기 퍼프(시동 중 점점 잦아지고, 출발하면 가장 잦다).
     private void UpdateSmoke(float amount)
@@ -168,31 +156,15 @@ public class TrainSequence : EscapeSequence
 
     private ParticleSystem CreateSmoke()
     {
-        var go = new GameObject("ChimneySmoke");
-        go.transform.SetParent(smokePoint, false);
-        go.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
-        var ps = go.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.startLifetime = 2.2f;
-        main.startSpeed = 2.5f;
-        main.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1.1f);
-        main.startColor = new Color(0.85f, 0.82f, 0.88f, 0.6f);
-        main.simulationSpace = ParticleSystemSimulationSpace.World; // 달릴 때 연기가 뒤로 남는다
-        main.maxParticles = 80;
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 10f;
-        shape.radius = 0.3f;
-        var size = ps.sizeOverLifetime;
-        size.enabled = true;
-        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.6f, 1f, 2.4f));
-        var color = ps.colorOverLifetime;
-        color.enabled = true;
-        var grad = new Gradient();
-        grad.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                     new[] { new GradientAlphaKey(0.6f, 0f), new GradientAlphaKey(0f, 1f) });
-        color.color = grad;
-        go.GetComponent<ParticleSystemRenderer>().material = EscapeVisuals.SoftParticleMaterial();
+        // 월드 공간이라 달릴 때 연기가 뒤로 남는다
+        ParticleSystem ps = EscapeVisuals.CreateParticles("ChimneySmoke", smokePoint, new EscapeVisuals.ParticleStyle
+        {
+            Lifetime = new Vector2(2.2f, 2.2f), Speed = new Vector2(2.5f, 2.5f), Size = new Vector2(0.6f, 1.1f),
+            Color = new Color(0.85f, 0.82f, 0.88f, 0.6f), MaxParticles = 80,
+            Shape = ParticleSystemShapeType.Cone, Angle = 10f, Radius = 0.3f, GrowTo = 2.4f,
+            FadeFrom = Color.white, FadeTo = Color.white, AlphaFrom = 0.6f,
+        });
+        ps.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
         ps.Play();
         return ps;
     }

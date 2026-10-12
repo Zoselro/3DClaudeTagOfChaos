@@ -17426,7 +17426,7 @@ MonoBehaviour:
   device: {fileID: 1297173759}
   rocket: {fileID: 1134198039}
   witch: {fileID: 812807854}
-  recipeOverride: {fileID: 0}
+  recipeOverride: {fileID: 11400000, guid: 8ce9884fbab81784fbf548b5e1e82948, type: 2}
 --- !u!4 &877580403
 Transform:
   m_ObjectHideFlags: 0
@@ -26956,54 +26956,6 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!1 &1368088566
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1368088568}
-  - component: {fileID: 1368088567}
-  m_Layer: 0
-  m_Name: GameObject
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 0
---- !u!114 &1368088567
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1368088566}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a5ea85ad5ea058944a2dde4ab1945746, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  testRoomName: OfflineTestRoom
-  autoCreateRoom: 1
-  spawnAsMonster: 0
-  spawnAsSpy: 1
---- !u!4 &1368088568
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1368088566}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 15.375254, y: 43.220657, z: -21.522648}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1368497280
 GameObject:
   m_ObjectHideFlags: 0
@@ -30843,10 +30795,6 @@ PrefabInstance:
     - target: {fileID: 3204665571128523148, guid: 036873d64572a75459a7013d48a9507b, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3745252853166441175, guid: 036873d64572a75459a7013d48a9507b, type: 3}
-      propertyPath: sceneViewId
-      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 5359027569388894108, guid: 036873d64572a75459a7013d48a9507b, type: 3}
       propertyPath: m_AnchorMax.y
@@ -61893,4 +61841,3 @@ SceneRoots:
   - {fileID: 877580403}
   - {fileID: 279328901}
   - {fileID: 562718081}
-  - {fileID: 1368088568}

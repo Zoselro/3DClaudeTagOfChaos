@@ -14,8 +14,6 @@ using UnityEngine.UI;
 public class ResultScreenController : MonoBehaviourPunCallbacks
 {
     [SerializeField] private GameObject root;
-    [SerializeField] private GameObject monsterWinBanner;
-    [SerializeField] private GameObject cookieWinBanner;
     [SerializeField] private TMP_Text remainingCountText;
     // 쿠키 생존 아이콘: 쿠키 수만큼 템플릿을 복제해 컨테이너에 채운다(생존=흰색/파괴=회색). 예전에는 4칸 고정
     // 배열이라 인원이 늘면 아이콘이 모자랐다(Bug-fix-plan.md §27 확장성). 템플릿은 비활성 상태로 둔다.
@@ -36,10 +34,25 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         CanvasGroupVisibility.Set(rootGroup, false);
     }
 
+    // 결과는 방장만 쓴다. 조작된 클라이언트가 쓴 결과로 판이 끝나지 않도록, 쓴 사람이 방장인지 확인한 뒤(한 프레임 뒤 — 쓴 사람 기록은
+    // 이 콜백 직후에 도착한다, RoomPropertyGuard) 보여 준다(AuditFixPlan.md §7.2).
+    private bool resultPending;
+
     public override void OnRoomPropertiesUpdate(ExitGames.Client.Photon.Hashtable changedProps)
     {
-        if (!changedProps.ContainsKey(NetKeys.GameResult)) return;
+        if (changedProps.ContainsKey(NetKeys.GameResult)) resultPending = true;
+    }
+
+    private void Update()
+    {
+        if (!resultPending) return;
+        resultPending = false;
         if (!RoomState.TryGetInt(NetKeys.GameResult, out int result)) return;
+        if (!RoomPropertyGuard.WrittenByMaster(NetKeys.GameResult))
+        {
+            Debug.LogWarning("[ResultScreen] Ignored a game result that was not written by the master client.");
+            return;
+        }
         ShowResult((GameResult)result);
     }
 
@@ -83,7 +96,6 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         }
 
         CanvasGroupVisibility.Set(rootGroup, true);
-        HideWinBanners();
 
         RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters);
         int aliveCount = 0;
@@ -129,7 +141,7 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
             int actor = p.ActorNumber;
             bool isMonster = monsters != null && monsters.Contains(actor);
             bool isSpy = spies != null && spies.Contains(actor);
-            bool escaped = RoomState.HasEscaped(p) || (state != null && (state.Escaped.Contains(actor) || state.Boarded.Contains(actor)));
+            bool escaped = state != null && state.HasEscaped(actor); // 방장이 쓴 탈출 상태만(S-05)
             PlayerResultRow row = playerRowPrefab != null && playerListContent != null ? Instantiate(playerRowPrefab, playerListContent) : null;
 
             if (isMonster)
@@ -150,7 +162,6 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         }
 
         bool monsterWins = escapedCookies == 0 && totalCatches > 0;
-        HideWinBanners();
         if (monsterWins) MonsterJarTrophy.Build(root.transform, jarEntries); // 괴물이 쿠키 유리병을 들고 선다(추천안)
         if (remainingCountText != null) remainingCountText.text = $"{escapedCookies} / {cookieCount}";
         StartCoroutine(AutoReturnCountdown());
@@ -182,12 +193,5 @@ public class ResultScreenController : MonoBehaviourPunCallbacks
         StopAllCoroutines();
         if (PhotonNetwork.IsMasterClient)
             RoomSceneTransition.LoadLevelForRoom(SceneNames.GameLobby); // 방 재개방은 대기실의 RoundStateResetter가 한다(§26.3)
-    }
-
-    // "괴물 승!"·"쿠키 승!" 제목은 보여 주지 않는다(사용자 요청). 결과는 목록·유리병·쿠키 수로 알 수 있다.
-    private void HideWinBanners()
-    {
-        if (monsterWinBanner != null) monsterWinBanner.SetActive(false);
-        if (cookieWinBanner != null) cookieWinBanner.SetActive(false);
     }
 }

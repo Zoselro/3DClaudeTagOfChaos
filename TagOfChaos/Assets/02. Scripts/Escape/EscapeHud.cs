@@ -241,6 +241,9 @@ public class EscapeHud : MonoBehaviour
     }
 
     // "탑승 2 / 4": 탄 쿠키 / 살아 있는 쿠키(스파이 제외). 출발하면 "출발!".
+    private int lastBoarded = -1, lastAlive = -1;
+    private bool lastWasDeparting;
+
     private void RefreshBoarding()
     {
         EscapeState s = manager != null ? manager.State : null;
@@ -249,16 +252,21 @@ public class EscapeHud : MonoBehaviour
         if (!show) return;
         if (s.DepartedAt > 0)
         {
-            boardingText.text = texts.departing;
+            if (!lastWasDeparting) boardingText.text = texts.departing;
+            lastWasDeparting = true;
             return;
         }
         int alive = 0;
-        foreach (Photon.Realtime.Player p in PhotonNetwork.PlayerList)
+        foreach (Photon.Realtime.Player p in RoomState.Players)
         {
             int actor = p.ActorNumber;
             if (RoomState.IsMonster(actor) || RoomState.IsSpy(actor) || RoomState.IsBroken(p)) continue;
             alive++;
         }
+        if (s.Waiting.Count == lastBoarded && alive == lastAlive && !lastWasDeparting) return; // 숫자가 바뀔 때만 글자를 만든다(F-11)
+        lastBoarded = s.Waiting.Count;
+        lastAlive = alive;
+        lastWasDeparting = false;
         boardingText.text = string.Format(texts.boardingFormat, s.Waiting.Count, alive);
     }
 

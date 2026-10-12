@@ -112,7 +112,6 @@ public class EscapeDevice : MonoBehaviour, IHoldInteractable, IHoldStartListener
 
     private static float Flat(Vector3 v) => new Vector2(v.x, v.z).magnitude;
     public float InteractionRange => interactionRange;
-    public bool IsComplete => complete;
 
     private void Awake() => Sequence = GetComponent<EscapeSequence>();
 

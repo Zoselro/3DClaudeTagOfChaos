@@ -183,7 +183,9 @@ public class RuleTests
         var corePrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/04. Prefabs/Scene/GameSceneCore.prefab");
         int sceneViewCount = corePrefab.GetComponentsInChildren<Photon.Pun.PhotonView>(true).Length;
 
-        var paths = new List<string> { "Assets/Scenes/PlayerTestScene.unity" };
+        // 개발용 PlayerTestScene은 빌드 목록에서 뺐다(2026-10-12) — 디스크에 있을 때만 함께 검사한다.
+        var paths = new List<string>();
+        if (System.IO.File.Exists("Assets/Scenes/PlayerTestScene.unity")) paths.Add("Assets/Scenes/PlayerTestScene.unity");
         foreach (EditorBuildSettingsScene scene in EditorBuildSettings.scenes)
             if (scene.path.StartsWith("Assets/Scenes/Maps/")) paths.Add(scene.path);
 

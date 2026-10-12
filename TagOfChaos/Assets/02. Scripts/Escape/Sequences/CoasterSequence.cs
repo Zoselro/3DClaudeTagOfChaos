@@ -134,19 +134,7 @@ public class CoasterSequence : EscapeSequence
         }
     }
 
-    private static GameObject CreatePassenger(Transform seat)
-    {
-        EscapeCatalogSO catalog = EscapeCatalogSO.Current;
-        GameObject model = catalog != null && catalog.PassengerModel != null
-            ? Instantiate(catalog.PassengerModel, seat, false)
-            : GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        model.transform.SetParent(seat, false);
-        model.transform.localPosition = Vector3.zero;
-        model.transform.localRotation = Quaternion.identity;
-        model.transform.localScale = Vector3.one * SeatedScale;
-        foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) Destroy(c);
-        return model;
-    }
+    private static GameObject CreatePassenger(Transform seat) => EscapeVisuals.CreatePassenger(seat, SeatedScale);
 
     // ---------------- path ----------------
 
@@ -193,31 +181,15 @@ public class CoasterSequence : EscapeSequence
     // 바퀴 아래에서 튀는 주황 불꽃(코드로 만든 파티클).
     private ParticleSystem CreateSparks()
     {
-        var go = new GameObject("StartupSparks");
-        go.transform.SetParent(cars.Count > 0 ? cars[cars.Count / 2] : transform, false);
-        go.transform.localPosition = Vector3.up * 0.2f;
-        go.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-        var ps = go.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.startLifetime = 0.5f;
-        main.startSpeed = new ParticleSystem.MinMaxCurve(3f, 6f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.18f);
-        main.startColor = new Color(1f, 0.7f, 0.25f, 1f);
-        main.gravityModifier = 1.5f;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.maxParticles = 200;
-        var emission = ps.emission;
-        emission.rateOverTime = 90f;
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Box;
-        shape.scale = new Vector3(1.6f, 6.5f, 0.1f);
-        var color = ps.colorOverLifetime;
-        color.enabled = true;
-        var grad = new Gradient();
-        grad.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.9f, 0.5f), 0f), new GradientColorKey(new Color(1f, 0.4f, 0.1f), 1f) },
-                     new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
-        color.color = grad;
-        go.GetComponent<ParticleSystemRenderer>().material = EscapeVisuals.SoftParticleMaterial();
+        ParticleSystem ps = EscapeVisuals.CreateParticles("StartupSparks", cars.Count > 0 ? cars[cars.Count / 2] : transform, new EscapeVisuals.ParticleStyle
+        {
+            Lifetime = new Vector2(0.5f, 0.5f), Speed = new Vector2(3f, 6f), Size = new Vector2(0.08f, 0.18f),
+            Color = new Color(1f, 0.7f, 0.25f, 1f), Gravity = 1.5f, MaxParticles = 200, Rate = 90f,
+            Shape = ParticleSystemShapeType.Box, BoxScale = new Vector3(1.6f, 6.5f, 0.1f),
+            FadeFrom = new Color(1f, 0.9f, 0.5f), FadeTo = new Color(1f, 0.4f, 0.1f), AlphaFrom = 1f,
+        });
+        ps.transform.localPosition = Vector3.up * 0.2f;
+        ps.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
         return ps;
     }
 

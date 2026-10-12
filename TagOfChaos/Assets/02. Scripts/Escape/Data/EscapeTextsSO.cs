@@ -15,8 +15,6 @@ public class EscapeTextsSO : ScriptableObject
     public string escapeDevice = "Escape";
     public string spyRocket = "Rocket";
     public string cannotEnter = "Cannot enter";
-    public string inventoryFull = "Inventory is full";
-    public string handsFull = "Put down what you are holding first";
 
     [Header("Toasts (§1.10, §1.11)")]
     public string spyCaught = "The spy was caught";
@@ -24,10 +22,6 @@ public class EscapeTextsSO : ScriptableObject
     public string stolenFromDeviceWithFinal = "The spy took the {0}!";
     [Tooltip("받침 없을 때. {0} = 재료 이름")]
     public string stolenFromDeviceNoFinal = "The spy took the {0}!";
-    [Tooltip("쓰지 않음(2026-10-03 — 로켓에 끼울 때 알림은 없어졌다). 받침 있을 때. {0} = 재료 이름")]
-    public string stolenToRocketWithFinal = "The spy stole {0} and put it in the rocket";
-    [Tooltip("받침 없을 때. {0} = 재료 이름")]
-    public string stolenToRocketNoFinal = "The spy stole {0} and put it in the rocket";
     public string youAreSpy = "You are the SPY";
     public string spyBadge = "SPY";
     public string deviceComplete = "The escape is open!";
@@ -38,7 +32,6 @@ public class EscapeTextsSO : ScriptableObject
     [Tooltip("{0} = 탄 쿠키 수, {1} = 살아 있는 쿠키 수(스파이 제외)")]
     public string boardingFormat = "Boarded {0} / {1}";
     public string departing = "Departing!";
-    public string boardingLocked = "Wait until it is ready";
 
     private static EscapeTextsSO cached;
 

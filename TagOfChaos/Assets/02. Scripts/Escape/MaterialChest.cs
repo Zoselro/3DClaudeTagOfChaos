@@ -58,8 +58,6 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
         if (gameObject.activeSelf) gameObject.SetActive(false);
     }
 
-    public bool IsAppearing => appearStart >= 0f;
-
     private void OnDisable()
     {
         SetRegistered(false);
@@ -101,33 +99,14 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
     // 바닥에서 퍼지는 작은 먼지(상자 자식이 아니라 같은 자리에 둬서 크기 연출의 영향을 받지 않는다).
     private ParticleSystem CreateDust()
     {
-        var go = new GameObject("ChestAppearDust");
-        go.transform.SetParent(transform.parent, false);
-        go.transform.position = transform.position + Vector3.up * 0.1f;
-        var ps = go.AddComponent<ParticleSystem>();
-        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-        var main = ps.main;
-        main.playOnAwake = false;
-        main.loop = false;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(0.5f, 0.9f);
-        main.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 1.6f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.7f);
-        main.startColor = new Color(0.55f, 0.5f, 0.48f, 0.45f);
-        main.gravityModifier = -0.05f;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        var emission = ps.emission;
-        emission.enabled = false;
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Circle;
-        shape.radius = 0.6f;
-        shape.rotation = new Vector3(-90f, 0f, 0f);
-        var color = ps.colorOverLifetime;
-        color.enabled = true;
-        var g = new Gradient();
-        g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
-        color.color = g;
-        go.GetComponent<ParticleSystemRenderer>().material = EscapeVisuals.SoftParticleMaterial();
+        ParticleSystem ps = EscapeVisuals.CreateParticles("ChestAppearDust", transform.parent, new EscapeVisuals.ParticleStyle
+        {
+            Lifetime = new Vector2(0.5f, 0.9f), Speed = new Vector2(0.6f, 1.6f), Size = new Vector2(0.35f, 0.7f),
+            Color = new Color(0.55f, 0.5f, 0.48f, 0.45f), Gravity = -0.05f, EmissionOff = true, Manual = true, Once = true,
+            Shape = ParticleSystemShapeType.Circle, Radius = 0.6f, ShapeRotation = new Vector3(-90f, 0f, 0f),
+            FadeFrom = Color.white, FadeTo = Color.white, AlphaFrom = 1f,
+        });
+        ps.transform.position = transform.position + Vector3.up * 0.1f;
         return ps;
     }
 

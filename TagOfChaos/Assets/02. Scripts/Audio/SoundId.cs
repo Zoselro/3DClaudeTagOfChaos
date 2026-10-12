@@ -28,7 +28,6 @@ public enum SoundId
     CookieDodge = 203,
     CookieGrab = 204,
     CookieRelease = 205,
-    CookieCarried = 206,
     MonsterStep = 207,
     MonsterDash = 208,
     MonsterGrab = 209,
@@ -37,7 +36,6 @@ public enum SoundId
     MonsterAimLock = 212,
     StunStars = 213,
     Respawn = 214,
-    SpectateSwitch = 215,
     DoorOpen = 216,
     DoorClose = 217,
 
@@ -52,7 +50,6 @@ public enum SoundId
     // 대기실
     CauldronBubble = 400,
     CauldronSplash = 401,
-    MonsterWaitTick = 402,
     MonsterDeparted = 403,
 
     // 탈출 모드

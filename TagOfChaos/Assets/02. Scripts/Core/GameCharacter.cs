@@ -52,4 +52,12 @@ public static class CharacterRegistry
 
     // 파괴된(Destroy) 오브젝트는 Unity의 null 비교로만 걸러지므로 인터페이스 참조에도 이 검사를 쓴다.
     public static bool IsAlive(IGameCharacter character) => character is Object obj && obj != null;
+
+    // 그 플레이어의 캐릭터(요청자 위치 확인용, AuditFixPlan.md §9). 없으면 null.
+    public static IGameCharacter FindByOwner(int actorNumber)
+    {
+        foreach (IGameCharacter c in characters)
+            if (IsAlive(c) && c.View != null && c.View.Owner != null && c.View.Owner.ActorNumber == actorNumber) return c;
+        return null;
+    }
 }

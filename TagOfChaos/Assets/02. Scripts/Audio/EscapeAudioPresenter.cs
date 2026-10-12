@@ -74,8 +74,8 @@ public class EscapeAudioPresenter : MonoBehaviour
         foreach (int actor in now.Boarded)
             if (!before.Boarded.Contains(actor)) GameAudio.PlayAt(SoundId.RocketHatch, manager.RocketPosition);
 
-        bool escapedNow = now.Escaped.Contains(me) || now.Boarded.Contains(me);
-        bool escapedBefore = before.Escaped.Contains(me) || before.Boarded.Contains(me);
+        bool escapedNow = now.HasEscaped(me);
+        bool escapedBefore = before.HasEscaped(me);
         if (escapedNow && !escapedBefore) GameAudio.Play(SoundId.EscapeSuccessSelf);
     }
 

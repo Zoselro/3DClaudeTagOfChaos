@@ -37,9 +37,7 @@ public class SoundSettingsPanel : MonoBehaviour
     public event Action Closed;
 
     public bool IsOpen => gameObject.activeSelf;
-    public int RowCount => rows.Length;
     public bool HasOutputDropdown => outputDropdown != null;
-    public int OutputOptionCount => outputDropdown != null ? outputDropdown.options.Count : 0;
 
     // 드롭다운 줄 번호 → 장치 ID(0 = 시스템 기본 = 빈 값).
     private readonly List<string> outputIds = new List<string>();

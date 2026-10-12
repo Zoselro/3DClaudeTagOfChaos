@@ -9,14 +9,13 @@ using UnityEngine.UI;
 // 하지 않는다.
 //
 // 흐름: 괴물 확정 → AutomaticallySyncScene=false(방장의 LoadLevel에 끌려가지 않음) → 방장이 시작 버튼으로
-// PaintPhaseEndTime을 새로 기록 → 이 변경을 받는 순간 메시지 큐를 멈춰 이후 이벤트(쿠키 Instantiate,
-// 색칠 스트로크, Room Props)를 전부 쌓아 둔다 → 로컬 카운트다운 종료 시 PhotonNetwork.LoadLevel(Game)
-// (방장이 아니므로 혼자만 로드, 로드가 끝나면 PUN이 큐를 재개해 쌓인 이벤트가 GameScene 안에서 재생된다).
-// 큐를 멈추지 않으면 쿠키들이 GameScene에서 스폰한 캐릭터가 이 대기실에 생성됐다가 씬 전환 때 파괴돼,
-// 괴물은 GameScene에서 쿠키를 하나도 볼 수 없게 된다(§23.3.2 F4).
+// PaintPhaseEndTime을 새로 기록 → 이 변경을 받는 순간 NetHold로 "맵에서 온 것"(쿠키들이 맵에서 만든 캐릭터·동기화 값·색칠)을
+// 보관하기 시작한다 → 로컬 카운트다운 종료 시 PhotonNetwork.LoadLevel(맵)(방장이 아니므로 혼자만 로드) → 맵을 다 불러온 순간
+// NetHold가 보관한 것을 맵에 꺼낸다. 보관하지 않으면 쿠키 캐릭터가 이 대기실에 생겼다가 씬 전환 때 파괴돼 괴물은 맵에서
+// 쿠키를 하나도 볼 수 없다(§23.3.2 F4). 예전에는 메시지 큐를 통째로 멈춰 같은 일을 했는데, 그러면 함께 기다리는 다른 괴물의
+// 움직임도 받지 못해 괴물이 2명일 때 서로 보이지 않았다(Request1009Plan.md §21, 결정 Q2-D).
 public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
 {
-    private const float KeepAliveMarginSeconds = 30f;
 
     [SerializeField] private GameObject waitPanelRoot; // 반드시 이 컴포넌트와 다른 오브젝트(자기 자신을 끄는 함정 회피)
     [SerializeField] private TMP_Text countdownText;
@@ -24,8 +23,7 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
     private int lastShownSeconds = -1;
     [SerializeField] private Button[] buttonsToDisableWhileWaiting;      // Back 버튼 등
     [SerializeField] private Behaviour[] behavioursToDisableWhileWaiting; // GameManager(채팅) 등
-    // 큐가 멈춘 동안에는 퇴장 소식을 받지 못해 PhotonNetwork.PlayerList가 갱신되지 않는다 — 나간 사람이 목록에 남아
-    // 보이던 버그(GameFixPlan.md F8). 정확할 수 없는 UI(참가자 목록 등)는 기다리는 동안 숨긴다.
+    // 기다리는 동안 숨길 대기실 UI(참가자 목록 등 — 대기 화면이 대신 보인다).
     [SerializeField] private GameObject[] objectsToHideWhileWaiting;
 
     private bool isWaiting;
@@ -87,11 +85,8 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
         RemoveOtherPlayersAvatars();
         SetWaitingUi(true);
 
-        // 큐를 멈추면 송신도 멈추고 백그라운드 스레드가 ACK만 보내며 연결을 유지하는데, 기본 유지 시간(60초)이
-        // 대기 시간보다 짧으므로 늘려 둔다. GameScene 도착 후 MonsterJoinController가 기본값으로 되돌린다.
-        PhotonNetwork.KeepAliveInBackground = (float)remaining + KeepAliveMarginSeconds;
-        Debug.Log($"[MonsterLobbyWait] Monster (actor {PhotonNetwork.LocalPlayer.ActorNumber}) waits in lobby for {remaining:F1}s. Message queue paused.");
-        PhotonNetwork.IsMessageQueueRunning = false;
+        NetHold.Begin(); // 메시지 큐는 계속 돈다 — 함께 기다리는 괴물의 움직임이 보인다
+        Debug.Log($"[MonsterLobbyWait] Monster (actor {PhotonNetwork.LocalPlayer.ActorNumber}) waits in lobby for {remaining:F1}s.");
     }
 
     private void Update()
@@ -118,28 +113,29 @@ public class MonsterLobbyWaitController : MonoBehaviourPunCallbacks
         string map = GameStartAuthority.CurrentMapScene(); // 방장이 고른 이번 판 맵
         if (string.IsNullOrEmpty(map))
         {
-            // 갈 씬이 없으면 멈춘 큐라도 되돌려 방 상태(대기실 복귀 등)를 받게 한다.
-            Debug.LogError("[MonsterLobbyWait] No game map to load. Resuming the message queue in the lobby.");
-            PhotonNetwork.IsMessageQueueRunning = true;
-            SetWaitingUi(false); // 큐가 다시 돌면 목록이 정확해지므로 다시 보여준다
+            // 갈 씬이 없으면 보관한 것을 버리고 대기실에 남는다.
+            Debug.LogError("[MonsterLobbyWait] No game map to load. Staying in the lobby.");
+            NetHold.Discard();
+            SetWaitingUi(false);
             return;
         }
         GameAudio.Play(SoundId.MonsterDeparted); // 괴물이 맵으로 떠나는 순간(2D, 씬이 바뀌어도 소리는 이어진다 — S4)
-        PhotonNetwork.LoadLevel(map); // 방장이 아니므로 혼자만 로드, 로드 후 큐 자동 재개
+        PhotonNetwork.LoadLevel(map); // 방장이 아니므로 혼자만 로드 — 다 불러오면 NetHold가 보관한 것을 꺼낸다
     }
 
-    // 다른 플레이어들은 이미 GameScene으로 떠나 이 오브젝트들은 더 이상 갱신되지 않는다(대기실에 굳은 채
-    // 남음). 원래 주인 쪽에서는 이미 씬 전환으로 파괴됐으므로 로컬에서만 치운다.
+    // 쿠키들은 이미 맵으로 떠나 그 대기실 아바타는 더 이상 갱신되지 않는다(굳은 채 남음). 원래 주인 쪽에서는 이미 씬 전환으로
+    // 파괴됐으므로 로컬에서만 치운다. 함께 기다리는 괴물의 아바타는 남긴다 — 서로 보이고 움직임도 동기화된다(Request1009Plan.md §21).
     private void RemoveOtherPlayersAvatars()
     {
         // 목록을 순회하며 Destroy하면 OnDisable의 등록 해제로 목록이 바뀌므로 먼저 모은다.
         var others = new System.Collections.Generic.List<GameObject>();
         foreach (IGameCharacter c in CharacterRegistry.All)
-            if (c.Role == CharacterRole.Cookie && CharacterRegistry.IsAlive(c) && c.View != null && !c.View.IsMine) others.Add(c.gameObject);
+            if (c.Role == CharacterRole.Cookie && CharacterRegistry.IsAlive(c) && c.View != null && !c.View.IsMine
+                && (c.View.Owner == null || !RoomState.IsMonster(c.View.Owner.ActorNumber))) others.Add(c.gameObject);
         foreach (GameObject go in others) Destroy(go);
     }
 
-    // 큐가 멈춘 동안에는 LeaveRoom/채팅 RPC 송신도 막혀 있으므로 해당 입력을 막는다(§23.3.4-①, D3).
+    // 기다리는 동안 막을 입력(채팅 — 맵의 채팅과 PhotonView가 겹친다, 뒤로 가기 등)(§23.3.4-①, D3).
     private void SetWaitingUi(bool waiting)
     {
         if (waitPanelRoot != null) waitPanelRoot.SetActive(waiting);

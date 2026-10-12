@@ -22,7 +22,7 @@ public static class EscMenuBuilder
         string a;
         try
         {
-            a = BuildInto(prefab.GetComponentInChildren<RoomExitController>(true), prefab.GetComponentInChildren<ConfirmDialog>(true));
+            a = BuildInto(prefab.GetComponentInChildren<RoomExitController>(true), prefab.GetComponentInChildren<ConfirmDialog>(true), withSettings: false);
             PrefabUtility.SaveAsPrefabAsset(prefab, PrefabPath);
         }
         finally
@@ -33,13 +33,14 @@ public static class EscMenuBuilder
         var scene = EditorSceneManager.OpenScene(GameLobbyScenePath, OpenSceneMode.Single);
         // 대기실은 나가기 담당(GameManager)과 확인창(Canvas)이 서로 다른 루트에 있다.
         string b = BuildInto(Object.FindFirstObjectByType<RoomExitController>(FindObjectsInactive.Include),
-                             Object.FindFirstObjectByType<ConfirmDialog>(FindObjectsInactive.Include));
+                             Object.FindFirstObjectByType<ConfirmDialog>(FindObjectsInactive.Include), withSettings: true);
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         return $"[EscMenu] GameSceneCore: {a} / GameLobbyScene: {b}";
     }
 
-    private static string BuildInto(RoomExitController exit, ConfirmDialog dialog)
+    // withSettings: 숨겨 둔 설정 버튼 자리를 만들지(대기실만 — 게임 화면에서는 쓰지 않는 오브젝트였다, AuditFixPlan.md F-12②).
+    private static string BuildInto(RoomExitController exit, ConfirmDialog dialog, bool withSettings)
     {
         if (exit == null || dialog == null) return "missing RoomExitController/ConfirmDialog";
         // 확인창에는 자체 Canvas(정렬용)가 붙으므로 그 위 부모의 Canvas에 메뉴를 둔다.
@@ -105,8 +106,11 @@ public static class EscMenuBuilder
 
         Button template = dialog.transform.Find("YesButton").GetComponent<Button>();
         Button resume = CloneButton(template, list, "ResumeButton", resumeLabel);
-        Button settings = CloneButton(template, list, "SettingsButton", settingsLabel);
-        settings.gameObject.SetActive(false); // 설정 화면은 나중에 추가한다(결정 Q4)
+        if (withSettings)
+        {
+            Button settings = CloneButton(template, list, "SettingsButton", settingsLabel);
+            settings.gameObject.SetActive(false); // 설정 화면은 나중에 추가한다(결정 Q4)
+        }
         Button exitButton = CloneButton(template, list, "ExitButton", exitLabel);
 
         var menu = menuGo.AddComponent<EscMenu>();

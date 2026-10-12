@@ -208,11 +208,7 @@ public class WitchPresenter : MonoBehaviour
             foreach (Material m in set) if (m != null) Destroy(m);
     }
 
-    private static Transform FindDeep(Transform root, string name)
-    {
-        foreach (Transform t in root.GetComponentsInChildren<Transform>(true)) if (t.name == name) return t;
-        return null;
-    }
+    private static Transform FindDeep(Transform root, string name) => EscapeSequence.FindDeep(root, name); // 깊은 자식 찾기는 한 곳(F-14)
 
     // ---------------- placeholder ----------------
 

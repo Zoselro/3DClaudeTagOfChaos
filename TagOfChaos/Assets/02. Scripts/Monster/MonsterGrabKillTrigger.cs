@@ -29,7 +29,6 @@ public class MonsterGrabKillTrigger : MonoBehaviour
         eye = monsterPv != null ? monsterPv.transform.Find("EyeSocket") : null;
     }
 
-    public bool IsOnCooldown => onCooldown;
     public float BodyFrontOffset => bodyFrontOffset;
 
     // 지금 조준 중인 잡을 수 있는 쿠키(괴물 소유 클라이언트에서만 계산, 없으면 null). 조준 표시 UI가 읽는다.
@@ -148,10 +147,7 @@ public class MonsterGrabKillTrigger : MonoBehaviour
         // 전원에게 보낸다: 모든 클라이언트가 쿠키를 이 괴물의 Grab_Socket에 붙여 처형 연출을 보여야 하므로 괴물 ViewID를 함께 넘긴다.
         // 파괴 확정(HitCount)은 여전히 피해자 본인 클라이언트만 한다(소유권 원칙, Bug-fix-plan.md §36).
         cookiePv.RPC(HideOrSeekPlayer.RpcRequestGrabKill, RpcTarget.All, monsterPv.ViewID);
-
-        // 잡은 횟수(결과 화면, EscapePlan.md §1.3). 괴물 본인이 자기 값만 쓴다.
-        int catches = RoomState.TryGetPlayerInt(PhotonNetwork.LocalPlayer, NetKeys.CatchCount, out int c) ? c : 0;
-        PhotonNetwork.LocalPlayer.SetCustomProperties(new ExitGames.Client.Photon.Hashtable { { NetKeys.CatchCount, catches + 1 } });
+        // 파괴·잡은 횟수는 방장이 거리·단계를 검증한 뒤 쓴다(GrabKillAuthority, AuditFixPlan.md §8.1).
         return true;
     }
 

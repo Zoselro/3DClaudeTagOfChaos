@@ -933,3 +933,153 @@ Windows 설정 → 소리 → **앱 볼륨 및 장치 기본 설정**에서 앱�
 - **고장 오븐**: `Assets/10. Audio/SFX/Device/OvenBroken.wav`를 `OvenBroken_GearB2`로 교체(같은 파일·GUID, 8초 반복, −21 LUFS). 예전 소리 백업 `Source~/r1011_backup/SFX/Device/OvenBroken.wav`, 원본 `Source~/r1011/final/SFX/Device/OvenBroken.wav`. 소리 쪽 코드(`OvenSequence.AddLoop`)는 그대로.
 - **시험**: `AudioTests.Music_SelectTable`(결과 단계 = `Result`) 수정, 새 `Request1011Tests.ResultMusic_IsResultALoop`(규칙·반복·카탈로그 클립 72초)·`OvenBroken_IsGearB2Loop`(8초, 이웃 샘플 차이 비율 > 0.17 — 쇳소리처럼 밝음, 예전 증기·쿵 소리는 0.10). `Request1011Tests` 50개·`AudioTests` 58개 통과. 전체 EditMode 265개: 통과 258, 실패 6·보류 1(기존 항목 그대로). 빌드 `Builds/R1011Check/` 성공(오류 0, 경고 1 기존 글꼴). 컴파일 오류·경고 0.
 - **Play Mode(베이커리, 나 = 스파이, 처단으로 끝냄)**: 시작부터 탈출구 완성 전까지 `OvenBroken`(새 톱니, 반복) 재생 → 23초 결과 단계: 실패 징글 `JgEscapeFail`과 함께 `Result`가 0.03 → 0.20(4초 동안 커짐) → 28초 징글이 끝난 뒤 `Result` 0.40으로 반복. 콘솔 오류는 검증용 감시 코드(MCPDynamicCode)의 것 1건뿐, 게임 코드 오류·경고 0.
+
+# 21. 2026-10-12 요청 2건 — 스파이가 로켓으로 떠난 뒤 괴물이 모두 나가도 판 계속 · 대기실에서 기다리는 괴물끼리 서로 안 보임 (단계 L0~L5)
+
+- 작성: 2026-10-12 · 상태: **✅ L0~L4 완료(2026-10-12) — L5 멀티 확인은 사용자 · 결과 §21.7** (결정 Q1 a, Q2 D)
+- 요청
+  1. 스파이가 로켓을 타고 떠나 **마녀 타이머(타임어택)가 켜진 뒤에는**, 괴물이 나가서 0명이 되어도 대기실로 돌아가지 말고 판을 끝까지 진행. 지금은 5초 뒤 GameLobbyScene으로 간다.
+  2. 7명 이상(괴물 2명)에서 A·B가 가마솥에 들어가고 방장이 시작하면, **대기실에 남아 기다리는 A·B가 서로를 못 본다**(서로의 시점에서 없어진 것처럼 보임).
+
+## 21.1 지금 코드(읽은 결과)
+
+### 요청 1 — 괴물 전원 이탈
+- **판정 위치**: `Monster/RoomLifecycleWatcher.cs` `OnPlayerLeftRoom`(13~36행, 방장만). 나간 사람이 괴물이면 남은 괴물 = `MonsterRoster.Remaining(방장이 마지막으로 보낸 목록, 방에 남은 사람)`.
+  - 남은 괴물이 0명이고 `witchPurging`(쿠키가 모두 탈출한 뒤 마녀가 스파이·괴물을 처단하러 오는 중, 27행)이 **아니면** `MonsterDepartedAt = 지금`을 쓴다(30~31행).
+  - 그러면 5초(`GameSettings.MonsterDepartureReturnDelay`) 뒤 `Update`(45~53행)가 `RoomSceneTransition.LoadLevelForRoom(GameLobby)`로 모두 대기실에 보낸다.
+  - 각 화면은 `MonsterDepartureBanner`(`MonsterDepartedAt`을 받으면 "괴물이 나가 n초 뒤 대기실로" 배너)를 띄운다.
+- **즉 예외는 "처단(Purge)"뿐**이다. 스파이가 로켓을 탄 뒤의 타임어택(`WitchMode.TimeAttack`)은 예외에 없어서 요청 1의 현상이 난다.
+- **스파이가 떠난 표시**: `EscapeAuthority.TryLaunchRocket`(`Escape/EscapeAuthority.cs`)이 남은 스파이가 모두 타면 `SpyEscapedAt`(로켓 발사 시각)을 **항상** 쓴다.
+  - 남은 쿠키가 있으면 `WitchMode = TimeAttack`, `WitchAppearAt`, `TimeAttackEndTime`을 함께 쓴다.
+  - 남은 쿠키가 없으면 타임어택 없이 발사 연출 뒤 끝난다.
+- **괴물 0명이어도 판 진행 자체는 된다**(코드 확인):
+  - `GameRuleController.Update`(23~44행)는 `MonsterActorNumbers`가 **빈 배열**이어도 진행한다. 이탈 처리 때 `remaining`을 빈 배열(null 아님)로 쓰므로 키가 남는다.
+  - 타임어택 판정 `EscapeRules.Evaluate`(`Escape/EscapeRules.cs:50~57`)는 괴물 수를 보지 않는다. 쿠키가 모두 탈출·부서지면 `EndAllResolved`, 시간이 다 되면 `StrikeWitch` → 주먹 → `EndWitchStrike`.
+  - 마녀 사망 `WriteWitchDeaths`는 괴물이 없으면 그 부분만 건너뛴다.
+  - 결과 화면(`ResultScreenController`, 100·133행)은 방에 남은 사람만 줄로 그리므로 나간 괴물은 목록에 없다.
+  - 방장 정책(`RoomState.DesiredMasterActor` — 괴물이 아닌 최선 입장자)도 영향이 없다.
+- 결론: **요청 1은 `RoomLifecycleWatcher`의 예외 조건 하나**만 넓히면 된다.
+
+### 요청 2 — 대기실에서 기다리는 괴물끼리 안 보임
+- **원인 1(직접 원인)**: `Monster/MonsterLobbyWaitController.cs` `EnterWaiting`(76~95행)이 시작 신호(`PaintPhaseEndTime` 변경)를 받는 순간 `RemoveOtherPlayersAvatars`(133~140행)를 부른다.
+  - 이 함수는 **내 것이 아닌 쿠키 역할 캐릭터를 모두** 지운다.
+  - 대기실 아바타는 괴물이 될 사람도 쿠키 캐릭터(`HideOrSeekPlayer`, `PlayerSpawner`)다. 그래서 **함께 기다리는 다른 괴물(B)의 아바타도 지워진다.** A·B 모두 같은 순간에 서로를 지우므로 "서로 시점에서 없어진" 것처럼 보인다.
+  - 이 함수는 원래 괴물 1명 규칙 때, 맵으로 떠난 쿠키들의 굳은 아바타를 치우려고 만든 것이다.
+- **원인 2(지우지 않아도 남는 한계)**: 같은 함수 94행에서 **메시지 큐를 멈춘다**(`IsMessageQueueRunning = false`).
+  - 멈추는 이유(파일 머리말 7~16행): 쿠키들이 맵에서 만든 캐릭터(Instantiate)와 **색칠 스트로크 이벤트**를 괴물이 맵에 도착할 때까지 쌓아 두었다가 맵에서 재생하기 위해서다.
+  - 큐가 멈춘 동안에는 **B의 이동 동기화도 받지 못한다.** 그래서 B를 지우지 않아도 A 화면의 B는 **출발 신호 순간의 자리·자세로 굳는다**(B가 걸어도 A에게는 안 보임). 반대도 같다.
+  - 색칠은 이벤트로만 오가고 늦게 온 사람에게 다시 보내는 기능이 없다(`ColorTag/PlayerPaintCanvas.cs` — 다시 보내기·기록 없음). 그래서 큐 멈춤을 없애면 괴물이 쿠키 위장을 못 보게 된다. 큐 멈춤은 유지해야 한다.
+  - PUN 소스 확인(`PhotonNetwork.NetworkInstantiate` 2538~2600행): 다른 사람이 만든 캐릭터는 받는 즉시 현재 씬에 생기고, 활성화된다. 받는 쪽에서 미뤄 둘 공식 방법이 없다(관심 그룹은 이미 지나간 이벤트를 다시 주지 않음).
+
+## 21.2 수정 방안
+
+### 요청 1 — `Monster/RoomLifecycleWatcher.cs`
+- 27행의 예외를 넓힌다. 괴물이 0명이 되어도 **대기실로 돌려보내지 않는** 경우:
+  - ① 처단 중(지금과 같음)
+  - ② **스파이 로켓이 떠났음** — `RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _)`. 마녀 타이머(`WitchMode.TimeAttack`)가 켜졌거나, 남은 쿠키가 없어 곧 끝나는 경우 둘 다 포함.
+  - 결과가 이미 났으면(`GameResult` 있음) 원래대로 아무것도 하지 않는다(결과 화면이 대기실로 보낸다).
+- 판단은 순수 함수로 뺀다: `MonsterRoster.ReturnWhenMonstersGone(bool spyRocketLaunched, bool witchPurging, bool resultDecided)` — EditMode 시험.
+- 이 경우에도 **괴물 목록 갱신**(나간 괴물을 빼고 빈 배열로)은 그대로 쓴다. 그래야 마녀 사망 처리·추격 음악·결과 화면이 "괴물 없음"을 정확히 본다. `MonsterDepartedAt`만 쓰지 않는다 → 배너도 뜨지 않는다.
+- 로그: `[RoomLifecycle] All monsters left after the spy rocket launched — the round continues (time attack).`
+- **범위 밖(지금 그대로)**: 로켓이 떠나기 **전**(사냥 중)에 괴물이 모두 나가면 지금처럼 5초 경고 뒤 대기실로 간다. 요청이 "마녀 타이머가 켜졌을 때"이므로 바꾸지 않는다(결정 Q1).
+- 경계: 괴물이 나가 5초 경고가 시작된 **뒤에** 로켓이 떠나는 경우는 경고대로 대기실로 간다(이미 쓴 `MonsterDepartedAt`을 되돌리지 않음). 경고 5초 안에 스파이가 모두 타는 일은 드물다. 바꾸려면 Q1-b.
+
+### 요청 2 — `Monster/MonsterLobbyWaitController.cs` (+ 아바타 고정 보조)
+큐 멈춤(원인 2)은 유지해야 하므로, **"서로 보인다 + 두 화면이 같은 장면"**을 목표로 한다.
+- **A안(최소)**: `RemoveOtherPlayersAvatars`에서 주인이 **괴물 목록에 있는 아바타는 지우지 않는다**(맵으로 떠난 쿠키의 굳은 아바타만 지움).
+  - 결과: 서로 보인다. 다만 상대는 출발 신호 순간의 자리에서 굳어 있고, 나는 계속 걸을 수 있어 화면이 서로 다르다.
+- **B안(추천)**: A안 + 기다리는 동안 **괴물 아바타를 제자리 대기 자세로 고정**.
+  - 내 캐릭터: `PlayerInput.IsGameplaySuppressed`(채팅·연출과 같은 입력 억제)를 대기 시작에 켜고, 출발·나가기·파괴 때 끈다. 정적 값이라 `OnDestroy`·`LoadLevel` 직전에 반드시 되돌린다(채팅 `GameManager`와 같은 규칙).
+  - 상대 괴물 아바타: 마지막 동기화 상태가 "달리기"면 굳은 채 달리는 자세가 되므로 `NetworkTransformSync`에 `HoldAs(state)`(수신 상태를 대기 자세로 고정, 위치 보간 멈춤)를 추가하고 대기 시작 때 `PlayerMoveState.Idle`로 고정한다.
+  - 결과: 두 화면 모두 "괴물 둘이 서서 기다리는" 같은 장면. 시점 회전(마우스)은 그대로.
+- **C안**: B안 + 기다리는 괴물들을 **정해진 대기 자리**(가마솥 옆, 괴물 목록 순서대로 0·1번 자리)로 옮겨 세운다.
+  - 대기실에 자리 표시 `MonsterWaitSpot_00/01`을 에디터 스크립트로 추가한다. 각 화면이 같은 순서로 계산하므로, 출발 신호 순간의 동기화 지연으로 생기는 자리 차이(수십 cm~수 m)도 없어진다.
+- **D안(비추천)**: 큐를 멈추지 않는 구조로 바꿔 대기 중에도 서로 움직임까지 보이게 한다.
+  - 필요한 것: 쿠키 캐릭터를 비활성 보관했다가 맵 도착 때 켜는 전용 PrefabPool, 색칠 스트로크를 따로 모아 맵에서 재생하는 버퍼, 대기 중 도착하는 RPC·이벤트(들기·기절·알림)를 미루는 처리.
+  - PUN 내부 흐름에 깊게 기대고, 놓친 이벤트가 생기면 괴물이 위장·캐릭터를 못 보는 큰 회귀가 난다. 이번 요청 범위에 비해 위험이 크다.
+- 대기 중 상대 괴물이 방을 나가면 큐가 멈춰 있어 그 사실을 모른다(아바타가 남음). 출발하면 씬이 바뀌어 사라지므로 그대로 둔다(지금도 참가자 목록을 숨기는 같은 이유).
+
+## 21.3 결정이 필요한 질문
+| # | 질문 | 선택지 | 추천 |
+|---|---|---|---|
+| Q1 | 로켓이 떠나기 **전**에 괴물이 모두 나가면 | a 지금처럼 5초 뒤 대기실 / b 이것도 계속 진행 | ✅ **a** — 마녀 타이머가 켜진 뒤(스파이 로켓 탑승·발사 뒤)에만 계속 진행 |
+| Q2 | 대기실에서 기다리는 괴물끼리 어떻게 보일지 | A / B / C / D | ✅ **D — 서로 보이고 움직임까지 보여야 함** → 21.6 설계 |
+
+## 21.4 영향·위험
+- 요청 1:
+  - 괴물이 없는 타임어택은 마녀 시간까지 쿠키가 탈출만 하면 된다(잡힐 위험 없음). 규칙상 의도한 결과다.
+  - 결과 화면에 나간 괴물 줄이 없다(지금 처단 경로와 같음).
+  - 괴물 승리 조건(`monsterWins` = 탈출 0명 & 잡은 수 > 0)은 바뀌지 않는다.
+- 요청 2:
+  - 입력 억제는 정적 값이라, 되돌리지 않으면 맵에서 괴물이 못 움직인다 → 출발(`LoadLevel` 직전)·나가기·`OnDestroy` 세 곳에서 되돌리고, 맵 도착 시 `MonsterJoinController`에서도 한 번 더 확인한다.
+  - 괴물 1명 판은 지울 대상·고정 대상이 바뀌지 않아 영향이 없다.
+
+## 21.6 Q2-D 설계 — 기다리는 동안 큐를 멈추지 않고 "맵에서 온 것"만 보관했다가 맵에서 꺼낸다
+큐 멈춤이 하던 일 두 가지(맵 캐릭터 보존·색칠 재생)를 **필요한 것만 골라** 대신하고, 나머지 메시지(다른 괴물의 이동 등)는 정상 처리한다.
+1. **보관 풀** — 새 `Core/NetHold.cs`(대기 괴물만 켬, 씬과 무관하게 남는 오브젝트).
+   - `PhotonNetwork.PrefabPool`을 감싸, 보관 중에 **남이 만든** 캐릭터(쿠키들이 맵에서 Instantiate)는 꺼진 보관 루트(DontDestroyOnLoad) 아래에 만든다.
+   - PUN 소스 확인: ViewID를 넣는 순간 등록되고(`PhotonView.ViewID` setter), `SetActive(true)`는 부모가 꺼져 있어 Awake·Start·Update가 돌지 않는다. 그래서 대기실 장면에 나타나지 않고, 씬이 바뀌어도 사라지지 않는다.
+2. **동기화 값 보관** — PUN은 꺼진 컴포넌트에도 `OnPhotonSerializeView`·RPC를 부른다(PUN 소스: `DeserializeView`·`ExecuteRpc`에 enabled 검사 없음).
+   - 보관 중에는 그 PhotonView의 관찰 목록을 보관 기록기 하나로 바꿔, **마지막으로 받은 값**만 저장한다.
+   - 꺼낼 때 원래 목록으로 돌리고 저장한 값을 한 번 넣는다 → 숨어 있던 쿠키가 처음 위치가 아니라 **지금 위치**에 나타난다.
+   - RPC: 쿠키 캐릭터 RPC는 대부분 주인에게만 가서(들기·놓기·거절) 괴물에게 오지 않는다. 모두에게 가는 `RequestGrabKill`은 사냥 때만 쓰이지만, 보관 중 도착해도 예외가 나지 않게 `pv == null` 가드를 둔다.
+3. **색칠 이벤트 보관** — 보관 중 도착한 `PaintStroke`·`ClearColor`를 받은 시각의 색칠 시간 판정과 함께 모아 둔다.
+   - 꺼낸 직후 해당 캔버스에 같은 순서로 재생한다(캔버스는 Awake에서 만들어져 바로 그릴 수 있다).
+   - 판정은 **받은 시각** 기준이라, 맵 로딩이 2초를 넘어도 버려지지 않는다.
+   - ⚠ 지금 코드의 회귀: P4에서 넣은 "색칠 시간 + 2초" 검사는 큐 멈춤 방식에서 맵 로딩이 2초를 넘으면 괴물이 받은 색칠을 모두 버린다. 이 설계로 함께 해소된다.
+4. **꺼내기** — 괴물이 맵 씬을 다 불러온 순간(`sceneLoaded`, PUN이 큐를 다시 돌리기 전 프레임)에 실행한다.
+   - 보관한 오브젝트를 맵 씬으로 옮겨 켠다 → 저장한 동기화 값 적용 → 색칠 재생.
+   - 방을 나가면 보관한 것을 버린다.
+5. **대기 컨트롤러** — `MonsterLobbyWaitController`:
+   - 큐를 멈추지 않는다(`IsMessageQueueRunning=false`·`KeepAliveInBackground` 연장 삭제). 보관을 시작한다.
+   - `RemoveOtherPlayersAvatars`는 괴물 목록에 있는 아바타를 **지우지 않는다**(맵으로 떠난 쿠키의 굳은 대기실 아바타만 지움).
+   - 다른 괴물은 정상 동기화되어 움직임까지 보인다.
+- 남는 차이: 대기 중 채팅은 지금처럼 막아 둔다(맵의 채팅 PhotonView와 겹침).
+
+## 21.5 단계
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| L0 | §21.3 결정(Q1·Q2) | ✅ 2026-10-12 (Q1 a, Q2 D) |
+| L1 | 요청 1: `RoomLifecycleWatcher` 예외 넓히기 + `MonsterRoster.ReturnWhenMonstersGone` | ✅ 2026-10-12 |
+| L2 | 요청 2(Q2-D, 21.6): `Core/NetHold.cs` 보관 풀·동기화 값 보관·색칠 보관·맵에서 꺼내기, `MonsterLobbyWaitController` 큐 멈춤 삭제·괴물 아바타 남기기, `PlayerPaintCanvas` 재생 진입점, `HideOrSeekPlayer` RPC 가드 | ✅ 2026-10-12 |
+| L3 | EditMode 시험: `ReturnWhenMonstersGone` 표(로켓 전·후, 처단, 결과 뒤), 대기 아바타 지울 대상 고르기(괴물 목록에 있는 사람 제외) | ✅ 2026-10-12 (판단 표 5개; 지울 대상은 Play Mode·멀티로) |
+| L4 | Play Mode(오프라인): 스파이 로켓 발사 → 가짜 괴물 퇴장(`OnPlayerLeftRoom`에 시험용 Player) → 배너 없음·`MonsterDepartedAt` 없음·마녀 내리침·결과 화면까지 진행 / 로켓 전 퇴장은 5초 뒤 대기실. 대기실: 괴물로 정해진 뒤 시작 신호 → 입력 억제·되돌림, 출발 뒤 맵에서 이동 가능 | ✅ 2026-10-12 |
+| L5 | 멀티(사용자): ① 5명 이상(스파이) — 로켓 발사 뒤 괴물이 게임을 끔 → 판 계속·마녀·결과 ② 7명 이상(괴물 2) — A·B 가마솥 → 시작 → 서로 보임·대기 자세 → 맵 도착 후 정상 이동. 문서·README | ⬜ |
+
+## 21.7 결과 기록 ✅ 2026-10-12
+- **요청 1**: `Monster/RoomLifecycleWatcher.cs` — 괴물이 모두 나가도 `MonsterRoster.ReturnWhenMonstersGone(로켓 발사, 처단 중, 결과 남)`이 false면 판 계속. 목록은 빈 배열로 갱신하고 `MonsterDepartedAt`은 쓰지 않는다(배너 없음).
+  - Play Mode(캔디숲, 가짜 괴물 퇴장):
+    - 로켓 발사 뒤 → 경고 없음, 타임어택 계속 → 16초 마녀 내리침 → 19초 결과(`WitchStrike`) → 결과 화면 뒤 대기실.
+    - 로켓 전 → 1초 퇴장, 6초에 대기실(지금과 같음).
+- **요청 2(Q2-D)**:
+  - 새 `Core/NetHold.cs`·`Core/HeldSyncRecorder.cs`.
+  - `MonsterLobbyWaitController`: 큐 멈춤·`KeepAliveInBackground` 연장 삭제 → `NetHold.Begin()`, 함께 기다리는 괴물 아바타는 지우지 않음.
+  - `PlayerPaintCanvas.ApplyRemote`(실시간·보관 공용, 받은 시각 판정), `HideOrSeekPlayer` RPC 4개 `pv == null` 가드.
+  - Play Mode:
+    - ① 보관: 만든 쿠키가 꺼진 채 등록됨, 동기화 값 기록 → 맵을 다시 불러오면 맵 씬으로 옮겨 켜짐, 관찰 목록 복구, 위치 (5,1,5) 적용, 색칠 스탬프 적용(알파 1.0).
+    - ② 대기실(나 = 괴물): 시작 신호 → 대기 중에도 메시지 큐가 돈다, 보관 시작 → 6초 뒤 맵 → 꺼내기 → 괴물 스폰. 콘솔 오류·경고 0.
+- **시험**: EditMode 288개 모두 통과(`AuditFixTests` 23 — `ReturnWhenMonstersGone` 5개 추가).
+- **멀티 확인(L5, 사용자)**:
+  - ① 5명 이상(스파이 1) — 로켓 발사 뒤 괴물이 게임을 끔 → 배너 없이 판 계속 → 마녀 → 결과.
+  - ② 7명 이상(괴물 2) — A·B가 가마솥 → 시작 → 대기실에서 서로 보이고 움직임까지 보임 → 맵 도착 뒤 쿠키가 숨은 자리·위장 그대로 보임(보관한 위치·색칠 적용), 괴물 둘 모두 정상 이동.
+
+## 21.8 멀티 시험에서 찾은 문제 — 대기실로 돌아오면 시점이 남의 캐릭터로 (2026-10-12) ✅ 수정 반영
+- **현상**(사용자, 8명·에디터 방장): 에디터 = Player2806인데 카메라가 Player5842를 따라가고, 방향키 이동이 이상하다.
+- **확인(실행 중인 에디터를 그대로 조사)**:
+  - 내 쿠키(actor 1)의 `SpectatorController`가 대기실에서 관전 중이었다(`isSpectating=True`, 이유 `Broken`). 카메라 대상은 actor 4의 쿠키.
+  - 그때 내 HitCount는 이미 지워져 있었다.
+- **원인(P3 회귀)**:
+  - P3에서 `CookieLifeStatePresenter.Reconcile`이 "부서짐"이면 관전으로 넘어가게 바꿨다(방장 확정이 처형 연출보다 늦게 오는 경우 대비).
+  - 판 키(HitCount)는 P2부터 **방장이** 지운다(`RoundStateResetter` → `AuthorityProps.SetPlayer`). 그래서 대기실로 돌아온 직후 서버 응답이 올 때까지 이전 판 HitCount = 2가 잠깐 남는다.
+  - 이 사이 새로 생긴 대기실 쿠키의 첫 `Reconcile`이 "부서짐"을 보고 관전에 들어갔다. 관전은 한 번 들어가면 풀리지 않는다.
+  - 같은 이유로 대기실 쿠키가 잠깐 이동 잠금·부서진 모습이 될 수 있었다.
+- **수정**(사용자가 Play Mode를 끈 뒤 반영):
+  - 파괴는 맵에서만 본다(`PaintPhaseController.IsPaintScene`). 맵이 내려가는 순간 false가 되어 대기실에는 이전 판 값이 영향을 주지 않는다.
+  - 적용한 곳: `HideOrSeekPlayer.IsBroken`, `CookieLifeStatePresenter.Reconcile`·`EnterSpectatorIfConfirmed`, `PlayerGrabController.TryGrab`(대상 `target.IsBroken`).
+- **확인**:
+  - 컴파일 오류·경고 0, EditMode 전체 통과.
+  - 오프라인 Play Mode — 내 HitCount = 2로 만들었을 때:
+    - 대기실: 부서짐 아님·잠금 없음·관전 아님·카메라는 내 캐릭터.
+    - 캔디숲: 부서짐·잠금·관전(지금과 같음). 콘솔 오류·경고 0.
+- **멀티 확인 예정**: 이전 판에 잡힌 사람이 대기실로 돌아와서도 자기 캐릭터 시점·이동이 정상인지.
+

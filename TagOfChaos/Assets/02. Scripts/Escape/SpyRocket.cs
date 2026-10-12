@@ -42,7 +42,19 @@ public class SpyRocket : MonoBehaviour, IHoldInteractable, IInteractionLabel
         renderers = GetComponentsInChildren<Renderer>(true);
         colliders = GetComponentsInChildren<Collider>(true);
         if (flame != null) flame.localScale = Vector3.zero;
+        // 도는 부품(Spin…)을 한 번만 찾아 둔다 — 예전에는 매 프레임 이름 문자열을 만들어 찾았다(F-15).
+        for (int i = 0; i < spinParts.Length; i++)
+        {
+            filledLooks[i] = transform.Find($"Slot_{i:00}_Filled");
+            var spins = new System.Collections.Generic.List<Transform>();
+            if (filledLooks[i] != null)
+                foreach (Transform t in filledLooks[i]) if (t.name.StartsWith("Spin")) spins.Add(t);
+            spinParts[i] = spins.ToArray();
+        }
     }
+
+    private readonly Transform[] filledLooks = new Transform[2];
+    private readonly Transform[][] spinParts = new Transform[2][];
 
     public Vector3 InteractionPoint => transform.position;
     public float InteractionRange => interactionRange;
@@ -95,11 +107,11 @@ public class SpyRocket : MonoBehaviour, IHoldInteractable, IInteractionLabel
     private void Update()
     {
         // 끼운 기어처럼 이름이 Spin으로 시작하는 부품은 돈다
-        for (int i = 0; i < 2; i++)
+        for (int i = 0; i < filledLooks.Length; i++)
         {
-            Transform filledLook = transform.Find($"Slot_{i:00}_Filled");
+            Transform filledLook = filledLooks[i];
             if (filledLook == null || !filledLook.gameObject.activeInHierarchy) continue;
-            foreach (Transform t in filledLook) if (t.name.StartsWith("Spin")) t.Rotate(180f * Time.deltaTime, 0f, 0f, Space.Self);
+            foreach (Transform t in spinParts[i]) t.Rotate(180f * Time.deltaTime, 0f, 0f, Space.Self);
         }
 
         // 해치: 탈 때 잠깐 열린다
@@ -156,35 +168,15 @@ public class SpyRocket : MonoBehaviour, IHoldInteractable, IInteractionLabel
     // 점화 연기: 바닥에서 옆으로 퍼지는 회색 퍼프(코드로 만든 파티클, 텍스처 없음).
     private ParticleSystem CreateSmoke()
     {
-        var go = new GameObject("LaunchSmoke");
-        go.transform.SetParent(transform, false);
-        go.transform.localPosition = Vector3.up * 0.2f;
-        go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        var ps = go.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.startLifetime = 1.6f;
-        main.startSpeed = 3f;
-        main.startSize = new ParticleSystem.MinMaxCurve(1.2f, 2.4f);
-        main.startColor = new Color(0.75f, 0.72f, 0.8f, 0.6f);
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.maxParticles = 120;
-        var emission = ps.emission;
-        emission.rateOverTime = 40f;
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 70f;
-        shape.radius = 0.6f;
-        var size = ps.sizeOverLifetime;
-        size.enabled = true;
-        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.6f, 1f, 1.6f));
-        var color = ps.colorOverLifetime;
-        color.enabled = true;
-        var grad = new Gradient();
-        grad.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                     new[] { new GradientAlphaKey(0.6f, 0f), new GradientAlphaKey(0f, 1f) });
-        color.color = grad;
-        var renderer = go.GetComponent<ParticleSystemRenderer>();
-        renderer.material = EscapeVisuals.SoftParticleMaterial(); // 둥근 부드러운 퍼프(텍스처 없으면 네모로 보인다)
+        ParticleSystem ps = EscapeVisuals.CreateParticles("LaunchSmoke", transform, new EscapeVisuals.ParticleStyle
+        {
+            Lifetime = new Vector2(1.6f, 1.6f), Speed = new Vector2(3f, 3f), Size = new Vector2(1.2f, 2.4f),
+            Color = new Color(0.75f, 0.72f, 0.8f, 0.6f), MaxParticles = 120, Rate = 40f,
+            Shape = ParticleSystemShapeType.Cone, Angle = 70f, Radius = 0.6f, GrowTo = 1.6f,
+            FadeFrom = Color.white, FadeTo = Color.white, AlphaFrom = 0.6f,
+        });
+        ps.transform.localPosition = Vector3.up * 0.2f;
+        ps.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         ps.Play();
         return ps;
     }

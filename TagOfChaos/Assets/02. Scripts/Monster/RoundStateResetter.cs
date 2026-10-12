@@ -28,10 +28,12 @@ public class RoundStateResetter : MonoBehaviourPunCallbacks
         if (localResetDone) TryResetRoom();
     }
 
-    // 자기 Player Props는 각자 지운다(소유권 원칙). SkinIndex는 판이 바뀌어도 유지한다.
+    // 본인이 쓰는 Player Props(NetKeys.Writer.Self)는 각자 지운다. SkinIndex는 판이 바뀌어도 유지한다.
+    // 방장만 쓰는 판 키(HitCount·DeathCause·CatchCount·Escaped)는 방장이 모두의 것을 지운다(TryResetRoom) — 본인이 지우면
+    // 권위 속성 감시(RoomPropertyGuard)가 조작으로 보고 되돌린다(AuditFixPlan.md §7.2).
     private static void ResetLocalPlayerRoundState()
     {
-        var props = BuildNullProps(PhotonNetwork.LocalPlayer.CustomProperties, NetKeys.RoundPlayerKeys);
+        var props = BuildNullProps(PhotonNetwork.LocalPlayer.CustomProperties, NetKeys.RoundSelfPlayerKeys);
         if (props.Count > 0) PhotonNetwork.LocalPlayer.SetCustomProperties(props);
     }
 
@@ -40,7 +42,12 @@ public class RoundStateResetter : MonoBehaviourPunCallbacks
         if (!PhotonNetwork.IsMasterClient || !HasFinishedRoundTrace()) return;
 
         var props = BuildNullProps(PhotonNetwork.CurrentRoom.CustomProperties, NetKeys.RoundRoomKeys);
-        if (props.Count > 0) PhotonNetwork.CurrentRoom.SetCustomProperties(props);
+        if (props.Count > 0) AuthorityProps.SetRoom(props);
+        foreach (Player p in PhotonNetwork.CurrentRoom.Players.Values)
+        {
+            var playerProps = BuildNullProps(p.CustomProperties, NetKeys.RoundMasterPlayerKeys);
+            if (playerProps.Count > 0) AuthorityProps.SetPlayer(p, playerProps);
+        }
 
         PhotonNetwork.CurrentRoom.IsOpen = true;    // 게임 시작 때 닫은 방을 다시 연다(두 복귀 경로 공통)
         PhotonNetwork.CurrentRoom.IsVisible = true;

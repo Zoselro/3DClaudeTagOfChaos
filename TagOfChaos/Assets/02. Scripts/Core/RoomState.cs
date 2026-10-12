@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine;
@@ -59,7 +60,6 @@ public static class RoomState
 
     public static bool IsLocalSpy() => PhotonNetwork.LocalPlayer != null && IsSpy(PhotonNetwork.LocalPlayer.ActorNumber);
 
-    public static bool HasEscaped(Player player) => TryGetPlayerInt(player, NetKeys.Escaped, out int escaped) && escaped == 1;
 
     // 방장이 정한 제한시간·타임어택 시간(초). 방 설정이 없으면(오프라인 개발 방 등) 기본값.
     public static int TimeLimitSeconds() =>
@@ -99,10 +99,16 @@ public static class RoomState
     public static int HostActor()
     {
         if (!IsInRoom()) return -1;
-        var actors = new int[PhotonNetwork.PlayerList.Length];
-        for (int i = 0; i < actors.Length; i++) actors[i] = PhotonNetwork.PlayerList[i].ActorNumber;
-        return HostActor(actors);
+        int best = -1;
+        foreach (int actor in PhotonNetwork.CurrentRoom.Players.Keys) // PlayerList는 부를 때마다 정렬·배열을 새로 만든다(F-11)
+            if (best < 0 || actor < best) best = actor;
+        return best;
     }
+
+    // 방 안 사람들(순서 없음). 매 프레임 도는 곳에서 PhotonNetwork.PlayerList 대신 쓴다 — 할당 없이 순회된다(F-11).
+    public static Dictionary<int, Player>.ValueCollection Players =>
+        IsInRoom() ? PhotonNetwork.CurrentRoom.Players.Values : EmptyPlayers.Values;
+    private static readonly Dictionary<int, Player> EmptyPlayers = new Dictionary<int, Player>();
 
     // 네트워크 상태와 분리한 순수 계산(테스트용): 최소 ActorNumber, 없으면 -1.
     public static int HostActor(int[] actorNumbers) => DesiredMasterActor(actorNumbers, null);
@@ -116,9 +122,13 @@ public static class RoomState
     {
         if (!IsInRoom()) return -1;
         TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters);
-        var actors = new int[PhotonNetwork.PlayerList.Length];
-        for (int i = 0; i < actors.Length; i++) actors[i] = PhotonNetwork.PlayerList[i].ActorNumber;
-        return DesiredMasterActor(actors, monsters);
+        int best = -1;
+        foreach (int actor in PhotonNetwork.CurrentRoom.Players.Keys)
+        {
+            if (monsters != null && System.Array.IndexOf(monsters, actor) >= 0) continue;
+            if (best < 0 || actor < best) best = actor;
+        }
+        return best;
     }
 
     // 네트워크 상태와 분리한 순수 계산(테스트·정책 확장용): 괴물이 아닌 액터 중 최소 번호, 없으면 -1.

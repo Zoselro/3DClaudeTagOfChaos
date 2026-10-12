@@ -416,6 +416,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     }
 
     private static bool IsPaintPhaseActive() => GamePhaseState.IsPaintActive;
+    private const double LateStrokeGrace = 2.0; // 색칠이 끝나기 직전에 보낸 획이 늦게 도착해도 그린다(초)
 
     public static bool IsPointerOverUi() =>
         UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
@@ -477,13 +478,26 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     public void OnEvent(EventData photonEvent)
     {
         if (photonEvent.Code != NetEventCodes.PaintStroke && photonEvent.Code != NetEventCodes.ClearColor) return;
-        if (!(photonEvent.CustomData is object[] data) || data.Length == 0 || !(data[0] is int viewId)) return;
+        if (!(photonEvent.CustomData is object[] data)) return;
+        ApplyRemote(photonEvent.Code, photonEvent.Sender, data, InPaintWindowNow());
+    }
+
+    // 지금이 색칠 시간(+늦게 도착 여유)인지. 대기실에서 기다리던 괴물이 보관한 색칠(NetHold)은 받은 시각의 값을 쓴다.
+    public static bool InPaintWindowNow() =>
+        IsPaintPhaseActive() || (RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double paintEnd) && PhotonNetwork.Time < paintEnd + LateStrokeGrace);
+
+    // 다른 클라이언트가 보낸 스탬프 묶음(또는 지우기) 적용 — 실시간 수신(OnEvent)과 보관했다 꺼낸 것(NetHold) 공용.
+    public void ApplyRemote(byte code, int sender, object[] data, bool paintWindow)
+    {
+        if (data == null || data.Length == 0 || !(data[0] is int viewId)) return;
         if (pv == null || viewId != pv.ViewID) return;
         if (!PaintPhaseController.IsPaintScene) return; // 씬 전환 중 늦게 도착한 스트로크가 대기실 캐릭터에 그려지지 않게
+        // 자기 몸은 자기만 칠한다 — 보낸 사람이 이 캐릭터의 주인이 아니면 무시한다(F-06, 조작된 클라이언트가 남의 위장을 칠하거나 지우던 경로).
+        if (!PhotonNetwork.OfflineMode && (pv.Owner == null || sender != pv.Owner.ActorNumber)) return;
 
-        if (photonEvent.Code == NetEventCodes.ClearColor)
+        if (code == NetEventCodes.ClearColor)
         {
-            ClearCanvas();
+            if (paintWindow) ClearCanvas(); // 지우기는 색칠 시간에만
             return;
         }
 
@@ -492,9 +506,15 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
 
         // 송신 측이 이미 판단을 끝냈으므로 그대로 재생만 한다 — 이벤트 하나(최대 maxStampsPerEvent개)를 한 번에 그린다.
         int count = Mathf.Min(us.Length, Mathf.Min(vs.Length, Mathf.Min(radii.Length, Mathf.Min(colors.Length, kinds.Length))));
+        if (count > maxStampsPerEvent) return; // 보내는 쪽은 이보다 많이 묶지 않는다(조작된 큰 묶음 무시)
         remoteDrawStamps.Clear();
         for (int i = 0; i < count; i++)
-            remoteDrawStamps.Add(new PendingStamp { U = us[i], V = vs[i], Radius = radii[i], Color = colors[i], Kind = (StrokeKind)kinds[i] });
+        {
+            var kind = (StrokeKind)kinds[i];
+            // 붓·지우개는 색칠 시간(+늦게 도착 여유)에만. 강제 도포(ForceFill)는 색칠이 끝난 뒤 주인이 보낸다.
+            if (kind != StrokeKind.ForceFill && !paintWindow) continue;
+            remoteDrawStamps.Add(new PendingStamp { U = us[i], V = vs[i], Radius = radii[i], Color = colors[i], Kind = kind });
+        }
         DrawStamps(remoteDrawStamps);
     }
 

@@ -48,10 +48,13 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     public float BoardReadySeconds => Sequence != null ? Sequence.BoardReadySeconds : 0f;
     public float DepartureSeconds => Sequence != null ? Sequence.DepartureSeconds : 0f;
 
-    // 탈것에 타서 출발을 기다리는 쿠키인지(몸 숨김·이동 잠금·관전 대상에서 빼기).
-    // 탈것에 탔거나(기다림·출발) 탈출했거나 스파이 로켓에 탄 쿠키인지 — 맵에서 몸이 사라진 상태.
-    public static bool HasLeftMap(int actor) => Instance != null && Instance.State != null
-        && (Instance.State.Waiting.Contains(actor) || Instance.State.Escaped.Contains(actor) || Instance.State.Boarded.Contains(actor));
+    // "탈출했나"의 단일 기준은 방장이 쓴 EscapeState다(AuditFixPlan.md F-07·S-05). 다른 도메인은 이 두 함수만 부른다.
+    // 맵을 떠남 = 탈것에 탔거나(기다림·출발) 탈출했거나 스파이 로켓에 탄 쿠키 — 몸 숨김·이동 잠금·관전 대상에서 빼기.
+    public static bool HasLeftMap(int actor) => Instance != null && Instance.State != null && Instance.State.HasLeftMap(actor);
+    // 탈출 = 탈것이 출발해 탈출했거나 로켓에 탔다(결과 화면·징글·승패 판정).
+    public static bool HasEscaped(int actor) => Instance != null && Instance.State != null && Instance.State.HasEscaped(actor);
+
+    // 탈것에 타서 출발을 기다리는 쿠키인지(관전 카메라를 탈것 쪽으로).
 
     public static bool IsWaiting(int actor) => Instance != null && Instance.State != null && Instance.State.Waiting.Contains(actor) && !Instance.State.Escaped.Contains(actor);
 
@@ -79,6 +82,8 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     private const float PhaseCheckSeconds = 0.2f;
     private bool? chestsShown; // null = 아직 그린 적 없음(판 중간 입장은 연출 없이 바로 보임)
     private float nextPhaseCheck;
+    private const float TrackSeconds = 0.2f; // 위치 기록 간격(F-10 — 매 프레임 → 간격)
+    private float nextTrack;
 
     // ---------------- lifecycle ----------------
 
@@ -126,12 +131,16 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
             nextPhaseCheck = Time.unscaledTime + PhaseCheckSeconds;
             if (ChestsVisibleIn(GamePhaseState.Current) != chestsShown) RefreshViews();
         }
+        if (Time.unscaledTime >= nextTrack)
+        {
+            nextTrack = Time.unscaledTime + TrackSeconds;
+            authority.TrackPositions(); // 방장이 아니어도 기록한다(F-10)
+        }
         if (!PhotonNetwork.IsMasterClient)
         {
             TrackBrokenPlayers(asMaster: false); // 방장이 아니어도 잡힌 사람을 기억해 둔다 — 방장이 되면 다시 알리지 않게(research.md R4.10-9)
             return;
         }
-        authority.TrackPositions();
 
         if (State == null && !initRequested && CanInitialize())
         {
@@ -149,7 +158,7 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     // 방장이 아닐 때 기록해 둔 사람은 방장이 된 뒤 다시 알리지 않는다(예전에는 새 방장이 이미 잡힌 스파이를 다시 알렸다).
     private void TrackBrokenPlayers(bool asMaster)
     {
-        foreach (Player p in PhotonNetwork.PlayerList)
+        foreach (Player p in RoomState.Players)
         {
             if (!RoomState.IsBroken(p) || !brokenReported.Add(p.ActorNumber)) continue;
             if (asMaster) authority.OnPlayerBroken(p);
@@ -191,6 +200,8 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     public void ApplyLocalState(EscapeState state)
     {
         if (state == null) return;
+        // 방장 화면: 커밋 직후 바로 맞춘 상태보다 옛 상태(앞선 커밋의 서버 응답)가 늦게 오면 무시한다(F-18).
+        if (PhotonNetwork.IsMasterClient && State != null && state.Revision < State.Revision) return;
         State = state;
         if (PhotonNetwork.IsMasterClient && authority.State == null) authority.Adopt(state);
         RefreshViews();

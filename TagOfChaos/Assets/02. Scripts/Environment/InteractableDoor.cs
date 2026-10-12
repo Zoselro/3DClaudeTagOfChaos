@@ -66,6 +66,7 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
     //public Vector3 InteractionPoint => leafCenter;
 
     public float InteractionRange => interactionRange;
+    private const float RequestReachSlack = 3f; // 방장 화면 위치의 동기화 지연 여유(m)
 
     private void Awake()
     {
@@ -152,6 +153,13 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
         if (!(photonEvent.CustomData is object[] data) || data.Length < 2) return;
         if (!(data[0] is string id) || id != DoorId) return;
         if (!(data[1] is byte raw) || raw > (byte)DoorState.OpenOutward) return;
+        // 요청한 사람의 캐릭터가 문 근처일 때만(F-06 — 멀리서 문을 여닫는 조작 방지). 캐릭터를 못 찾으면(입장 직후 등) 막지 않는다.
+        IGameCharacter requester = CharacterRegistry.FindByOwner(photonEvent.Sender);
+        if (requester != null && Vector3.Distance(requester.gameObject.transform.position, InteractionPoint) > interactionRange + RequestReachSlack)
+        {
+            Debug.LogWarning($"[InteractableDoor] Ignored a request for '{id}' from actor {photonEvent.Sender}: too far away.");
+            return;
+        }
         WriteState(id, (DoorState)raw);
     }
 
@@ -165,7 +173,7 @@ public class InteractableDoor : MonoBehaviourPunCallbacks, IInteractable, IOnEve
 
         doors[id] = (byte)value;
         masterPendingWrites[id] = (byte)value;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.DoorStates, doors } });
+        AuthorityProps.SetRoom(new Hashtable { { NetKeys.DoorStates, doors } });
     }
 
     public override void OnRoomPropertiesUpdate(Hashtable propertiesThatChanged)

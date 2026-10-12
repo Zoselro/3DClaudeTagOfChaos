@@ -70,11 +70,37 @@ public static class EscapeVisuals
         return softParticle;
     }
 
+    // 같은 (색, 발광) 조합은 재질 하나를 같이 쓴다 — 예전에는 칠할 때마다 렌더러 수만큼 새 재질이 생겼다(F-15).
+    // 씬이 내려가면 목록만 비워, 다음 씬 로드의 미사용 에셋 정리가 옛 재질을 거둬 가게 한다.
+    private static readonly System.Collections.Generic.Dictionary<TintKey, Material> tintCache =
+        new System.Collections.Generic.Dictionary<TintKey, Material>();
+    private static bool tintCacheHooked;
+
+    private struct TintKey : System.IEquatable<TintKey>
+    {
+        public Color Color;
+        public float Emission;
+        public bool Equals(TintKey o) => Color == o.Color && Emission.Equals(o.Emission);
+        public override bool Equals(object obj) => obj is TintKey o && Equals(o);
+        public override int GetHashCode() => Color.GetHashCode() * 31 + Emission.GetHashCode();
+    }
+
     public static void Tint(GameObject go, Color color, float emission)
     {
+        if (!tintCacheHooked)
+        {
+            tintCacheHooked = true;
+            UnityEngine.SceneManagement.SceneManager.sceneUnloaded += _ => tintCache.Clear();
+        }
+        var key = new TintKey { Color = color, Emission = emission };
+        if (!tintCache.TryGetValue(key, out Material mat) || mat == null)
+        {
+            mat = NewMaterial(color, emission, fade: false);
+            tintCache[key] = mat;
+        }
         foreach (Renderer r in go.GetComponentsInChildren<Renderer>(true))
         {
-            r.sharedMaterial = NewMaterial(color, emission, fade: false);
+            r.sharedMaterial = mat;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
     }
@@ -135,5 +161,88 @@ public static class EscapeVisuals
         var m = new Material(Template(fade, glow)) { color = color };
         if (glow) m.SetColor("_EmissionColor", color * emission);
         return m;
+    }
+
+    // ---------------- 코드로 만드는 파티클·승객 인형(AuditFixPlan.md F-14 — 6곳·3곳에 흩어져 있던 것을 하나로) ----------------
+
+    // 파티클 모양 값. 지정하지 않은 값(0·null)은 ParticleSystem 기본값을 그대로 둔다.
+    public struct ParticleStyle
+    {
+        public Vector2 Lifetime, Speed, Size; // (최소, 최대) — 같으면 상수
+        public Color Color;
+        public float Gravity;
+        public int MaxParticles;
+        public float? Rate;                    // 초당 방출(null = 기본값)
+        public bool EmissionOff;               // 연속 방출 끔(Emit·한 번 터뜨리기용)
+        public ParticleSystemShapeType Shape;
+        public float Angle, Radius;
+        public Vector3 BoxScale, ShapeRotation;
+        public float GrowTo;                   // > 0: 수명 동안 0.6배 → GrowTo배로 커짐
+        public Color FadeFrom, FadeTo;         // 수명 동안 색(시작 → 끝)
+        public float AlphaFrom;                // 시작 알파(끝은 0)
+        public bool Manual;                    // 비운 채 멈춰 두고 자동 재생하지 않음
+        public bool Once;                      // 반복하지 않음
+    }
+
+    public static ParticleSystem CreateParticles(string name, Transform parent, ParticleStyle s)
+    {
+        var go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        var ps = go.AddComponent<ParticleSystem>();
+        if (s.Manual) ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = ps.main;
+        if (s.Manual) main.playOnAwake = false;
+        if (s.Once) main.loop = false;
+        main.startLifetime = Range(s.Lifetime);
+        main.startSpeed = Range(s.Speed);
+        main.startSize = Range(s.Size);
+        main.startColor = s.Color;
+        if (s.Gravity != 0f) main.gravityModifier = s.Gravity;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        if (s.MaxParticles > 0) main.maxParticles = s.MaxParticles;
+        var emission = ps.emission;
+        if (s.EmissionOff) emission.enabled = false;
+        if (s.Rate.HasValue) emission.rateOverTime = s.Rate.Value;
+        var shape = ps.shape;
+        shape.shapeType = s.Shape;
+        if (s.Angle > 0f) shape.angle = s.Angle;
+        if (s.Radius > 0f) shape.radius = s.Radius;
+        if (s.BoxScale != Vector3.zero) shape.scale = s.BoxScale;
+        if (s.ShapeRotation != Vector3.zero) shape.rotation = s.ShapeRotation;
+        if (s.GrowTo > 0f)
+        {
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.6f, 1f, s.GrowTo));
+        }
+        var color = ps.colorOverLifetime;
+        color.enabled = true;
+        var grad = new Gradient();
+        grad.SetKeys(new[] { new GradientColorKey(s.FadeFrom, 0f), new GradientColorKey(s.FadeTo, 1f) },
+                     new[] { new GradientAlphaKey(s.AlphaFrom, 0f), new GradientAlphaKey(0f, 1f) });
+        color.color = grad;
+        go.GetComponent<ParticleSystemRenderer>().material = SoftParticleMaterial(); // 둥근 부드러운 퍼프(텍스처 없으면 네모로 보인다)
+        return ps;
+    }
+
+    private static ParticleSystem.MinMaxCurve Range(Vector2 v) =>
+        Mathf.Approximately(v.x, v.y) ? new ParticleSystem.MinMaxCurve(v.x) : new ParticleSystem.MinMaxCurve(v.x, v.y);
+
+    // 탈것·탑승 연출의 승객 인형(카탈로그 모델, 없으면 캡슐). seatedScale이 있으면 좌석 자리에 맞춰 앉힌다.
+    public static GameObject CreatePassenger(Transform parent, float? seatedScale)
+    {
+        EscapeCatalogSO catalog = EscapeCatalogSO.Current;
+        GameObject model = catalog != null && catalog.PassengerModel != null
+            ? Object.Instantiate(catalog.PassengerModel, parent, false)
+            : GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        if (model.transform.parent != parent) model.transform.SetParent(parent, false);
+        if (seatedScale.HasValue)
+        {
+            model.transform.localPosition = Vector3.zero;
+            model.transform.localRotation = Quaternion.identity;
+            model.transform.localScale = Vector3.one * seatedScale.Value;
+        }
+        foreach (Collider c in model.GetComponentsInChildren<Collider>(true)) Object.Destroy(c);
+        return model;
     }
 }

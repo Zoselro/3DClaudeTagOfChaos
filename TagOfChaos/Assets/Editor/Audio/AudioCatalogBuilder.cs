@@ -155,7 +155,7 @@ public static class SoundDefaults
                     e.cooldown = 0f;
                     e.importance = SoundImportance.High;
                 }
-                else if (id == SoundId.MonsterAimLock || id == SoundId.SpectateSwitch)
+                else if (id == SoundId.MonsterAimLock)
                 {
                     Flat(e, SoundBus.Sfx);
                 }

@@ -14,6 +14,7 @@ public class RoomExitController : MonoBehaviourPunCallbacks
     [SerializeField] private string leaveConfirmMessage = "Leave to the lobby?";
     [SerializeField] private string leaveLogFormat = "\n<color=#ff0000>[{0}] left the room</color>";
 
+    public string LeaveLogFormat => leaveLogFormat; // GameManager가 받는 쪽에서 보낸 사람 닉네임으로 꾸민다(S-11)
     public ConfirmDialog Dialog => confirmDialog; // 강퇴 확인(GameLobbyController)도 같은 확인창을 쓴다
 
     // 나가기: 곧바로 나가지 않고 확인창부터 띄운다
@@ -33,7 +34,7 @@ public class RoomExitController : MonoBehaviourPunCallbacks
 
         // 방 CustomProperties는 마지막 사람이 나가면 방과 함께 사라지므로 따로 지우지 않는다(예전의
         // CurrentRoom.CustomProperties.Clear()는 로컬 사본만 지워 아무 효과가 없었다, research.md §8.12).
-        pv.RPC(GameManager.RpcLogMsg, RpcTarget.All, string.Format(leaveLogFormat, PhotonNetwork.LocalPlayer.NickName), false);
+        pv.RPC(GameManager.RpcLogMsg, RpcTarget.All, GameManager.KindLeft, string.Empty);
 
         // LocalPlayer의 CustomProperties는 다음에 들어가는 방으로 그대로 전송되므로, 판 단위 키(파괴 여부·
         // 슬롯 수)만 로컬에서 지운다. SkinIndex는 다음 방에서도 유지한다.

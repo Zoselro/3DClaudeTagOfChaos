@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 public class LobbyController : MonoBehaviourPunCallbacks
 {
-    private const string GameVersion = "1"; // 빌드가 바뀌면 올려서 이전 버전 클라이언트와 매치메이킹이 섞이지 않게 함
+    private const string GameVersion = "2"; // 빌드가 바뀌면 올려서 이전 버전 클라이언트와 매치메이킹이 섞이지 않게 함(2: 채팅·들기 RPC 서명 변경, AuditFixPlan.md P4)
 
     [SerializeField] private TMP_InputField userIdInput;
     [SerializeField] private TMP_InputField roomNameInput;
@@ -70,7 +70,6 @@ public class LobbyController : MonoBehaviourPunCallbacks
     {
         userIdInput.text = !string.IsNullOrEmpty(PhotonNetwork.NickName) ? PhotonNetwork.NickName : "Player" + Random.Range(1000, 10000); // 기본값, 직접 수정 가능
         if (LobbyKick.ConsumeKickedNotice()) ShowError(kickedMessage); // 대기실에서 강퇴되어 돌아왔다
-        PhotonNetwork.SerializationRate = GameSettings.Current.CharacterSyncRate; // 캐릭터 동기화 빈도(research.md §12.4)
 
         string region = CurrentRegion ?? PhotonRegions.Saved;
         if (RegionMove.HasPending) // 대기실에서 호스트가 지역을 바꿔 방을 옮기는 중

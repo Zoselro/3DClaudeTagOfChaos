@@ -34,7 +34,6 @@ public class ChaseDirector
     public float Target { get; private set; }
     public int DrumLevel { get; private set; } = -1;
     public float MonsterDistance { get; private set; } = float.PositiveInfinity;
-    public AudioSource LayerSource(int i) => i < layers.Count ? layers[i] : null;
 
     public void Tick(float deltaTime)
     {
@@ -84,7 +83,7 @@ public class ChaseDirector
             LocalIsMonster = RoomState.IsLocalMonster(),
             LocalHasCookie = hasCookie,
             LocalBroken = local != null && RoomState.IsBroken(local),
-            LocalLeftMap = local != null && (RoomState.HasEscaped(local) || EscapeManager.HasLeftMap(local.ActorNumber) || EscapeManager.IsWaiting(local.ActorNumber)),
+            LocalLeftMap = local != null && EscapeManager.HasLeftMap(local.ActorNumber),
         };
     }
 

@@ -5,6 +5,13 @@ using UnityEngine;
 public static class EscapeExitFx
 {
     private const string GlowName = "ESC_Glow";
+    private static readonly int ColorId = Shader.PropertyToID("_Color");
+    private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+    private static readonly MaterialPropertyBlock block = new MaterialPropertyBlock();
+    // 장치별 빛 렌더러(한 번만 찾는다 — F-15). 씬이 내려가면 비운다.
+    private static readonly System.Collections.Generic.Dictionary<Transform, Renderer[]> glowRenderers =
+        new System.Collections.Generic.Dictionary<Transform, Renderer[]>();
+    private static bool hooked;
 
     public static void SetComplete(Transform device, EscapeExitKind kind, bool complete)
     {
@@ -27,20 +34,35 @@ public static class EscapeExitFx
             glow = go.transform;
         }
         if (glow != null) glow.gameObject.SetActive(complete);
+        glowRenderers.Remove(device); // 빛이 새로 생겼을 수 있다 — 다음 Tick에서 다시 찾는다
     }
 
     // 진저브레드 룬은 무지개빛으로 색이 돈다. 다른 맵은 은은하게 맥동한다.
     public static void Tick(Transform device, EscapeExitKind kind)
     {
-        Transform glow = device.Find(GlowName);
-        if (glow == null) return;
+        if (!hooked)
+        {
+            hooked = true;
+            UnityEngine.SceneManagement.SceneManager.sceneUnloaded += _ => glowRenderers.Clear();
+        }
+        if (!glowRenderers.TryGetValue(device, out Renderer[] renderers))
+        {
+            Transform glow = device.Find(GlowName);
+            renderers = glow != null ? glow.GetComponentsInChildren<Renderer>(true) : new Renderer[0];
+            glowRenderers[device] = renderers;
+        }
+        if (renderers.Length == 0) return;
         Color c = kind == EscapeExitKind.RuneAltar
             ? Color.HSVToRGB(Mathf.Repeat(Time.time * 0.25f, 1f), 0.7f, 1f)
             : new Color(1f, 0.9f, 0.5f) * (0.85f + 0.15f * Mathf.Sin(Time.time * 3f));
-        foreach (Renderer r in glow.GetComponentsInChildren<Renderer>())
+        // 재질을 복제하지 않고(r.material) 렌더러별 속성 블록으로 색만 바꾼다(F-15).
+        foreach (Renderer r in renderers)
         {
-            r.material.color = c;
-            r.material.SetColor("_EmissionColor", c * 2.5f);
+            if (r == null || !r.gameObject.activeInHierarchy) continue;
+            r.GetPropertyBlock(block);
+            block.SetColor(ColorId, c);
+            block.SetColor(EmissionColorId, c * 2.5f);
+            r.SetPropertyBlock(block);
         }
     }
 }

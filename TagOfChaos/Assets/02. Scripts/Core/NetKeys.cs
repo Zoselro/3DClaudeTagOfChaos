@@ -48,21 +48,26 @@ public static class NetKeys
     public const string SpyEscapedAt = "SpyEscapedAt";         // double — 로켓이 떠난 시각(타임어택 시작)
     public const string TimeAttackEndTime = "TimeAttackEndTime"; // double
     public const string WitchStrike = "WitchStrike";           // int WitchMode — 마녀가 내리쳤다(1 타임어택 끝, 2 쿠키 탈출 뒤 처단)
+    public const string WitchStrikeAt = "WitchStrikeAt";       // double — 내리친 시각(PhotonNetwork.Time). 방장이 바뀌어도 같은 기준으로 경과를 잰다(F-20)
     public const string WitchMode = "WitchMode";               // int WitchMode — 마녀가 오는 이유(Request1009Plan.md §19)
     public const string WitchAppearAt = "WitchAppearAt";       // double — 마녀가 나타나기 시작하는 시각(앞 샷: 로켓·탈출구가 끝난 뒤)
     public const string EscapeEndReason = "EscapeEndReason";   // int — EscapeEndReason
     public const string RevealedSpies = "RevealedSpies";       // int[] — 게임이 끝난 뒤 결과 화면용으로 공개
 
-    // Player CustomProperties (GameRule.md §4.4 — hitCount는 0 또는 2만 실제로 쓰임, v3.6)
+    // Player CustomProperties (GameRule.md §4.4 — hitCount는 0 또는 2만 실제로 쓰임, v3.6). HitCount·DeathCause는 방장이 처형·마녀를 확정할 때 쓴다.
     public const string HitCount = "HitCount";
     public const string RegisteredSlotCount = "RegisteredSlotCount"; // GameRule.md §3.2
     public const string SkinIndex = "SkinIndex"; // int — SkinCatalogSO 인덱스, GameRule.md §1.5 (판이 바뀌어도 유지)
     public const string SelectedSlot = "SelectedSlot"; // int — 인벤토리에서 고른 칸(본인만 쓴다, EscapePlan.md §1.9)
-    public const string Escaped = "Escaped";           // int 1 — 쿠키 탈출구 또는 스파이 로켓으로 탈출했다
-    public const string CatchCount = "CatchCount";     // int — 괴물이 잡은 횟수(괴물 본인이 쓴다)
+    public const string CatchCount = "CatchCount";     // int — 괴물이 잡은 횟수(방장이 처형을 확정할 때 쓴다)
     public const string DeathCause = "DeathCause";     // int — DeathCause(1 괴물, 2 마녀)
 
     public enum Target { Room, Player }
+
+    // 누가 쓰는 키인가(AuditFixPlan.md §7.2). Master = 방장만 쓴다(방장이 아닌 사람이 바꾸면 방장이 되돌린다 — RoomPropertyGuard).
+    // Self = 그 플레이어 본인만 쓴다(남이 바꾸면 방장이 되돌린다). Photon Cloud는 어떤 클라이언트든 방·남의 플레이어 속성을 쓸 수 있으므로
+    // 서버 대신 이 표로 쓰기 권한을 정한다.
+    public enum Writer { Master, Self }
 
     public enum Lifetime
     {
@@ -75,12 +80,14 @@ public static class NetKeys
         public readonly string Key;
         public readonly Target Target;
         public readonly Lifetime Lifetime;
+        public readonly Writer Writer;
 
-        public Scope(string key, Target target, Lifetime lifetime)
+        public Scope(string key, Target target, Lifetime lifetime, Writer writer = Writer.Master)
         {
             Key = key;
             Target = target;
             Lifetime = lifetime;
+            Writer = writer;
         }
     }
 
@@ -108,15 +115,15 @@ public static class NetKeys
         new Scope(SpyEscapedAt, Target.Room, Lifetime.Round),
         new Scope(TimeAttackEndTime, Target.Room, Lifetime.Round),
         new Scope(WitchStrike, Target.Room, Lifetime.Round),
+        new Scope(WitchStrikeAt, Target.Room, Lifetime.Round),
         new Scope(WitchMode, Target.Room, Lifetime.Round),
         new Scope(WitchAppearAt, Target.Room, Lifetime.Round),
         new Scope(EscapeEndReason, Target.Room, Lifetime.Round),
         new Scope(RevealedSpies, Target.Room, Lifetime.Round),
         new Scope(HitCount, Target.Player, Lifetime.Round),
-        new Scope(RegisteredSlotCount, Target.Player, Lifetime.Round),
-        new Scope(SkinIndex, Target.Player, Lifetime.Session),
-        new Scope(SelectedSlot, Target.Player, Lifetime.Round),
-        new Scope(Escaped, Target.Player, Lifetime.Round),
+        new Scope(RegisteredSlotCount, Target.Player, Lifetime.Round, Writer.Self),
+        new Scope(SkinIndex, Target.Player, Lifetime.Session, Writer.Self),
+        new Scope(SelectedSlot, Target.Player, Lifetime.Round, Writer.Self),
         new Scope(CatchCount, Target.Player, Lifetime.Round),
         new Scope(DeathCause, Target.Player, Lifetime.Round),
     };
@@ -125,11 +132,31 @@ public static class NetKeys
     public static readonly string[] RoundRoomKeys = Collect(Target.Room, Lifetime.Round);
     public static readonly string[] RoundPlayerKeys = Collect(Target.Player, Lifetime.Round);
 
-    private static string[] Collect(Target target, Lifetime lifetime)
+    // 판 초기화 때 본인이 지우는 키 / 방장이 모두의 것을 지우는 키(쓰기 권한과 같게).
+    public static readonly string[] RoundSelfPlayerKeys = Collect(Target.Player, Lifetime.Round, Writer.Self);
+    public static readonly string[] RoundMasterPlayerKeys = Collect(Target.Player, Lifetime.Round, Writer.Master);
+
+    // 이 키를 방장만 쓰는지(대상별). 표에 없는 키(PUN 내부 키 등)는 보호하지 않는다.
+    public static bool IsMasterKey(string key, Target target) => TryGetScope(key, target, out Scope s) && s.Writer == Writer.Master;
+    public static bool IsSelfKey(string key) => TryGetScope(key, Target.Player, out Scope s) && s.Writer == Writer.Self;
+
+    private static bool TryGetScope(string key, Target target, out Scope scope)
+    {
+        foreach (Scope s in Scopes)
+        {
+            if (s.Key != key || s.Target != target) continue;
+            scope = s;
+            return true;
+        }
+        scope = default;
+        return false;
+    }
+
+    private static string[] Collect(Target target, Lifetime lifetime, Writer? writer = null)
     {
         var keys = new System.Collections.Generic.List<string>();
         foreach (Scope scope in Scopes)
-            if (scope.Target == target && scope.Lifetime == lifetime) keys.Add(scope.Key);
+            if (scope.Target == target && scope.Lifetime == lifetime && (writer == null || scope.Writer == writer.Value)) keys.Add(scope.Key);
         return keys.ToArray();
     }
 }

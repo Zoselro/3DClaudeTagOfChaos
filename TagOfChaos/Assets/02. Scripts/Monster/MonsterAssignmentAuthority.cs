@@ -15,28 +15,59 @@ using UnityEngine;
 public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCallback
 {
     // 온라인에서는 SetCustomProperties가 서버 응답 전까지 로컬 캐시에 반영되지 않는다(PUN 기본
-    // BroadcastPropsChangeToAll=true). 응답이 오기 전 다음 프레임에 같은 요청을 다시 보내지 않도록 막는 플래그.
-    private bool confirmRequested;
+    // BroadcastPropsChangeToAll=true). 그래서 목록은 캐시가 아니라 방장이 마지막으로 보낸 목록(MonsterRoster.Current)에서
+    // 이어 계산한다 — 예전에는 응답 전에 온 두 번째 지원을 버려(confirmRequested) 동시에 들어간 사람이 괴물이 되지 못했다(F-03).
     private bool resetRequested;
     private bool deadlineClearRequested; // 남은 기한 삭제를 응답 전 매 프레임 다시 보내지 않도록(Bug-fix-plan.md §41 ㊹)
 
     public void OnEvent(EventData photonEvent)
     {
         if (photonEvent.Code != NetEventCodes.ClaimMonster) return;
-        if (!PhotonNetwork.IsMasterClient || confirmRequested) return;
-        // 정원 미달이거나 자리가 다 찼으면 무시한다 — 가마솥(클라이언트)도 거르지만, 정원이 찬 순간 누가 나가는
-        // 경합까지 마스터가 최종 거부한다(Bug-fix-plan.md §30.2 C).
-        if (!RoomState.CanSelectMonster())
+        if (!PhotonNetwork.IsMasterClient) return;
+        // 정원 미달이면 무시한다 — 가마솥(클라이언트)도 거르지만, 정원이 찬 순간 누가 나가는
+        // 경합까지 마스터가 최종 거부한다(Bug-fix-plan.md §30.2 C). 자리가 다 찼는지는 아래 TryAppend가 본다.
+        if (!RoomState.IsRoomFull())
         {
-            Debug.Log("[MonsterAssignment] Claim ignored: room not full or selection already complete.");
+            Debug.Log("[MonsterAssignment] Claim ignored: room not full.");
             return;
         }
-        if (!(photonEvent.CustomData is int claimantActorNumber)) return;
-        if (RoomState.IsMonster(claimantActorNumber)) return;
+        // 지원자는 이벤트를 보낸 사람이다 — 내용에 담긴 번호를 믿으면 조작된 클라이언트가 남을 괴물로 지원시킬 수 있었다(F-06).
+        int claimantActorNumber = photonEvent.Sender > 0 ? photonEvent.Sender : (photonEvent.CustomData is int offlineActor ? offlineActor : -1);
+        if (claimantActorNumber <= 0) return;
+        if (!IsNearCauldron(claimantActorNumber))
+        {
+            Debug.LogWarning($"[MonsterAssignment] Claim ignored: actor {claimantActorNumber} is not at the cauldron.");
+            return;
+        }
 
 // 괴물이 여럿 필요한 인원(7~8명 = 2명)은 가마솥에 들어간 사람만 한 명씩 괴물이 된다 — 무작위로 채우지 않는다(2026-10-03 사용자 결정).
         // 자리가 다 찰 때까지 대기실 문구가 "가마솥에 들어가세요"를 보여 주고 시작 버튼은 잠겨 있다.
-        ConfirmMonsters(AppendMonsters(new[] { claimantActorNumber }), "cauldron");
+        int capacity = GameSettings.Current.MonsterCountFor(PhotonNetwork.CurrentRoom.PlayerCount);
+        int[] next = MonsterRoster.TryAppend(MonsterRoster.Current(), claimantActorNumber, capacity);
+        if (next == null)
+        {
+            Debug.Log($"[MonsterAssignment] Claim ignored: actor {claimantActorNumber} is already a monster or no seat is left.");
+            return;
+        }
+        ConfirmMonsters(next, "cauldron");
+    }
+
+    // 지원자의 캐릭터가 가마솥 근처인지(방장 화면 기준, 동기화 지연 여유 포함). 가마솥·캐릭터를 못 찾으면 막지 않는다.
+    private const float CauldronReachSlack = 3f;
+    private Cauldron cauldron;
+    private Collider cauldronTrigger;
+
+    private bool IsNearCauldron(int actor)
+    {
+        if (cauldron == null)
+        {
+            cauldron = FindFirstObjectByType<Cauldron>();
+            if (cauldron != null) cauldronTrigger = cauldron.GetComponent<Collider>();
+        }
+        IGameCharacter character = CharacterRegistry.FindByOwner(actor);
+        if (cauldron == null || cauldronTrigger == null || character == null) return true;
+        Vector3 at = character.gameObject.transform.position;
+        return Vector3.Distance(cauldronTrigger.ClosestPoint(at), at) <= CauldronReachSlack;
     }
 
     private void Update()
@@ -52,7 +83,7 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
         if (!RoomState.TryGetDouble(NetKeys.MonsterSelectDeadline, out _)) { deadlineClearRequested = false; return; }
         if (deadlineClearRequested) return;
         deadlineClearRequested = true;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.MonsterSelectDeadline, null } });
+        AuthorityProps.SetRoom(new Hashtable { { NetKeys.MonsterSelectDeadline, null } });
     }
 
     // 대기실에서 괴물이 나가면 그 사람만 목록에서 빼고, 모자란 자리는 가마솥으로 다시 뽑는다(Bug-fix-plan.md
@@ -61,12 +92,13 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
     public override void OnPlayerLeftRoom(Player otherPlayer)
     {
         if (!PhotonNetwork.IsMasterClient) return;
-        if (!RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] monsters) || !monsters.Contains(otherPlayer.ActorNumber)) return;
+        int[] monsters = MonsterRoster.Current();
+        if (!monsters.Contains(otherPlayer.ActorNumber)) return;
 
-        int[] remaining = monsters.Where(a => a != otherPlayer.ActorNumber).ToArray();
+        // 지금 방에 남은 사람과의 교집합 — 응답 전에 두 번째 괴물이 나가도 둘 다 빠진다(F-04).
+        int[] remaining = MonsterRoster.Remaining(monsters, PhotonNetwork.CurrentRoom.Players.Keys);
         Debug.Log($"[MonsterAssignment] Monster (actor {otherPlayer.ActorNumber}) left the lobby. Remaining monsters: {remaining.Length}. Selection restarts for missing seats.");
-        confirmRequested = false;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
+        AuthorityProps.SetRoom(new Hashtable
         {
             { NetKeys.MonsterActorNumbers, remaining.Length > 0 ? remaining : null },
             { NetKeys.MonsterRevealTime, remaining.Length > 0 ? (object)PhotonNetwork.Time : null },
@@ -90,8 +122,7 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
         if (resetRequested) return true;
 
         resetRequested = true;
-        confirmRequested = false;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
+        AuthorityProps.SetRoom(new Hashtable
         {
             { NetKeys.MonsterActorNumbers, null },
             { NetKeys.MonsterRevealTime, null },
@@ -101,21 +132,9 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
         return true;
     }
 
-    public override void OnRoomPropertiesUpdate(Hashtable propertiesThatChanged)
-    {
-        if (propertiesThatChanged.ContainsKey(NetKeys.MonsterActorNumbers)) confirmRequested = false;
-    }
-
-    private static int[] AppendMonsters(int[] newMonsters)
-    {
-        RoomState.TryGetIntArray(NetKeys.MonsterActorNumbers, out int[] current);
-        return (current ?? new int[0]).Concat(newMonsters).Distinct().ToArray();
-    }
-
     private void ConfirmMonsters(int[] monsterActorNumbers, string reason)
     {
-        if (confirmRequested || monsterActorNumbers.Length == 0) return; // 응답 전 중복 확정 방지(가마솥 신청이 겹치는 경우)
-        confirmRequested = true;
+        if (monsterActorNumbers.Length == 0) return;
 
         var props = new Hashtable
         {
@@ -123,7 +142,7 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
             { NetKeys.MonsterRevealTime, PhotonNetwork.Time },
         };
 
-        PhotonNetwork.CurrentRoom.SetCustomProperties(props);
+        AuthorityProps.SetRoom(props);
         Debug.Log($"[MonsterAssignment] Monsters confirmed: [{string.Join(",", monsterActorNumbers)}] (by {reason}).");
     }
 }

@@ -16,6 +16,7 @@ public class GameRuleController : MonoBehaviourPunCallbacks
     private bool resultRequested;
     private bool witchRequested;
     private float witchStruckAt = -1f;
+    private bool witchDeathsWritten;
     private readonly System.Collections.Generic.List<EscapeRules.PlayerInfo> escapePlayers = new System.Collections.Generic.List<EscapeRules.PlayerInfo>();
 
     private void Update()
@@ -47,10 +48,10 @@ public class GameRuleController : MonoBehaviourPunCallbacks
     {
         EscapeState state = EscapeManager.Instance.State;
         escapePlayers.Clear();
-        foreach (Player p in PhotonNetwork.PlayerList)
+        foreach (Player p in RoomState.Players)
         {
             int actor = p.ActorNumber;
-            bool escaped = RoomState.HasEscaped(p) || (state != null && (state.Escaped.Contains(actor) || state.Boarded.Contains(actor)));
+            bool escaped = state != null && state.HasEscaped(actor); // 방장이 쓴 탈출 상태만(본인이 쓰는 속성은 믿지 않는다, S-05)
             escapePlayers.Add(new EscapeRules.PlayerInfo
             {
                 IsMonster = monsters.Contains(actor),
@@ -60,8 +61,22 @@ public class GameRuleController : MonoBehaviourPunCallbacks
             });
         }
 
-        bool struck = RoomState.TryGetInt(NetKeys.WitchStrike, out _);
-        if (struck && witchStruckAt < 0f) witchStruckAt = Time.time;
+        bool struck = RoomState.TryGetInt(NetKeys.WitchStrike, out int strikeMode);
+        // 내리친 뒤 지난 시간: 방장이 함께 쓴 시각(WitchStrikeAt) 기준이라 방장이 바뀌어도 이어진다(F-20). 없으면(옛 방) 이 방장의 시계로.
+        float sinceStrike = -1f;
+        if (!struck) { witchStruckAt = -1f; witchDeathsWritten = false; }
+        else if (RoomState.TryGetDouble(NetKeys.WitchStrikeAt, out double strikeAt)) sinceStrike = (float)(PhotonNetwork.Time - strikeAt);
+        else
+        {
+            if (witchStruckAt < 0f) witchStruckAt = Time.time;
+            sinceStrike = Time.time - witchStruckAt;
+        }
+        // 주먹이 맵에 닿는 순간 방장이 사망을 확정한다(예전에는 각자 본인이 썼다 — AuditFixPlan.md §8.1)
+        if (struck && !witchDeathsWritten && sinceStrike >= WitchPresenter.StrikeImpactSeconds)
+        {
+            witchDeathsWritten = true;
+            WriteWitchDeaths(strikeMode, state, monsters);
+        }
         bool hasEnd = RoomState.TryGetDouble(NetKeys.GameEndTime, out double gameEnd);
         RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double timeAttackEnd);
         // 쿠키가 모두 탈출한 뒤 남은 스파이·괴물을 마녀가 없애러 왔다(Request1009Plan.md §19.4)
@@ -70,7 +85,7 @@ public class GameRuleController : MonoBehaviourPunCallbacks
         double purgeStrikeAt = purge ? WitchTimeline.PurgeStrikeAt(appearAt) : 0;
 
         switch (EscapeRules.Evaluate(escapePlayers, timeAttack, PhotonNetwork.Time, gameEnd, hasEnd, timeAttackEnd,
-                     struck ? Time.time - witchStruckAt : -1f, EscapeManager.Instance.IsDeparting(PhotonNetwork.Time), purge, purgeStrikeAt))
+                     sinceStrike, EscapeManager.Instance.IsDeparting(PhotonNetwork.Time), purge, purgeStrikeAt))
         {
             case EscapeRules.Decision.StrikeWitch:
                 if (!witchRequested)
@@ -78,7 +93,7 @@ public class GameRuleController : MonoBehaviourPunCallbacks
                     witchRequested = true;
                     // 내리친 이유를 값으로 남긴다 — 처단(2)이면 일반 쿠키는 죽지 않는다(EscapeCharacterState)
                     int strike = (int)(purge ? WitchMode.Purge : WitchMode.TimeAttack);
-                    PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.WitchStrike, strike } });
+                    AuthorityProps.SetRoom(new Hashtable { { NetKeys.WitchStrike, strike }, { NetKeys.WitchStrikeAt, PhotonNetwork.Time } });
                 }
                 break;
             case EscapeRules.Decision.EndAllResolved: FinishEscape(EscapeEndReason.AllResolved); break;
@@ -87,12 +102,29 @@ public class GameRuleController : MonoBehaviourPunCallbacks
         }
     }
 
+    // 마녀에게 죽는 사람: 괴물은 모두, 쿠키·스파이는 탈출하지 않았고 살아 있으며 이번 내리침에 죽는 쪽(처단이면 스파이만, WitchTimeline).
+    private static void WriteWitchDeaths(int strikeMode, EscapeState state, int[] monsters)
+    {
+        foreach (Player p in RoomState.Players)
+        {
+            int actor = p.ActorNumber;
+            if (System.Array.IndexOf(monsters, actor) >= 0)
+            {
+                AuthorityProps.SetPlayer(p, new Hashtable { { NetKeys.DeathCause, (int)DeathCause.Witch } });
+                continue;
+            }
+            if (RoomState.IsBroken(p) || (state != null && state.HasEscaped(actor))) continue;
+            if (!WitchTimeline.CookieDiesInStrike(strikeMode, RoomState.IsSpy(actor))) continue;
+            AuthorityProps.SetPlayer(p, new Hashtable { { NetKeys.HitCount, 2 }, { NetKeys.DeathCause, (int)DeathCause.Witch } });
+        }
+    }
+
     // 끝난 이유와 함께, 결과 화면이 스파이를 표시할 수 있도록 스파이 번호를 공개한다.
     private void FinishEscape(EscapeEndReason reason)
     {
         resultRequested = true;
         RoomState.TryGetIntArray(NetKeys.SpyActorNumbers, out int[] spies);
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
+        AuthorityProps.SetRoom(new Hashtable
         {
             { NetKeys.GameResult, (int)GameResult.EscapeEnded },
             { NetKeys.EscapeEndReason, (int)reason },
@@ -105,7 +137,7 @@ public class GameRuleController : MonoBehaviourPunCallbacks
     {
         // 방에 남은 쿠키가 한 명도 없어도 true(괴물 승)가 된다 — 쿠키 전원이 나가면 더 이상 술래잡기가
         // 성립하지 않으므로 괴물 승리로 끝내는 것을 의도된 규칙으로 명시한다(research.md §8.15).
-        foreach (Player p in PhotonNetwork.PlayerList)
+        foreach (Player p in RoomState.Players)
         {
             if (monsters.Contains(p.ActorNumber)) continue;
             if (!RoomState.IsBroken(p)) return false;
@@ -119,11 +151,12 @@ public class GameRuleController : MonoBehaviourPunCallbacks
     {
         resultRequested = false;
         witchRequested = false;
+        witchDeathsWritten = false; // 이전 방장이 이미 썼다면 같은 값을 다시 쓸 뿐이다
     }
 
     private void Finish(GameResult result)
     {
         resultRequested = true;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.GameResult, (int)result } });
+        AuthorityProps.SetRoom(new Hashtable { { NetKeys.GameResult, (int)result } });
     }
 }

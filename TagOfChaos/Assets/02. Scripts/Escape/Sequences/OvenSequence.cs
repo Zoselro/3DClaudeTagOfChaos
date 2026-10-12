@@ -23,6 +23,9 @@ public class OvenSequence : EscapeSequence
     private const int FlashParticles = 60;
     private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
 
+    [Tooltip("맵의 둥근 오븐 문(HAU_MagicOven_Door). 맵 도구(EscapeMapSetup)가 채운다 — 비어 있으면 이름으로 찾는다(F-21).")]
+    [SerializeField] private Transform mapDoor;
+
     private Transform gearA, gearB, piston, needle, ovenLight, mouth, smokePoint;
     private Quaternion gearAHome, gearBHome, needleHome;
     private Vector3 pistonHome;
@@ -75,9 +78,13 @@ public class OvenSequence : EscapeSequence
     // 문은 경첩이 원점인 맵 물체다. 굴러가게 하려고 둥근 문 한가운데에 축(피벗)을 만들어 그 아래로 옮긴다.
     private void SetupDoor()
     {
-        GameObject found = GameObject.Find(DoorName);
-        if (found == null) return;
-        Transform door = found.transform;
+        Transform door = mapDoor;
+        if (door == null)
+        {
+            GameObject found = GameObject.Find(DoorName);
+            if (found == null) { Debug.LogWarning($"[OvenSequence] Door '{DoorName}' not found — the oven opens without its door."); return; }
+            door = found.transform;
+        }
         var renderer = door.GetComponent<Renderer>();
         Vector3 center = renderer != null ? renderer.bounds.center : door.position;
         if (renderer != null) doorRadius = Mathf.Max(1f, renderer.bounds.extents.y);
@@ -155,31 +162,14 @@ public class OvenSequence : EscapeSequence
     // 굴뚝 연기: 위로 천천히 오르며 커지는 퍼프.
     private ParticleSystem CreateSmoke()
     {
-        var go = new GameObject("MachineSmoke");
-        go.transform.SetParent(smokePoint, false);
-        go.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
-        var ps = go.AddComponent<ParticleSystem>();
-        var main = ps.main;
-        main.startLifetime = 2.5f;
-        main.startSpeed = 2.2f;
-        main.startSize = new ParticleSystem.MinMaxCurve(0.9f, 1.6f);
-        main.startColor = new Color(0.7f, 0.66f, 0.75f, 0.55f);
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.maxParticles = 80;
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 12f;
-        shape.radius = 0.4f;
-        var size = ps.sizeOverLifetime;
-        size.enabled = true;
-        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.6f, 1f, 2.2f));
-        var color = ps.colorOverLifetime;
-        color.enabled = true;
-        var grad = new Gradient();
-        grad.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-                     new[] { new GradientAlphaKey(0.55f, 0f), new GradientAlphaKey(0f, 1f) });
-        color.color = grad;
-        go.GetComponent<ParticleSystemRenderer>().material = EscapeVisuals.SoftParticleMaterial();
+        ParticleSystem ps = EscapeVisuals.CreateParticles("MachineSmoke", smokePoint, new EscapeVisuals.ParticleStyle
+        {
+            Lifetime = new Vector2(2.5f, 2.5f), Speed = new Vector2(2.2f, 2.2f), Size = new Vector2(0.9f, 1.6f),
+            Color = new Color(0.7f, 0.66f, 0.75f, 0.55f), MaxParticles = 80,
+            Shape = ParticleSystemShapeType.Cone, Angle = 12f, Radius = 0.4f, GrowTo = 2.2f,
+            FadeFrom = Color.white, FadeTo = Color.white, AlphaFrom = 0.55f,
+        });
+        ps.transform.rotation = Quaternion.Euler(-90f, 0f, 0f);
         ps.Play();
         return ps;
     }
@@ -189,31 +179,14 @@ public class OvenSequence : EscapeSequence
     {
         if (flash == null)
         {
-            var go = new GameObject("OvenFlash");
-            go.transform.SetParent(transform, false);
-            go.transform.position = mouth.position + transform.forward * 3f;
-            flash = go.AddComponent<ParticleSystem>();
-            flash.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            var main = flash.main;
-            main.playOnAwake = false;
-            main.startLifetime = 1.2f;
-            main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 11f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.8f);
-            main.startColor = new Color(1f, 0.97f, 0.85f, 1f);
-            main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.maxParticles = 150;
-            var emission = flash.emission;
-            emission.rateOverTime = 0f;
-            var shape = flash.shape;
-            shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 3f;
-            var color = flash.colorOverLifetime;
-            color.enabled = true;
-            var grad = new Gradient();
-            grad.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(new Color(1f, 0.8f, 0.5f), 1f) },
-                         new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
-            color.color = grad;
-            go.GetComponent<ParticleSystemRenderer>().material = EscapeVisuals.SoftParticleMaterial();
+            flash = EscapeVisuals.CreateParticles("OvenFlash", transform, new EscapeVisuals.ParticleStyle
+            {
+                Lifetime = new Vector2(1.2f, 1.2f), Speed = new Vector2(4f, 11f), Size = new Vector2(0.3f, 0.8f),
+                Color = new Color(1f, 0.97f, 0.85f, 1f), MaxParticles = 150, Rate = 0f, Manual = true,
+                Shape = ParticleSystemShapeType.Sphere, Radius = 3f,
+                FadeFrom = Color.white, FadeTo = new Color(1f, 0.8f, 0.5f), AlphaFrom = 1f,
+            });
+            flash.transform.position = mouth.position + transform.forward * 3f;
         }
         flash.Emit(FlashParticles);
     }

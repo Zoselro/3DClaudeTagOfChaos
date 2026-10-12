@@ -55,10 +55,7 @@ public class AudioRuntime : MonoBehaviour
     }
 
     public MusicPlayer Music => music;
-    public MusicDirector Director => director;
     public ChaseDirector Chase => chase;
-    public int BusyWorldVoices => worldPool.CountBusy();
-    public int BusyFlatVoices => flatPool.CountBusy();
 
     private static bool quitting; // 종료 중에 다른 오브젝트의 OnDestroy가 소리를 내도 다시 만들지 않는다
 
@@ -212,13 +209,6 @@ public class AudioRuntime : MonoBehaviour
         voice.fade = Mathf.Clamp01(fade);
         voice.source.volume = VolumeOf(voice);
     }
-
-    // 재생 중인 3D 소리의 지금 거리 감쇠(0~1). 시험·기록용.
-    public float SpatialOf(AudioHandle handle) => IsCurrent(handle) ? (handle.World ? worldVoices : flatVoices)[handle.Voice].spatial : 0f;
-
-    // 재생 중인 소리의 지금 벽 너머 정도(0~1, IndoorZone)와 저역 통과 차단 주파수. 시험·기록용.
-    public float WallOf(AudioHandle handle) => IsCurrent(handle) ? (handle.World ? worldVoices : flatVoices)[handle.Voice].wall : 0f;
-    public float CutoffOf(AudioHandle handle) => IsCurrent(handle) ? (handle.World ? worldVoices : flatVoices)[handle.Voice].filter.cutoffFrequency : 0f;
 
     private static float VolumeOf(Voice voice) =>
         voice.baseVolume * voice.fade * voice.spatial * AudioVolumeSettings.Gain(voice.bus) * Mathf.Lerp(1f, WallGainOf(voice), voice.wall);

@@ -82,9 +82,6 @@ public class MonsterFirstPersonCamera : MonoBehaviour
         transform.SetPositionAndRotation(eye.position + CameraShake.Offset, rotation);
     }
 
-    // 처형 시점 고정 정도(0~1). 테스트·연출 확인용.
-    public float KillLookBlend => killBlend;
-
     // 3인칭에서 1인칭으로 돌아올 때 3인칭 카메라가 보던 수평 방향을 이어받는다.
     public void SyncYaw(float worldYaw) => yaw = worldYaw;
 

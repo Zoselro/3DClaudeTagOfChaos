@@ -23,6 +23,11 @@ public sealed class EscapeAuthority
     private readonly Dictionary<int, Vector3> lastPositions = new Dictionary<int, Vector3>();
     private readonly Dictionary<int, StealStart> stealStarts = new Dictionary<int, StealStart>();
     private bool purgeRequested;
+    private bool launchRequested; // 로켓 발사는 한 번만 쓴다 — 응답 전에 다시 불려 두 번 쓰이던 문제(F-05)
+    private readonly Dictionary<int, float> lastPositionAt = new Dictionary<int, float>();
+    private readonly Dictionary<int, float> suspectUntil = new Dictionary<int, float>();
+    private const float SuspectSeconds = 3f;          // 불가능한 이동을 본 뒤 그 사람의 요청을 거부하는 시간(S-15, 결정 Q3·Q8)
+    private const float PlausibleSpeedFactor = 1.5f;
 
     private struct StealStart
     {
@@ -117,17 +122,40 @@ public sealed class EscapeAuthority
     }
 
     // 방장이 바뀌었을 때 Room Prop의 상태를 이어받는다.
-    public void Adopt(EscapeState current) => State = current?.Clone();
+    public void Adopt(EscapeState current)
+    {
+        State = current?.Clone();
+        launchRequested = RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _);
+    }
 
-    // 매 프레임(방장): 나간 사람의 아이템을 떨어뜨릴 위치를 기억해 둔다.
+    // 모든 클라이언트가 일정 간격으로(EscapeManager): 요청 거리 검사와 나간 사람의 아이템을 떨어뜨릴 위치를 기억해 둔다.
+    // 방장이 아닐 때도 기록해 두어, 방장이 된 첫 순간에 "위치를 모르면 통과"하는 틈이 없다(F-10).
+    // 방장은 쿠키의 이동이 가능한 속도인지도 본다(S-15) — 아니면 로그를 남기고 잠시 그 사람의 요청을 거부한다.
     public void TrackPositions()
     {
+        float now = Time.realtimeSinceStartup;
+        bool judge = PhotonNetwork.IsMasterClient;
         foreach (IGameCharacter c in CharacterRegistry.All)
         {
             if (!CharacterRegistry.IsAlive(c) || c.View == null || c.View.Owner == null) continue;
-            lastPositions[c.View.Owner.ActorNumber] = c.gameObject.transform.position;
+            int actor = c.View.Owner.ActorNumber;
+            Vector3 pos = c.gameObject.transform.position;
+            if (judge && lastPositions.TryGetValue(actor, out Vector3 prev) && lastPositionAt.TryGetValue(actor, out float prevAt))
+            {
+                var cookie = c as HideOrSeekPlayer;
+                if (cookie != null && cookie.CurrentCarrierViewId < 0
+                    && !NetSecurityRules.IsPlausibleMove(prev, pos, now - prevAt, cookie.MaxMoveSpeed * PlausibleSpeedFactor))
+                {
+                    suspectUntil[actor] = now + SuspectSeconds;
+                    Debug.LogWarning($"[NetGuard] Actor {actor} moved {Vector3.Distance(prev, pos):F1} m in {now - prevAt:F2}s — escape requests ignored for {SuspectSeconds}s.");
+                }
+            }
+            lastPositions[actor] = pos;
+            lastPositionAt[actor] = now;
         }
     }
+
+    private bool IsSuspect(int actor) => suspectUntil.TryGetValue(actor, out float until) && Time.realtimeSinceStartup < until;
 
     // ---------------- requests ----------------
 
@@ -135,6 +163,7 @@ public sealed class EscapeAuthority
     {
         if (State == null) return;
         if (!EscapeManager.ActionsAllowed) return; // 변장 시간에 온 요청(늦게 도착했거나 조작된 것 포함)은 받지 않는다
+        if (IsSuspect(r.Sender)) return; // 방금 불가능한 이동을 했다(S-15)
         bool changed;
         switch (r.Op)
         {
@@ -174,7 +203,8 @@ public sealed class EscapeAuthority
         if (!IsActiveEscaper(actor) || item < 0 || item >= State.Items.Count) return false;
         EscapeState.Item it = State.Items[item];
         if (it.Loc != ItemLocation.Ground || !IsNear(actor, it.Pos, PickUpReach)) return false;
-        return Give(actor, item, it.Pos);
+        Give(actor, item, it.Pos);
+        return true;
     }
 
     private bool Drop(int actor, int slot, Vector3 pos)
@@ -252,9 +282,9 @@ public sealed class EscapeAuthority
         int item = slot.ItemIndex;
         if (!RocketNeeds(State.Items[item].Id) || !CanPickUp(actor, item)) return false;
 
+        Give(actor, item, manager.DevicePosition); // 아이템 위치를 먼저 옮기고 칸을 비운다(F-19 — 중간에 실패해도 둘이 어긋나지 않게)
         slot.ItemIndex = -1;
         State.DeviceSlots[deviceSlot] = slot;
-        if (!Give(actor, item, manager.DevicePosition)) return false;
         AnnounceStolen(item);
         return true;
     }
@@ -307,7 +337,7 @@ public sealed class EscapeAuthority
     public void TryDepart()
     {
         if (State == null || State.Waiting.Count == 0 || State.DepartedAt > 0) return;
-        foreach (Player p in PhotonNetwork.PlayerList)
+        foreach (Player p in RoomState.Players)
             if (!RoomState.IsSpy(p.ActorNumber) && IsActiveEscaper(p.ActorNumber)) return;
         State.DepartedAt = PhotonNetwork.Time;
         foreach (int actor in State.Waiting)
@@ -324,7 +354,7 @@ public sealed class EscapeAuthority
         if (!WitchTimeline.ShouldStartPurge(ActiveSpyCount(), WitchTimeline.Mode)) return;
         purgeRequested = true;
         double appearAt = System.Math.Max(WitchTimeline.PurgeAppearAt(State.DepartedAt, manager.DepartureSeconds), PhotonNetwork.Time);
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable
+        AuthorityProps.SetRoom(new Hashtable
         {
             { NetKeys.WitchMode, (int)WitchMode.Purge },
             { NetKeys.WitchAppearAt, appearAt },
@@ -335,7 +365,7 @@ public sealed class EscapeAuthority
     private int ActiveSpyCount()
     {
         int n = 0;
-        foreach (Player p in PhotonNetwork.PlayerList)
+        foreach (Player p in RoomState.Players)
             if (RoomState.IsSpy(p.ActorNumber) && IsActiveEscaper(p.ActorNumber)) n++;
         return n;
     }
@@ -401,10 +431,17 @@ public sealed class EscapeAuthority
         TryLaunchRocket();
     }
 
-    // 스파이가 잡히면 모두에게 알린다(D34). 잡힌 스파이의 아이템은 본인 클라이언트가 DropAll로 떨어뜨린다.
+    // 잡히면(괴물·마녀) 그 사람의 아이템을 마지막 위치에 떨어뜨리고(D11 — 예전에는 피해자 본인이 요청했다, AuditFixPlan.md §8.1),
+    // 스파이였으면 모두에게 알린다(D34).
     public void OnPlayerBroken(Player player)
     {
-        if (player != null && RoomState.IsSpy(player.ActorNumber)) Notice(EscapeNoticeKind.SpyCaught, null);
+        if (player == null) return;
+        if (State != null)
+        {
+            Vector3 at = lastPositions.TryGetValue(player.ActorNumber, out Vector3 p) ? p : manager.DevicePosition;
+            if (DropAll(player.ActorNumber, at)) Commit();
+        }
+        if (RoomState.IsSpy(player.ActorNumber)) Notice(EscapeNoticeKind.SpyCaught, null);
         Reevaluate(); // 밖에 남은 마지막 쿠키가 잡히면 기다리던 쿠키들이 출발한다
     }
 
@@ -423,7 +460,7 @@ public sealed class EscapeAuthority
     // 남아 있는 스파이가 모두 탔으면 로켓이 떠난다(D21). 쿠키가 먼저 모두 끝났으면 타임어택 없이 끝난다(D10 — 판정은 GameRuleController).
     public void TryLaunchRocket()
     {
-        if (State == null || State.Boarded.Count == 0 || RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _)) return;
+        if (launchRequested || State == null || State.Boarded.Count == 0 || RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _)) return;
         if (!RoomState.TryGetIntArray(NetKeys.SpyActorNumbers, out int[] spies)) return;
         foreach (int spy in spies)
         {
@@ -443,7 +480,8 @@ public sealed class EscapeAuthority
             props[NetKeys.WitchAppearAt] = appearAt;
             props[NetKeys.TimeAttackEndTime] = WitchTimeline.TimeAttackEnd(appearAt, RoomState.TimeAttackSeconds());
         }
-        PhotonNetwork.CurrentRoom.SetCustomProperties(props);
+        launchRequested = true;
+        AuthorityProps.SetRoom(props);
         Debug.Log(timeAttack ? "[EscapeAuthority] Rocket launched. Time attack started." : "[EscapeAuthority] Rocket launched. No cookies left: no time attack.");
     }
 
@@ -451,7 +489,7 @@ public sealed class EscapeAuthority
 
     private bool AnyCookieStillPlaying()
     {
-        foreach (Player p in PhotonNetwork.PlayerList)
+        foreach (Player p in RoomState.Players)
             if (!RoomState.IsSpy(p.ActorNumber) && IsActiveEscaper(p.ActorNumber)) return true;
         return false;
     }
@@ -459,17 +497,18 @@ public sealed class EscapeAuthority
     // 괴물이 아니고, 탈출·탑승하지 않았고, 잡히지 않은 참가자.
     private bool IsActiveEscaper(int actor)
     {
-        if (RoomState.IsMonster(actor) || State.Escaped.Contains(actor) || State.Boarded.Contains(actor) || State.Waiting.Contains(actor)) return false;
+        if (RoomState.IsMonster(actor) || State.HasLeftMap(actor)) return false;
         Player p = FindPlayer(actor);
         return p != null && !RoomState.IsBroken(p);
     }
 
-    private bool Give(int actor, int item, Vector3 fallbackGround)
+    // 받을 수 없으면(칸이 가득 참 등) 그 자리 바닥에 놓는다 — 실패는 없다(F-19).
+    private void Give(int actor, int item, Vector3 fallbackGround)
     {
         if (!CanPickUp(actor, item))
         {
             PutOnGround(item, fallbackGround);
-            return true;
+            return;
         }
         int slot = ChooseSlot(actor);
         EscapeState.Item it = State.Items[item];
@@ -477,7 +516,6 @@ public sealed class EscapeAuthority
         it.A = actor;
         it.B = slot;
         State.Items[item] = it;
-        return true;
     }
 
     // 두 손 아이템을 든 동안은 줍지 못하고, 칸이 가득 차면 줍지 못한다(§1.9).
@@ -607,7 +645,7 @@ public sealed class EscapeAuthority
     private void AnnounceStolen(int item)
     {
         var targets = new List<int>();
-        foreach (Player p in PhotonNetwork.PlayerList) if (!RoomState.IsMonster(p.ActorNumber)) targets.Add(p.ActorNumber);
+        foreach (Player p in RoomState.Players) if (!RoomState.IsMonster(p.ActorNumber)) targets.Add(p.ActorNumber);
         if (targets.Count == 0) return;
         double showAt = PhotonNetwork.Time + GameSettings.Current.StealNoticeDelaySeconds;
         // 오프라인 방은 대상 지정(TargetActors)을 무시하고 아무에게도 보내지 않으므로 모두에게(혼자뿐)
@@ -619,7 +657,8 @@ public sealed class EscapeAuthority
     public void Commit()
     {
         if (State == null || !RoomState.IsInRoom()) return;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { NetKeys.EscapeState, State.Encode() } });
+        State.Revision++;
+        AuthorityProps.SetRoom(new Hashtable { { NetKeys.EscapeState, State.Encode() } });
         manager.ApplyLocalState(State.Clone()); // 방장 화면은 서버 응답을 기다리지 않고 바로 맞춘다
     }
 
