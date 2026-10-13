@@ -6,8 +6,9 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // 새 마녀(허수아비 마녀, Blender 리깅 — Request1009Plan.md §18.2)를 프로젝트에 맞춘다. 여러 번 실행해도 같은 결과.
-// 1) FBX 가져오기: Generic 리그, 동작 3개(Idle 반복·Rise·Strike), 재질을 ME_WitchScarecrow로 연결.
-// 2) 재질(Standard: 색·노멀·금속/매끄러움)과 애니메이터(Idle 기본, Rise·Strike 트리거).
+// 1) FBX 가져오기: Generic 리그, 동작 5개(Idle·Walk 반복, Rise·Strike·TurnBack — Request1009Plan.md §23 X3), 재질을 ME_WitchScarecrow로 연결.
+//    동작 원본: Source~/witch_rig(anim.py·export.py, Blender bpy로 만든다).
+// 2) 재질(Standard: 색·노멀·금속/매끄러움)과 애니메이터(Idle 기본, Rise·Strike·TurnBack 트리거, Walking 참이면 Walk).
 // 3) 프리팹 WITCH_Scarecrow(키 90 m로 맞춤) → 맵 5개 WITCH_Anchor의 "Model"로 교체(예전 모델·도형 대신).
 public static class WitchModelSetup
 {
@@ -19,7 +20,7 @@ public static class WitchModelSetup
     public const float SourceHeight = 1.643f; // Blender 모델 키(m)
     public const float SourceFeet = -0.824f;  // Blender 모델 원점이 몸 가운데라 발 높이(m) — 기준점(WITCH_Anchor)에 발을 맞춘다
     public const float TargetHeight = 90f;    // WitchPresenter.height와 같은 크기
-    public static readonly string[] Clips = { "Idle", "Rise", "Strike" };
+    public static readonly string[] Clips = { "Idle", "Rise", "Strike", "Walk", "TurnBack" };
     public static readonly string[] Maps = { "CandyForest", "GingerbreadVillage", "ChocolateFactory", "CursedCandyCarnival", "HauntedBakery" };
 
     [MenuItem("Tools/Escape/Setup Witch Model (Scarecrow)")]
@@ -91,7 +92,7 @@ public static class WitchModelSetup
                 takeName = take.name ?? name,
                 firstFrame = take.name != null ? take.startTime * take.sampleRate : 0,
                 lastFrame = take.name != null ? take.stopTime * take.sampleRate : 0,
-                loopTime = name == "Idle",
+                loopTime = name == "Idle" || name == "Walk",
             };
         }).ToArray();
         mi.SaveAndReimport();
@@ -105,12 +106,23 @@ public static class WitchModelSetup
         var clips = AssetDatabase.LoadAllAssetsAtPath(FbxPath).OfType<AnimationClip>().Where(a => !a.name.StartsWith("__preview__")).ToDictionary(a => a.name);
         c.AddParameter("Rise", AnimatorControllerParameterType.Trigger);
         c.AddParameter("Strike", AnimatorControllerParameterType.Trigger);
+        c.AddParameter("TurnBack", AnimatorControllerParameterType.Trigger);
+        c.AddParameter("Walking", AnimatorControllerParameterType.Bool);
         AnimatorStateMachine sm = c.layers[0].stateMachine;
         AnimatorState idle = sm.AddState("Idle", new Vector3(300, 0, 0)); idle.motion = clips["Idle"];
         AnimatorState rise = sm.AddState("Rise", new Vector3(300, 100, 0)); rise.motion = clips["Rise"];
         AnimatorState strike = sm.AddState("Strike", new Vector3(300, 200, 0)); strike.motion = clips["Strike"];
+        AnimatorState turn = sm.AddState("TurnBack", new Vector3(300, 300, 0)); turn.motion = clips["TurnBack"];
+        AnimatorState walk = sm.AddState("Walk", new Vector3(600, 0, 0)); walk.motion = clips["Walk"];
         sm.defaultState = idle;
-        foreach ((AnimatorState s, string trig) in new[] { (rise, "Rise"), (strike, "Strike") })
+        // 걷기: Idle ↔ Walk(Walking). 재생 속도는 WitchPresenter가 걷는 속도에 맞춘다.
+        AnimatorStateTransition toWalk = idle.AddTransition(walk);
+        toWalk.hasExitTime = false; toWalk.duration = 0.4f;
+        toWalk.AddCondition(AnimatorConditionMode.If, 0, "Walking");
+        AnimatorStateTransition toIdle = walk.AddTransition(idle);
+        toIdle.hasExitTime = false; toIdle.duration = 0.4f;
+        toIdle.AddCondition(AnimatorConditionMode.IfNot, 0, "Walking");
+        foreach ((AnimatorState s, string trig) in new[] { (rise, "Rise"), (strike, "Strike"), (turn, "TurnBack") })
         {
             AnimatorStateTransition t = sm.AddAnyStateTransition(s);
             t.hasExitTime = false; t.duration = 0.15f; t.canTransitionToSelf = false;

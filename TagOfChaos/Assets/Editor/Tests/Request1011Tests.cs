@@ -228,6 +228,12 @@ public class Request1011Tests
         Assert.AreEqual("Idle", controller.layers[0].stateMachine.defaultState.name);
         Assert.IsTrue(controller.parameters.Any(p => p.name == "Rise" && p.type == AnimatorControllerParameterType.Trigger));
         Assert.IsTrue(controller.parameters.Any(p => p.name == "Strike" && p.type == AnimatorControllerParameterType.Trigger));
+        // §23 X3: 뒤돌아섬(2초, 시각표와 같은 길이)·걷기(반복)
+        Assert.IsTrue(controller.parameters.Any(p => p.name == "TurnBack" && p.type == AnimatorControllerParameterType.Trigger));
+        Assert.IsTrue(controller.parameters.Any(p => p.name == "Walking" && p.type == AnimatorControllerParameterType.Bool));
+        Assert.AreEqual(WitchTimeline.TurnSeconds, clips.First(c => c.name == "TurnBack").length, 0.05f);
+        Assert.AreEqual(WitchPresenter.WalkCycleSeconds, clips.First(c => c.name == "Walk").length, 0.05f);
+        Assert.IsTrue(clips.First(c => c.name == "Walk").isLooping);
 
         var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(WitchModelSetup.PrefabPath);
         var animator = prefab.GetComponentInChildren<Animator>();
@@ -244,17 +250,52 @@ public class Request1011Tests
 
     // ---- §18.4 마녀 등장 카메라 ----
 
+    // §23.3 A·B: 시각표 장면(타임어택: 로켓 3 → 등장 3 → 돌아섬 2 → 얼굴 2 → 복귀 3 … 끝 1.5초 전 내리침 / 처단: 탈출구 3 → 얼굴 3 → 다가옴 → 내리침)
     [Test]
-    public void RevealCamera_MovesInHoldsAndReturns()
+    public void WitchTimeline_ShotsFollowTheScript()
     {
-        Assert.AreEqual(7f, WitchRevealCamera.TotalSeconds, 1e-4f);
-        Assert.AreEqual(0f, WitchRevealCamera.Weight(-0.1f));
-        Assert.AreEqual(0f, WitchRevealCamera.Weight(0f), 1e-4f);
-        Assert.AreEqual(0.5f, WitchRevealCamera.Weight(1.5f), 1e-4f);
-        Assert.AreEqual(1f, WitchRevealCamera.Weight(3f), 1e-4f);
-        Assert.AreEqual(1f, WitchRevealCamera.Weight(3.99f), 1e-4f);
-        Assert.AreEqual(0.5f, WitchRevealCamera.Weight(5.5f), 1e-4f);
-        Assert.AreEqual(0f, WitchRevealCamera.Weight(7f));
+        const double launch = 100.0;
+        double appear = WitchTimeline.RocketAppearAt(launch);
+        double end = WitchTimeline.TimeAttackEnd(appear, 60);
+        WitchShot At(double now, bool result = false) => WitchTimeline.ShotAt(WitchMode.TimeAttack, now, true, launch, appear, end, result);
+        Assert.AreEqual(WitchShot.None, At(99.0));
+        Assert.AreEqual(WitchShot.Lead, At(101.0));
+        Assert.AreEqual(WitchShot.Reveal, At(104.0));
+        Assert.AreEqual(WitchShot.Turn, At(107.0));
+        Assert.AreEqual(WitchShot.Face, At(109.0));
+        Assert.AreEqual(WitchShot.Return, At(111.0));
+        Assert.AreEqual(WitchShot.None, At(114.0), "time attack: everyone plays");
+        Assert.AreEqual(WitchShot.None, At(end - 1.6));
+        Assert.AreEqual(WitchShot.Strike, At(end - 1.4), "1.5 s before the end the camera moves behind the witch");
+        Assert.AreEqual(WitchShot.Strike, At(end + 4.0));
+        Assert.AreEqual(WitchShot.None, At(end + 4.0, result: true), "result screen");
+
+        const double departed = 50.0;
+        double pAppear = WitchTimeline.PurgeAppearAt(departed);
+        double pEnd = WitchTimeline.WalkEnd(WitchMode.Purge, pAppear, 0);
+        WitchShot P(double now) => WitchTimeline.ShotAt(WitchMode.Purge, now, true, departed, pAppear, pEnd, false);
+        Assert.AreEqual(WitchShot.Lead, P(52.0));
+        Assert.AreEqual(WitchShot.Reveal, P(54.0));
+        Assert.AreEqual(WitchShot.Approach, P(57.0));
+        Assert.AreEqual(WitchShot.Approach, P(pEnd - 1.6));
+        Assert.AreEqual(WitchShot.Strike, P(pEnd - 1.4));
+    }
+
+    [Test]
+    public void WitchWalk_SpeedFollowsTheTime()
+    {
+        Assert.AreEqual(0f, WitchTimeline.WalkProgress(10, 20, 80));
+        Assert.AreEqual(0.5f, WitchTimeline.WalkProgress(50, 20, 80), 1e-5f);
+        Assert.AreEqual(1f, WitchTimeline.WalkProgress(90, 20, 80));
+        for (double t = 20; t < 80; t += 3) Assert.LessOrEqual(WitchTimeline.WalkProgress(t, 20, 80), WitchTimeline.WalkProgress(t + 3, 20, 80));
+        // 걷는 시간이 길면 동작도 그만큼 느리게 — 걸음 길이 22.5 m, 330 m
+        float slow = WitchPresenter.WalkAnimatorSpeed(330f, 60f, 22.5f), fast = WitchPresenter.WalkAnimatorSpeed(330f, 10f, 22.5f);
+        Assert.AreEqual(6f, fast / slow, 1e-3f);
+        Assert.AreEqual(330f / 10f / 45f * WitchPresenter.WalkCycleSeconds, fast, 1e-4f);
+        // 돌아섬: 2초 동안 0 → 1
+        Assert.AreEqual(0f, WitchPresenter.TurnAmount(10.0, 10.0), 1e-5f);
+        Assert.AreEqual(0.5f, WitchPresenter.TurnAmount(11.0, 10.0), 1e-5f);
+        Assert.AreEqual(1f, WitchPresenter.TurnAmount(12.5, 10.0), 1e-5f);
     }
 
     [Test]
@@ -289,10 +330,11 @@ public class Request1011Tests
     }
 
     [Test]
-    public void RevealCutscene_SevenSecondsWithThreeSecondFade()
+    public void RevealCutscene_TenSecondsWithThreeSecondFade()
     {
-        Assert.AreEqual(WitchRevealCamera.MoveInSeconds + WitchRevealCamera.HoldSeconds + WitchRevealCamera.MoveOutSeconds, WitchRevealCamera.TotalSeconds);
-        Assert.AreEqual(3f, WitchPresenter.DefaultFadeSeconds, 1e-4f);
+        Assert.AreEqual(10f, WitchTimeline.IntroSeconds, 1e-4f, "reveal 3 + turn 2 + face 2 + return 3");
+        Assert.AreEqual(WitchTimeline.RevealSeconds, WitchPresenter.DefaultFadeSeconds, 1e-4f, "fully visible when the camera arrives");
+        Assert.AreEqual(2f, WitchTimeline.TurnSeconds, 1e-4f);
     }
 
     [Test]
@@ -358,11 +400,13 @@ public class Request1011Tests
     [Test]
     public void WitchTimeline_RocketShownBeforeWitch()
     {
-        Assert.AreEqual(107.0, WitchTimeline.RocketAppearAt(100.0), 1e-6);
-        // 타임어택 = 마녀 등장 + 클로즈업 7초 + 방 설정 시간(연출 14초 동안 잃는 시간 없음)
-        Assert.AreEqual(107.0 + 7.0 + 180.0, WitchTimeline.TimeAttackEnd(107.0, 180), 1e-6);
-        Assert.AreEqual(57.0, WitchTimeline.PurgeAppearAt(50.0, 7f), 1e-6);
-        Assert.AreEqual(57.0 + 3.0 + 1.0 + 1.5, WitchTimeline.PurgeStrikeAt(57.0), 1e-6); // 얼굴 클로즈업 4초 + 내리침 장면으로 1.5초
+        Assert.AreEqual(103.0, WitchTimeline.RocketAppearAt(100.0), 1e-6, "rocket shot 3 s");
+        // 타임어택 = 마녀 등장 + 시작 연출 10초 + 방 설정 시간(연출 동안 잃는 시간 없음)
+        Assert.AreEqual(103.0 + 10.0 + 180.0, WitchTimeline.TimeAttackEnd(103.0, 180), 1e-6);
+        Assert.AreEqual(53.0, WitchTimeline.PurgeAppearAt(50.0), 1e-6, "exit shot 3 s");
+        Assert.AreEqual(53.0 + 3.0 + 10.0, WitchTimeline.PurgeStrikeAt(53.0), 1e-6, "face 3 s + walk 10 s");
+        Assert.AreEqual(113.0, WitchTimeline.WalkStart(WitchMode.TimeAttack, 103.0), 1e-6);
+        Assert.AreEqual(56.0, WitchTimeline.WalkStart(WitchMode.Purge, 53.0), 1e-6);
     }
 
     [Test]
@@ -374,16 +418,13 @@ public class Request1011Tests
         Assert.IsFalse(WitchTimeline.ShouldStartPurge(1, WitchMode.Purge));
     }
 
-    [TestCase(WitchMode.TimeAttack, false, false, true)]
-    [TestCase(WitchMode.TimeAttack, true, false, true)]
-    [TestCase(WitchMode.TimeAttack, false, true, true)]
-    [TestCase(WitchMode.Purge, true, false, true)]
-    [TestCase(WitchMode.Purge, false, true, true)]
-    [TestCase(WitchMode.Purge, false, false, false)]
-    [TestCase(WitchMode.None, true, true, false)]
-    public void WitchTimeline_WhoWatchesCutscene(WitchMode mode, bool spy, bool monster, bool watches)
+    // §23.1 B: 처단도 모두(탈출한 쿠키 포함)가 본다.
+    [TestCase(WitchMode.TimeAttack, true)]
+    [TestCase(WitchMode.Purge, true)]
+    [TestCase(WitchMode.None, false)]
+    public void WitchTimeline_WhoWatchesCutscene(WitchMode mode, bool watches)
     {
-        Assert.AreEqual(watches, WitchTimeline.Watches(mode, spy, monster));
+        Assert.AreEqual(watches, WitchTimeline.Watches(mode));
     }
 
     [Test]
@@ -450,30 +491,64 @@ public class Request1011Tests
         Assert.Greater(Vector3.Dot(rot2 * Vector3.forward, (risen + Vector3.up - pos2).normalized), 0.999f);
     }
 
+    // §23.4 Q2: 어깨 너머 — 마녀 뒤·위에서 주먹이 떨어질 맵 쪽 땅을 내려다본다.
     [Test]
-    public void PurgeStrikeShot_ShowsWholeWitchAndImpactGround()
+    public void StrikeShot_LooksOverTheShoulderAtTheMap()
     {
         Vector3 feet = new Vector3(0f, 0f, 200f);
-        Vector3 forward = Vector3.back; // 맵(원점)을 향함
+        Vector3 towardMap = Vector3.back; // 맵(원점)을 향함
         const float height = 90f;
-        WitchRevealCamera.StrikePose(feet, forward, height, out Vector3 pos, out Quaternion rot);
+        WitchRevealCamera.ShoulderPose(feet, towardMap, height, out Vector3 pos, out Quaternion rot);
         Vector3 toCam = Vector3.ProjectOnPlane(pos - feet, Vector3.up);
-        float frontDot = Vector3.Dot(toCam.normalized, forward);
-        Assert.Greater(frontDot, 0.6f, "in front of the witch");
-        Assert.Less(frontDot, 0.9f, "three-quarter side view (the bent-over strike reads from the side)");
-        Assert.Greater(toCam.magnitude, height * 0.8f, "far enough to see the whole body");
+        Assert.Less(Vector3.Dot(toCam.normalized, towardMap), 0f, "behind the witch");
+        Assert.Greater(pos.y, height, "above the shoulder");
+        Assert.Less(Vector3.Dot(rot * Vector3.forward, Vector3.up), -0.3f, "looks down");
         var cam = new GameObject("__strikeCam").AddComponent<Camera>();
         try
         {
             cam.transform.SetPositionAndRotation(pos, rot);
             cam.fieldOfView = 60f; cam.aspect = 16f / 9f;
-            foreach (Vector3 p in new[] { feet, feet + Vector3.up * height, feet + forward * (0.52f * height / 1.643f) })
+            Vector3 fists = feet + towardMap * (height * WitchPresenter.FistReachRatio);
+            foreach (Vector3 p in new[] { fists, feet + towardMap * (height * 1.3f) })
             {
                 Vector3 v = cam.WorldToViewportPoint(p);
                 Assert.That(v.z > 0f && v.x > 0f && v.x < 1f && v.y > 0f && v.y < 1f, Is.True, "in view: " + p + " -> " + v);
             }
         }
         finally { Object.DestroyImmediate(cam.gameObject); }
+    }
+
+    // §23.4 Q1: 전신 장면은 맵 쪽에서 몸 전체(발~모자)가 화면에 들어온다.
+    [Test]
+    public void FullBodyShot_ShowsTheWholeWitchFromTheMapSide()
+    {
+        Vector3 feet = new Vector3(0f, 0f, 450f);
+        const float height = 90f;
+        WitchRevealCamera.FullBodyPose(feet, Vector3.back, height, out Vector3 pos, out Quaternion rot);
+        Assert.Less(pos.z, feet.z, "on the map side");
+        var cam = new GameObject("__bodyCam").AddComponent<Camera>();
+        try
+        {
+            cam.transform.SetPositionAndRotation(pos, rot);
+            cam.fieldOfView = 60f; cam.aspect = 16f / 9f;
+            foreach (Vector3 p in new[] { feet, feet + Vector3.up * height })
+            {
+                Vector3 v = cam.WorldToViewportPoint(p);
+                Assert.That(v.z > 0f && v.y > 0f && v.y < 1f, Is.True, "in view: " + p + " -> " + v);
+            }
+        }
+        finally { Object.DestroyImmediate(cam.gameObject); }
+    }
+
+    // §23.4 Q3: 다가옴 장면은 Ground 경계 안쪽 낮은 곳에서 마녀 얼굴을 올려다본다.
+    [Test]
+    public void ApproachShot_LooksUpFromInsideTheMap()
+    {
+        Vector3 contact = new Vector3(0f, 0f, 71f), center = Vector3.zero, face = new Vector3(0f, 70f, 300f);
+        WitchRevealCamera.ApproachPose(contact, center, face, out Vector3 pos, out Quaternion rot);
+        Assert.Less(pos.z, contact.z, "inside the Ground");
+        Assert.Less(pos.y, 4f, "low");
+        Assert.Greater(Vector3.Dot(rot * Vector3.forward, (face - pos).normalized), 0.999f);
     }
 
     [Test]

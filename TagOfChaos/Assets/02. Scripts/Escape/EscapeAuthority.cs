@@ -362,13 +362,14 @@ public sealed class EscapeAuthority
     }
 
     // 쿠키가 모두 탈출했는데 스파이가 남아 있으면 마녀가 와서 괴물과 스파이를 없앤다(Request1009Plan.md §19.4).
-    // 탈것이 떠나는 연출이 끝나는 순간 마녀가 나타나고, 클로즈업이 끝나면 GameRuleController가 내리친다. 스파이가 없으면 지금처럼 끝난다.
+    // 탈것이 떠난 지 3초(탈출구 샷) 뒤 마녀가 나타나 10초 동안 걸어오고, 도착하면 GameRuleController가 내리친다(Request1009Plan.md §23.3 B).
+    // 스파이가 없으면 지금처럼 끝난다.
     private void TryStartPurge()
     {
         if (purgeRequested || State == null || State.DepartedAt <= 0 || RoomState.TryGetInt(NetKeys.GameResult, out _)) return;
         if (!WitchTimeline.ShouldStartPurge(ActiveSpyCount(), WitchTimeline.Mode)) return;
         purgeRequested = true;
-        double appearAt = System.Math.Max(WitchTimeline.PurgeAppearAt(State.DepartedAt, manager.DepartureSeconds), PhotonNetwork.Time);
+        double appearAt = System.Math.Max(WitchTimeline.PurgeAppearAt(State.DepartedAt), PhotonNetwork.Time);
         AuthorityProps.SetRoom(new Hashtable
         {
             { NetKeys.WitchMode, (int)WitchMode.Purge },
@@ -487,7 +488,7 @@ public sealed class EscapeAuthority
         var props = new Hashtable { { NetKeys.SpyEscapedAt, now } }; // 로켓 발사(연출 기준) — 늘 기록한다
         // 쿠키가 모두 끝났으면 타임어택 없이 판이 끝난다(D10 — GameRuleController가 발사 연출 뒤에 판정). 타임어택이 없으면 마녀도 없다.
         bool timeAttack = AnyCookieStillPlaying();
-        // 로켓이 날아가는 7초를 모두 보여 준 뒤 마녀가 나타나고(Request1009Plan.md §19.3), 로켓·마녀 연출(조작이 멈춤) 시간만큼 더 준다
+        // 로켓을 3초 보여 준 뒤 마녀가 나타나고(Request1009Plan.md §23.3 A), 마녀 시작 연출(조작이 멈춤, 10초)만큼 더 준다
         if (timeAttack)
         {
             double appearAt = WitchTimeline.RocketAppearAt(now);

@@ -6,29 +6,70 @@ public enum WitchMode
     Purge = 2,      // 쿠키가 모두 탈출했는데 스파이가 남았다 — 괴물과 스파이를 없앤다(Request1009Plan.md §19.4)
 }
 
-// 마녀 등장 시각표(Request1009Plan.md §19.2). 마녀·카메라·방장 판정이 같은 계산을 쓴다.
-// 앞 샷(로켓이 날아감 / 쿠키 탈것이 떠남)을 보여 준 뒤 WitchAppearAt에 마녀가 나타나고, 그때부터 클로즈업(WitchRevealCamera)이 시작된다.
+// 마녀 연출의 카메라 장면(Request1009Plan.md §23.5 X5). 시각표(WitchTimeline.ShotAt)가 정하고 WitchRevealCamera가 보여 준다.
+public enum WitchShot
+{
+    None,     // 각자 시점
+    Lead,     // 로켓(타임어택) 또는 떠나는 탈출구(처단)
+    Reveal,   // 마녀가 나타나는 동안 마녀 쪽으로 — 타임어택은 등진 전신, 처단은 얼굴
+    Turn,     // 타임어택: 전신을 본 채 마녀가 뒤돌아섬
+    Face,     // 타임어택: 얼굴 클로즈업
+    Return,   // 타임어택: 각자 시점으로 돌아옴
+    Approach, // 처단: 맵 가장자리에서 다가오는 마녀를 올려다봄
+    Strike,   // 마녀 어깨 너머로 맵을 내려다보며 내리침·박살
+}
+
+// 마녀 시각표(Request1009Plan.md §19.2, §23.3). 마녀·카메라·방장 판정이 같은 계산을 쓴다. 시각은 모두 공통 시계(PhotonNetwork.Time)와
+// 방 속성(WitchAppearAt·TimeAttackEndTime)만 써서, 모든 화면이 같고 늦게 들어온 사람·방장이 바뀐 경우도 맞다.
+//   타임어택: 로켓 3초 → 등장 3초(등진 전신) → 돌아섬 2초 → 얼굴 2초 → 복귀 3초 → 타임어택 동안 걸어옴 → 끝 1.5초 전 내리침 장면 → 내리침
+//   처단:     탈출구 3초 → 등장 3초(얼굴) → 10초 동안 걸어옴(다가오는 장면) → 도착 1.5초 전 내리침 장면 → 내리침
 public static class WitchTimeline
 {
-    public const float RocketShotSeconds = 7f; // 로켓이 떠올라 하늘로 사라질 때까지(SpyRocket이 7초에 숨긴다)
-    public const float LeadInSeconds = 2f;     // 앞 샷으로 카메라가 옮겨 가는 시간
+    public const float LeadShotSeconds = 3f;     // 로켓·탈출구를 보여 준 뒤 마녀가 나타난다
+    public const float LeadInSeconds = 2f;       // 그 안에서 카메라가 로켓·탈출구 쪽으로 옮겨 가는 시간
+    public const float RevealSeconds = 3f;       // 마녀가 서서히 나타나는(일어서는) 동안 카메라가 마녀 쪽으로
+    public const float TurnSeconds = 2f;         // 타임어택: 뒤돌아섬(동작 TurnBack과 같은 길이)
+    public const float FaceSeconds = 2f;         // 타임어택: 얼굴 클로즈업
+    public const float FaceMoveSeconds = 1f;     //   그중 얼굴 앞으로 다가가는 시간(나머지는 머묾)
+    public const float ReturnSeconds = 3f;       // 타임어택: 각자 시점으로
+    public const float IntroSeconds = RevealSeconds + TurnSeconds + FaceSeconds + ReturnSeconds; // 타임어택 시작 연출(조작이 멈춤)
+    public const float PurgeWalkSeconds = 10f;   // 처단: 걸어오는 시간
+    public const float StrikeShotMoveSeconds = 1.5f; // 내리침 장면으로 옮겨 가는 시간(도착 = 내리치는 순간)
+    public const float StrikeShotMaxSeconds = 20f;   // 내리침 장면에 머무는 최대 시간(결과가 오지 않을 때의 안전장치)
 
     public static WitchMode Mode => RoomState.TryGetInt(NetKeys.WitchMode, out int m) ? (WitchMode)m : WitchMode.None;
     public static bool TryGetAppearAt(out double at) => RoomState.TryGetDouble(NetKeys.WitchAppearAt, out at);
 
-    public static double RocketAppearAt(double launchedAt) => launchedAt + RocketShotSeconds;
-    public static double TimeAttackEnd(double appearAt, int timeAttackSeconds) => appearAt + WitchRevealCamera.TotalSeconds + timeAttackSeconds;
-    public static double PurgeAppearAt(double departedAt, float departureSeconds) => departedAt + departureSeconds;
-    // 처단: 얼굴 클로즈업(3초 이동 + 1초) → 내리치는 장면으로 카메라가 옮겨 간(1.5초) 순간 내리친다 — 내리침이 클로즈업으로 보인다(§19.11)
-    public static double PurgeStrikeAt(double appearAt) =>
-        appearAt + WitchRevealCamera.MoveInSeconds + WitchRevealCamera.HoldSeconds + WitchRevealCamera.StrikeShotMoveSeconds;
+    public static double RocketAppearAt(double launchedAt) => launchedAt + LeadShotSeconds;
+    public static double PurgeAppearAt(double departedAt) => departedAt + LeadShotSeconds; // 탈것이 떠나는 연출은 뒤에서 이어진다
+    // 타임어택 끝: 시작 연출(조작이 멈추는 10초)만큼 더 준다
+    public static double TimeAttackEnd(double appearAt, int timeAttackSeconds) => appearAt + IntroSeconds + timeAttackSeconds;
+    public static double PurgeStrikeAt(double appearAt) => appearAt + RevealSeconds + PurgeWalkSeconds;
+    public static double TurnStart(double appearAt) => appearAt + RevealSeconds;
+
+    // 걷기: 타임어택은 복귀가 끝난 때부터 타임어택 끝까지, 처단은 나타난 뒤 10초. 걷는 속도는 따로 없다 — 걷는 시간이 바뀌면(방 설정) 속도가 바뀐다.
+    public static double WalkStart(WitchMode mode, double appearAt) => appearAt + (mode == WitchMode.Purge ? RevealSeconds : IntroSeconds);
+    public static double WalkEnd(WitchMode mode, double appearAt, double timeAttackEnd) => mode == WitchMode.Purge ? PurgeStrikeAt(appearAt) : timeAttackEnd;
+
+    public static float WalkProgress(double now, double start, double end)
+    {
+        if (end <= start) return now >= end ? 1f : 0f;
+        double k = (now - start) / (end - start);
+        return k <= 0 ? 0f : k >= 1 ? 1f : (float)k;
+    }
+
+    // 이 판의 걷기 끝 시각(타임어택은 방 속성, 없으면 기본 시간).
+    public static double WalkEnd(WitchMode mode, double appearAt)
+    {
+        double end = RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double t) ? t : TimeAttackEnd(appearAt, RoomState.TimeAttackSeconds());
+        return WalkEnd(mode, appearAt, end);
+    }
 
     // 쿠키 탈것이 출발한 순간 처단을 시작하는지(§19.7 Q2): 남은 스파이가 있고 아직 마녀가 정해지지 않았을 때만.
     public static bool ShouldStartPurge(int activeSpies, WitchMode current) => activeSpies > 0 && current == WitchMode.None;
 
-    // 이 화면이 연출(카메라)을 보는지: 로켓 = 모두(Q1), 처단 = 스파이·괴물(Q4 — 쿠키는 이미 탈출).
-    public static bool Watches(WitchMode mode, bool localIsSpy, bool localIsMonster) =>
-        mode == WitchMode.TimeAttack || (mode == WitchMode.Purge && (localIsSpy || localIsMonster));
+    // 이 화면이 연출(카메라)을 보는지: 두 경우 모두 모두가 본다 — 처단도 탈출한 쿠키까지(§23.1 B).
+    public static bool Watches(WitchMode mode) => mode != WitchMode.None;
 
     // 내리칠 때 이 쿠키가 죽는지: 타임어택은 남은 쿠키 모두, 처단은 스파이만(괴물은 늘 죽는다 — MonsterEscapeState).
     public static bool CookieDiesInStrike(int strike, bool isSpy) => strike != (int)WitchMode.Purge || isSpy;
@@ -45,4 +86,21 @@ public static class WitchTimeline
         return true;
     }
 
+    // 지금 보여 줄 장면(순수 계산). 결과가 나왔으면 결과 화면이라 None.
+    public static WitchShot ShotAt(WitchMode mode, double now, bool hasLead, double leadStart, double appearAt, double walkEnd, bool resultDecided)
+    {
+        if (mode == WitchMode.None || resultDecided) return WitchShot.None;
+        if (now < appearAt) return hasLead && now >= leadStart ? WitchShot.Lead : WitchShot.None;
+        double strikeShot = walkEnd - StrikeShotMoveSeconds;
+        if (now >= strikeShot) return now < strikeShot + StrikeShotMaxSeconds ? WitchShot.Strike : WitchShot.None;
+        double t = now - appearAt;
+        if (t < RevealSeconds) return WitchShot.Reveal;
+        if (mode == WitchMode.Purge) return WitchShot.Approach;
+        t -= RevealSeconds;
+        if (t < TurnSeconds) return WitchShot.Turn;
+        t -= TurnSeconds;
+        if (t < FaceSeconds) return WitchShot.Face;
+        t -= FaceSeconds;
+        return t < ReturnSeconds ? WitchShot.Return : WitchShot.None;
+    }
 }

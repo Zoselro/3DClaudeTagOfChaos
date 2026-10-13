@@ -69,6 +69,8 @@ public enum SoundId
     WitchSlam = 513,
     HeartBeat = 514,
     EscapeSuccessSelf = 515,
+    WitchStep = 516,     // 마녀 발걸음(Request1009Plan.md §23.5 X4)
+    WitchShatter = 517,  // 내리칠 때 맵이 무너지는 소리(§23.5 X7)
 
     // 도구
     StunAimHum = 600,

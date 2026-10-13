@@ -84,7 +84,8 @@ public class CharacterInteractor : MonoBehaviour
     private void Refresh()
     {
         localCharacter = FindLocalCharacter();
-        focused = localCharacter != null && localCharacter.CanInteract && !IsTypingInUi()
+        // 연출 중(마녀 등장 등 — 조작이 멈춘 동안)에는 안내 아이콘도 띄우지 않는다(Request1009Plan.md §23)
+        focused = localCharacter != null && localCharacter.CanInteract && !IsTypingInUi() && !PlayerInput.CutsceneActive
             ? FindNearest(localCharacter)
             : null;
 

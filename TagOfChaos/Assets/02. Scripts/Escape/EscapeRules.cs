@@ -21,7 +21,7 @@ public static class EscapeRules
         EndWitchStrike,
     }
 
-    public const float WitchSlamSeconds = 2.5f; // 내리치는 연출을 보여준 뒤 결과
+    public const float WitchSlamSeconds = 5f; // 내리친 뒤 맵이 박살 나고 조각이 떨어지는 것을 보여 준 뒤 결과(Request1009Plan.md §23.4 Q7)
 
     // timeAttack: 스파이가 떠났는가. witchStruckFor: 마녀가 내리친 뒤 지난 시간(초, 안 내리쳤으면 음수).
     // departing: 쿠키 탈것이 출발 연출 중 — 연출이 끝날 때까지 끝 판정을 미룬다(EscapeVisualPlan.md §4.3).

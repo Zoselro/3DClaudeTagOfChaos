@@ -33,7 +33,7 @@ public class EscapeTextsSO : ScriptableObject
     public string youAreSpy = "You are the SPY";
     public string spyBadge = "SPY";
     public string deviceComplete = "The escape is open!";
-    public string witchComing = "The witch is turning around...";
+    public string witchComing = "The witch is coming..."; // 마녀가 나타날 때(멀리서 걸어온다 — Request1009Plan.md §23)
 
     [Header("Timers")]
     public string timeAttackFormat = "{0:00}:{1:00}";

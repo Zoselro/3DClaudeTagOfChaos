@@ -177,12 +177,13 @@ public static class SoundDefaults
                     e.maxInstances = 2;
                     e.importance = SoundImportance.High;
                 }
-                else if (id == SoundId.WitchAppear || id == SoundId.WitchSlam || id == SoundId.HeartBeat || id == SoundId.EscapeSuccessSelf)
+                else if (id == SoundId.WitchAppear || id == SoundId.WitchSlam || id == SoundId.WitchShatter || id == SoundId.HeartBeat || id == SoundId.EscapeSuccessSelf)
                 {
                     Flat(e, SoundBus.Sfx);
                     e.maxInstances = 1;
                     e.importance = SoundImportance.Critical;
                 }
+                else if (id == SoundId.WitchStep) { Flat(e, SoundBus.Sfx); e.maxInstances = 2; e.importance = SoundImportance.High; } // 거인의 발걸음 — 맵 어디서나 들린다
                 break;
             case 6: // 도구
                 World(e, 20f, 4);

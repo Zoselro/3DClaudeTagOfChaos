@@ -225,12 +225,26 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
         if (desired == LifeState.Broken) EnterSpectatorIfConfirmed(); // 처형 연출이 먼저 끝나고 확정이 나중에 온 경우·마녀
         if (desired == appliedState) return;
 
-        if (desired == LifeState.Broken) ApplyBroken();
+        if (desired == LifeState.Broken)
+        {
+            if (reason == "callback" && DiedToWitch()) ShatterByWitch(); // 내리치는 순간 몸이 조각나며 가루로(Request1009Plan.md §23.5 X7)
+            ApplyBroken();
+        }
         else if (appliedState == LifeState.Broken) RestoreAlive();
 
         appliedState = desired;
         if (desired == LifeState.Broken || reason != "start")
             Debug.Log($"[CookieLife] view={pv.ViewID} owner={pv.Owner.ActorNumber} -> {desired} (via {reason})");
+    }
+
+    private bool DiedToWitch() =>
+        RoomState.TryGetPlayerInt(pv.Owner, NetKeys.DeathCause, out int cause) && cause == (int)DeathCause.Witch;
+
+    private void ShatterByWitch()
+    {
+        if (visualsHidden) return;
+        WitchShatter.ShatterBody(GetComponentsInChildren<Renderer>(), fallbackCrumbColor);
+        if (!crumbsSpawned) SpawnCrumbs();
     }
 
     private void ApplyBroken()

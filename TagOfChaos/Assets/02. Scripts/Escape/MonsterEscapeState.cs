@@ -8,26 +8,29 @@ using UnityEngine;
 // 예전에는 각 화면이 WitchStrike를 보고 스스로 숨고 괴물 본인이 사망 원인을 써, 조작된 WitchStrike 하나로 괴물이 멈췄다.
 public class MonsterEscapeState : MonoBehaviourPunCallbacks
 {
+    private static readonly Color MonsterDebrisColor = new Color(0.25f, 0.12f, 0.3f);
     private MonsterController monster;
     private bool dead;
 
     public void Init(MonsterController owner)
     {
         monster = owner;
-        ApplyIfDead();
+        ApplyIfDead(shatter: false); // 늦게 들어와 이미 죽어 있으면 조각 없이 숨긴다
     }
 
     public override void OnPlayerPropertiesUpdate(Player target, Hashtable changed)
     {
-        if (monster != null && monster.View != null && target == monster.View.Owner && changed.ContainsKey(NetKeys.DeathCause)) ApplyIfDead();
+        if (monster != null && monster.View != null && target == monster.View.Owner && changed.ContainsKey(NetKeys.DeathCause)) ApplyIfDead(shatter: true);
     }
 
-    private void ApplyIfDead()
+    private void ApplyIfDead(bool shatter)
     {
         if (dead || monster == null || monster.View == null || monster.View.Owner == null) return;
         if (!RoomState.TryGetPlayerInt(monster.View.Owner, NetKeys.DeathCause, out int cause) || cause != (int)DeathCause.Witch) return;
         dead = true;
-        foreach (Renderer r in GetComponentsInChildren<Renderer>(true)) r.enabled = false; // 모든 화면에서 사라진다
+        Renderer[] body = GetComponentsInChildren<Renderer>(true);
+        if (shatter) WitchShatter.ShatterBody(body, MonsterDebrisColor); // 내리치는 순간 몸이 조각난다(Request1009Plan.md §23.5 X7)
+        foreach (Renderer r in body) r.enabled = false; // 모든 화면에서 사라진다
         monster.enabled = false;
     }
 }

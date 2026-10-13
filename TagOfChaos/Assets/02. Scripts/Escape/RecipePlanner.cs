@@ -31,8 +31,9 @@ public static class RecipePlanner
             foreach (ItemSO it in items) if (it != null) accepts.Add(it.ItemId);
             if (accepts.Count == 0) return result;
             // 필요 칸은 모든 색을 받으므로 로켓 칸 수만큼 필요 칸이 있으면 로켓 몫이 저절로 지켜진다.
+            // 필요 칸이 로켓 칸보다 적은 방(혼자 하는 오프라인 시험 등)만 해당 — 실제 인원표(쿠키 3명 이상)에서는 생기지 않는다.
             if (mustCover != null && mustCover.Count > required)
-                Debug.LogWarning($"[RecipePlanner] {recipe.MapName}: {mustCover.Count} rocket slots but only {required} needed slots.");
+                Debug.Log($"[RecipePlanner] {recipe.MapName}: {mustCover.Count} rocket slots but only {required} needed slots — rocket materials are not guaranteed this game.");
             int total = recipe.FillsCapacity ? System.Math.Max(required, capacity) : required;
             var requiredSet = new HashSet<int>(PickDistinct(total, required, rng));
             for (int i = 0; i < total; i++)
