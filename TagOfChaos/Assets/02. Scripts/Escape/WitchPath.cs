@@ -7,6 +7,7 @@ using UnityEngine.SceneManagement;
 public static class WitchPath
 {
     public const string GroundName = "Ground";
+    public const string FarBackdropName = "FarBackdrop"; // 마녀가 걸어오는 넓힌 배경(WitchBackdropBuilder) — 부수지도 가림막으로 숨기지도 않는다
     public const float StartDistance = 450f;
     public const float FootReachRatio = 0.12f;   // 발끝(몸 중심 앞) = 키 × 비율 — 90 m 마녀면 약 11 m
     public const float FallbackStrikeDistance = 155f; // Ground가 없는 맵: 예전 앵커 거리

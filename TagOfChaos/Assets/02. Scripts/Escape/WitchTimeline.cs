@@ -6,23 +6,26 @@ public enum WitchMode
     Purge = 2,      // 쿠키가 모두 탈출했는데 스파이가 남았다 — 괴물과 스파이를 없앤다(Request1009Plan.md §19.4)
 }
 
-// 마녀 연출의 카메라 장면(Request1009Plan.md §23.5 X5). 시각표(WitchTimeline.ShotAt)가 정하고 WitchRevealCamera가 보여 준다.
+// 마녀 연출의 카메라 장면(Request1009Plan.md §23.5 X5, 도착 뒤 3테이크 §24.10). 시각표(WitchTimeline.ShotAt)가 정하고 WitchRevealCamera가 보여 준다.
 public enum WitchShot
 {
-    None,     // 각자 시점
-    Lead,     // 로켓(타임어택) 또는 떠나는 탈출구(처단)
-    Reveal,   // 마녀가 나타나는 동안 마녀 쪽으로 — 타임어택은 등진 전신, 처단은 얼굴
-    Turn,     // 타임어택: 전신을 본 채 마녀가 뒤돌아섬
-    Face,     // 타임어택: 얼굴 클로즈업
-    Return,   // 타임어택: 각자 시점으로 돌아옴
-    Approach, // 처단: 맵 가장자리에서 다가오는 마녀를 올려다봄
-    Strike,   // 마녀 어깨 너머로 맵을 내려다보며 내리침·박살
+    None,           // 각자 시점
+    Lead,           // 로켓(타임어택) 또는 떠나는 탈출구(처단)
+    Reveal,         // 마녀가 나타나는 동안 마녀 쪽으로 — 타임어택은 등진 전신, 처단은 얼굴
+    Turn,           // 타임어택: 전신을 본 채 마녀가 뒤돌아섬
+    Face,           // 타임어택: 얼굴 클로즈업
+    Return,         // 타임어택: 각자 시점으로 돌아옴
+    Approach,       // 처단: 맵 가장자리에서 다가오는 마녀를 올려다봄
+    FinaleLowAngle, // 도착 테이크 1: 검은 화면 → 땅 높이에서 쿠키·괴물 → 로우 앵글로 뒤로 빠지며 아래를 보는 마녀 얼굴까지
+    FinaleStomp,    // 도착 테이크 2: 쿠키·괴물 뒤 땅에서 올려다봄 — 밑창이 서서히 내려와 화면을 덮음
+    FinaleEnd,      // 도착 테이크 3: 검은 화면 뒤 정면 위에서 밟고 선 마녀와 박살 → 결과(End)
 }
 
 // 마녀 시각표(Request1009Plan.md §19.2, §23.3). 마녀·카메라·방장 판정이 같은 계산을 쓴다. 시각은 모두 공통 시계(PhotonNetwork.Time)와
 // 방 속성(WitchAppearAt·TimeAttackEndTime)만 써서, 모든 화면이 같고 늦게 들어온 사람·방장이 바뀐 경우도 맞다.
-//   타임어택: 로켓 3초 → 등장 3초(등진 전신) → 돌아섬 2초 → 얼굴 2초 → 복귀 3초 → 타임어택 동안 걸어옴 → 끝 1.5초 전 내리침 장면 → 내리침
-//   처단:     탈출구 3초 → 등장 3초(얼굴) → 10초 동안 걸어옴(다가오는 장면) → 도착 1.5초 전 내리침 장면 → 내리침
+//   타임어택: 로켓 3초 → 등장 3초(등진 전신) → 돌아섬 2초 → 얼굴 2초 → 복귀 3초 → 타임어택 동안 걸어옴 → 도착(타임어택 끝) 3테이크
+//   처단:     탈출구 3초 → 등장 3초(얼굴) → 10초 동안 걸어옴(다가오는 장면) → 도착 3테이크
+//   도착 3테이크(§24.10): 로우 앵글 6초 → 밑에서 본 밟기 4초(끝에 밟음 = 충격·죽음) → 검은 화면 0.4초 → 박살 4.6초 → 결과(도착 + 15초)
 public static class WitchTimeline
 {
     public const float LeadShotSeconds = 3f;     // 로켓·탈출구를 보여 준 뒤 마녀가 나타난다
@@ -34,8 +37,12 @@ public static class WitchTimeline
     public const float ReturnSeconds = 3f;       // 타임어택: 각자 시점으로
     public const float IntroSeconds = RevealSeconds + TurnSeconds + FaceSeconds + ReturnSeconds; // 타임어택 시작 연출(조작이 멈춤)
     public const float PurgeWalkSeconds = 10f;   // 처단: 걸어오는 시간
-    public const float StrikeShotMoveSeconds = 1.5f; // 내리침 장면으로 옮겨 가는 시간(도착 = 내리치는 순간)
-    public const float StrikeShotMaxSeconds = 20f;   // 내리침 장면에 머무는 최대 시간(결과가 오지 않을 때의 안전장치)
+    public const float FinaleLowAngleSeconds = 6f;   // 도착 테이크 1(로우 앵글)
+    public const float FinaleStompSeconds = 4f;      // 도착 테이크 2(밟기) — 끝에 발이 땅에 닿는다
+    public const float FinaleImpactSeconds = FinaleLowAngleSeconds + FinaleStompSeconds; // 도착(= 내리침 기록)부터 밟는 순간 — 죽음 확정·박살
+    public const float FinaleBlackSeconds = 0.4f;    // 밟은 뒤 검은 화면
+    public const float FinaleEndSeconds = 5f;        // 밟은 뒤 결과까지(검은 화면 포함) — EscapeRules.WitchSlamSeconds = 충격 + 이것
+    public const float FinaleMaxSeconds = 30f;       // 도착 연출에 머무는 최대 시간(결과가 오지 않을 때의 안전장치)
 
     public static WitchMode Mode => RoomState.TryGetInt(NetKeys.WitchMode, out int m) ? (WitchMode)m : WitchMode.None;
     public static bool TryGetAppearAt(out double at) => RoomState.TryGetDouble(NetKeys.WitchAppearAt, out at);
@@ -86,13 +93,23 @@ public static class WitchTimeline
         return true;
     }
 
+    // 도착 뒤 장면(순수 계산, since = 도착부터 초).
+    public static WitchShot FinaleShotAt(double since)
+    {
+        if (since < 0 || since >= FinaleMaxSeconds) return WitchShot.None;
+        if (since < FinaleLowAngleSeconds) return WitchShot.FinaleLowAngle;
+        return since < FinaleImpactSeconds ? WitchShot.FinaleStomp : WitchShot.FinaleEnd;
+    }
+
+    // 도착 연출 중인지(조작 정지·대역·마녀 밟기가 함께 쓴다). 결과가 나오면 끝.
+    public static bool InFinale(double now, double walkEnd, bool resultDecided) => !resultDecided && FinaleShotAt(now - walkEnd) != WitchShot.None;
+
     // 지금 보여 줄 장면(순수 계산). 결과가 나왔으면 결과 화면이라 None.
     public static WitchShot ShotAt(WitchMode mode, double now, bool hasLead, double leadStart, double appearAt, double walkEnd, bool resultDecided)
     {
         if (mode == WitchMode.None || resultDecided) return WitchShot.None;
         if (now < appearAt) return hasLead && now >= leadStart ? WitchShot.Lead : WitchShot.None;
-        double strikeShot = walkEnd - StrikeShotMoveSeconds;
-        if (now >= strikeShot) return now < strikeShot + StrikeShotMaxSeconds ? WitchShot.Strike : WitchShot.None;
+        if (now >= walkEnd) return FinaleShotAt(now - walkEnd);
         double t = now - appearAt;
         if (t < RevealSeconds) return WitchShot.Reveal;
         if (mode == WitchMode.Purge) return WitchShot.Approach;

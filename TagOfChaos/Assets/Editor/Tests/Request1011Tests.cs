@@ -222,7 +222,6 @@ public class Request1011Tests
     {
         var clips = AssetDatabase.LoadAllAssetsAtPath(WitchModelSetup.FbxPath).OfType<AnimationClip>().Where(c => !c.name.StartsWith("__preview__")).ToList();
         foreach (string name in WitchModelSetup.Clips) Assert.IsTrue(clips.Any(c => c.name == name), name);
-        Assert.Greater(clips.First(c => c.name == "Strike").length, WitchPresenter.StrikeImpactSeconds + 1f);
 
         var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(WitchModelSetup.ControllerPath);
         Assert.AreEqual("Idle", controller.layers[0].stateMachine.defaultState.name);
@@ -243,6 +242,8 @@ public class Request1011Tests
         Assert.NotNull(FindDeep(rig, "Head"));
         Assert.NotNull(FindDeep(rig, "Hand.L"));
         Assert.NotNull(FindDeep(rig, "Finger11.R"));
+        // §24.10: 밟기는 왼다리 본을 돌린다
+        foreach (string bone in new[] { "Thigh.L", "Shin.L", "Foot.L" }) Assert.NotNull(FindDeep(rig, bone), bone);
     }
 
     private static Transform FindDeep(Transform t, string name) =>
@@ -250,7 +251,7 @@ public class Request1011Tests
 
     // ---- §18.4 마녀 등장 카메라 ----
 
-    // §23.3 A·B: 시각표 장면(타임어택: 로켓 3 → 등장 3 → 돌아섬 2 → 얼굴 2 → 복귀 3 … 끝 1.5초 전 내리침 / 처단: 탈출구 3 → 얼굴 3 → 다가옴 → 내리침)
+    // §23.3 A·B → §24.10: 시각표 장면(타임어택: 로켓 3 → 등장 3 → 돌아섬 2 → 얼굴 2 → 복귀 3 … 도착 3테이크 / 처단: 탈출구 3 → 얼굴 3 → 다가옴 → 도착 3테이크)
     [Test]
     public void WitchTimeline_ShotsFollowTheScript()
     {
@@ -265,9 +266,10 @@ public class Request1011Tests
         Assert.AreEqual(WitchShot.Face, At(109.0));
         Assert.AreEqual(WitchShot.Return, At(111.0));
         Assert.AreEqual(WitchShot.None, At(114.0), "time attack: everyone plays");
-        Assert.AreEqual(WitchShot.None, At(end - 1.6));
-        Assert.AreEqual(WitchShot.Strike, At(end - 1.4), "1.5 s before the end the camera moves behind the witch");
-        Assert.AreEqual(WitchShot.Strike, At(end + 4.0));
+        Assert.AreEqual(WitchShot.None, At(end - 0.1), "everyone plays until the witch arrives");
+        Assert.AreEqual(WitchShot.FinaleLowAngle, At(end + 1.0));
+        Assert.AreEqual(WitchShot.FinaleStomp, At(end + 7.0));
+        Assert.AreEqual(WitchShot.FinaleEnd, At(end + 11.0));
         Assert.AreEqual(WitchShot.None, At(end + 4.0, result: true), "result screen");
 
         const double departed = 50.0;
@@ -277,8 +279,8 @@ public class Request1011Tests
         Assert.AreEqual(WitchShot.Lead, P(52.0));
         Assert.AreEqual(WitchShot.Reveal, P(54.0));
         Assert.AreEqual(WitchShot.Approach, P(57.0));
-        Assert.AreEqual(WitchShot.Approach, P(pEnd - 1.6));
-        Assert.AreEqual(WitchShot.Strike, P(pEnd - 1.4));
+        Assert.AreEqual(WitchShot.Approach, P(pEnd - 0.1));
+        Assert.AreEqual(WitchShot.FinaleLowAngle, P(pEnd + 0.5));
     }
 
     [Test]
@@ -489,33 +491,6 @@ public class Request1011Tests
         WitchRevealCamera.LeadPose(anchor, Vector3.right, risen, out Vector3 pos2, out Quaternion rot2);
         Assert.Greater(pos2.y, pos.y + 10f);
         Assert.Greater(Vector3.Dot(rot2 * Vector3.forward, (risen + Vector3.up - pos2).normalized), 0.999f);
-    }
-
-    // §23.4 Q2: 어깨 너머 — 마녀 뒤·위에서 주먹이 떨어질 맵 쪽 땅을 내려다본다.
-    [Test]
-    public void StrikeShot_LooksOverTheShoulderAtTheMap()
-    {
-        Vector3 feet = new Vector3(0f, 0f, 200f);
-        Vector3 towardMap = Vector3.back; // 맵(원점)을 향함
-        const float height = 90f;
-        WitchRevealCamera.ShoulderPose(feet, towardMap, height, out Vector3 pos, out Quaternion rot);
-        Vector3 toCam = Vector3.ProjectOnPlane(pos - feet, Vector3.up);
-        Assert.Less(Vector3.Dot(toCam.normalized, towardMap), 0f, "behind the witch");
-        Assert.Greater(pos.y, height, "above the shoulder");
-        Assert.Less(Vector3.Dot(rot * Vector3.forward, Vector3.up), -0.3f, "looks down");
-        var cam = new GameObject("__strikeCam").AddComponent<Camera>();
-        try
-        {
-            cam.transform.SetPositionAndRotation(pos, rot);
-            cam.fieldOfView = 60f; cam.aspect = 16f / 9f;
-            Vector3 fists = feet + towardMap * (height * WitchPresenter.FistReachRatio);
-            foreach (Vector3 p in new[] { fists, feet + towardMap * (height * 1.3f) })
-            {
-                Vector3 v = cam.WorldToViewportPoint(p);
-                Assert.That(v.z > 0f && v.x > 0f && v.x < 1f && v.y > 0f && v.y < 1f, Is.True, "in view: " + p + " -> " + v);
-            }
-        }
-        finally { Object.DestroyImmediate(cam.gameObject); }
     }
 
     // §23.4 Q1: 전신 장면은 맵 쪽에서 몸 전체(발~모자)가 화면에 들어온다.

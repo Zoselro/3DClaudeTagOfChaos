@@ -71,8 +71,8 @@ public class GameRuleController : MonoBehaviourPunCallbacks
             if (witchStruckAt < 0f) witchStruckAt = Time.time;
             sinceStrike = Time.time - witchStruckAt;
         }
-        // 주먹이 맵에 닿는 순간 방장이 사망을 확정한다(예전에는 각자 본인이 썼다 — AuditFixPlan.md §8.1)
-        if (struck && !witchDeathsWritten && sinceStrike >= WitchPresenter.StrikeImpactSeconds)
+        // 마녀가 밟는 순간(도착 연출 테이크 2 끝) 방장이 사망을 확정한다(예전에는 각자 본인이 썼다 — AuditFixPlan.md §8.1, §24.10)
+        if (struck && !witchDeathsWritten && sinceStrike >= WitchTimeline.FinaleImpactSeconds)
         {
             witchDeathsWritten = true;
             WriteWitchDeaths(strikeMode, state, monsters);

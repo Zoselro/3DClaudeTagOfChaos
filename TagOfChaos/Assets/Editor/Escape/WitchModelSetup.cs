@@ -9,7 +9,7 @@ using UnityEngine;
 // 1) FBX 가져오기: Generic 리그, 동작 5개(Idle·Walk 반복, Rise·Strike·TurnBack — Request1009Plan.md §23 X3), 재질을 ME_WitchScarecrow로 연결.
 //    동작 원본: Source~/witch_rig(anim.py·export.py, Blender bpy로 만든다).
 // 2) 재질(Standard: 색·노멀·금속/매끄러움)과 애니메이터(Idle 기본, Rise·Strike·TurnBack 트리거, Walking 참이면 Walk).
-// 3) 프리팹 WITCH_Scarecrow(키 90 m로 맞춤) → 맵 5개 WITCH_Anchor의 "Model"로 교체(예전 모델·도형 대신).
+// 3) 프리팹 WITCH_Scarecrow(키 270 m로 맞춤 — Request1009Plan.md §24.10, 예전 90 m) → 맵 5개 WITCH_Anchor의 "Model"로 교체하고 WitchPresenter.height도 맞춘다.
 public static class WitchModelSetup
 {
     public const string Folder = "Assets/09. Environment/Witch"; // Escape/Models 밖 — 그 폴더의 가져오기 규칙(애니메이션 끔)을 피한다
@@ -19,7 +19,7 @@ public static class WitchModelSetup
     public const string PrefabPath = "Assets/04. Prefabs/Escape/WITCH_Scarecrow.prefab";
     public const float SourceHeight = 1.643f; // Blender 모델 키(m)
     public const float SourceFeet = -0.824f;  // Blender 모델 원점이 몸 가운데라 발 높이(m) — 기준점(WITCH_Anchor)에 발을 맞춘다
-    public const float TargetHeight = 90f;    // WitchPresenter.height와 같은 크기
+    public const float TargetHeight = WitchPresenter.DefaultHeight; // WitchPresenter.height와 같은 크기(270 m)
     public static readonly string[] Clips = { "Idle", "Rise", "Strike", "Walk", "TurnBack" };
     public static readonly string[] Maps = { "CandyForest", "GingerbreadVillage", "ChocolateFactory", "CursedCandyCarnival", "HauntedBakery" };
 
@@ -176,6 +176,7 @@ public static class WitchModelSetup
             var so = new SerializedObject(witch);
             so.FindProperty("model").objectReferenceValue = inst.transform;
             so.FindProperty("fadeInSeconds").floatValue = WitchPresenter.DefaultFadeSeconds;
+            so.FindProperty("height").floatValue = TargetHeight;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);

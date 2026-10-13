@@ -1827,9 +1827,9 @@ Windows 설정 → 소리 → **앱 볼륨 및 장치 기본 설정**에서 앱�
 - X9 멀티 확인(사용자): 모든 화면이 같은 순간 같은 장면인지, 탈출한 쿠키도 처단 장면을 보는지, 늦게 들어온 사람, 박살 순간 프레임.
 
 
-# 24. 2026-10-13 마녀 도착 뒤 5테이크 연출 — 로우 앵글로 쿠키·괴물 → 마녀 얼굴, 주먹 올림, 하이 앵글, 주먹 클로즈업, 박살 (단계 Y0~Y8)
+# 24. 2026-10-13 마녀 도착 뒤 연출 — (처음 5테이크 → 확정 3테이크: 로우 앵글 · 밑에서 본 밟기 · 박살 End, 마녀 3배) (단계 Y0~Y9)
 
-- 작성: 2026-10-13 · 상태: **⬜ 계획(승인 대기, 결정 Q1~Q6)** — 코드·씬은 아직 바꾸지 않았다(조사만).
+- 작성: 2026-10-13 · 상태: **✅ Y0~Y8 완료(결과 §24.12), Y9 멀티 확인 대기 — 확정안 §24.10, 단계 §24.11** (아래 §24.1~24.9는 처음 5테이크 안과 사용자 결정 기록)
 
 ## 24.1 요청(5테이크)
 
@@ -1997,7 +1997,7 @@ Windows 설정 → 소리 → **앱 볼륨 및 장치 기본 설정**에서 앱�
 - **동작 FBX 다시 내보내기** → 맵 5개 마녀 모델 다시 넣기(기존 메뉴). 맵을 새로 만들 예정이므로 새 맵에도 같은 메뉴로 넣으면 된다.
 - **`GameVersion`** 4 → 5(시각표가 바뀌어 옛 빌드와 화면이 어긋남).
 
-## 24.8 단계
+## 24.8 단계(처음 5테이크 안 — 쓰지 않음, §24.11로 대체)
 
 | 단계 | 내용 | 상태 |
 |---|---|---|
@@ -2016,4 +2016,81 @@ Windows 설정 → 소리 → **앱 볼륨 및 장치 기본 설정**에서 앱�
 - `images/r1009/s24_storyboard.jpg` — CandyForest에 실제 마녀·괴물·쿠키 모델을 놓고 테이크별 카메라 자리에서 찍은 그림(에디터, 씬은 저장하지 않음).
 - 마녀 자세는 지금 있는 `Strike` 동작에서 가져온 근사치다. 주먹을 서서히 올리기·든 채 유지·빠른 내려침은 Y2에서 새 동작으로 만든다.
 - 박살 장면은 소품을 흩뜨린 모형이다. 실제로는 §23 X7 충격파·조각이 쓰인다.
+
+## 24.10 확정안(2026-10-13, 스토리보드 v10) — 3테이크 · 마녀 3배
+
+§24.1~24.9의 5테이크 안은 사용자 그림(`F:\3DTagOfChaos\WitchScene` 1~6·12~17)과 스토리보드 v1~v10을 거쳐 아래 **3테이크**로 바뀌었다. 단계는 §24.11(옛 §24.8 표는 쓰지 않는다).
+
+- 그림: `images/r1009/s24_storyboard_v10.jpg`(왼쪽 사용자 그림 ↔ 오른쪽 실제 장면).
+- 결정(§24.4 사용자 답): Q1 **C 복제 대역** · Q2 제안대로(타임어택 = 남은 쿠키 + 괴물, 처단 = 남은 스파이 + 괴물, 액터 번호 순) · Q3 **괴물 한 명당 쿠키 한 명** · Q4 **이름표 숨김** · Q6 **Ground 경계 안쪽** · 추가: **실제(살아 있는) 쿠키·괴물은 연출 동안 모습을 감춘다**(카메라 앵글에 걸리지 않게).
+- 추가 결정(대화): **마녀 크기 3배**(키 90 m → 270 m), **FarGround는 그대로**, 테이크 2·3은 그림 12~17(밟기)로 교체, 마녀는 **Idle 자세**에서 밟는다(T자세 X).
+
+### 24.10.1 시각표(도착 = 걷기 끝 = 0, 공통 시계)
+
+| 구간 | 시각(초) | 카메라 | 마녀 | 대역 |
+|---|---|---|---|---|
+| 테이크 1 로우 앵글(그림 1~6) | 0 ~ 6 | 0~0.4 검은 화면, 1.2까지 밝아지며 땅 높이(0.05 → 0.3 m)에서 올라와 쿠키·괴물(12 m 앞) → 2~6 로우 앵글(높이 ≤ 0.6 m)을 유지한 채 뒤로(키 × 0.49) 빠지며 시선이 아래를 보는 마녀 얼굴까지 | 도착해 멈춤, Idle, 고개를 숙여 발아래를 봄 | 세워짐(괴물이 쿠키를 든 채) |
+| 테이크 2 밑에서 본 밟기(그림 12~16) | 6 ~ 10 | 고정: 대역 뒤 16 m·눈높이 1.6 m에서 마녀 쪽 위를 넓게 올려다봄. 9.75~10 검게 | Idle 자세에서 왼발을 들어(0~1.2초) 정강이를 세운 채 밑창이 서서히 내려와(1.2~4초) 카메라 앞에 닿음. 들린 발이 늘 카메라 바로 위에 오도록 몸이 한 걸음 들어온다 | 그대로 |
+| 충격 | 10 | 검은 화면(10 ~ 10.4) | 발이 땅에 닿음 — 흔들림·충격음·`Impacted`(박살 시작) | 부서짐(조각·가루) |
+| 테이크 3 박살·End(그림 17) | 10.4 ~ 15 | 정면 위: 밟은 발에서 맵 쪽 키 × 0.85, 높이 키 × 0.35 — 밟고 선 마녀와 튀는 파편 | 밟은 채 | 없음 |
+| 결과(End) | 15 | 결과 화면 | — | — |
+
+- 방장: `WitchStrike`는 지금처럼 도착 순간(타임어택 끝·처단 도착)에 쓴다. **죽음 확정 = 내리친 뒤 10초**(`WitchTimeline.FinaleImpactSeconds`), **결과 = 내리친 뒤 15초**(`EscapeRules.WitchSlamSeconds`).
+- 연출 동안 모두 조작 정지(`PlayerInput.CutsceneActive`). 예전 "도착 1.5초 전 어깨 너머 장면"은 없앤다 — 처단은 도착까지 다가옴 장면, 타임어택은 도착까지 각자 플레이.
+
+### 24.10.2 설계(파일별)
+
+- **Y1 시각표·방장 판정** `Escape/WitchTimeline.cs`, `Escape/EscapeRules.cs`, `Monster/GameRuleController.cs`
+  - `WitchShot`: `Strike` → `FinaleLowAngle`·`FinaleStomp`·`FinaleEnd`. 상수 `FinaleLowAngleSeconds 6`·`FinaleStompSeconds 4`·`FinaleBlackSeconds 0.4`·`FinaleImpactSeconds 10`·`FinaleEndSeconds 5`.
+  - `ShotAt`: 걷기 끝부터 위 표대로(결과가 나오면 None, 안전장치 30초).
+  - `EscapeRules.WitchSlamSeconds` = 10 + 5 = 15. `GameRuleController`: 죽음 확정 `sinceStrike >= FinaleImpactSeconds`.
+- **Y2 마녀 3배** `Editor/Escape/WitchModelSetup.cs`(TargetHeight 270, 프리팹·맵 5개 다시 설치 + `WitchPresenter.height` 270), `WitchPresenter.WitchFogDensity` 0.003 → 0.001.
+- **Y3 밟기 동작(코드)** `Escape/WitchPresenter.cs` — Blender 동작을 새로 굽지 않고 Idle 위에 본을 더 돌린다(LateUpdate, 공통 시계라 모든 화면이 같다).
+  - 고개 숙임(도착 0.6초 동안 0 → 28°). 왼쪽 허벅지·정강이 각도 = `StompLegAngle(t)`(0 → 90° 들기, 90° → 0 내리기, 정강이는 늘 수직 = 밑창이 아래).
+  - 몸 위치: 들기 동안 서서히, 그 뒤로는 왼발(`Foot.L`)이 밟을 곳(`StompTarget`) 바로 위에 오도록 옮긴다.
+  - 충격 = 도착 + 10초: 흔들림·`WitchSlam`·`Impacted`. `ImpactPoint` = 밟을 곳. 늦게 들어온 화면은 소리·흔들림 없이 결과만.
+  - `Strike` 트리거는 쓰지 않는다(동작은 FBX에 남겨 둠).
+- **Y4 대역** `Escape/WitchFinaleStage.cs`(새, 마녀가 붙인다)
+  - 도착 순간 각 화면이 한 번: 고르기(Q2) → 복제(꺼진 부모 아래 `Instantiate` → Transform·Animator·Renderer·MeshFilter만 남기고 제거, 이름표 제거, 그림자 On) → 배치(Q6: `GroundContact + 안쪽 × 22 m`, 괴물은 가로 7 m 간격으로 마녀를 등지고, 괴물 k가 쿠키 k를 든다, 남는 쿠키는 앞 반원) → 자세(괴물 `GrabKill` 0.45에서 멈춤, 들린 쿠키 `Held`로 `Grab_Socket`에 매달림, 남은 쿠키 `Idle`).
+  - **실제 캐릭터 숨김**: 연출 동안 매 프레임 실제 쿠키·괴물 렌더러를 끈다(본인 포함). 실제 캐릭터의 마녀 죽음 가루는 연출 중 내지 않는다.
+  - 충격 순간 대역이 부서진다(쿠키 = 몸 조각 + 가루, 괴물 = 몸 조각) 뒤 숨김.
+- **Y5 카메라** `Camera/WitchRevealCamera.cs` — 순수 함수 `LowAnglePose`·`StompCameraPose`·`EndPose`(화면에 두 점이 들어오는 위치·회전·화각), 화각은 연출 동안만 바꾸고 끝나면 되돌림. 검은 화면은 새 `Camera/CutsceneFade.cs`(화면 덮개, 알파만).
+- **Y6 박살 연동** `Escape/WitchShatter.cs` — 충격점 = 밟은 곳, 범위 3배에 맞게 `WaveSpeed` 60 → 120.
+- **Y7 시험·버전**: EditMode(시각표·판정·다리 각도·카메라 자리·대역 고르기·배치·복제 정리·모델 3배) + `GameVersion` 4 → 5.
+- **Y8 Play Mode 검증**(오프라인, 공통 시계 촬영): ① 스파이 탈출 → 쿠키 남음 → 타임어택 시간 끝 ② 쿠키 탈출 → 스파이·괴물 남음 → 처단. 테이크별 화면, 콘솔 오류·경고, 결과 화면까지.
+
+## 24.11 단계(확정안)
+
+| 단계 | 내용 | 상태 |
+|---|---|---|
+| Y0 | 결정(§24.4 사용자 답 + 3테이크·3배·FarGround 유지) | ✅ |
+| Y1 | 시각표·방장 판정(죽음 = 내리침 + 10초, 결과 = + 15초) | ✅ |
+| Y2 | 마녀 3배(모델·맵 5개·안개) | ✅ |
+| Y3 | 밟기 동작(고개 숙임·다리·몸 위치·충격) | ✅ |
+| Y4 | 대역(복제·배치·자세·실제 캐릭터 숨김·부서짐) | ✅ |
+| Y5 | 카메라 3테이크·검은 화면 | ✅ |
+| Y6 | 박살 연동 | ✅ |
+| Y7 | EditMode 시험·`GameVersion` 5 | ✅ |
+| Y8 | Play Mode 검증(타임어택·처단) | ✅ |
+| Y9 | 멀티 확인(사용자) | ⬜ |
+
+## 24.12 결과(2026-10-13)
+
+**바뀐 파일**
+- 시각표·판정: `Escape/WitchTimeline.cs`(`WitchShot.FinaleLowAngle·FinaleStomp·FinaleEnd`, `FinaleShotAt`·`InFinale`, 상수 6·4·10·0.4·5초 — 예전 `Strike` 장면·"도착 1.5초 전" 이동 삭제), `Escape/EscapeRules.cs`(`WitchSlamSeconds` = 10 + 5 = 15), `Monster/GameRuleController.cs`(죽음 확정 = 내리침 기록 + `FinaleImpactSeconds`).
+- 마녀: `Escape/WitchPresenter.cs` — 키 270 m(`DefaultHeight`), 안개 0.001, `StagePoint`·`StompTarget`·`ImpactPoint`, `LateUpdate`에서 고개 숙임(28°)·왼다리 밟기(`StompLegAngle`: 1.2초 들기 → 처음엔 천천히·끝으로 빠르게 내려옴)·몸 옮김(`StompShiftWeight`), 충격 = 도착 + 10초(늦게 들어온 화면은 소리·흔들림 없이). `Strike` 트리거는 더 쓰지 않는다(FBX 동작은 남김).
+- 대역: `Escape/WitchFinaleStage.cs`(새) — `Choose`·`Arrange`(순수 계산), 꺼진 부모 아래 복제 + `StripToVisuals`(RequireComponent 순서를 지켜 Transform·Animator·Renderer·MeshFilter만 남김, 이름표 삭제), 괴물 `GrabKill` 0.45에서 멈춤·쿠키 `Held`로 소켓에 매달림·남는 쿠키 반원 `Idle`, 실제 캐릭터 매 프레임 숨김, 밟는 순간 몸 조각 + 쿠키 가루. 같은 사람의 쿠키·괴물(오프라인 시험)도 둘 다 세운다.
+- 카메라: `Camera/WitchRevealCamera.cs` — `FramePose`·`LowAnglePose`·`StompPose`·`EndPose`·`FinaleFadeAlpha`(순수 계산), 화각은 연출 동안만(끝나면 되돌림), 테이크 1·2에서 카메라와 대역·밑창·마녀 사이를 가리는 맵 물체를 숨겼다가 밟는 순간 되돌림(`OccluderCandidates` — 맵 안 배경 나무·소품 포함, 땅·넓은 바닥·FarBackdrop 제외). 예전 `ShoulderPose` 삭제. `Camera/CutsceneFade.cs`(새) 검은 화면.
+- 그 밖: `Escape/WitchShatter.cs`(충격점 = 밟은 곳, `WaveSpeed` 60 → 120), `Escape/WitchPath.cs`(`FarBackdropName`), `ColorTag/CookieLifeStatePresenter.cs`(연출 중 실제 몸 가루 생략, 가루 정보 공개), `Escape/MonsterEscapeState.cs`(조각 색 공개), `Editor/Escape/WitchModelSetup.cs`(TargetHeight 270 + 맵 5개 `WitchPresenter.height` 270 — 다시 설치함), `Editor/Maps/WitchBackdropBuilder.cs`, `Lobby/LobbyController.cs`(`GameVersion` 5). FarGround는 그대로.
+- 시험: `WitchFinaleTests` +8(시각표·판정, 밟기 각도, 카메라 3테이크 자리·화면 안, 검은 화면, 대역 고르기·배치, 복제 정리(쿠키·괴물), 모델 3배) + 맵 5개 키 270 확인, `Request1011Tests` 시각표·모델 다리 본 갱신(어깨 너머 시험 삭제).
+
+**검증**
+- 컴파일 오류·경고 0. EditMode 전체 321개 중 실패 1개 = `MapCompactTests` CursedCandyCarnival(§23.9와 같은 것, 맵을 다시 만들 예정이라 그대로 둠).
+- Play Mode(CandyForest, 오프라인 + 괴물 1, 공통 시계 촬영 — `images/r1009/s24_play_ta.jpg`·`s24_play_purge.jpg`):
+  - **① 스파이 탈출 → 쿠키 남음 → 타임어택 시간 끝**: 도착까지 각자 플레이(조작 가능) → 도착 순간 조작 정지·검은 화면 → 대역 2(괴물이 쿠키를 든 채, 실제 캐릭터 렌더러 0) → 로우 앵글로 뒤로 빠지며 마녀 얼굴 → 테이크 2 화각 86°, 밑창 높이 50 → 34 → 16 m로 내려와 화면을 덮음 → 도착 + 10초 검은 화면·쿠키 사망 확정·맵 106개 박살 → 정면 위 밟고 선 마녀·파편 → 도착 + 15.6초 결과 화면(`Escape mode ended: WitchStrike`), 화각 60°·조작 복귀.
+  - **② 쿠키 탈출 → 스파이·괴물 남음 → 처단**: 다가옴 장면 → 도착 3테이크(스파이 대역을 괴물 대역이 듦) → 스파이 사망·박살 → 결과(같은 시각표).
+  - 콘솔 오류·경고 0, 박살 순간 최저 77~107 fps.
+- 처음 촬영에서 맵 소품(배경 나무·롤리팝·버섯)이 테이크 1 뒤쪽과 테이크 2를 가려서 가림막 숨기기를 넣고 다시 확인했다.
+
+**남은 것**: Y9 멀티 확인(사용자) — 여러 화면이 같은 대역 배치·같은 순간 밟기·결과를 보는지, 괴물 1인칭인 사람 화면에서도 괴물 대역이 보이는지.
 

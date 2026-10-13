@@ -3,22 +3,22 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 // 마녀가 내리칠 때 맵이 박살 난다(Request1009Plan.md §23.5 X7, 결정 Q4 a). 맵 씬의 WitchPresenter 옆에 붙는다(없으면 마녀가 붙인다).
-// - 주먹이 닿은 곳(WitchPresenter.ImpactPoint)에서 충격파가 초속 WaveSpeed로 퍼지며, 도착한 물체는 숨기고 그 크기·재질의 조각을 튕겨 낸다.
+// - 마녀가 밟은 곳(WitchPresenter.ImpactPoint, §24.10)에서 충격파가 초속 WaveSpeed로 퍼지며, 도착한 물체는 숨기고 그 크기·재질의 조각을 튕겨 낸다.
 // - 대상은 이름 목록이 아니라 일반 규칙(맵을 바꿔도 그대로): 중심이 "Ground" 사각형 안에 있는 MeshRenderer 묶음. Ground 자신·Background·
 //   FarBackdrop·캐릭터·마녀·물 같은 넓은 평면·아주 작은 것은 뺀다(IsBreakable).
 // - 판이 끝나는 장면이라 네트워크로 맞추지 않는다 — 각 화면이 같은 순간(주먹이 닿은 순간)에 같은 규칙으로 보여 준다.
 // - 마녀가 나타나면(걸어오는 동안) 대상을 미리 고르고 조각을 프레임마다 조금씩 만들어 둔다 — 주먹이 닿는 순간 끊기지 않게(상한 MaxPieces).
 //   조각 레이어는 Ignore Raycast — 바닥에는 떨어지고 검사(레이캐스트)에는 걸리지 않는다.
-// 쿠키·괴물의 몸도 같은 조각으로 부순다(ShatterBody — CookieLifeStatePresenter·MonsterEscapeState).
+// 쿠키·괴물의 몸도 같은 조각으로 부순다(ShatterBody — 도착 연출의 대역 WitchFinaleStage, 늦게 들어온 화면의 CookieLifeStatePresenter·MonsterEscapeState).
 public class WitchShatter : MonoBehaviour
 {
-    public const float WaveSpeed = 60f;          // 충격파 속도(m/s) — 맵 끝까지(약 140 m) 2초 남짓
+    public const float WaveSpeed = 120f;         // 충격파 속도(m/s) — 키 270 m 마녀(§24.10)가 밟으면 맵 끝까지(약 140 m) 1초 남짓
     public const int MaxPieces = 400;
     public const float PieceLifeSeconds = 3.2f;
     public const float MinBreakSize = 0.3f;      // 이보다 작은 것은 그대로
     public const float FlatHeight = 0.3f;        // 이보다 얇고 넓은 것(물·바닥 무늬)은 그대로
     public const float FlatWidth = 4f;
-    private static readonly string[] KeepRoots = { WitchPath.GroundName, "Background", "FarBackdrop" };
+    private static readonly string[] KeepRoots = { WitchPath.GroundName, "Background", WitchPath.FarBackdropName };
 
     public static WitchShatter Current { get; private set; }
 

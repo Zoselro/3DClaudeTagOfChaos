@@ -61,6 +61,10 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
 
     public bool IsBroken => appliedState == LifeState.Broken;
     public bool IsBeingGrabKilled { get; private set; }
+    // 마녀 도착 연출의 대역이 같은 가루를 쓴다(WitchFinaleStage)
+    public GameObject BreakVfxPrefab => breakVfxPrefab;
+    public Color CrumbColor => fallbackCrumbColor;
+    public int CrumbCount => crumbCount;
 
     private void Awake()
     {
@@ -242,7 +246,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
 
     private void ShatterByWitch()
     {
-        if (visualsHidden) return;
+        if (visualsHidden || WitchFinaleStage.Active) return; // 도착 연출 중에는 숨긴 실제 몸 대신 대역이 부서진다(§24.10)
         WitchShatter.ShatterBody(GetComponentsInChildren<Renderer>(), fallbackCrumbColor);
         if (!crumbsSpawned) SpawnCrumbs();
     }

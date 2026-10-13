@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 public class LobbyController : MonoBehaviourPunCallbacks
 {
-    private const string GameVersion = "4"; // 빌드가 바뀌면 올려서 이전 버전 클라이언트와 매치메이킹이 섞이지 않게 함(2: 채팅·들기 RPC 서명 변경, AuditFixPlan.md P4 / 3: 대기실 문 이벤트·다시 생김 알림, Request1009Plan.md §22 / 4: 마녀 연출 시각표, §23)
+    private const string GameVersion = "5"; // 빌드가 바뀌면 올려서 이전 버전 클라이언트와 매치메이킹이 섞이지 않게 함(2: 채팅·들기 RPC 서명 변경, AuditFixPlan.md P4 / 3: 대기실 문 이벤트·다시 생김 알림, Request1009Plan.md §22 / 4: 마녀 연출 시각표, §23 / 5: 마녀 도착 3테이크·3배, §24)
 
     [SerializeField] private TMP_InputField userIdInput;
     [SerializeField] private TMP_InputField roomNameInput;

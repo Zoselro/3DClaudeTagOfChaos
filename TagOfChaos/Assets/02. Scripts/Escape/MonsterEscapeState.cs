@@ -8,7 +8,7 @@ using UnityEngine;
 // 예전에는 각 화면이 WitchStrike를 보고 스스로 숨고 괴물 본인이 사망 원인을 써, 조작된 WitchStrike 하나로 괴물이 멈췄다.
 public class MonsterEscapeState : MonoBehaviourPunCallbacks
 {
-    private static readonly Color MonsterDebrisColor = new Color(0.25f, 0.12f, 0.3f);
+    public static readonly Color MonsterDebrisColor = new Color(0.25f, 0.12f, 0.3f); // 마녀에게 부서질 때 조각 색(대역도 같은 색)
     private MonsterController monster;
     private bool dead;
 

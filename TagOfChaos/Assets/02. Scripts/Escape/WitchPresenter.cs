@@ -8,8 +8,10 @@ using UnityEngine;
 // - 걷기: 타임어택은 시작 연출이 끝난 뒤 타임어택 끝까지, 처단은 10초. 내리칠 자리는 발끝이 맵 "Ground" 사각형에 닿는 곳(Q6).
 //   걷는 속도는 따로 없다 — 걷는 시간이 바뀌면 속도가 바뀌고, Walk 동작 재생 속도와 발걸음(소리·흔들림)도 그에 맞춘다.
 // - 위치·방향·동작은 공통 시계로 계산하므로 모든 화면이 같고, 늦게 들어온 사람도 바로 맞는 자리에 있다.
-// - WitchStrike가 기록되면 두 주먹으로 맵을 내리친다(Strike). 주먹이 닿는 순간(StrikeImpactSeconds) 흔들림·충격음과 함께
-//   Impacted를 알린다 — 맵 박살(WitchShatter)이 그 자리(ImpactPoint)에서 시작된다. 죽음 확정은 방장(GameRuleController).
+// - 도착하면(걷기 끝) 3테이크(Request1009Plan.md §24.10): Idle 자세로 고개를 숙여 발아래를 보다가(테이크 1), 왼발을 들어 밑창이
+//   카메라 위로 서서히 내려와 밟는다(테이크 2, 몸은 들린 발이 밟을 곳 위에 오도록 한 걸음 들어온다). 밟는 순간(도착 + FinaleImpactSeconds)
+//   흔들림·충격음과 함께 Impacted를 알린다 — 맵 박살(WitchShatter)·대역 부서짐(WitchFinaleStage)이 그 자리(ImpactPoint)에서 시작된다.
+//   다리·고개는 Blender 동작이 아니라 Idle 위에 본을 더 돌려(LateUpdate) 공통 시계로 계산한다. 죽음 확정은 방장(GameRuleController).
 // - 소리(SoundPlan.md S6): 나타나기 시작 = WitchAppear, 다 나타남 = 스팅어 StWitchAppear, 발걸음 = WitchStep, 내리침 = WitchSlam.
 // 자식 "Model"이 있으면 그것을 쓰고(애니메이터가 있으면 동작으로, 없으면 SlamArm 회전으로 내리침), 없으면 도형으로 만든 임시 마녀를 쓴다.
 public class WitchPresenter : MonoBehaviour
@@ -17,17 +19,20 @@ public class WitchPresenter : MonoBehaviour
     private static readonly int ColorId = Shader.PropertyToID("_Color");
     private const float RaisedArmAngle = -150f;
     public const float DefaultFadeSeconds = WitchTimeline.RevealSeconds; // 카메라가 마녀에게 닿는 3초에 다 나타나게
-    public const float StrikeImpactSeconds = 0.95f;  // Strike 동작에서 주먹이 맵에 닿는 시각(Blender anim.py IMPACT와 같음)
-    public const float ImpactGraceSeconds = 1f;      // 이 화면의 마녀가 충격을 알리지 못할 때(없음·멈춤) 그만큼 늦게라도 죽음 처리
-    public const float FistReachRatio = 0.5f;        // 주먹이 떨어지는 곳 = 발에서 앞으로 키 × 비율
+    public const float DefaultHeight = 270f;         // 키(m) — 3배(§24.10, 예전 90 m). 모델 크기는 WitchModelSetup.TargetHeight와 같다
+    public const float StageInset = 22f;             // 대역을 세우는 곳 = 발끝이 닿는 Ground 경계에서 맵 안쪽(§24.4 Q6)
+    public const float StompInset = 4f;              // 밟는 곳 = 대역 자리에서 맵 안쪽(카메라 쪽)으로
+    public const float HeadDownDegrees = 28f;        // 도착하면 고개를 숙여 발아래를 본다
+    public const float HeadDownSeconds = 0.6f;
+    public const float StompLiftSeconds = 1.2f;      // 테이크 2: 발을 드는 시간 — 나머지는 서서히 내려온다
+    public const float StompLiftDegrees = 90f;       // 허벅지를 드는 각도(정강이는 늘 수직 = 밑창이 아래)
     // Walk 동작(anim.py WALK_CYCLE): 2.4초에 두 걸음, 발이 닿는 순간 = 주기의 0.25·0.75
     public const float WalkCycleSeconds = 2.4f;
     public const float StepLengthRatio = 0.25f;      // 한 걸음 길이 = 키 × 비율(90 m → 22.5 m)
     // 뒤돌아서는 방향: Blender TurnBack(TURN_SIGN = +1, 위에서 반시계)과 같은 방향 — Unity 요(Y) 회전으로는 −
     public const float TurnYawSign = -1f;
-    public const float WitchFogDensity = 0.003f;     // 마녀가 나타난 뒤의 안개(§23.4 Q5)
+    public const float WitchFogDensity = 0.001f;     // 마녀가 나타난 뒤의 안개(§23.4 Q5) — 키 270 m(§24.10)라 멀리까지 보이게
     private static readonly int RiseTrigger = Animator.StringToHash("Rise");
-    private static readonly int StrikeTrigger = Animator.StringToHash("Strike");
     private static readonly int TurnTrigger = Animator.StringToHash("TurnBack");
     private static readonly int WalkingBool = Animator.StringToHash("Walking");
 
@@ -36,7 +41,7 @@ public class WitchPresenter : MonoBehaviour
     public static event System.Action Impacted;
 
     [SerializeField, Min(0.1f)] private float fadeInSeconds = DefaultFadeSeconds;
-    [SerializeField, Min(1f)] private float height = 90f;
+    [SerializeField, Min(1f)] private float height = DefaultHeight;
     [SerializeField] private Transform model;
     [SerializeField] private Transform slamArm;
 
@@ -46,11 +51,12 @@ public class WitchPresenter : MonoBehaviour
 
     private bool fadeDone;
     private bool activeBefore; // 지난 프레임에도 보였는지(처음 보인 프레임에 이미 내리친 상태면 충격음을 내지 않는다)
-    private bool struck;
-    private float strikeTime;
     private Animator animator;
-    private Transform head, hat;
+    private Transform head, hat, thighL, shinL, footL;
     private bool impactDone;
+    private double finaleSince = double.NaN; // 도착 뒤 지난 시간(연출 중이 아니면 NaN)
+    private bool stageReady;
+    private Vector3 stagePoint;
     private double turnTriggeredFor = double.NaN;
     private int lastStep = int.MinValue;
 
@@ -73,7 +79,11 @@ public class WitchPresenter : MonoBehaviour
     public Vector3 MapCenter => mapCenter;
     public Vector3 StrikePoint => strikePoint;                     // 내리칠 자리(발)
     public Vector3 StartPoint => startPoint;                       // 나타나는 자리(발)
-    public Vector3 ImpactPoint => strikePoint + TowardMap * (height * FistReachRatio); // 주먹이 떨어지는 곳(땅)
+    public Vector3 StagePoint => EnsureStage();                    // 대역(쿠키·괴물)을 세우는 곳(땅)
+    public Vector3 StompTarget => EnsureStage() + TowardMap * StompInset; // 왼발이 밟는 곳(땅)
+    public Vector3 ImpactPoint => StompTarget;                     // 박살이 시작되는 곳
+    public bool InFinale => !double.IsNaN(finaleSince);
+    public double FinaleSince => finaleSince;
 
     private void Awake()
     {
@@ -87,8 +97,12 @@ public class WitchPresenter : MonoBehaviour
         animator = model.GetComponentInChildren<Animator>(true);
         head = FindDeep(model, "Head");
         hat = FindDeep(model, "Hat1");
+        thighL = FindDeep(model, "Thigh.L");
+        shinL = FindDeep(model, "Shin.L");
+        footL = FindDeep(model, "Foot.L");
         Current = this;
         if (GetComponent<WitchShatter>() == null) gameObject.AddComponent<WitchShatter>(); // 내리칠 때 맵 박살(§23.5 X7)
+        if (GetComponent<WitchFinaleStage>() == null) gameObject.AddComponent<WitchFinaleStage>(); // 도착 연출의 쿠키·괴물 대역(§24.10)
         if (Camera.main != null && Camera.main.GetComponent<WitchRevealCamera>() == null) Camera.main.gameObject.AddComponent<WitchRevealCamera>();
         BuildPath();
         model.gameObject.SetActive(false);
@@ -114,6 +128,16 @@ public class WitchPresenter : MonoBehaviour
         faceAway = Quaternion.LookRotation(outward);
     }
 
+    // 대역 자리: 발끝이 닿는 경계에서 맵 안쪽 StageInset, 높이는 그 자리 땅(캐릭터는 빼고). 처음 물을 때 한 번 정한다.
+    private Vector3 EnsureStage()
+    {
+        if (stageReady) return stagePoint;
+        stageReady = true;
+        stagePoint = groundContact + TowardMap * StageInset;
+        stagePoint.y = WitchFinaleStage.GroundHeight(stagePoint, groundContact.y);
+        return stagePoint;
+    }
+
     private void OnDestroy()
     {
         RestoreFog();
@@ -132,6 +156,7 @@ public class WitchPresenter : MonoBehaviour
         {
             if (model.gameObject.activeSelf) model.gameObject.SetActive(false);
             activeBefore = false;
+            finaleSince = double.NaN;
             RestoreFog();
             return;
         }
@@ -166,29 +191,67 @@ public class WitchPresenter : MonoBehaviour
         float progress = WitchTimeline.WalkProgress(now, walkStart, walkEnd);
         model.position = Vector3.Lerp(startPoint, strikePoint, progress);
         model.rotation = Facing(mode, now, appearAt);
+        bool resultDecided = RoomState.TryGetInt(NetKeys.GameResult, out _);
+        finaleSince = WitchTimeline.InFinale(now, walkEnd, resultDecided) ? now - walkEnd : double.NaN;
         UpdateTurn(mode, now, appearAt);
         UpdateWalk(now, walkStart, walkEnd, progress);
-
-        if (!struck && RoomState.TryGetInt(NetKeys.WitchStrike, out _))
-        {
-            struck = true;
-            strikeTime = Time.time;
-            impactDone = !activeBefore; // 늦게 들어와 이미 내리친 상태면 흔들림·소리 없이
-            if (animator != null) { animator.speed = 1f; animator.SetBool(WalkingBool, false); animator.SetTrigger(StrikeTrigger); }
-            if (impactDone) Impacted?.Invoke();
-        }
+        UpdateImpact(now - walkEnd);
         activeBefore = true;
-        if (!struck) return;
-        float since = Time.time - strikeTime;
-        if (animator == null) AnimateSlam(since);
-        if (!impactDone && since >= (animator != null ? StrikeImpactSeconds : 0f))
+    }
+
+    // 밟는 순간(도착 + FinaleImpactSeconds): 흔들림·충격음·Impacted. 늦게 들어와 이미 지난 화면은 소리·흔들림 없이 결과만.
+    private void UpdateImpact(double since)
+    {
+        if (since < 0) return;
+        if (animator == null) AnimateSlam((float)(since - WitchTimeline.FinaleImpactSeconds + 0.5f));
+        if (impactDone || since < WitchTimeline.FinaleImpactSeconds) return;
+        impactDone = true;
+        if (activeBefore && since < WitchTimeline.FinaleImpactSeconds + LateSoundSeconds)
         {
-            impactDone = true; // 주먹이 맵에 닿는 순간
             CameraShake.Add(SlamShakeStrength, SlamShakeSeconds); // 카메라가 LateUpdate에서 더한다(research.md R4.7-9)
             GameAudio.Play(SoundId.WitchSlam);
-            Impacted?.Invoke();
         }
+        Impacted?.Invoke();
     }
+
+    // 도착 연출: Idle 동작 위에 고개 숙임과 왼발 밟기를 더하고(동작이 이번 프레임 본을 정한 뒤), 들린 발이 밟을 곳 위에 오도록 몸을 옮긴다.
+    private void LateUpdate()
+    {
+        if (!InFinale || !model.gameObject.activeSelf || animator == null) return;
+        float t = (float)finaleSince;
+        Vector3 face = Vector3.ProjectOnPlane(model.forward, Vector3.up).normalized;
+        if (head != null)
+        {
+            float down = HeadDownDegrees * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / HeadDownSeconds));
+            head.rotation = Quaternion.AngleAxis(down, Vector3.Cross(face, Vector3.down).normalized) * head.rotation;
+        }
+        if (thighL == null || shinL == null || footL == null) return;
+        float stompT = t - WitchTimeline.FinaleLowAngleSeconds;
+        float leg = StompLegAngle(stompT);
+        if (leg > 0f)
+        {
+            Vector3 side = model.right;
+            thighL.rotation = Quaternion.AngleAxis(-leg, side) * thighL.rotation; // 허벅지를 앞으로 든다
+            shinL.rotation = Quaternion.AngleAxis(leg, side) * shinL.rotation;    // 정강이는 수직(밑창이 아래)
+        }
+        float shift = StompShiftWeight(stompT);
+        if (shift <= 0f) return;
+        Vector3 off = StompTarget - footL.position;
+        off.y = 0f;
+        model.position += off * shift;
+    }
+
+    // 왼쪽 허벅지 각도(도·순수 계산, t = 테이크 2 시작부터 초): 들기(StompLiftSeconds) → 처음엔 천천히, 끝으로 갈수록 빠르게 내려와 밟는 순간 0.
+    public static float StompLegAngle(float t)
+    {
+        if (t <= 0f) return 0f;
+        if (t < StompLiftSeconds) return StompLiftDegrees * Mathf.SmoothStep(0f, 1f, t / StompLiftSeconds);
+        float down = Mathf.Clamp01((t - StompLiftSeconds) / (WitchTimeline.FinaleStompSeconds - StompLiftSeconds));
+        return StompLiftDegrees * (1f - down * down);
+    }
+
+    // 몸을 밟을 곳으로 옮기는 비율(0~1): 발을 드는 동안 서서히, 그 뒤로는 끝까지.
+    public static float StompShiftWeight(float t) => t <= 0f ? 0f : Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / StompLiftSeconds));
 
     // 타임어택: 돌아서기 전에는 맵을 등지고, 2초 동안 돌아선 뒤 맵을 본다. 처단: 늘 맵을 본다.
     private Quaternion Facing(WitchMode mode, double now, double appearAt)
@@ -219,8 +282,8 @@ public class WitchPresenter : MonoBehaviour
     {
         float stepLength = height * StepLengthRatio;
         float distance = Vector3.Distance(startPoint, strikePoint);
-        bool walking = progress > 0f && progress < 1f && !struck;
-        if (animator != null && !struck)
+        bool walking = progress > 0f && progress < 1f;
+        if (animator != null)
         {
             animator.SetBool(WalkingBool, walking);
             animator.speed = walking ? WalkAnimatorSpeed(distance, (float)(walkEnd - walkStart), stepLength) : 1f;

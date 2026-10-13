@@ -13,7 +13,7 @@ using UnityEngine.SceneManagement;
 // - 콜라이더 없음(쿠키는 지금처럼 Ground 경계 안에서만), 그림자 끔, 정적 배칭. 맵을 바꿔도 Map/Ground·Map/Background·WITCH_Anchor만 있으면 된다.
 public static class WitchBackdropBuilder
 {
-    public const string RootName = "FarBackdrop";
+    public const string RootName = WitchPath.FarBackdropName;
     public const float OuterRadius = 900f;
     public const float PathHalfWidth = 30f;
     public const int PropCount = 150;
