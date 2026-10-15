@@ -115,8 +115,7 @@ public class SpectatorController : MonoBehaviour
     private const float VehicleTargetHeight = 2f;
     private const float VehicleCameraDistance = 13f;
 
-    // 로컬 쿠키가 탈것에 타서 기다리는 중이거나 그 탈것이 출발하는 중이면 따라 볼 곳, 아니면 null.
-    // 스파이 로켓에 탄 스파이는 로켓이 날아오르는 동안 로켓을 본다.
+    // 스파이 로켓에 탄 스파이는 로켓이 날아오르는 동안 로켓을 본다. 그 밖에는 null(탈것 대기는 Request1009Plan.md §25에서 없어졌다).
     private static Transform VehicleFocus()
     {
         EscapeManager manager = EscapeManager.Instance;
@@ -126,10 +125,7 @@ public class SpectatorController : MonoBehaviour
             && RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double launchedAt)
             && PhotonNetwork.Time < launchedAt + EscapeManager.RocketLaunchShowSeconds + 1f)
             return manager.Rocket.transform;
-        if (manager.Sequence == null || !manager.State.Waiting.Contains(actor)) return null;
-        bool departed = manager.State.DepartedAt > 0;
-        if (departed && !manager.IsDeparting(PhotonNetwork.Time)) return null;
-        return manager.Sequence.DepartureFocus;
+        return null;
     }
 
     private void SetWatchingVehicle(bool value)

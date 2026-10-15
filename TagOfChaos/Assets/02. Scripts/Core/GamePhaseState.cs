@@ -6,11 +6,10 @@ using Photon.Pun;
 // GamePhase 항목과 Evaluate의 조건부터 추가한다.
 public enum GamePhase
 {
-    Lobby,           // 판 시작 전(대기실)
-    Paint,           // 쿠키 변장(색칠) 시간
-    AwaitingMonster, // 색칠이 끝나고 괴물 합류 확정 전(짧은 전환 구간)
-    Hunt,            // 괴물 합류 후 쿠키 생존 시간
-    TimeAttack,      // 스파이가 로켓으로 떠난 뒤 마녀 타임어택(EscapePlan.md §1.2) — 방의 제한시간은 멈춘다
+    Lobby,      // 판 시작 전(대기실)
+    Prepare,    // 맵에 들어온 직후 — 괴물은 술래방에 갇혀 있다(Request1009Plan.md §25.5 C, 예전 색칠 단계 자리)
+    Hunt,       // 술래문이 열린 뒤 — 게임 제한시간은 없다
+    TimeAttack, // 첫 탈출 뒤 마녀 타이머(§25.5 G)
     Result,          // 승패 판정 완료
 }
 
@@ -20,24 +19,23 @@ public static class GamePhaseState
     {
         get
         {
-            bool hasPaintEnd = RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double paintEnd);
-            bool monsterJoined = RoomState.TryGetInt(NetKeys.MonsterJoined, out _);
+            bool hasPrepareEnd = RoomState.TryGetDouble(NetKeys.PrepareEndTime, out double prepareEnd);
             bool hasResult = RoomState.TryGetInt(NetKeys.GameResult, out _);
-            // 타임어택은 로켓이 떠났고 남은 쿠키가 있을 때만(타임어택 끝 시각이 기록된 경우, EscapePlan.md D10)
-            bool spyEscaped = RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out _);
-            return Evaluate(hasPaintEnd, paintEnd, monsterJoined, hasResult, PhotonNetwork.Time, spyEscaped);
+            // 마녀 타이머는 첫 탈출 뒤 남은 사람이 있을 때만(타이머 끝 시각이 기록된 경우)
+            bool witchTimer = RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out _);
+            return Evaluate(hasPrepareEnd, prepareEnd, hasResult, PhotonNetwork.Time, witchTimer);
         }
     }
 
-    public static bool IsPaintActive => Current == GamePhase.Paint;
+    // 색칠 단계는 없앴다(§25) — 색칠 UI·입력은 늘 꺼져 있다. 색깔 물풍선의 강제 도포만 남는다.
+    public static bool IsPaintActive => false;
 
     // 네트워크 상태와 분리한 순수 해석(테스트용).
-    public static GamePhase Evaluate(bool hasPaintEnd, double paintEndTime, bool monsterJoined, bool hasResult, double now, bool spyEscaped = false)
+    public static GamePhase Evaluate(bool hasPrepareEnd, double prepareEndTime, bool hasResult, double now, bool witchTimer = false)
     {
         if (hasResult) return GamePhase.Result;
-        if (spyEscaped) return GamePhase.TimeAttack;
-        if (monsterJoined) return GamePhase.Hunt;
-        if (hasPaintEnd) return now < paintEndTime ? GamePhase.Paint : GamePhase.AwaitingMonster;
+        if (witchTimer) return GamePhase.TimeAttack;
+        if (hasPrepareEnd) return now < prepareEndTime ? GamePhase.Prepare : GamePhase.Hunt;
         return GamePhase.Lobby;
     }
 
@@ -48,8 +46,7 @@ public static class GamePhaseState
         if (Current != phase) return false;
         switch (phase)
         {
-            case GamePhase.Paint: return RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out endTime);
-            case GamePhase.Hunt: return RoomState.TryGetDouble(NetKeys.GameEndTime, out endTime);
+            case GamePhase.Prepare: return RoomState.TryGetDouble(NetKeys.PrepareEndTime, out endTime);
             case GamePhase.TimeAttack: return RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out endTime);
             default: return false;
         }

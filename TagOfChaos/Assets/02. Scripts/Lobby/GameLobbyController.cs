@@ -238,7 +238,7 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
 
         if (!RoomState.IsMonsterSelectionComplete())
         {
-            // 괴물은 가마솥에 들어간 사람만 된다. 여럿 필요하면(7~8명 = 2명) 몇 명이 더 들어가야 하는지 보여 준다(2026-10-03).
+            // 괴물은 가마솥에 들어간 사람만 된다(늘 1명, Request1009Plan.md §25). 여럿이 필요한 설정이면 몇 명이 더 들어가야 하는지 보여 준다.
             int required = GameSettings.Current.MonsterCountFor(room.PlayerCount);
             int chosen = RoomState.MonsterCount();
             statusText.text = required > 1

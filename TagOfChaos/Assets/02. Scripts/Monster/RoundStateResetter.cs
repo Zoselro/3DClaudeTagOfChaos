@@ -55,13 +55,12 @@ public class RoundStateResetter : MonoBehaviourPunCallbacks
     }
 
     // 이전 판이 진행된 흔적이 남아 있는지. 대기실에서 새로 정해진 괴물·선정 기준 시각은 판이 시작되기 전의
-    // 정상 상태이므로 흔적으로 보지 않는다. 시작 버튼 직후의 PaintPhaseEndTime은 미래 시각이라 제외된다.
+    // 정상 상태이므로 흔적으로 보지 않는다. 시작 버튼 직후의 PrepareEndTime은 미래 시각이라 제외된다.
     private static bool HasFinishedRoundTrace()
     {
         if (RoomState.TryGetInt(NetKeys.GameResult, out _)) return true;
-        if (RoomState.TryGetInt(NetKeys.MonsterJoined, out _)) return true;
         if (RoomState.TryGetDouble(NetKeys.MonsterDepartedAt, out _)) return true;
-        return RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double paintEnd) && PhotonNetwork.Time >= paintEnd;
+        return RoomState.TryGetDouble(NetKeys.PrepareEndTime, out double prepareEnd) && PhotonNetwork.Time >= prepareEnd;
     }
 
     // 실제로 존재하는 키만 null(=삭제)로 보낸다 — 없는 키까지 보내 불필요한 Props 이벤트를 만들지 않는다.

@@ -61,6 +61,14 @@ public static class PlayerInput
     public static bool DodgePressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DodgeKey);
     public static bool GrabPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.GrabKey);
     public static bool InteractPressed => !IsGameplaySuppressed && (Input.GetKeyDown(Bindings.InteractKey) || EditorTakeInteractPress());
+    public static bool SkillPressed => !IsGameplaySuppressed && (Input.GetKeyDown(Bindings.SkillKey) || EditorTakeSkillPress()); // 괴물 소음폭탄(§25.5 K)
+    public static bool EditorSkillPress;
+    private static bool EditorTakeSkillPress()
+    {
+        if (!EditorSkillPress) return false;
+        EditorSkillPress = false;
+        return true;
+    }
     public static bool InteractHeld => !IsGameplaySuppressed && (Input.GetKey(Bindings.InteractKey) || EditorInteractHeld); // 상자·장치 길게 누르기(IHoldInteractable)
 
 #if UNITY_EDITOR

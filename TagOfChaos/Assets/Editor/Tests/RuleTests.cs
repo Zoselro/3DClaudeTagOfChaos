@@ -98,7 +98,7 @@ public class RuleTests
     public void RoundKeys_MatchDeclaredLifetimes()
     {
         CollectionAssert.Contains(NetKeys.RoundRoomKeys, NetKeys.MonsterActorNumbers);
-        CollectionAssert.Contains(NetKeys.RoundRoomKeys, NetKeys.PaintPhaseEndTime);
+        CollectionAssert.Contains(NetKeys.RoundRoomKeys, NetKeys.PrepareEndTime);
         CollectionAssert.Contains(NetKeys.RoundRoomKeys, NetKeys.GameResult);
         CollectionAssert.Contains(NetKeys.RoundPlayerKeys, NetKeys.HitCount);
         CollectionAssert.Contains(NetKeys.RoundPlayerKeys, NetKeys.RegisteredSlotCount);
@@ -234,11 +234,11 @@ public class RuleTests
     [Test]
     public void GamePhase_IsDerivedFromRoomProps()
     {
-        Assert.AreEqual(GamePhase.Lobby, GamePhaseState.Evaluate(false, 0, false, false, 100));
-        Assert.AreEqual(GamePhase.Paint, GamePhaseState.Evaluate(true, 160, false, false, 100));
-        Assert.AreEqual(GamePhase.AwaitingMonster, GamePhaseState.Evaluate(true, 160, false, false, 160));
-        Assert.AreEqual(GamePhase.Hunt, GamePhaseState.Evaluate(true, 160, true, false, 170));
-        Assert.AreEqual(GamePhase.Result, GamePhaseState.Evaluate(true, 160, true, true, 900));
+        Assert.AreEqual(GamePhase.Lobby, GamePhaseState.Evaluate(false, 0, false, 100));
+        Assert.AreEqual(GamePhase.Prepare, GamePhaseState.Evaluate(true, 160, false, 100));
+        Assert.AreEqual(GamePhase.Hunt, GamePhaseState.Evaluate(true, 160, false, 160), "monster doors open at PrepareEndTime");
+        Assert.AreEqual(GamePhase.TimeAttack, GamePhaseState.Evaluate(true, 160, false, 400, witchTimer: true));
+        Assert.AreEqual(GamePhase.Result, GamePhaseState.Evaluate(true, 160, true, 900, witchTimer: true));
     }
 
     // ---- 스킨 목록 ----
@@ -350,7 +350,7 @@ public class RuleTests
     [TestCase("kr", "kr", GamePhase.Lobby, false)]
     [TestCase(null, "kr", GamePhase.Lobby, false)]
     [TestCase("zz", "kr", GamePhase.Lobby, false)]
-    [TestCase("jp", "kr", GamePhase.Paint, false)]
+    [TestCase("jp", "kr", GamePhase.Prepare, false)]
     [TestCase("jp", null, GamePhase.Lobby, false)]
     public void RegionMove_OnlyFromLobbyToAnotherRegion(string requested, string current, GamePhase phase, bool expected)
     {

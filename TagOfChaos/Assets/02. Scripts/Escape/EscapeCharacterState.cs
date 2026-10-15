@@ -48,6 +48,6 @@ public class EscapeCharacterState : MonoBehaviour
         foreach (Renderer r in GetComponentsInChildren<Renderer>(true)) r.enabled = false;
         foreach (Collider c in GetComponentsInChildren<Collider>(true)) c.enabled = false;
         var rb = GetComponent<Rigidbody>();
-        if (rb != null && cookie.IsMine) { rb.linearVelocity = Vector3.zero; rb.isKinematic = true; }
+        if (rb != null && cookie.IsMine) { if (!rb.isKinematic) rb.linearVelocity = Vector3.zero; rb.isKinematic = true; } // 모자 비행 중이면 이미 kinematic
     }
 }

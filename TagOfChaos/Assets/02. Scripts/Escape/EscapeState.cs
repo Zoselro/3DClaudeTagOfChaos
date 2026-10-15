@@ -8,15 +8,25 @@ public enum ItemLocation : byte
     Chest,  // A = 상자 번호
     Held,   // A = 액터 번호, B = 인벤토리 칸(0~3)
     Ground, // Pos = 바닥 위치
-    Device, // A = 탈출 장치 칸 번호
-    Gone,   // 없어짐(도구 횟수 소진 등)
+    Device, // A = 건물 번호(0~3) — 건물에 넣은 재료(Request1009Plan.md §25.5 E)
+    Gone,   // 없어짐(도구 횟수 소진·모자를 씀 등)
 }
 
+// 무지개 상자 상태(§25.5 H).
+public enum RainbowState : byte { None = 0, Closed = 1, Opened = 2, Broken = 3 }
+
 // 탈출 모드 한 판의 상태. 방장이 가진 원본을 Room Prop(NetKeys.EscapeState, byte[])로 통째로 쓰고, 모두가 읽는다.
-// 문(DoorStates)과 같은 "방장만 쓴다" 방식이다. 재료·상자에는 PhotonView가 없다(최적화, §5.2).
+// 문(DoorStates)과 같은 "방장만 쓴다" 방식이다. 재료·상자·AI·폭탄에는 PhotonView가 없다(최적화, §5.2).
+// v5(Request1009Plan.md §25): 탈출 장치 1개 → 사분면 건물 4곳(수리 게이지), 탈것 → 동서남북 탈출구 4개(그중 2개 열림),
+// 스파이 로켓 자리, 무지개 상자·헬리콥터 모자 비행, 괴물 소음폭탄, AI(미끼) 추가.
 public sealed class EscapeState
 {
-    public const byte FormatVersion = 4; // 2: 완성·출발 시각, 탑승 대기(EscapeVisualPlan.md §4) / 3: 칸 자리 번호, 훔침 표시 삭제(2026-10-03) / 4: Revision(F-18)
+    public const byte FormatVersion = 5;
+    public const int BuildingCount = 4;
+    public const int ExitCount = 4;
+    public const float RepairSeconds = 10f;      // 재료 넣기(수리) 게이지가 다 차는 시간(§25.5 E)
+    public const float RepairDecayPerSecond = 0.01f; // 멈추면 초당 1%씩 줄어든다(10초 게이지가 0이 되려면 100초 — "매우 천천히")
+    public const float DismantleSeconds = 20f;   // 스파이 해체 도구(§25.3 Q8)
 
     public struct Item
     {
@@ -35,37 +45,103 @@ public sealed class EscapeState
         public bool Opened;
     }
 
+    // 사분면 건물 하나. 재료는 판마다 섞어 정한다(§25 결정).
+    public struct Building
+    {
+        public string MaterialId;
+        public bool Active;      // 이번 판에 수리해야 하는 건물(쓰지 않는 건물은 처음부터 가동)
+        public int ItemIndex;    // 넣은 재료(-1 = 아직)
+        public float Progress;   // ProgressAt 시각의 게이지(0~1)
+        public double ProgressAt;
+        public int Repairer;     // 지금 수리 중인 사람(0 = 없음) — 수리 중이면 차오르고, 아니면 줄어든다
+
+        public bool Repaired => !Active || ItemIndex >= 0;
+
+        // 지금 시각의 게이지(순수 계산): 수리 중이면 RepairSeconds에 걸쳐 차오르고, 아니면 천천히 줄어든다.
+        public float ProgressAtTime(double now)
+        {
+            if (Repaired) return 1f;
+            float dt = (float)System.Math.Max(0, now - ProgressAt);
+            float value = Repairer != 0 ? Progress + dt / RepairSeconds : Progress - dt * RepairDecayPerSecond;
+            return Mathf.Clamp01(value);
+        }
+    }
+
+    // 스파이 로켓 칸(§25.5 J): 수리키트(어느 칸이든) 또는 그 맵의 건물 재료.
     public struct Slot
     {
         public string Label;
         public string[] Accepts;
-        public bool Prefilled; // 처음부터 채워진 칸(필요 없는 칸) — 표시만 하고 셈에서 뺀다
-        public int ItemIndex;  // 끼워진 아이템(-1 = 비어 있음). 로켓 칸은 쓰지 않는다
+        public bool Prefilled;
+        public int ItemIndex;
         public bool RocketFilled;
-        public int Anchor;     // 모델의 칸 자리 번호(Slot_nn). 칸 모드는 일부 자리만 쓰므로 칸 번호와 다를 수 있다
+        public int Anchor;
 
         public bool Filled => Prefilled || ItemIndex >= 0 || RocketFilled;
         public bool Allows(string itemId) => Accepts != null && System.Array.IndexOf(Accepts, itemId) >= 0;
     }
 
-    public int RequiredCount;
+    // 헬리콥터 모자 비행(§25.5 H): 쓴 사람과 쓴 시각. 모든 화면이 시각으로 같은 높이를 그린다.
+    public struct Flight
+    {
+        public int Actor;
+        public double StartAt;
+    }
+
+    // 괴물 소음폭탄(§25.5 K): 놓인 자리. 터지거나 치우면 Spent, 그 뒤 쿨타임이 지나면 목록에서 빠진다.
+    public struct Bomb
+    {
+        public int Id;
+        public int Owner;
+        public Vector3 Pos;
+        public bool Spent;
+        public double SpentAt;
+    }
+
+    // 맵에 깔린 AI(미끼, §25.5 L): 그 사람 모습으로 서 있다. 녹음기가 붙으면 VoiceAt부터 일정 시간 목소리를 내며 걷는다(경로 = Seed).
+    public struct Decoy
+    {
+        public int Id;
+        public int Owner;
+        public Vector3 Pos;
+        public float Yaw;
+        public double VoiceAt;
+        public int Seed;
+    }
+
     public int Revision; // 방장이 커밋할 때마다 1씩 오른다 — 방장 화면은 늦게 도착한 옛 상태를 무시한다(F-18)
     public readonly List<Item> Items = new List<Item>();
     public readonly List<Chest> Chests = new List<Chest>();
-    public readonly List<Slot> DeviceSlots = new List<Slot>();
+    public readonly List<Building> Buildings = new List<Building>();
     public readonly List<Slot> RocketSlots = new List<Slot>();
-    public readonly List<int> Escaped = new List<int>(); // 탈출한 쿠키(탈것이 출발한 순간 Waiting에서 옮겨진다)
-    public readonly List<int> Waiting = new List<int>(); // 탈것에 타서 출발을 기다리는 쿠키(EscapeVisualPlan.md §4.3)
-    public double CompletedAt;  // 장치가 완성된 시각(PhotonNetwork.Time, 0 = 아직). 맵 연출의 기준
-    public double DepartedAt;   // 탈것이 출발한 시각(0 = 아직). 출발 연출의 기준
+    public int RocketAnchor = -1;   // 씬의 RocketSpawn 번호(-1 = 정하지 않음)
+    public byte OpenExits;           // 열린 탈출구(비트 0~3 = 북·동·남·서)
+    public double ExitsOpenedAt;
+    public readonly List<int> Escaped = new List<int>(); // 탈출구·모자로 나간 쿠키·스파이
     public readonly List<int> Boarded = new List<int>(); // 로켓에 탄 스파이
+    public int RainbowAnchor = -1;
+    public RainbowState Rainbow;
+    public readonly List<Flight> Flights = new List<Flight>();
+    public readonly List<Bomb> Bombs = new List<Bomb>();
+    public readonly List<Decoy> Decoys = new List<Decoy>();
+    public int NextId = 1; // 폭탄·AI 번호(지워져도 요청이 엉뚱한 것을 가리키지 않게)
 
-    public bool DeviceComplete
+    public int ActiveBuildingCount
     {
         get
         {
-            if (DeviceSlots.Count == 0) return false;
-            foreach (Slot s in DeviceSlots) if (!s.Filled) return false;
+            int n = 0;
+            foreach (Building b in Buildings) if (b.Active) n++;
+            return n;
+        }
+    }
+
+    public bool AllBuildingsRepaired
+    {
+        get
+        {
+            if (Buildings.Count == 0) return false;
+            foreach (Building b in Buildings) if (!b.Repaired) return false;
             return true;
         }
     }
@@ -79,6 +155,9 @@ public sealed class EscapeState
             return true;
         }
     }
+
+    public bool ExitOpen(int exit) => exit >= 0 && exit < ExitCount && (OpenExits & (1 << exit)) != 0;
+    public bool AnyExitOpen => OpenExits != 0;
 
     // ---------------- queries ----------------
 
@@ -103,6 +182,38 @@ public sealed class EscapeState
         return -1;
     }
 
+    public int FlightIndex(int actor)
+    {
+        for (int i = 0; i < Flights.Count; i++) if (Flights[i].Actor == actor) return i;
+        return -1;
+    }
+
+    public int DecoyIndex(int id)
+    {
+        for (int i = 0; i < Decoys.Count; i++) if (Decoys[i].Id == id) return i;
+        return -1;
+    }
+
+    public int BombIndex(int id)
+    {
+        for (int i = 0; i < Bombs.Count; i++) if (Bombs[i].Id == id) return i;
+        return -1;
+    }
+
+    // 괴물의 남은 소음폭탄 칸(순수 계산, §25.3 R7): 놓인 것과 터지거나 치운 지 cooldown이 안 지난 것이 칸을 차지한다.
+    public int BombChargesLeft(int owner, int maxCharges, double now, float cooldown)
+    {
+        int used = 0;
+        foreach (Bomb b in Bombs)
+            if (b.Owner == owner && (!b.Spent || now < b.SpentAt + cooldown)) used++;
+        return Mathf.Max(0, maxCharges - used);
+    }
+
+    // 탈출 판정의 단일 기준(방장이 쓴 상태만 — 본인이 쓰는 속성은 믿지 않는다, AuditFixPlan.md §8.2).
+    // 탈출 = 탈출구·모자로 나갔거나 스파이 로켓에 탔다. 맵을 떠남 = 탈출과 같다(탈것 대기는 없어졌다).
+    public bool HasEscaped(int actor) => Escaped.Contains(actor) || Boarded.Contains(actor);
+    public bool HasLeftMap(int actor) => HasEscaped(actor);
+
     // ---------------- serialization ----------------
 
     public byte[] Encode()
@@ -111,8 +222,8 @@ public sealed class EscapeState
         using (var w = new BinaryWriter(ms))
         {
             w.Write(FormatVersion);
-            w.Write(RequiredCount);
             w.Write(Revision);
+            w.Write(NextId);
             w.Write(Items.Count);
             foreach (Item it in Items)
             {
@@ -120,7 +231,7 @@ public sealed class EscapeState
                 w.Write((byte)it.Loc);
                 w.Write(it.A);
                 w.Write(it.B);
-                w.Write(it.Pos.x); w.Write(it.Pos.y); w.Write(it.Pos.z);
+                WriteVector(w, it.Pos);
                 w.Write((byte)Mathf.Clamp(it.Charges, 0, 255));
             }
             w.Write(Chests.Count);
@@ -130,13 +241,30 @@ public sealed class EscapeState
                 w.Write(c.Spy);
                 w.Write(c.Opened);
             }
-            WriteSlots(w, DeviceSlots);
+            w.Write(Buildings.Count);
+            foreach (Building b in Buildings)
+            {
+                w.Write(b.MaterialId ?? string.Empty);
+                w.Write(b.Active);
+                w.Write(b.ItemIndex);
+                w.Write(b.Progress);
+                w.Write(b.ProgressAt);
+                w.Write(b.Repairer);
+            }
             WriteSlots(w, RocketSlots);
+            w.Write(RocketAnchor);
+            w.Write(OpenExits);
+            w.Write(ExitsOpenedAt);
             WriteInts(w, Escaped);
             WriteInts(w, Boarded);
-            WriteInts(w, Waiting);
-            w.Write(CompletedAt);
-            w.Write(DepartedAt);
+            w.Write(RainbowAnchor);
+            w.Write((byte)Rainbow);
+            w.Write(Flights.Count);
+            foreach (Flight f in Flights) { w.Write(f.Actor); w.Write(f.StartAt); }
+            w.Write(Bombs.Count);
+            foreach (Bomb b in Bombs) { w.Write(b.Id); w.Write(b.Owner); WriteVector(w, b.Pos); w.Write(b.Spent); w.Write(b.SpentAt); }
+            w.Write(Decoys.Count);
+            foreach (Decoy d in Decoys) { w.Write(d.Id); w.Write(d.Owner); WriteVector(w, d.Pos); w.Write(d.Yaw); w.Write(d.VoiceAt); w.Write(d.Seed); }
             w.Flush();
             return ms.ToArray();
         }
@@ -151,7 +279,7 @@ public sealed class EscapeState
             using (var r = new BinaryReader(ms))
             {
                 if (r.ReadByte() != FormatVersion) return null;
-                var s = new EscapeState { RequiredCount = r.ReadInt32(), Revision = r.ReadInt32() };
+                var s = new EscapeState { Revision = r.ReadInt32(), NextId = r.ReadInt32() };
                 int items = r.ReadInt32();
                 for (int i = 0; i < items; i++)
                 {
@@ -161,20 +289,42 @@ public sealed class EscapeState
                         Loc = (ItemLocation)r.ReadByte(),
                         A = r.ReadInt32(),
                         B = r.ReadInt32(),
-                        Pos = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
+                        Pos = ReadVector(r),
                         Charges = r.ReadByte(),
                     });
                 }
                 int chests = r.ReadInt32();
                 for (int i = 0; i < chests; i++)
                     s.Chests.Add(new Chest { Anchor = r.ReadByte(), Spy = r.ReadBoolean(), Opened = r.ReadBoolean() });
-                ReadSlots(r, s.DeviceSlots);
+                int buildings = r.ReadInt32();
+                for (int i = 0; i < buildings; i++)
+                {
+                    s.Buildings.Add(new Building
+                    {
+                        MaterialId = r.ReadString(),
+                        Active = r.ReadBoolean(),
+                        ItemIndex = r.ReadInt32(),
+                        Progress = r.ReadSingle(),
+                        ProgressAt = r.ReadDouble(),
+                        Repairer = r.ReadInt32(),
+                    });
+                }
                 ReadSlots(r, s.RocketSlots);
+                s.RocketAnchor = r.ReadInt32();
+                s.OpenExits = r.ReadByte();
+                s.ExitsOpenedAt = r.ReadDouble();
                 ReadInts(r, s.Escaped);
                 ReadInts(r, s.Boarded);
-                ReadInts(r, s.Waiting);
-                s.CompletedAt = r.ReadDouble();
-                s.DepartedAt = r.ReadDouble();
+                s.RainbowAnchor = r.ReadInt32();
+                s.Rainbow = (RainbowState)r.ReadByte();
+                int flights = r.ReadInt32();
+                for (int i = 0; i < flights; i++) s.Flights.Add(new Flight { Actor = r.ReadInt32(), StartAt = r.ReadDouble() });
+                int bombs = r.ReadInt32();
+                for (int i = 0; i < bombs; i++)
+                    s.Bombs.Add(new Bomb { Id = r.ReadInt32(), Owner = r.ReadInt32(), Pos = ReadVector(r), Spent = r.ReadBoolean(), SpentAt = r.ReadDouble() });
+                int decoys = r.ReadInt32();
+                for (int i = 0; i < decoys; i++)
+                    s.Decoys.Add(new Decoy { Id = r.ReadInt32(), Owner = r.ReadInt32(), Pos = ReadVector(r), Yaw = r.ReadSingle(), VoiceAt = r.ReadDouble(), Seed = r.ReadInt32() });
                 return s;
             }
         }
@@ -187,10 +337,8 @@ public sealed class EscapeState
 
     public EscapeState Clone() => Decode(Encode());
 
-    // 탈출 판정의 단일 기준(방장이 쓴 상태만 — 본인이 쓰는 속성은 믿지 않는다, AuditFixPlan.md §8.2).
-    // 탈출 = 탈것이 출발해 탈출했거나 스파이 로켓에 탔다. 맵을 떠남 = 탈출 + 탈것에 타서 출발을 기다리는 중.
-    public bool HasEscaped(int actor) => Escaped.Contains(actor) || Boarded.Contains(actor);
-    public bool HasLeftMap(int actor) => Waiting.Contains(actor) || HasEscaped(actor);
+    private static void WriteVector(BinaryWriter w, Vector3 v) { w.Write(v.x); w.Write(v.y); w.Write(v.z); }
+    private static Vector3 ReadVector(BinaryReader r) => new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
 
     private static void WriteSlots(BinaryWriter w, List<Slot> slots)
     {

@@ -65,6 +65,15 @@ public static class EscapeAssetsBuilder
         ItemSO stunGun = ToolItem("StunGun", "Stun Gun", new Color(0.3f, 0.7f, 1f), stunTool);
         ItemSO balloon = ToolItem("WaterBalloon", "Water Balloon", new Color(0.3f, 0.85f, 1f), balloonTool);
 
+        // Request1009Plan.md §25 — 새 아이템(모델이 오기 전에는 색 도형). 수리키트는 지금 공구상자(Toolbox) 그대로.
+        ItemSO dismantle = ToolItem("Dismantle", "Dismantle Tool", new Color(0.55f, 0.55f, 0.6f), Tool("Tool_Dismantle", ToolKind.Dismantle, 1, 2f, 0.5f, 0f, 0f, 1f, false));
+        ItemSO jail = ToolItem("JailBalloon", "Jail Balloon", new Color(0.6f, 0.85f, 1f), Tool("Tool_JailBalloon", ToolKind.JailBalloon, 1, 12f, 1.5f, 4f, 3f, 3f, false));
+        ItemSO skates = ToolItem("Skates", "Inline Skates", new Color(0.95f, 0.3f, 0.55f), Tool("Tool_Skates", ToolKind.Skates, 1, 1f, 0.5f, 0f, 0f, 1f, false, 5f, 2f));
+        ItemSO pumpkin = ToolItem("Pumpkin", "Pumpkin Carriage", new Color(1f, 0.55f, 0.1f), Tool("Tool_Pumpkin", ToolKind.Pumpkin, 1, 1f, 0.5f, 0f, 0f, 1f, false));
+        ItemSO recorder = ToolItem("Recorder", "Sticky Voice Recorder", new Color(0.75f, 0.45f, 0.95f), Tool("Tool_Recorder", ToolKind.Recorder, 1, 1f, 0.5f, 0f, 0f, 1f, false, 30f, 1f));
+        ItemSO heliHat = ToolItem("HeliHat", "Helicopter Hat", new Color(1f, 0.45f, 0.75f), Tool("Tool_HeliHat", ToolKind.HeliHat, 1, 1f, 0.5f, 0f, 0f, 0f, false));
+        ItemSO noiseBomb = ToolItem("NoiseBomb", "Noise Bomb", new Color(0.3f, 0.1f, 0.1f), Tool("Tool_NoiseBomb", ToolKind.NoiseBomb, 1, 4f, 4f, 2f, 0f, 0f, false));
+
         var recipes = new List<EscapeRecipeSO>
         {
             Recipe("CursedCandyCarnival", EscapeExitKind.RollerCoaster, RecipeMode.Slots,
@@ -82,8 +91,17 @@ public static class EscapeAssetsBuilder
                 new[] { R(cells), R(cells) }, toolbox, fillsCapacity: true),
         };
 
+        // 건물 4곳 재료(§25.5 E — 지금 맵 재료 그대로, 판마다 어느 건물에 넣을지 섞는다)
+        SetBuildingMaterials(recipes, "CursedCandyCarnival", redButton, seatbelt, battery, toolbox);
+        SetBuildingMaterials(recipes, "HauntedBakery", redButton, gear, battery, toolbox);
+        SetBuildingMaterials(recipes, "ChocolateFactory", macaronWheel, cookieWheel, oil, gear);
+        SetBuildingMaterials(recipes, "GingerbreadVillage", runes);
+        SetBuildingMaterials(recipes, "CandyForest", cells);
+
         var catalog = LoadOrCreate<EscapeCatalogSO>(ResourcesRoot + "/EscapeCatalog.asset");
         catalog.EditorSetup(items.ToArray(), recipes.ToArray(), hammer, new[] { stunGun, balloon });
+        catalog.EditorSetupReform(toolbox, dismantle, new[] { stunGun, hammer, balloon, jail }, new[] { skates, pumpkin, recorder }, new[] { 5, 3, 5 }, heliHat, noiseBomb);
+        BuildXRayMaterial();
         EditorUtility.SetDirty(catalog);
         LoadOrCreate<EscapeTextsSO>(ResourcesRoot + "/EscapeTexts.asset");
         BuildMaterialTemplates();
@@ -130,12 +148,35 @@ public static class EscapeAssetsBuilder
         return item;
     }
 
-    private static ToolSO Tool(string file, ToolKind kind, int charges, float range, float radius, float cookieStun, float monsterStun, float cooldown, bool paints)
+    private static void SetBuildingMaterials(List<EscapeRecipeSO> recipes, string map, params ItemSO[] materials)
+    {
+        foreach (EscapeRecipeSO r in recipes)
+        {
+            if (r.MapName != map) continue;
+            r.EditorSetBuildingMaterials(materials);
+            EditorUtility.SetDirty(r);
+        }
+    }
+
+    // 적외선 투시 재질(Resources/Escape/XRay, XRayMarker가 읽는다 — 빌드에 셰이더가 들어가도록 에셋으로 둔다).
+    private static void BuildXRayMaterial()
+    {
+        Shader shader = Shader.Find("TagOfChaos/XRaySilhouette");
+        if (shader == null) { Debug.LogWarning("[EscapeAssets] XRay shader not found."); return; }
+        string path = ResourcesRoot + "/XRay.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (mat == null) { mat = new Material(shader); AssetDatabase.CreateAsset(mat, path); }
+        mat.shader = shader;
+        EditorUtility.SetDirty(mat);
+    }
+
+    private static ToolSO Tool(string file, ToolKind kind, int charges, float range, float radius, float cookieStun, float monsterStun, float cooldown, bool paints,
+        float effect = 5f, float speed = 2f)
     {
         var tool = LoadOrCreate<ToolSO>($"{SoRoot}/Tools/{file}.asset");
         if (!EditorPrefs.GetBool("EscapeAssets.ToolsTuned." + file, false)) // 밸런스 조정 값은 한 번만 기본값으로 넣는다
         {
-            tool.EditorSetup(kind, charges, range, radius, cookieStun, monsterStun, cooldown, paints);
+            tool.EditorSetup(kind, charges, range, radius, cookieStun, monsterStun, cooldown, paints, effect, speed);
             EditorPrefs.SetBool("EscapeAssets.ToolsTuned." + file, true);
         }
         EditorUtility.SetDirty(tool);

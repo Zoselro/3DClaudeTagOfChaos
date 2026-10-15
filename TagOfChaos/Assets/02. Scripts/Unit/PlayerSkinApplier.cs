@@ -32,11 +32,18 @@ public class PlayerSkinApplier : MonoBehaviourPunCallbacks
         ApplySkin();
     }
 
+    // 판 시작 때 방장이 캐릭터를 겹치지 않게 다시 정한다(Request1009Plan.md §25.5 B).
+    public override void OnRoomPropertiesUpdate(Hashtable changed)
+    {
+        if (changed.ContainsKey(NetKeys.CharacterAssignments)) ApplySkin();
+    }
+
     private void ApplySkin()
     {
         if (bodyRenderer == null || catalog == null || catalog.Count == 0 || pv.Owner == null) return;
 
-        int index = RoomState.TryGetPlayerInt(pv.Owner, NetKeys.SkinIndex, out int v) ? v : 0;
+        int selected = RoomState.TryGetPlayerInt(pv.Owner, NetKeys.SkinIndex, out int v) ? v : CharacterAssignment.Unselected;
+        int index = CharacterAssignment.Current(pv.Owner.ActorNumber, selected); // 판의 배정이 있으면 그것(겹치지 않음)
         Material skin = catalog.GetMaterial(index);
         if (skin == null) return;
 

@@ -12,8 +12,8 @@ public class PhaseCountdownDisplay : MonoBehaviour
     // 씬에 직렬화된 값이므로 항목 순서를 바꾸지 않는다.
     public enum CountdownPhase
     {
-        Paint,    // 쿠키 변장(색칠) 시간
-        Survival, // 괴물 합류 후 쿠키 생존 시간
+        Prepare,  // 준비 시간(예전 변장 시간 자리, Request1009Plan.md §25.5 C)
+        Survival, // 예전 생존 시간 — 게임 제한시간을 없애 쓰이지 않는다(씬 값 보존)
     }
 
     [SerializeField] private CountdownPhase phase = CountdownPhase.Survival;
@@ -33,15 +33,6 @@ public class PhaseCountdownDisplay : MonoBehaviour
     private void Update()
     {
         if (GamePhaseState.Current == GamePhase.Result) { SetVisible(false); return; } // 결과 화면 뒤로 남은 시간이 비치지 않게
-
-        // 타임어택 중에는 방의 제한시간이 멈춘다(EscapePlan.md D15) — 스파이가 떠난 순간의 남은 시간을 그대로 보여준다.
-        if (phase == CountdownPhase.Survival && GamePhaseState.Current == GamePhase.TimeAttack
-            && RoomState.TryGetDouble(NetKeys.GameEndTime, out double frozenEnd) && RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double escapedAt))
-        {
-            SetVisible(true);
-            ShowSeconds(Mathf.Max(0, Mathf.CeilToInt((float)(frozenEnd - escapedAt))));
-            return;
-        }
 
         bool running = GamePhaseState.TryGetActiveEndTime(ToGamePhase(phase), out double endTime) && PhotonNetwork.Time < endTime;
         SetVisible(running);
@@ -63,8 +54,8 @@ public class PhaseCountdownDisplay : MonoBehaviour
     {
         switch (countdownPhase)
         {
-            case CountdownPhase.Paint: return GamePhase.Paint;
-            default: return GamePhase.Hunt;
+            case CountdownPhase.Prepare: return GamePhase.Prepare;
+            default: return GamePhase.Hunt; // 끝 시각이 없어 보이지 않는다
         }
     }
 

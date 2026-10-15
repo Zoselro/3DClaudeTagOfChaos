@@ -29,7 +29,7 @@ MonoBehaviour:
     slotCount: 3
     fixedRequired: 0
   - item: {fileID: 11400000, guid: ae546c479713bc942b6409ba871e24d8, type: 2}
-    label: "\uC218\uB9AC"
+    label: Repair
     slotCount: 3
     fixedRequired: 0
   counterLabel: 
@@ -44,3 +44,8 @@ MonoBehaviour:
     - {fileID: 11400000, guid: 41a3870dc27ee074da73c7656b9c8786, type: 2}
   spyToolbox: {fileID: 11400000, guid: ae546c479713bc942b6409ba871e24d8, type: 2}
   extraToolboxesPerSpy: 1
+  buildingMaterials:
+  - {fileID: 11400000, guid: 62f23bb88890ebb4790524da0ce6d3a0, type: 2}
+  - {fileID: 11400000, guid: 53eb80f0e73f0d04cafa17d69cf172e1, type: 2}
+  - {fileID: 11400000, guid: 41a3870dc27ee074da73c7656b9c8786, type: 2}
+  - {fileID: 11400000, guid: ae546c479713bc942b6409ba871e24d8, type: 2}

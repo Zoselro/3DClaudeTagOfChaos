@@ -21,7 +21,41 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     private float baseSpeed;
     private const float DodgeSpeedMultiplier = 2f;
     // 낼 수 있는 가장 빠른 속도(회피) — 방장이 위치 조작을 감지할 때 쓴다(S-15).
-    public float MaxMoveSpeed => Mathf.Max(speed, baseSpeed) * DodgeSpeedMultiplier;
+    public float MaxMoveSpeed => Mathf.Max(speed, baseSpeed) * DodgeSpeedMultiplier * Mathf.Max(1f, SpeedBoost);
+
+    // 인라인스케이트(Request1009Plan.md §25.5 I): 모든 화면이 같은 명중 알림으로 켠다 — 방장의 이동 검사(MaxMoveSpeed)도 이 배율을 안다.
+    private float speedBoost = 1f;
+    private float speedBoostUntil = -1f;
+    public float SpeedBoost => Time.time < speedBoostUntil ? speedBoost : 1f;
+
+    public void ApplySpeedBoost(float multiplier, float seconds)
+    {
+        speedBoost = Mathf.Max(1f, multiplier);
+        speedBoostUntil = Time.time + seconds;
+    }
+
+    // 호박마차(§25.5 I): 본인 화면에서 순간이동. 물리 위치로 옮겨야 Rigidbody가 되돌리지 않는다.
+    public void TeleportTo(Vector3 position)
+    {
+        if (!IsMine) return;
+        if (!rb.isKinematic) rb.linearVelocity = Vector3.zero;
+        rb.position = position;
+        transform.position = position;
+    }
+
+    public void TeleportAfter(Vector3 position, float delay)
+    {
+        if (IsMine) StartCoroutine(TeleportRoutine(position, delay));
+    }
+
+    private System.Collections.IEnumerator TeleportRoutine(Vector3 position, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (!IsMovementLocked) TeleportTo(position);
+    }
+
+    private HatFlight hatFlight;
+    public bool IsFlying => hatFlight != null && hatFlight.IsFlying;
 
     [Header("States")]
     [SerializeField] private bool isJump;
@@ -63,7 +97,8 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     // 맡는다 — 예전에는 채팅이 이 값을 직접 켜 쿠키만 잠겼고, 잠긴 동안 Update가 멈춰 걷기 애니메이션이 남았다(Bug-fix-plan.md §41 ㊵).
     // 탈출·로켓 탑승한 몸은 숨겨지고 물리가 멈추므로(EscapeCharacterState) 이동도 잠근다.
     public bool IsMovementLocked => IsBroken || awaitingDeathUntil > 0f || (carryFollower != null && carryFollower.IsCarried) || (stun != null && stun.IsStunned)
-                                    || (pv != null && pv.Owner != null && EscapeManager.HasLeftMap(pv.Owner.ActorNumber));
+                                    || (pv != null && pv.Owner != null && EscapeManager.HasLeftMap(pv.Owner.ActorNumber))
+                                    || IsFlying; // 헬리콥터 모자 비행은 HatFlight가 움직인다(§25.5 H)
     private StunReceiver stun; // 도구에 맞아 기절(EscapePlan.md §1.8)
 
     // 외부에서 "이 인스턴스가 내 캐릭터인지" 판별할 수단 (GameManager의 채팅 이동잠금이 참조)
@@ -310,6 +345,9 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         if (escape == null || !escape.isActiveAndEnabled) return;
         gameObject.AddComponent<HeldItemPresenter>().Init(escape, pv);
         gameObject.AddComponent<EscapeCharacterState>().Init(escape, this);
+        hatFlight = gameObject.AddComponent<HatFlight>();
+        hatFlight.Init(escape, this, rb);
+        gameObject.AddComponent<SkateVisual>().Init(this);
         if (pv.IsMine) gameObject.AddComponent<PlayerInventory>().Init(this, escape);
     }
 
@@ -508,7 +546,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         }
         else // Shift를 눌렀을 경우 기본 속도의 +30%(질주). 아니면 100% 속도 유지 — 점프/낙하 중에도 동일하게 적용(PlayerControllPlan.md §24/§25)
         {
-            vel = PlayerInput.RunHeld ? baseSpeed * 1.3f : baseSpeed;
+            vel = (PlayerInput.RunHeld ? baseSpeed * 1.3f : baseSpeed) * SpeedBoost;
             dir = rotation;
             lookDir = new Vector3(rotation.x, 0f, rotation.z);
         }

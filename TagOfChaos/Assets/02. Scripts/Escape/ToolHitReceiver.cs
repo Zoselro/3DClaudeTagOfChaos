@@ -19,13 +19,25 @@ public static class ToolHitReceiver
         // 쓴 사람은 누르는 순간 이미 들었다(ToolUser.Use). 다른 사람은 그 손에서 3D로(S5).
         bool mine = PhotonNetwork.LocalPlayer != null && senderActor == PhotonNetwork.LocalPlayer.ActorNumber;
         if (!mine) GameAudio.PlayAt(ToolUser.UseSound(item.Tool.Kind), from ?? point);
-        if (item.Tool.Kind == ToolKind.WaterBalloon && from.HasValue)
+        if ((item.Tool.Kind == ToolKind.WaterBalloon || item.Tool.Kind == ToolKind.JailBalloon) && from.HasValue)
         {
             ToolShotFx.ThrowBalloon(item, from.Value, point, () => Apply(item, targets, point, color));
             return;
         }
         if (item.Tool.Kind == ToolKind.StunGun && from.HasValue) ToolShotFx.Beam(from.Value, point, new Color(0.55f, 1f, 0.95f, 1f));
         Apply(item, targets, point, color);
+    }
+
+    private const float PumpkinDelay = 1f; // 호박마차: 연기 뒤 1초 만에 이동(§25.3 Q7)
+
+    // 나에게 쓰는 아이템(스케이트·호박마차): 대상 목록의 쿠키에게(모든 화면 — 빠르기는 방장 이동 검사도 알아야 한다).
+    private static void ApplySelf(int[] targets, System.Action<HideOrSeekPlayer> apply)
+    {
+        foreach (int viewId in targets)
+        {
+            PhotonView view = PhotonView.Find(viewId);
+            if (view != null && view.TryGetComponent(out HideOrSeekPlayer cookie)) apply(cookie);
+        }
     }
 
     private static Vector3? HandOf(int actor)
@@ -38,6 +50,23 @@ public static class ToolHitReceiver
 
     private static void Apply(ItemSO item, int[] targets, Vector3 point, int color)
     {
+        switch (item.Tool.Kind)
+        {
+            case ToolKind.Skates: ApplySelf(targets, c => c.ApplySpeedBoost(item.Tool.SpeedMultiplier, item.Tool.EffectSeconds)); return;
+            case ToolKind.Pumpkin:
+                ApplySelf(targets, c =>
+                {
+                    ToolFx.Play(ToolKind.WaterBalloon, c.transform.position, item.Tint); // 출발 자리 연기(임시 연출)
+                    ToolFx.Play(ToolKind.WaterBalloon, point, item.Tint);
+                    GameAudio.PlayAt(SoundId.PortalFlash, point);
+                    c.TeleportAfter(point, PumpkinDelay);
+                });
+                return;
+            case ToolKind.Recorder: return; // 걷기·목소리는 상태(Decoys)로 모든 화면이 그린다
+            case ToolKind.NoiseBomb:
+                GameAudio.PlayAt(SoundId.StunHit, point);
+                break;
+        }
         ToolFx.Play(item.Tool.Kind, point, item.Tint);
         // 맞은 곳 소리(모두, 3D): 물풍선은 늘 터지고, 스턴건·뿅망치는 누군가 맞았을 때만(S5)
         switch (item.Tool.Kind)
@@ -57,7 +86,11 @@ public static class ToolHitReceiver
             bool isMonster = character.Role == CharacterRole.Monster;
             float seconds = isMonster ? item.Tool.StunSecondsMonster : item.Tool.StunSecondsCookie;
             StunReceiver stun = view.GetComponent<StunReceiver>();
-            if (stun != null) stun.Stun(seconds); // 모든 화면에 별 이펙트, 본인은 움직임도 막힌다
+            if (stun != null)
+            {
+                if (item.Tool.Kind == ToolKind.JailBalloon) stun.Jail(seconds); // 풍선에 갇힘(§25.5 J)
+                else stun.Stun(seconds); // 모든 화면에 별 이펙트, 본인은 움직임도 막힌다
+            }
 
             if (!view.IsMine || isMonster) continue;
             PlayerInventory inv = view.GetComponent<PlayerInventory>();

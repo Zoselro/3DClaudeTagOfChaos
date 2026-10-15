@@ -47,7 +47,7 @@ public class WitchPresenter : MonoBehaviour
 
     private Renderer[] renderers = new Renderer[0];
     private MaterialPropertyBlock block;
-    private const float LateSoundSeconds = EscapeSequence.CueLateTolerance; // 맵 연출과 같은 기준
+    private const float LateSoundSeconds = EscapeCue.LateTolerance; // 맵 연출과 같은 기준
 
     private bool fadeDone;
     private bool activeBefore; // 지난 프레임에도 보였는지(처음 보인 프레임에 이미 내리친 상태면 충격음을 내지 않는다)
@@ -386,7 +386,7 @@ public class WitchPresenter : MonoBehaviour
         }
     }
 
-    private static Transform FindDeep(Transform root, string name) => EscapeSequence.FindDeep(root, name); // 깊은 자식 찾기는 한 곳(F-14)
+    private static Transform FindDeep(Transform root, string name) => EscapeCue.FindDeep(root, name); // 깊은 자식 찾기는 한 곳(F-14)
 
     // ---------------- placeholder ----------------
 

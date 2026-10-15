@@ -34,7 +34,7 @@ public class ToolUser : MonoBehaviour
         if (inventory == null || PlayerInventory.Local != inventory) return;
         ItemSO held = inventory.HeldItem;
         bool canAim = held != null && held.IsTool && held.Tool.Kind == ToolKind.StunGun
-                      && !PlayerInput.IsGameplaySuppressed && GamePhaseState.Current != GamePhase.Paint;
+                      && !PlayerInput.IsGameplaySuppressed && EscapeManager.ActionsAllowed;
         Aiming = canAim && PlayerInput.CameraRotateHeld; // 우클릭(시점 회전 버튼)을 누르고 있는 동안
         Camera cam = Camera.main;
         if (cam != null)
@@ -62,6 +62,10 @@ public class ToolUser : MonoBehaviour
         {
             case ToolKind.Hammer: return SoundId.HammerSwing;
             case ToolKind.StunGun: return SoundId.StunFire;
+            case ToolKind.Skates: return SoundId.CookieDodge;   // 임시음(Request1009Plan.md §25.6 소리)
+            case ToolKind.Pumpkin: return SoundId.PortalOpen;
+            case ToolKind.Recorder: return SoundId.UiConfirm;
+            case ToolKind.NoiseBomb: return SoundId.UiToastAlert;
             default: return SoundId.BalloonThrow;
         }
     }
@@ -106,7 +110,7 @@ public class ToolUser : MonoBehaviour
 
     public void Use(int slot, ItemSO item)
     {
-        if (Time.time < readyAt || item == null || !item.IsTool) return;
+        if (Time.time < readyAt || item == null || !item.IsTool || !item.Tool.UsedByClick) return;
         ToolSO tool = item.Tool;
         if (tool.Kind == ToolKind.StunGun && !Aiming) return; // 스턴건은 우클릭으로 조준한 상태에서만 쏜다
         readyAt = Time.time + tool.CooldownSeconds;
@@ -144,7 +148,17 @@ public class ToolUser : MonoBehaviour
                 }
                 break;
             }
-            default: // 물풍선
+            case ToolKind.Skates:
+            case ToolKind.Recorder:
+                point = transform.position; // 나에게 쓰는 아이템 — 대상은 방장이 정한다(§25.5 I)
+                break;
+            case ToolKind.Pumpkin:
+            {
+                // 맵 안 무작위 지점(바닥 있고 끼지 않는 곳, §25.3 Q7) — 방장은 그 점이 맞는지만 확인한다
+                if (!manager.TryRandomMapPoint(new System.Random(), out point)) return;
+                break;
+            }
+            default: // 물풍선·감옥 풍선
             {
                 Ray ray = cam != null ? cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f)) : new Ray(origin, aim);
                 float camOffset = cam != null ? Vector3.Distance(cam.transform.position, origin) : 0f;
@@ -157,7 +171,7 @@ public class ToolUser : MonoBehaviour
                 if (Physics.Raycast(point + Vector3.up * 2f, Vector3.down, out RaycastHit ground, 30f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
                     && ground.point.y < point.y + 0.1f)
                     point = ground.point;
-                CollectInSphere(point, tool.HitRadius, targets, 8);
+                CollectInSphere(point, tool.HitRadius, targets, tool.Kind == ToolKind.JailBalloon ? 1 : 8);
                 break;
             }
         }

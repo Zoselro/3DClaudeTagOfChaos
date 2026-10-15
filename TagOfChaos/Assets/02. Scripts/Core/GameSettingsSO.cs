@@ -14,28 +14,24 @@ public enum MonsterViewMode
 public class GameSettingsSO : ScriptableObject
 {
     [Header("Room")]
-    [Tooltip("방 최대 인원(방 만들기에서 고를 수 있는 최댓값, EscapePlan.md §1.7). 시작 조건은 '정원이 모두 찼을 때'다.")]
-    [SerializeField, Min(2)] private int maxPlayers = 8;
+    [Tooltip("방 최대 인원(방 만들기에서 고를 수 있는 최댓값, Request1009Plan.md §25 — 4~5명). 시작 조건은 '정원이 모두 찼을 때'다.")]
+    [SerializeField, Min(2)] private int maxPlayers = 5;
     [Tooltip("방 만들기에서 고를 수 있는 최소 인원.")]
     [SerializeField, Min(2)] private int minPlayers = 4;
     [Tooltip("방 만들기의 기본 인원.")]
     [SerializeField, Min(2)] private int defaultPlayers = 4;
 
-    [Tooltip("총 인원별 괴물 수(EscapePlan.md §1.1). 인원이 늘면 괴물이 늘어난다. 표에 없는 인원은 monsterCount를 쓴다.")]
-    [SerializeField] private RoleRow[] roleTable =
-    {
-        new RoleRow(4, 1),
-        new RoleRow(5, 1),
-        new RoleRow(6, 1),
-        new RoleRow(7, 2),
-        new RoleRow(8, 2),
-    };
-
-    [Tooltip("이 인원 이상이면 스파이가 정확히 1명 나온다(그 미만은 0명). 스파이는 인원이 늘어도 늘지 않는다(2026-10-03).")]
-    [SerializeField, Min(2)] private int spyMinPlayers = 5;
-
+    // 인원이 늘면 괴물·쿠키가 늘던 인원표(roleTable)·스파이 자동 인원(spyMinPlayers)은 없앴다(Request1009Plan.md §25.5 A) — 괴물은 늘 1명,
+    // 스파이는 방 설정(NetKeys.RoomSpyCount, 0~maxSpies)으로 정한다.
     [Tooltip("한 판의 괴물 수. 항상 (현재 인원 - 1) 이하로 제한된다(쿠키가 최소 1명은 있어야 함).")]
     [SerializeField, Min(1)] private int monsterCount = 1;
+
+    [Tooltip("방 설정에서 고를 수 있는 스파이 수 최댓값.")]
+    [SerializeField, Min(0)] private int maxSpies = 1;
+    [Tooltip("방 만들기의 기본 스파이 수.")]
+    [SerializeField, Min(0)] private int defaultSpies = 0;
+    [Tooltip("스파이를 넣어도 쿠키가 이만큼은 남아야 한다(4명 방 + 스파이 1 = 쿠키 2명).")]
+    [SerializeField, Min(1)] private int minCookies = 2;
 
     [Header("Escape — Spy")]
     [Tooltip("스파이가 탈출 장치에서 재료를 뺀 뒤 이 시간(초)이 지나면 괴물을 뺀 모두에게 '스파이가 OO를 가져갔다' 알림을 띄운다. " +
@@ -43,29 +39,35 @@ public class GameSettingsSO : ScriptableObject
     [SerializeField, Min(0f)] private float stealNoticeDelaySeconds = 5f;
     public float StealNoticeDelaySeconds => stealNoticeDelaySeconds;
 
-    [Header("Paint Phase")]
-    [SerializeField, Min(1f)] private float paintPhaseDuration = 60f;
-    [Tooltip("시작 버튼 시점부터 색칠 종료 시각을 계산할 때 더하는 여유(쿠키들의 GameScene 로딩 시간 보정).")]
+    [Header("Prepare (Request1009Plan.md §25.5 C — 색칠 대신 준비 시간)")]
+    [Tooltip("맵에 들어온 뒤 괴물이 술래방에 갇혀 있는 시간(초). 술래문이 이 시간 뒤 열린다.")]
+    [SerializeField, Min(0f)] private float prepareSeconds = 15f;
+    [Tooltip("시작 버튼 시점부터 준비 끝 시각을 계산할 때 더하는 여유(모두의 맵 로딩 시간 보정).")]
     [SerializeField, Min(0f)] private float sceneLoadGrace = 3f;
+    [Tooltip("판 안전 상한(분, §25.3 Q4): 준비가 끝난 뒤 이만큼 지나도 아무도 탈출하지 못했으면 마녀 타이머를 강제로 시작한다.")]
+    [SerializeField, Min(1f)] private float safetyCapMinutes = 30f;
+
+    [Header("Paint (색칠 단계는 없앴다 — 색깔 물풍선이 몸을 칠할 때만 쓴다)")]
     [Tooltip("쿠키 한 명이 등록할 수 있는 최대 색 슬롯 수.")]
     [SerializeField, Min(1)] private int maxColorSlots = 4;
     [Tooltip("색칠 중 몸 콜라이더를 현재 포즈로 다시 굽는 최소 간격(초). 짧을수록 정확하지만 비용이 크다(Bug-fix-plan.md §30.5).")]
     [SerializeField, Min(0.02f)] private float paintColliderRefreshInterval = 0.2f;
 
+    [Header("Characters (Request1009Plan.md §25.5 B)")]
+    [Tooltip("캐릭터 4종 목록 — 대기실 선택 버튼·캐릭터 겉모습과 같은 에셋. 판 시작 때 캐릭터 배정이 수를 센다.")]
+    [SerializeField] private SkinCatalogSO characterCatalog;
+    public SkinCatalogSO CharacterCatalog => characterCatalog;
+
     [Header("Maps")]
     [Tooltip("판마다 무작위로 고르는 게임 맵 씬 이름(빌드 목록에 있어야 함). 비어 있으면 게임을 시작할 수 없다(시작 시 오류 로그). 직전 판 맵은 다시 고르지 않는다(맵이 2개 이상일 때).")]
     [SerializeField] private string[] gameMapScenes = new string[0];
 
-    [Header("Room Time Settings (EscapePlan.md §1.7, 분 단위)")]
-    [SerializeField, Min(1)] private int minTimeLimitMinutes = 10;
-    [SerializeField, Min(1)] private int maxTimeLimitMinutes = 40;
-    [SerializeField, Min(1)] private int defaultTimeLimitMinutes = 10;
+    [Header("Witch Timer (방 설정, 분 단위 — 예전 타임어택. 게임 제한시간은 없앴다, §25.5 D)")]
     [SerializeField, Min(1)] private int minTimeAttackMinutes = 1;
     [SerializeField, Min(1)] private int maxTimeAttackMinutes = 10;
     [SerializeField, Min(1)] private int defaultTimeAttackMinutes = 1;
 
-    [Header("Survival")]
-    [SerializeField, Min(1f)] private float survivalDuration = 600f;
+    [Header("Monster Departure")]
     [Tooltip("괴물이 전원 나간 뒤 대기실로 돌아가기까지의 경고 시간(초).")]
     [SerializeField, Min(0f)] private float monsterDepartureReturnDelay = 5f;
 
@@ -113,18 +115,18 @@ public class GameSettingsSO : ScriptableObject
     public int MaxPlayers => maxPlayers;
     public int MinPlayers => minPlayers;
     public int DefaultPlayers => defaultPlayers;
-    public int MinTimeLimitMinutes => minTimeLimitMinutes;
-    public int MaxTimeLimitMinutes => maxTimeLimitMinutes;
-    public int DefaultTimeLimitMinutes => defaultTimeLimitMinutes;
+    public int MaxSpies => maxSpies;
+    public int DefaultSpies => defaultSpies;
+    public int MinCookies => minCookies;
     public int MinTimeAttackMinutes => minTimeAttackMinutes;
     public int MaxTimeAttackMinutes => maxTimeAttackMinutes;
     public int DefaultTimeAttackMinutes => defaultTimeAttackMinutes;
     public int MonsterCount => monsterCount;
-    public float PaintPhaseDuration => paintPhaseDuration;
+    public float PrepareSeconds => prepareSeconds;
     public float SceneLoadGrace => sceneLoadGrace;
+    public float SafetyCapSeconds => safetyCapMinutes * 60f;
     public int MaxColorSlots => maxColorSlots;
     public float PaintColliderRefreshInterval => paintColliderRefreshInterval;
-    public float SurvivalDuration => survivalDuration;
     public float MonsterDepartureReturnDelay => monsterDepartureReturnDelay;
     public float TentacleDashDistance => tentacleDashDistance;
     public float TentacleDashDuration => tentacleDashDuration;
@@ -177,50 +179,14 @@ public class GameSettingsSO : ScriptableObject
         }
     }
 
-    // 현재 방 인원에서 실제로 뽑을 괴물 수(EscapePlan.md §1.1 인원표). 표에 없는 인원(오프라인 개발 방 등)은
-    // monsterCount를 쓰되 쿠키가 최소 1명 남도록 제한한다.
-    public int MonsterCountFor(int playerCount) =>
-        TryGetRoleRow(playerCount, out RoleRow row) ? row.monsters : Mathf.Clamp(monsterCount, 1, Mathf.Max(1, playerCount - 1));
+    // 현재 방 인원에서 뽑을 괴물 수: 늘 monsterCount(1명), 쿠키가 최소 1명 남도록 제한한다.
+    public int MonsterCountFor(int playerCount) => Mathf.Clamp(monsterCount, 1, Mathf.Max(1, playerCount - 1));
 
-    // 한 판에 나올 수 있는 가장 많은 쿠키 수(= 필요 재료 수의 최댓값) — 인원표에서 (인원 − 괴물 − 스파이)의 최댓값.
-    // 탈출 장치는 이 수만큼 칸을 만든다(EscapeRecipeSO.FillsCapacity).
-    public int MaxCookieCount
+    // 방 설정의 스파이 수를 허용 범위로 맞춘다: 0~maxSpies, 그리고 인원 − 괴물 − 스파이 ≥ minCookies(순수 계산, 시험용).
+    public int ClampSpies(int requested, int playerCount)
     {
-        get
-        {
-            int max = 0;
-            if (roleTable != null)
-                foreach (RoleRow r in roleTable) max = Mathf.Max(max, r.players - r.monsters - SpyCountFor(r.players));
-            return max > 0 ? max : Mathf.Max(1, maxPlayers - monsterCount);
-        }
-    }
-
-    // 현재 방 인원에서 뽑을 스파이 수: spyMinPlayers 이상이면 1명, 아니면 0명. 쿠키가 최소 1명은 남아야 한다.
-    public int SpyCountFor(int playerCount) => playerCount >= spyMinPlayers && playerCount - MonsterCountFor(playerCount) >= 2 ? 1 : 0;
-    public int SpyMinPlayers => spyMinPlayers;
-
-    private bool TryGetRoleRow(int playerCount, out RoleRow row)
-    {
-        if (roleTable != null)
-            foreach (RoleRow r in roleTable)
-                if (r.players == playerCount) { row = r; return true; }
-        row = default;
-        return false;
-    }
-
-    [System.Serializable]
-    public struct RoleRow
-    {
-        public int players;
-        public int monsters;
-        [HideInInspector] public int spies; // 예전 인원별 스파이 수 — 더 이상 읽지 않는다(스파이는 spyMinPlayers 규칙으로 1명). 에셋 호환용
-
-        public RoleRow(int players, int monsters)
-        {
-            this.players = players;
-            this.monsters = monsters;
-            spies = 0;
-        }
+        int room = playerCount - MonsterCountFor(playerCount) - minCookies;
+        return Mathf.Clamp(requested, 0, Mathf.Max(0, Mathf.Min(maxSpies, room)));
     }
 
     private void OnValidate()
@@ -228,8 +194,7 @@ public class GameSettingsSO : ScriptableObject
         monsterCount = Mathf.Clamp(monsterCount, 1, Mathf.Max(1, maxPlayers - 1));
         minPlayers = Mathf.Clamp(minPlayers, 2, maxPlayers);
         defaultPlayers = Mathf.Clamp(defaultPlayers, minPlayers, maxPlayers);
-        maxTimeLimitMinutes = Mathf.Max(minTimeLimitMinutes, maxTimeLimitMinutes);
-        defaultTimeLimitMinutes = Mathf.Clamp(defaultTimeLimitMinutes, minTimeLimitMinutes, maxTimeLimitMinutes);
+        defaultSpies = Mathf.Clamp(defaultSpies, 0, maxSpies);
         maxTimeAttackMinutes = Mathf.Max(minTimeAttackMinutes, maxTimeAttackMinutes);
         defaultTimeAttackMinutes = Mathf.Clamp(defaultTimeAttackMinutes, minTimeAttackMinutes, maxTimeAttackMinutes);
 #if UNITY_EDITOR

@@ -95,11 +95,10 @@ public class AuditFixTests
     public void EscapeState_EscapeIsDecidedByMasterState()
     {
         var s = new EscapeState();
-        s.Waiting.Add(3);
         s.Escaped.Add(4);
         s.Boarded.Add(5);
         Assert.IsFalse(s.HasEscaped(3));
-        Assert.IsTrue(s.HasLeftMap(3));
+        Assert.IsFalse(s.HasLeftMap(3));
         Assert.IsTrue(s.HasEscaped(4));
         Assert.IsTrue(s.HasEscaped(5));
         Assert.IsFalse(s.HasLeftMap(6));
@@ -184,7 +183,7 @@ public class AuditFixTests
     [Test]
     public void EscapeState_RevisionSurvivesEncoding()
     {
-        var s = new EscapeState { RequiredCount = 2, Revision = 17 };
+        var s = new EscapeState { Revision = 17 };
         EscapeState back = EscapeState.Decode(s.Encode());
         Assert.IsNotNull(back);
         Assert.AreEqual(17, back.Revision);

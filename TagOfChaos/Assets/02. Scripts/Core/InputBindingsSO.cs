@@ -28,6 +28,8 @@ public class InputBindingsSO : ScriptableObject
 
     [Header("Monster")]
     [SerializeField] private KeyCode tentacleDashKey = KeyCode.LeftShift;
+    [Tooltip("괴물 두 번째 스킬 — 소음폭탄 설치(Request1009Plan.md §25.5 K).")]
+    [SerializeField] private KeyCode skillKey = KeyCode.Q;
     [Tooltip("괴물 1인칭/3인칭 전환(테스트용, GameFixPlan.md F6). GameSettings.AllowMonsterViewToggle이 꺼져 있으면 무시된다.")]
     [SerializeField] private KeyCode toggleViewKey = KeyCode.V;
 
@@ -52,6 +54,7 @@ public class InputBindingsSO : ScriptableObject
     public KeyCode DropKey => dropKey;
     public int UseToolButton => useToolButton;
     public KeyCode TentacleDashKey => tentacleDashKey;
+    public KeyCode SkillKey => skillKey;
     public KeyCode ToggleViewKey => toggleViewKey;
     public KeyCode SpectateNextKey => spectateNextKey;
     public KeyCode ChatSubmitKey => chatSubmitKey;

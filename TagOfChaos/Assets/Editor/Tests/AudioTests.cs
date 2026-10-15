@@ -218,18 +218,16 @@ public class AudioTests
             else if (scene == MusicScene.GameLobby) expected = waiting || monsterInGame ? MusicId.MonsterWait : MusicId.GameLobby;
             else if (phase == GamePhase.Result) expected = MusicId.Result;
             else if (monster) expected = MusicId.None;                         // 괴물은 맵 곡 없음
-            else if (phase == GamePhase.Lobby || phase == GamePhase.Paint) expected = mapPaint[scene];
+            else if (phase == GamePhase.Lobby || phase == GamePhase.Prepare) expected = mapPaint[scene];
             else expected = MusicId.None;                                       // 변장이 끝나면 끈다
             var c = new MusicContext { Scene = scene, Phase = phase, LocalMonsterWaiting = waiting, LocalIsMonster = monster };
             Assert.AreEqual(expected, MusicRules.Select(c), $"{scene} {phase} waiting={waiting} monster={monster}");
         }
     }
 
-    [TestCase(GamePhase.Paint, GamePhase.Hunt, MusicId.StMonsterArrive)]
-    [TestCase(GamePhase.AwaitingMonster, GamePhase.Hunt, MusicId.StMonsterArrive)]
+    [TestCase(GamePhase.Prepare, GamePhase.Hunt, MusicId.StMonsterArrive)]
     [TestCase(GamePhase.Hunt, GamePhase.TimeAttack, MusicId.StSpyLaunch)]
-    [TestCase(GamePhase.Lobby, GamePhase.Paint, MusicId.None)]
-    [TestCase(GamePhase.Paint, GamePhase.AwaitingMonster, MusicId.None)]
+    [TestCase(GamePhase.Lobby, GamePhase.Prepare, MusicId.None)]
     [TestCase(GamePhase.Hunt, GamePhase.Result, MusicId.None)]
     public void Music_StingerOnPhaseChange(GamePhase from, GamePhase to, MusicId expected)
     {
@@ -437,15 +435,15 @@ public class AudioTests
     [Test]
     public void SequenceCue_FiresOnceAtBoundary_NotWhenLate()
     {
-        Assert.IsTrue(EscapeSequence.ShouldCue(0f, -1f, 0.02f), "completion frame");
-        Assert.IsTrue(EscapeSequence.ShouldCue(2f, 1.98f, 2.01f), "crossing");
-        Assert.IsFalse(EscapeSequence.ShouldCue(2f, 2.01f, 2.03f), "already crossed last frame");
-        Assert.IsFalse(EscapeSequence.ShouldCue(2f, 1.5f, 1.9f), "not yet");
-        Assert.IsFalse(EscapeSequence.ShouldCue(2f, -1f, 30f), "late join");
-        Assert.IsFalse(EscapeSequence.ShouldCue(2f, 1.9f, 2f + EscapeSequence.CueLateTolerance + 0.1f), "long hitch");
+        Assert.IsTrue(EscapeCue.ShouldCue(0f, -1f, 0.02f), "completion frame");
+        Assert.IsTrue(EscapeCue.ShouldCue(2f, 1.98f, 2.01f), "crossing");
+        Assert.IsFalse(EscapeCue.ShouldCue(2f, 2.01f, 2.03f), "already crossed last frame");
+        Assert.IsFalse(EscapeCue.ShouldCue(2f, 1.5f, 1.9f), "not yet");
+        Assert.IsFalse(EscapeCue.ShouldCue(2f, -1f, 30f), "late join");
+        Assert.IsFalse(EscapeCue.ShouldCue(2f, 1.9f, 2f + EscapeCue.LateTolerance + 0.1f), "long hitch");
         int fired = 0;
         float before = -1f;
-        for (float t = 0f; t < 8f; t += 1f / 30f) { if (EscapeSequence.ShouldCue(3f, before, t)) fired++; before = t; }
+        for (float t = 0f; t < 8f; t += 1f / 30f) { if (EscapeCue.ShouldCue(3f, before, t)) fired++; before = t; }
         Assert.AreEqual(1, fired, "one frame-by-frame pass fires once");
     }
 

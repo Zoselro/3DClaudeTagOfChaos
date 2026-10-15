@@ -13,6 +13,31 @@ public class StunReceiver : MonoBehaviour
 
     public bool IsStunned => Time.time < stunnedUntil;
 
+    // 감옥 풍선(Request1009Plan.md §25.5 J): 기절처럼 움직임이 막히고, 별 대신 몸을 감싼 투명 풍선이 보인다. 괴물은 갇힌 동안 잡지 못한다.
+    private float jailedUntil;
+    private GameObject bubble;
+    public bool IsJailed => Time.time < jailedUntil;
+
+    public void Jail(float seconds)
+    {
+        if (seconds <= 0f) return;
+        jailedUntil = Mathf.Max(jailedUntil, Time.time + seconds);
+        stunnedUntil = Mathf.Max(stunnedUntil, jailedUntil);
+        if (bubble == null)
+        {
+            bubble = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Destroy(bubble.GetComponent<Collider>());
+            bubble.name = "JailBubble";
+            bubble.transform.SetParent(transform, false);
+            bubble.transform.localPosition = Vector3.up * headHeight * 0.5f;
+            bubble.transform.localScale = Vector3.one * headHeight * 1.1f;
+            var r = bubble.GetComponent<Renderer>();
+            if (r != null) r.sharedMaterial = EscapeVisuals.NewMaterial(new Color(0.6f, 0.85f, 1f, 0.35f), 0.4f, true);
+        }
+        bubble.SetActive(true);
+        GameAudio.PlayAt(SoundId.BalloonSplash, transform.position);
+    }
+
     public void Init(float characterHeight)
     {
         headHeight = characterHeight;
@@ -29,6 +54,7 @@ public class StunReceiver : MonoBehaviour
 
     private void Update()
     {
+        if (bubble != null && bubble.activeSelf && !IsJailed) bubble.SetActive(false);
         if (starRoot == null || !starRoot.gameObject.activeSelf) return;
         if (!IsStunned)
         {

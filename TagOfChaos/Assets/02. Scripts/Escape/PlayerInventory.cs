@@ -97,9 +97,9 @@ public class PlayerInventory : MonoBehaviour
         if (owner.IsMovementLocked) return; // 잡힘·들림·기절 중에는 조작하지 않는다
 
         int wanted = PlayerInput.SlotKeyPressed;
-        if (wanted < 0 && GamePhaseState.Current != GamePhase.Paint)
+        if (wanted < 0)
         {
-            float wheel = PlayerInput.BrushSizeDelta; // 색칠 시간이 아니면 휠은 칸 고르기
+            float wheel = PlayerInput.BrushSizeDelta; // 휠은 칸 고르기(색칠 단계는 없앴다, Request1009Plan.md §25)
             if (wheel > 0.01f) wanted = (Selected + SlotCount - 1) % SlotCount;
             else if (wheel < -0.01f) wanted = (Selected + 1) % SlotCount;
         }
@@ -108,8 +108,13 @@ public class PlayerInventory : MonoBehaviour
         if (PlayerInput.DropPressed && heldItems[Selected] >= 0)
             manager.Request(EscapeOp.Drop, Selected, 0, owner.transform.position + owner.transform.forward * 0.8f);
 
-        if (PlayerInput.UseToolPressed && GamePhaseState.Current != GamePhase.Paint && !IsPointerOverUi() && HeldItem != null && HeldItem.IsTool)
+        if (PlayerInput.UseToolPressed && EscapeManager.ActionsAllowed && !IsPointerOverUi() && HeldItem != null && HeldItem.IsTool)
             toolUser.Use(Selected, HeldItem);
+
+        // 헬리콥터 모자: 들고 E — 근처에 E로 쓰는 사물이 없을 때(Request1009Plan.md §25.5 H)
+        if (PlayerInput.InteractPressed && EscapeManager.ActionsAllowed && !CharacterInteractor.HasFocus
+            && HeldItem != null && HeldItem.IsTool && HeldItem.Tool.Kind == ToolKind.HeliHat)
+            manager.Request(EscapeOp.HatFly, Selected);
     }
 
     public bool TrySelect(int slot)

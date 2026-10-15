@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 public class LobbyController : MonoBehaviourPunCallbacks
 {
-    private const string GameVersion = "5"; // 빌드가 바뀌면 올려서 이전 버전 클라이언트와 매치메이킹이 섞이지 않게 함(2: 채팅·들기 RPC 서명 변경, AuditFixPlan.md P4 / 3: 대기실 문 이벤트·다시 생김 알림, Request1009Plan.md §22 / 4: 마녀 연출 시각표, §23 / 5: 마녀 도착 3테이크·3배, §24)
+    private const string GameVersion = "6"; // 빌드가 바뀌면 올려서 이전 버전 클라이언트와 매치메이킹이 섞이지 않게 함(2: 채팅·들기 RPC 서명 변경, AuditFixPlan.md P4 / 3: 대기실 문 이벤트·다시 생김 알림, Request1009Plan.md §22 / 4: 마녀 연출 시각표, §23 / 5: 마녀 도착 3테이크·3배, §24 / 6: 게임 구성 개편, §25)
 
     [SerializeField] private TMP_InputField userIdInput;
     [SerializeField] private TMP_InputField roomNameInput;
@@ -16,10 +16,12 @@ public class LobbyController : MonoBehaviourPunCallbacks
     [SerializeField] private RoomListItem roomListItemPrefab;
     [SerializeField] private Button refreshButton;
 
-    [Header("Room Settings (EscapePlan.md §1.7)")]
+    [Header("Room Settings (Request1009Plan.md §25.5 A)")]
     [SerializeField] private RoomSettingField playersField;
-    [SerializeField] private RoomSettingField timeLimitField;
-    [SerializeField] private RoomSettingField timeAttackField;
+    [UnityEngine.Serialization.FormerlySerializedAs("timeLimitField")]
+    [SerializeField] private RoomSettingField spyCountField;
+    [UnityEngine.Serialization.FormerlySerializedAs("timeAttackField")]
+    [SerializeField] private RoomSettingField witchTimerField;
 
     // 서버 지역(EscapeVisualPlan.md §1.1, 2026-10-03 다시 살림 — Request1003Plan.md §1). 방은 한 지역 서버 안에만 있으므로
     // 지역을 고르지 않고 접속하면 PC마다 핑이 좋은 지역에 따로 붙어 서로의 방이 보이지 않는다 — 늘 고른 지역으로 접속한다.
@@ -260,18 +262,19 @@ public class LobbyController : MonoBehaviourPunCallbacks
             return;
         }
 
-        // 방장이 고른 인원·제한시간·타임어택 시간(EscapePlan.md §1.7). 입력칸 값은 RoomSettingField가 이미 허용 범위로 맞춰 둔다.
-        // 제한시간과 타임어택 시간은 판이 바뀌어도 유지되는 Room Prop(초)으로 넣는다.
-        int players = playersField != null ? playersField.Value : GameSettings.Current.DefaultPlayers;
-        int timeLimitMinutes = timeLimitField != null ? timeLimitField.Value : GameSettings.Current.DefaultTimeLimitMinutes;
-        int timeAttackMinutes = timeAttackField != null ? timeAttackField.Value : GameSettings.Current.DefaultTimeAttackMinutes;
+        // 방장이 고른 인원·스파이 수·마녀 타이머(Request1009Plan.md §25.5 A). 입력칸 값은 RoomSettingField가 이미 허용 범위로 맞춰 둔다.
+        // 스파이 수와 마녀 타이머는 판이 바뀌어도 유지되는 Room Prop으로 넣는다.
+        GameSettingsSO settings = GameSettings.Current;
+        int players = playersField != null ? playersField.Value : settings.DefaultPlayers;
+        int spies = settings.ClampSpies(spyCountField != null ? spyCountField.Value : settings.DefaultSpies, players);
+        int witchMinutes = witchTimerField != null ? witchTimerField.Value : settings.DefaultTimeAttackMinutes;
         var options = new RoomOptions
         {
             MaxPlayers = players,
             CustomRoomProperties = new ExitGames.Client.Photon.Hashtable
             {
-                { NetKeys.RoomTimeLimit, timeLimitMinutes * 60 },
-                { NetKeys.TimeAttackDuration, timeAttackMinutes * 60 },
+                { NetKeys.RoomSpyCount, spies },
+                { NetKeys.TimeAttackDuration, witchMinutes * 60 },
             },
         };
         string region = createRegion != null ? createRegion.Code : CurrentRegion;

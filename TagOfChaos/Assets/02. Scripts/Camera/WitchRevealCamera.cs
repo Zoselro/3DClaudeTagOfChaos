@@ -425,13 +425,14 @@ public class WitchRevealCamera : MonoBehaviour
         return approachHeight;
     }
 
-    // 앞 샷 대상: 스파이 로켓(타임어택) 또는 쿠키 탈것(처단 — 맵 연출이 따라 볼 곳).
+    // 앞 샷 대상: 첫 탈출 지점(탈출구·로켓, Request1009Plan.md §25.5 G). 기록이 없으면(옛 방) 스파이 로켓.
     private static Transform LeadFocus(WitchMode mode)
     {
         EscapeManager manager = EscapeManager.Instance;
         if (manager == null) return null;
-        if (mode == WitchMode.TimeAttack) return manager.Rocket != null ? manager.Rocket.transform : null;
-        return manager.Sequence != null ? manager.Sequence.DepartureFocus : manager.Device != null ? manager.Device.transform : null;
+        Transform first = manager.FirstEscapeFocus;
+        if (first != null) return first;
+        return manager.Rocket != null ? manager.Rocket.transform : null;
     }
 
     private void SetLocked(bool value)

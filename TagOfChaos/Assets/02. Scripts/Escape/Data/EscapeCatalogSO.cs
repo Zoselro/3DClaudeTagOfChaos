@@ -13,8 +13,23 @@ public class EscapeCatalogSO : ScriptableObject
     [SerializeField] private ItemSO hammer;
     [Tooltip("스파이 1명당 스파이 상자 한 쌍에 넣는 도구(스턴건, 물풍선).")]
     [SerializeField] private ItemSO[] spyChestTools = new ItemSO[0];
-    [Tooltip("일반 상자에 넣는 뿅망치 수 = 쿠키 수 × 이 비율(올림).")]
+    [Tooltip("일반 상자에 넣는 뿅망치 수 = 쿠키 수 × 이 비율(올림). 개편 뒤 뿅망치는 스파이 상자로 옮겨 쓰지 않는다.")]
     [SerializeField, Range(0f, 1f)] private float hammersPerCookie = 0.5f;
+
+    [Header("Request1009Plan.md §25")]
+    [Tooltip("수리키트(스파이 만능 재료, 공구함과 같은 아이템).")]
+    [SerializeField] private ItemSO repairKit;
+    [Tooltip("스파이 상자 고정: 해체 도구.")]
+    [SerializeField] private ItemSO dismantleTool;
+    [Tooltip("스파이 상자 나머지 3개를 겹치지 않게 고르는 도구(스턴건·망치·색깔 물풍선·감옥 풍선).")]
+    [SerializeField] private ItemSO[] spyRandomTools = new ItemSO[0];
+    [Tooltip("재료가 없는 일반 상자에 들어가는 쿠키 아이템과 비율(스케이트 5 : 호박마차 3 : 녹음기 5, §25.3.2 S1).")]
+    [SerializeField] private ItemSO[] cookieItems = new ItemSO[0];
+    [SerializeField] private int[] cookieItemWeights = new int[0];
+    [Tooltip("무지개 상자에서 나오는 헬리콥터 모자.")]
+    [SerializeField] private ItemSO heliHat;
+    [Tooltip("괴물 소음폭탄이 터질 때의 기절 수치(ToolSO).")]
+    [SerializeField] private ItemSO noiseBomb;
 
     [Header("Shared models (EscapeVisualPlan.md §3)")]
     [Tooltip("탈것에 타는 순간·좌석에 앉은 쿠키 인형")]
@@ -28,6 +43,13 @@ public class EscapeCatalogSO : ScriptableObject
     private static EscapeCatalogSO cached;
 
     public IReadOnlyList<ItemSO> Items => items;
+    public ItemSO RepairKit => repairKit;
+    public ItemSO DismantleTool => dismantleTool;
+    public IReadOnlyList<ItemSO> SpyRandomTools => spyRandomTools;
+    public IReadOnlyList<ItemSO> CookieItems => cookieItems;
+    public IReadOnlyList<int> CookieItemWeights => cookieItemWeights;
+    public ItemSO HeliHat => heliHat;
+    public ItemSO NoiseBomb => noiseBomb;
     public ItemSO Hammer => hammer;
     public IReadOnlyList<ItemSO> SpyChestTools => spyChestTools;
     public float HammersPerCookie => hammersPerCookie;
@@ -65,6 +87,17 @@ public class EscapeCatalogSO : ScriptableObject
     }
 
 #if UNITY_EDITOR
+    public void EditorSetupReform(ItemSO kit, ItemSO dismantle, ItemSO[] spyRandom, ItemSO[] cookie, int[] cookieWeights, ItemSO hat, ItemSO bomb)
+    {
+        repairKit = kit;
+        dismantleTool = dismantle;
+        spyRandomTools = spyRandom;
+        cookieItems = cookie;
+        cookieItemWeights = cookieWeights;
+        heliHat = hat;
+        noiseBomb = bomb;
+    }
+
     public void EditorSetup(ItemSO[] allItems, EscapeRecipeSO[] allRecipes, ItemSO hammerItem, ItemSO[] spyTools)
     {
         items = allItems;

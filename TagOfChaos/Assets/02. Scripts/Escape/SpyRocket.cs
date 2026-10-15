@@ -70,11 +70,25 @@ public class SpyRocket : MonoBehaviour, IHoldInteractable, IInteractionLabel
         else InteractableRegistry.Unregister(this);
     }
 
+    // 이번 판 로켓 자리(후보 중 무작위, Request1009Plan.md §25.5 J). 발사 전에만 옮긴다.
+    public void PlaceAt(Transform spot)
+    {
+        if (spot == null || baseSaved) return;
+        if ((transform.position - spot.position).sqrMagnitude < 0.01f) return;
+        transform.SetPositionAndRotation(spot.position, Quaternion.Euler(0f, spot.eulerAngles.y, 0f));
+        Physics.SyncTransforms();
+    }
+
+    private XRayMarker xray;
+
     public void Refresh(EscapeManager owner)
     {
         manager = owner;
         EscapeState s = owner.State;
         if (s == null) return;
+        // 스파이는 자기 로켓 위치를 투시로 본다(§25.5 J)
+        if (xray == null) { xray = gameObject.AddComponent<XRayMarker>(); xray.Init(new Color(1f, 0.55f, 0.2f)); }
+        xray.SetVisible(RoomState.IsLocalSpy() && !RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _));
         if (s.Boarded.Count > seenBoarded) hatchOpenUntil = Time.time + HatchOpenSeconds; // 누군가 탔다 — 해치 열림
         seenBoarded = s.Boarded.Count;
         for (int i = 0; i < s.RocketSlots.Count && i < slotParts.Length; i++)
@@ -137,8 +151,8 @@ public class SpyRocket : MonoBehaviour, IHoldInteractable, IInteractionLabel
         if (!baseSaved) { basePosition = transform.position; baseSaved = true; }
         float t = (float)(PhotonNetwork.Time - escapedAt);
         // 소리(SoundPlan.md S6): 점화 → 떠오름. 맵 연출과 같은 경계 규칙(늦게 들어온 사람은 지난 소리를 듣지 않음)
-        if (EscapeSequence.ShouldCue(0f, lastLaunchTime, t)) GameAudio.PlayOn(SoundId.RocketIgnite, transform);
-        if (EscapeSequence.ShouldCue(IgniteSeconds, lastLaunchTime, t)) GameAudio.PlayOn(SoundId.RocketLiftoff, transform);
+        if (EscapeCue.ShouldCue(0f, lastLaunchTime, t)) GameAudio.PlayOn(SoundId.RocketIgnite, transform);
+        if (EscapeCue.ShouldCue(IgniteSeconds, lastLaunchTime, t)) GameAudio.PlayOn(SoundId.RocketLiftoff, transform);
         lastLaunchTime = t;
         if (t < 0f) return;
 

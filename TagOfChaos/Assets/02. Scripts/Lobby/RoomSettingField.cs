@@ -2,11 +2,12 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 방 만들기 설정 한 줄(EscapePlan.md §1.7): ▼ 버튼, 숫자 입력칸, ▲ 버튼, 빨간 경고 문구.
+// 방 만들기 설정 한 줄(EscapePlan.md §1.7, Request1009Plan.md §25.5 A — 인원·스파이 수·마녀 타이머): ▼ 버튼, 숫자 입력칸, ▲ 버튼, 빨간 경고 문구.
 // 범위를 벗어나면 가장 가까운 허용값으로 되돌리고 경고를 잠시 보여준다. 경고 문구는 인스펙터에서 입력한다(코드에 한글 금지).
 public class RoomSettingField : MonoBehaviour
 {
-    public enum Kind { Players, TimeLimitMinutes, TimeAttackMinutes }
+    // 씬에 직렬화된 값이므로 순서를 바꾸지 않는다(1은 예전 제한시간 칸 자리 → 스파이 수).
+    public enum Kind { Players, SpyCount, WitchTimerMinutes }
 
     [SerializeField] private Kind kind;
     [SerializeField] private Button decreaseButton;
@@ -35,8 +36,8 @@ public class RoomSettingField : MonoBehaviour
         GameSettingsSO s = GameSettings.Current;
         switch (kind)
         {
-            case Kind.TimeLimitMinutes: return new RoomSettingStepper(s.MinTimeLimitMinutes, s.MaxTimeLimitMinutes, s.DefaultTimeLimitMinutes);
-            case Kind.TimeAttackMinutes: return new RoomSettingStepper(s.MinTimeAttackMinutes, s.MaxTimeAttackMinutes, s.DefaultTimeAttackMinutes);
+            case Kind.SpyCount: return new RoomSettingStepper(0, s.MaxSpies, s.DefaultSpies);
+            case Kind.WitchTimerMinutes: return new RoomSettingStepper(s.MinTimeAttackMinutes, s.MaxTimeAttackMinutes, s.DefaultTimeAttackMinutes);
             default: return new RoomSettingStepper(s.MinPlayers, s.MaxPlayers, s.DefaultPlayers);
         }
     }

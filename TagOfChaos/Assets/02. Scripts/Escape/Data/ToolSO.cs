@@ -5,6 +5,13 @@ public enum ToolKind
     Hammer,
     StunGun,
     WaterBalloon,
+    JailBalloon, // 감옥 풍선: 맞은 쿠키·괴물 하나가 잠시 풍선에 갇힌다(Request1009Plan.md §25.5 J)
+    Skates,      // 인라인스케이트: 잠시 이동속도 +100%(§25.5 I)
+    Pumpkin,     // 호박마차: 맵 안 무작위 지점으로 이동
+    Recorder,    // 접착 목소리 녹음기: 내 AI 하나가 내 목소리를 내며 걷는다
+    Dismantle,   // 해체 도구: 가동된 건물에서 재료를 뺀다(누르기, 왼쪽 클릭으로 쓰지 않음)
+    HeliHat,     // 헬리콥터 모자: 들고 E — 떠올라 맵 밖으로(§25.5 H)
+    NoiseBomb,   // 괴물 소음폭탄이 터질 때의 기절 수치(아이템으로 줍지 않는다)
 }
 
 // 도구 하나의 수치(EscapePlan.md §1.8, D23). 코드를 고치지 않고 에셋 값만 바꿔 밸런스를 테스트한다.
@@ -22,6 +29,10 @@ public class ToolSO : ScriptableObject
     [SerializeField, Min(0f)] private float cooldownSeconds = 3f;
     [Tooltip("맞은 쿠키를 무작위 색으로 칠한다(물풍선).")]
     [SerializeField] private bool paintsTarget;
+    [Tooltip("효과 시간(초): 스케이트 빠르기, 녹음기 AI가 걷는 시간.")]
+    [SerializeField, Min(0f)] private float effectSeconds = 5f;
+    [Tooltip("스케이트 빠르기 배율(1 = 그대로, 2 = +100%).")]
+    [SerializeField, Min(1f)] private float speedMultiplier = 2f;
 
     public ToolKind Kind => kind;
     public int Charges => charges;
@@ -31,10 +42,18 @@ public class ToolSO : ScriptableObject
     public float StunSecondsMonster => stunSecondsMonster;
     public float CooldownSeconds => cooldownSeconds;
     public bool PaintsTarget => paintsTarget;
+    public float EffectSeconds => effectSeconds;
+    public float SpeedMultiplier => speedMultiplier;
+
+    // 왼쪽 클릭으로 쓰는 도구인지(해체 도구는 누르기, 모자는 E, 소음폭탄은 괴물 스킬).
+    public bool UsedByClick => kind != ToolKind.Dismantle && kind != ToolKind.HeliHat && kind != ToolKind.NoiseBomb;
 
 #if UNITY_EDITOR
-    public void EditorSetup(ToolKind toolKind, int count, float rangeMeters, float radius, float cookieStun, float monsterStun, float cooldown, bool paints)
+    public void EditorSetup(ToolKind toolKind, int count, float rangeMeters, float radius, float cookieStun, float monsterStun, float cooldown, bool paints,
+        float effect = 5f, float speed = 2f)
     {
+        effectSeconds = effect;
+        speedMultiplier = speed;
         kind = toolKind;
         charges = count;
         range = rangeMeters;

@@ -248,7 +248,7 @@ public class WitchFinaleStage : MonoBehaviour
         {
             var controller = src.GetComponent<MonsterController>();
             if (controller != null && controller.GrabSocket != null) stand.Socket = copy.transform.Find(PathFrom(src.transform, controller.GrabSocket));
-            if (stand.Socket == null) stand.Socket = EscapeSequence.FindDeep(copy.transform, SocketName);
+            if (stand.Socket == null) stand.Socket = EscapeCue.FindDeep(copy.transform, SocketName);
             stand.DebrisColor = MonsterEscapeState.MonsterDebrisColor;
         }
         else

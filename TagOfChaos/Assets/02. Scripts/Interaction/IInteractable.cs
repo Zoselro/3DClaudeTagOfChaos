@@ -31,6 +31,18 @@ public interface IHoldStartListener
     void OnHoldStarted(IGameCharacter character);
 }
 
+// 길게 누르기가 끝난 순간(다 참·뗌·취소)을 알아야 하는 사물(건물 수리 — 방장이 게이지를 들고 있다, Request1009Plan.md §25.5 E).
+public interface IHoldEndListener
+{
+    void OnHoldEnded(IGameCharacter character, bool completed);
+}
+
+// 아이콘 둘레 진행 링에 사물이 정한 값을 보여 준다(수리 게이지는 이어서 차므로 누른 시간이 아니라 건물 게이지).
+public interface IHoldProgressDisplay
+{
+    float DisplayProgress(float holdProgress);
+}
+
 // 씬에 활성화된 상호작용 사물 목록. 사물이 OnEnable/OnDisable에서 스스로 등록·해제한다 —
 // 매 검사마다 물리 쿼리나 FindObjectsByType로 씬을 훑지 않는다(CharacterRegistry와 같은 방식).
 public static class InteractableRegistry

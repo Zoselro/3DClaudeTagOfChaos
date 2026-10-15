@@ -40,6 +40,19 @@ public class PlayerSpawner : MonoBehaviour
         SpawnLocalPlayer();
     }
 
+    // 사분면 맵(Request1009Plan.md §25.5 O): 쿠키·스파이는 사분면마다 하나씩 있는 시작 자리(Spawn_Cookie_Q1~Q4)에 흩어진다 —
+    // 괴물이 아닌 사람을 입장 순서로 세어 차례대로. 시작 자리가 없는 씬(대기실 등)은 null(예전 PlayerSpawnPos).
+    private static GameObject QuadrantSpawnPoint()
+    {
+        if (!RoomState.IsInRoom() || PhotonNetwork.LocalPlayer == null) return null;
+        int order = 0;
+        foreach (int actor in PhotonNetwork.CurrentRoom.Players.Keys)
+            if (actor < PhotonNetwork.LocalPlayer.ActorNumber && !RoomState.IsMonster(actor)) order++;
+        return GameObject.Find($"{QuadrantSpawnPrefix}{order % 4 + 1}");
+    }
+
+    public const string QuadrantSpawnPrefix = "Spawn_Cookie_Q";
+
 // GameRule.md §2.2/§6.4 — 이미 괴물로 확정된(MonsterActorNumbers에 ActorNumber가 포함된) 플레이어는
     // 이 씬에서 쿠키를 스폰하지 않는다 — MonsterJoinController가 따로 MonsterPlayer를 스폰한다(GameScene).
     // 아직 가마솥에 들어가기 전(GameLobbyScene 초기)에는 이 플래그가 없으므로 정상적으로 쿠키가 스폰된다.
@@ -53,7 +66,7 @@ public class PlayerSpawner : MonoBehaviour
     
     private void SpawnLocalPlayer()
     {
-        GameObject spawnPointObj = GameObject.Find(SpawnPointName);
+        GameObject spawnPointObj = QuadrantSpawnPoint() ?? GameObject.Find(SpawnPointName);
         if (spawnPointObj == null)
         {
             Debug.LogWarning($"[PlayerSpawner] Spawn point \"{SpawnPointName}\" not found in scene. Cookie was not spawned.");

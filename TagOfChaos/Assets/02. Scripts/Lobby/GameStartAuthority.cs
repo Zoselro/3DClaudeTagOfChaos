@@ -14,7 +14,7 @@ public static class GameStartAuthority
 {
     public enum Result { Started, NotMaster, NotHost, NotReady, AlreadyStarted }
 
-    // 방장이 시작을 연달아 처리하지 않도록 막는 간격 — PaintPhaseEndTime은 서버 응답 후에야 로컬에 보이므로
+    // 방장이 시작을 연달아 처리하지 않도록 막는 간격 — PrepareEndTime은 서버 응답 후에야 로컬에 보이므로
     // (Room Props 반영 지연) 그 사이 도착한 중복 요청을 이 시간으로 거른다.
     private const float DuplicateGuardSeconds = 3f;
     private static float lastStartTime = float.NegativeInfinity;
@@ -47,7 +47,7 @@ public static class GameStartAuthority
         // 넘기면 괴물이 대기실에 남지 못한다(§26.8.3 ②). 호스트 화면의 버튼은 잠시 뒤 다시 눌러 새 방장에게 보낸다.
         if (!IsIntendedMaster()) return Result.NotMaster;
         if (requesterActor != RoomState.HostActor()) return Result.NotHost;
-        if (RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out _) || Time.unscaledTime - lastStartTime < DuplicateGuardSeconds)
+        if (RoomState.TryGetDouble(NetKeys.PrepareEndTime, out _) || Time.unscaledTime - lastStartTime < DuplicateGuardSeconds)
             return Result.AlreadyStarted;
         if (!IsReady()) return Result.NotReady;
 
@@ -61,17 +61,17 @@ public static class GameStartAuthority
 
         lastStartTime = Time.unscaledTime;
 
-        // 색칠 종료 시각을 GameScene이 아니라 여기서 먼저 기록한다 — 대기실에 남는 괴물
-        // (MonsterLobbyWaitController)이 이 값을 시작 신호 겸 카운트다운 기준으로 쓰므로, 반드시 아래
-        // LoadLevel(= curScn 변경)보다 먼저 보내야 한다(같은 클라이언트의 Props 변경은 보낸 순서대로 도착).
-        // 판마다 새 값을 쓰므로 이전 판의 값이 남아 색칠 페이즈가 시작되지 않던 문제도 함께 막는다.
-        // 이번 판 맵도 같은 요청으로 기록한다 — 괴물은 시작 신호(PaintPhaseEndTime)를 받을 때 맵 이름도 함께 받는다(GameScenePlan.md §3.2).
+        // 준비 끝 시각(시작 신호)을 맵이 아니라 여기서 먼저 기록한다 — 아래 LoadLevel(= curScn 변경)보다 먼저 보내야 한다
+        // (같은 클라이언트의 Props 변경은 보낸 순서대로 도착). 괴물도 이제 모두와 함께 맵으로 가서 술래방에서 시작한다(Request1009Plan.md §25.5 C).
+        // 판마다 새 값을 쓰므로 이전 판의 값이 남아 판이 시작되지 않던 문제도 함께 막는다.
         lastMap = map;
+        int[] spies = PickSpies(settings.ClampSpies(RoomState.SpyCount(), PhotonNetwork.CurrentRoom.PlayerCount));
         AuthorityProps.SetRoom(new Hashtable
         {
-            { NetKeys.PaintPhaseEndTime, PhotonNetwork.Time + settings.SceneLoadGrace + settings.PaintPhaseDuration },
+            { NetKeys.PrepareEndTime, PhotonNetwork.Time + settings.SceneLoadGrace + settings.PrepareSeconds },
             { NetKeys.GameMapScene, map },
-            { NetKeys.SpyActorNumbers, PickSpies(settings.SpyCountFor(PhotonNetwork.CurrentRoom.PlayerCount)) },
+            { NetKeys.SpyActorNumbers, spies },
+            { NetKeys.CharacterAssignments, AssignCharacters() },
         });
 
         PhotonNetwork.CurrentRoom.IsOpen = false; // 씬 전환 도중 새로 입장하는 걸 방지(대기실 복귀 시 RoundStateResetter가 다시 연다)
@@ -83,7 +83,31 @@ public static class GameStartAuthority
     // 직전 판 맵(이 클라이언트가 방장으로 시작한 판). 판이 끝나면 Room의 맵 키는 지워지므로 여기서 기억한다.
     private static string lastMap;
 
-    // 괴물이 아닌 사람 중에서 스파이를 무작위로 뽑는다(EscapePlan.md §1.1). 스파이는 spyMinPlayers 이상일 때 늘 1명(GameSettingsSO.SpyCountFor), 0명이면 빈 배열.
+    // 괴물이 아닌 사람 중에서 스파이를 무작위로 뽑는다(EscapePlan.md §1.1). 수는 방 설정(RoomSpyCount, §25.5 A), 0명이면 빈 배열.
+
+    // 쿠키·스파이 캐릭터 배정(§25.5 B): 고른 캐릭터를 입장 순서대로 인정하고, 겹치거나 고르지 않은 사람은 남은 캐릭터.
+    private static int[] AssignCharacters()
+    {
+        var actors = new System.Collections.Generic.List<int>();
+        var preferences = new System.Collections.Generic.Dictionary<int, int>();
+        foreach (Player p in RoomState.Players)
+        {
+            if (RoomState.IsMonster(p.ActorNumber)) continue;
+            actors.Add(p.ActorNumber);
+            preferences[p.ActorNumber] = RoomState.TryGetPlayerInt(p, NetKeys.SkinIndex, out int s) ? s : CharacterAssignment.Unselected;
+        }
+        return CharacterAssignment.Assign(actors, preferences, CharacterCount);
+    }
+
+    // 캐릭터 수(대기실 선택 목록과 같은 SkinCatalog — 전역 설정이 가리킨다). 없으면 4.
+    private static int CharacterCount
+    {
+        get
+        {
+            SkinCatalogSO catalog = GameSettings.Current.CharacterCatalog;
+            return catalog != null && catalog.Count > 0 ? catalog.Count : 4;
+        }
+    }
     private static int[] PickSpies(int count)
     {
         var candidates = new System.Collections.Generic.List<int>();

@@ -2517,7 +2517,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uC81C\uD55C\uC2DC\uAC04(\uBD84)"
+  m_text: "\uC2A4\uD30C\uC774(\uBA85)"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: a04b00bb5ee22f5468123589eee7aca2, type: 2}
   m_sharedMaterial: {fileID: -4628378689022734480, guid: a04b00bb5ee22f5468123589eee7aca2, type: 2}
@@ -3833,7 +3833,7 @@ GameObject:
   - component: {fileID: 1102018287}
   - component: {fileID: 1102018288}
   m_Layer: 0
-  m_Name: Row_TimeLimitMinutes
+  m_Name: Row_SpyCount
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -3880,8 +3880,8 @@ MonoBehaviour:
   increaseButton: {fileID: 1398462836}
   input: {fileID: 991672965}
   warningText: {fileID: 1661472390}
-  outOfRangeMessage: "10\uBD84 \uBBF8\uB9CC, 41\uBD84 \uC774\uC0C1\uC740 \uD560 \uC218
-    \uC5C6\uC2B5\uB2C8\uB2E4"
+  outOfRangeMessage: "\uC2A4\uD30C\uC774\uB294 0\uBA85 \uB610\uB294 1\uBA85\uB9CC
+    \uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4"
   warningSeconds: 2.5
 --- !u!1 &1117426134
 GameObject:
@@ -6079,7 +6079,7 @@ MonoBehaviour:
   increaseButton: {fileID: 1378880648}
   input: {fileID: 6133089}
   warningText: {fileID: 464818056}
-  outOfRangeMessage: "4\uBA85 \uBBF8\uB9CC, 9\uBA85 \uC774\uC0C1\uC740 \uD560 \uC218
+  outOfRangeMessage: "4\uBA85 \uBBF8\uB9CC, 6\uBA85 \uC774\uC0C1\uC740 \uD560 \uC218
     \uC5C6\uC2B5\uB2C8\uB2E4"
   warningSeconds: 2.5
 --- !u!1 &1732630899
@@ -6139,7 +6139,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\uD0C0\uC784\uC5B4\uD0DD(\uBD84)"
+  m_text: "\uB9C8\uB140 \uD0C0\uC774\uBA38(\uBD84)"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: a04b00bb5ee22f5468123589eee7aca2, type: 2}
   m_sharedMaterial: {fileID: -4628378689022734480, guid: a04b00bb5ee22f5468123589eee7aca2, type: 2}
@@ -6930,7 +6930,7 @@ GameObject:
   - component: {fileID: 1882818839}
   - component: {fileID: 1882818840}
   m_Layer: 0
-  m_Name: Row_TimeAttackMinutes
+  m_Name: Row_WitchTimerMinutes
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

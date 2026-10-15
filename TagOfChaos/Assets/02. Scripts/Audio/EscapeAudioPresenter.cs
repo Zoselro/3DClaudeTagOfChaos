@@ -4,8 +4,8 @@ using UnityEngine;
 // 탈출 모드 소리(SoundPlan.md S5). EscapeManager가 붙이고, 상태가 바뀔 때마다 직전 상태와 비교해 무엇이 일어났는지 소리로 낸다.
 // 방장 코드(EscapeAuthority)에서 소리를 내지 않으므로 모든 화면이 같은 상태 차이로 같은 소리를 듣는다. 방장 화면은 같은 상태가
 // 두 번(즉시 적용 + 방 속성 응답) 들어오지만 두 번째는 차이가 없어 소리도 없다. 처음 받은 상태(늦게 들어온 경우)는 소리 없이 기억만 한다.
-// - 상자 열림·다시 채워짐, 줍기(본인 2D·남 3D)·떨어뜨리기, 장치에 끼우기·빼기(같은 소리 — D3), 장치 완성(+스팅어),
-//   로켓에 끼우기, 탈것에 타기(쿠키 — 폴짝 또는 빨려 듦, 맵 연출이 정함)·로켓 해치(스파이), 내 탈출 성공(2D), 타임어택 마지막 10초 심장 박동(2D).
+// - 상자 열림·다시 채워짐, 줍기(본인 2D·남 3D)·떨어뜨리기, 건물에 넣기·빼기(같은 소리 — D3), 건물 가동, 탈출구 열림(+스팅어),
+//   무지개 상자, 모자 비행, 로켓에 끼우기·로켓 해치(스파이), 내 탈출 성공(2D), 마녀 타이머 마지막 10초 심장 박동(2D).
 // 상자에서 나온 재료를 손에 쥐는 소리는 뚜껑 소리(ChestOpen) 뒤 ChestPickupDelay초에 낸다(Request1009Plan.md §2 — 두 소리가 겹치면 "얻는 소리"만 들렸다).
 public class EscapeAudioPresenter : MonoBehaviour
 {
@@ -50,27 +50,36 @@ public class EscapeAudioPresenter : MonoBehaviour
             if (a.Loc == b.Loc && a.A == b.A) continue;
             if (b.Loc == ItemLocation.Held && (a.Loc != ItemLocation.Held || a.A != b.A))
             {
-                if (a.Loc == ItemLocation.Device) GameAudio.PlayAt(SoundId.DeviceInsert, SlotPosition(a.A)); // 스파이가 장치에서 뺌
+                if (a.Loc == ItemLocation.Device) GameAudio.PlayAt(SoundId.DeviceInsert, manager.BuildingRepairPoint(a.A)); // 스파이가 건물에서 뺌
                 else if (a.Loc == ItemLocation.Chest) StartCoroutine(PlayOnActorLater(SoundId.ItemPickup, b.A, ChestPickupDelay));
                 else PlayOnActor(SoundId.ItemPickup, b.A);
             }
             else if (a.Loc == ItemLocation.Held && b.Loc == ItemLocation.Ground) GameAudio.PlayAt(SoundId.ItemDrop, b.Pos);
-            else if (a.Loc == ItemLocation.Held && b.Loc == ItemLocation.Device) GameAudio.PlayAt(SoundId.DeviceInsert, SlotPosition(b.A));
+            else if (a.Loc == ItemLocation.Held && b.Loc == ItemLocation.Device) GameAudio.PlayAt(SoundId.DeviceInsert, manager.BuildingRepairPoint(b.A));
         }
 
         for (int i = 0; i < before.RocketSlots.Count && i < now.RocketSlots.Count; i++)
             if (!before.RocketSlots[i].RocketFilled && now.RocketSlots[i].RocketFilled) GameAudio.PlayAt(SoundId.RocketInsert, manager.RocketPosition);
 
-        if (before.CompletedAt <= 0 && now.CompletedAt > 0)
+        // 건물 가동·탈출구 열림·무지개 상자(Request1009Plan.md §25 — 새 소리가 오기 전 지금 소리를 빌려 쓴다)
+        for (int i = 0; i < before.Buildings.Count && i < now.Buildings.Count; i++)
+            if (!before.Buildings[i].Repaired && now.Buildings[i].Repaired) GameAudio.PlayAt(SoundId.DeviceComplete, manager.BuildingRepairPoint(i));
+        if (!before.AnyExitOpen && now.AnyExitOpen)
         {
-            GameAudio.PlayAt(SoundId.DeviceComplete, manager.DevicePosition);
+            for (int k = 0; k < EscapeState.ExitCount; k++) if (now.ExitOpen(k)) GameAudio.PlayAt(SoundId.PortalOpen, manager.ExitPosition(k));
             GameAudio.Stinger(MusicId.StDeviceComplete);
         }
+        if (before.Rainbow != now.Rainbow && now.RainbowAnchor >= 0)
+        {
+            Vector3 at = manager.RainbowPosition(now.RainbowAnchor);
+            if (now.Rainbow == RainbowState.Closed) GameAudio.PlayAt(SoundId.ChestRespawn, at);
+            else if (now.Rainbow == RainbowState.Opened) GameAudio.PlayAt(SoundId.ChestOpen, at);
+            else if (now.Rainbow == RainbowState.Broken) GameAudio.PlayAt(SoundId.CakeCrack, at);
+        }
+        foreach (EscapeState.Flight f in now.Flights)
+            if (before.FlightIndex(f.Actor) < 0) PlayOnActor(SoundId.CoasterStartup, f.Actor);
 
         int me = PhotonNetwork.LocalPlayer != null ? PhotonNetwork.LocalPlayer.ActorNumber : -1;
-        SoundId board = manager.Sequence != null ? manager.Sequence.BoardSound : SoundId.BoardHop; // 오븐·포탈은 빨려 듦(S6)
-        foreach (int actor in now.Waiting)
-            if (!before.Waiting.Contains(actor) && !PlayOnActor(board, actor)) GameAudio.PlayAt(board, manager.BoardPosition);
         foreach (int actor in now.Boarded)
             if (!before.Boarded.Contains(actor)) GameAudio.PlayAt(SoundId.RocketHatch, manager.RocketPosition);
 
@@ -92,8 +101,6 @@ public class EscapeAudioPresenter : MonoBehaviour
         lastHeartSecond = seconds;
         if (seconds > 0 && seconds <= HeartBeatFromSeconds) GameAudio.Play(SoundId.HeartBeat);
     }
-
-    private Vector3 SlotPosition(int slot) => manager.Device != null ? manager.Device.SlotPosition(slot) : manager.DevicePosition;
 
     private System.Collections.IEnumerator PlayOnActorLater(SoundId id, int actor, float delay)
     {

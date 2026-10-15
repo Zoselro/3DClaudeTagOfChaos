@@ -6,7 +6,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // 탈출 모드 화면 표시(EscapePlan.md §1.9, §1.11). 프리팹 없이 코드로 만든다(맵 씬마다 EscapeManager가 하나 만든다).
-// - 오른쪽 위: 필요한 재료(이미지·이름·지금/필요). 쿠키는 탈출 장치, 스파이는 자기 로켓의 재료.
+// - 오른쪽 위: 건물 4곳 상태(Request1009Plan.md §25.5 P) — 쿠키: 재료 그림·이름·게이지, 스파이: "?"·가동 여부(+ 로켓 수리), 괴물: 가동 여부.
+//   괴물은 소음폭탄 남은 칸도 본다.
 // - 아래 가운데: 인벤토리 4칸(고른 칸 강조, 도구 남은 횟수).
 // - 가운데 위: 알림(떴다가 서서히 사라짐) — 스파이 잡힘, 로켓에 끼움 등.
 // - 스파이 본인: 시작 때 "당신은 스파이" 알림과 작은 표시.
@@ -25,14 +26,14 @@ public class EscapeHud : MonoBehaviour
     private Canvas hudCanvas;
     private RectTransform hotbar;
     private CanvasGroup hotbarGroup;
-    private const float LockedHotbarAlpha = 0.4f;
     private const float HotbarY = 150f;
-    private const float HotbarYAbovePalette = 290f; // 변장 단계에는 아래쪽 색 팔레트와 겹치지 않게 위로 올린다
     private TMP_Text toastText;
     private Coroutine toastRoutine;
     private GameObject spyBadge;
     private TMP_Text timeAttackText;
-    private TMP_Text boardingText;
+    private TMP_Text bombText;
+    private float nextRequirementRefresh;
+    private const float RequirementRefreshSeconds = 0.25f; // 수리 게이지 %
     private PlayerInventory boundInventory;
     private bool spyNoticeShown;
     private int lastTimeAttackSeconds = -1;
@@ -114,6 +115,14 @@ public class EscapeHud : MonoBehaviour
         {
             case EscapeNoticeKind.SpyCaught: Toast(t.spyCaught, alert: true); break;
             case EscapeNoticeKind.DeviceComplete: Toast(t.deviceComplete); break;
+            case EscapeNoticeKind.BuildingRepaired: Toast(t.buildingRepaired); break;
+            case EscapeNoticeKind.ExitsOpened: Toast(t.exitsOpened, alert: true); break;
+            case EscapeNoticeKind.RainbowAppeared: Toast(t.rainbowAppeared, alert: true); break;
+            case EscapeNoticeKind.RainbowBroken: Toast(t.rainbowBroken, alert: true); break;
+            case EscapeNoticeKind.NoiseBomb:
+                Toast(t.noiseBombAlarm, alert: true);
+                if (RoomState.IsLocalMonster() && int.TryParse(itemId, out int building)) AlarmBeacon.Show(instance.manager.BuildingRepairPoint(building));
+                break;
         }
     }
 
@@ -183,13 +192,14 @@ public class EscapeHud : MonoBehaviour
         spyBadge = badge.gameObject;
         spyBadge.SetActive(false);
 
-        // 타임어택 타이머(가운데 위, 빨강)
-        // 탑승 인원(가운데 위, 탈출 장치가 완성된 뒤, EscapeVisualPlan.md §4.3)
-        boardingText = NewText("Boarding", transform, 34f, TextAlignmentOptions.Center);
-        boardingText.rectTransform.anchorMin = new Vector2(0.5f, 1f); boardingText.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-        boardingText.rectTransform.anchoredPosition = new Vector2(0f, -235f); boardingText.rectTransform.sizeDelta = new Vector2(600f, 50f);
-        boardingText.color = new Color(1f, 0.9f, 0.45f);
-        boardingText.gameObject.SetActive(false);
+        // 괴물 소음폭탄 남은 칸(아래 가운데, 괴물에게만)
+        bombText = NewText("Bombs", transform, 28f, TextAlignmentOptions.Center);
+        bombText.rectTransform.anchorMin = new Vector2(0.5f, 0f); bombText.rectTransform.anchorMax = new Vector2(0.5f, 0f);
+        bombText.rectTransform.anchoredPosition = new Vector2(0f, 60f); bombText.rectTransform.sizeDelta = new Vector2(400f, 44f);
+        bombText.color = new Color(1f, 0.55f, 0.5f);
+        bombText.gameObject.SetActive(false);
+
+        // 마녀 타이머(가운데 위, 빨강)
 
         timeAttackText = NewText("TimeAttack", transform, 44f, TextAlignmentOptions.Center);
         timeAttackText.rectTransform.anchorMin = new Vector2(0.5f, 1f); timeAttackText.rectTransform.anchorMax = new Vector2(0.5f, 1f);
@@ -207,11 +217,10 @@ public class EscapeHud : MonoBehaviour
         if (hudCanvas.enabled != showHud) hudCanvas.enabled = showHud;
         if (!showHud) return;
         TickStolenNotices();
-        bool painting = GamePhaseState.Current == GamePhase.Paint;
-        float barY = painting ? HotbarYAbovePalette : HotbarY;
-        if (!Mathf.Approximately(hotbar.anchoredPosition.y, barY)) hotbar.anchoredPosition = new Vector2(0f, barY);
-        float barAlpha = painting ? LockedHotbarAlpha : 1f; // 변장 시간에는 아이템을 쓸 수 없음을 흐리게 보여준다(§1.3)
-        if (!Mathf.Approximately(hotbarGroup.alpha, barAlpha)) hotbarGroup.alpha = barAlpha;
+        if (!Mathf.Approximately(hotbar.anchoredPosition.y, HotbarY)) hotbar.anchoredPosition = new Vector2(0f, HotbarY);
+        if (!Mathf.Approximately(hotbarGroup.alpha, 1f)) hotbarGroup.alpha = 1f;
+        if (Time.unscaledTime >= nextRequirementRefresh) { nextRequirementRefresh = Time.unscaledTime + RequirementRefreshSeconds; RefreshRequirements(); }
+        RefreshBombs();
 
         if (boundInventory != PlayerInventory.Local)
         {
@@ -231,9 +240,9 @@ public class EscapeHud : MonoBehaviour
             UiSoundCues.Toast(alert: false);
         }
 
-        RefreshBoarding();
-
-        bool timeAttack = RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double end) && GamePhaseState.Current == GamePhase.TimeAttack;
+        // 마녀 타이머는 등장 연출이 끝난 뒤부터 보인다 — 그 순간 정확히 타이머 값부터 센다(§25 결정 1)
+        bool timeAttack = RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double end) && GamePhaseState.Current == GamePhase.TimeAttack
+                          && WitchTimeline.TryGetAppearAt(out double appearAt) && PhotonNetwork.Time >= WitchTimeline.WalkStart(WitchMode.TimeAttack, appearAt);
         if (timeAttackText.gameObject.activeSelf != timeAttack) timeAttackText.gameObject.SetActive(timeAttack);
         if (timeAttack)
         {
@@ -247,34 +256,18 @@ public class EscapeHud : MonoBehaviour
         }
     }
 
-    // "탑승 2 / 4": 탄 쿠키 / 살아 있는 쿠키(스파이 제외). 출발하면 "출발!".
-    private int lastBoarded = -1, lastAlive = -1;
-    private bool lastWasDeparting;
+    private int lastBombs = -1;
 
-    private void RefreshBoarding()
+    // 괴물: 소음폭탄 남은 칸(Request1009Plan.md §25.5 K).
+    private void RefreshBombs()
     {
-        EscapeState s = manager != null ? manager.State : null;
-        bool show = s != null && s.CompletedAt > 0 && (s.DepartedAt <= 0 || manager.IsDeparting(PhotonNetwork.Time));
-        if (boardingText.gameObject.activeSelf != show) boardingText.gameObject.SetActive(show);
-        if (!show) return;
-        if (s.DepartedAt > 0)
-        {
-            if (!lastWasDeparting) boardingText.text = texts.departing;
-            lastWasDeparting = true;
-            return;
-        }
-        int alive = 0;
-        foreach (Photon.Realtime.Player p in RoomState.Players)
-        {
-            int actor = p.ActorNumber;
-            if (RoomState.IsMonster(actor) || RoomState.IsSpy(actor) || RoomState.IsBroken(p)) continue;
-            alive++;
-        }
-        if (s.Waiting.Count == lastBoarded && alive == lastAlive && !lastWasDeparting) return; // 숫자가 바뀔 때만 글자를 만든다(F-11)
-        lastBoarded = s.Waiting.Count;
-        lastAlive = alive;
-        lastWasDeparting = false;
-        boardingText.text = string.Format(texts.boardingFormat, s.Waiting.Count, alive);
+        bool monster = RoomState.IsLocalMonster();
+        if (bombText.gameObject.activeSelf != monster) bombText.gameObject.SetActive(monster);
+        if (!monster) return;
+        int left = NoiseBombPresenter.LocalChargesLeft(manager);
+        if (left == lastBombs) return;
+        lastBombs = left;
+        bombText.text = string.Format(texts.noiseBombCharges, left, EscapeAuthority.BombMaxCharges);
     }
 
     private void RefreshHotbar()
@@ -286,46 +279,61 @@ public class EscapeHud : MonoBehaviour
             bool selected = inv != null && inv.Selected == i;
             slots[i].Frame.color = selected ? new Color(1f, 0.85f, 0.3f, 0.9f) : new Color(0f, 0f, 0f, 0.5f);
             slots[i].Icon.enabled = item != null;
+            bool unknown = item != null && IsUnknownToLocal(item);
             if (item != null)
             {
-                slots[i].Icon.sprite = item.Icon != null ? item.Icon : WhiteSprite();
-                slots[i].Icon.color = item.Icon != null ? Color.white : item.Tint;
+                slots[i].Icon.sprite = item.Icon != null && !unknown ? item.Icon : WhiteSprite();
+                slots[i].Icon.color = unknown ? new Color(0.5f, 0.5f, 0.55f) : item.Icon != null ? Color.white : item.Tint;
             }
-            slots[i].Name.text = item != null ? item.DisplayName : string.Empty;
+            slots[i].Name.text = item == null ? string.Empty : unknown ? texts.unknownMaterial : item.DisplayName;
             int index = inv != null && item != null ? inv.HeldItemIndexAt(i) : -1;
             slots[i].Charges.text = item != null && item.IsTool && index >= 0 && manager.State != null ? manager.State.Items[index].Charges.ToString() : string.Empty;
         }
     }
 
-    // 쿠키는 탈출 장치 재료, 스파이는 로켓 재료(§1.11). 같은 이름끼리 묶어 (지금/필요)로 보여준다.
+    // 스파이는 건물 재료가 무엇인지 모른다(§25 요청) — 수리키트·도구는 안다.
+    private bool IsUnknownToLocal(ItemSO item) =>
+        RoomState.IsLocalSpy() && item.Category == ItemCategory.Material && (manager.Catalog.RepairKit == null || item != manager.Catalog.RepairKit);
+
+    // 건물 4곳(활성만): 쿠키 = 재료 그림·이름·게이지 %, 스파이·괴물 = "?"·가동 여부. 스파이는 아래에 로켓 수리(n/2)도 본다.
     private void RefreshRequirements()
     {
         RefreshHotbar();
         EscapeState s = manager.State;
-        var entries = new List<(string label, ItemSO item, int have, int need)>();
+        var entries = new List<(Sprite icon, Color color, string label, bool done)>();
         if (s != null)
         {
-            bool spy = RoomState.IsLocalSpy();
-            foreach (EscapeState.Slot slot in spy ? s.RocketSlots : s.DeviceSlots)
+            bool seesMaterials = !RoomState.IsLocalSpy() && !RoomState.IsLocalMonster();
+            double now = PhotonNetwork.Time;
+            foreach (EscapeState.Building b in s.Buildings)
             {
-                if (slot.Prefilled) continue; // 처음부터 채워진 칸은 셈에서 뺀다
-                int k = entries.FindIndex(e => e.label == slot.Label);
-                ItemSO item = slot.Accepts.Length > 0 ? manager.Catalog.Find(slot.Accepts[0]) : null;
-                if (k < 0) { entries.Add((slot.Label, item, 0, 0)); k = entries.Count - 1; }
-                var e0 = entries[k];
-                entries[k] = (e0.label, e0.item, e0.have + (slot.Filled ? 1 : 0), e0.need + 1);
+                if (!b.Active) continue;
+                ItemSO item = manager.Catalog.Find(b.MaterialId);
+                bool done = b.Repaired;
+                if (seesMaterials && item != null)
+                {
+                    string state = done ? "OK" : $"{Mathf.RoundToInt(b.ProgressAtTime(now) * 100f)}%";
+                    entries.Add((item.Icon != null ? item.Icon : WhiteSprite(), item.Icon != null ? Color.white : item.Tint, $"{item.DisplayName}  {state}", done));
+                }
+                else entries.Add((WhiteSprite(), new Color(0.5f, 0.5f, 0.55f), $"{texts.unknownMaterial}  {(done ? "OK" : "...")}", done));
+            }
+            if (RoomState.IsLocalSpy() && s.RocketSlots.Count > 0)
+            {
+                int filled = 0;
+                foreach (EscapeState.Slot slot in s.RocketSlots) if (slot.Filled) filled++;
+                entries.Add((WhiteSprite(), new Color(1f, 0.55f, 0.2f), $"{texts.spyRocket}  {filled}/{s.RocketSlots.Count}", filled >= s.RocketSlots.Count));
             }
         }
         for (int i = 0; i < rows.Count; i++)
         {
             bool show = i < entries.Count;
-            rows[i].Root.SetActive(show);
+            if (rows[i].Root.activeSelf != show) rows[i].Root.SetActive(show);
             if (!show) continue;
             var e = entries[i];
-            rows[i].Icon.sprite = e.item != null && e.item.Icon != null ? e.item.Icon : WhiteSprite();
-            rows[i].Icon.color = e.item != null && e.item.Icon != null ? Color.white : (e.item != null ? e.item.Tint : Color.white);
-            rows[i].Label.text = $"{e.label}  {e.have}/{e.need}";
-            rows[i].Label.color = e.have >= e.need ? new Color(0.5f, 1f, 0.5f) : Color.white;
+            rows[i].Icon.sprite = e.icon;
+            rows[i].Icon.color = e.color;
+            rows[i].Label.text = e.label;
+            rows[i].Label.color = e.done ? new Color(0.5f, 1f, 0.5f) : Color.white;
         }
     }
 

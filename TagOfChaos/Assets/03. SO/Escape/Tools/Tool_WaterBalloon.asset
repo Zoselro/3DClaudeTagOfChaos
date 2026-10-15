@@ -20,3 +20,5 @@ MonoBehaviour:
   stunSecondsMonster: 0.8
   cooldownSeconds: 3
   paintsTarget: 1
+  effectSeconds: 5
+  speedMultiplier: 2

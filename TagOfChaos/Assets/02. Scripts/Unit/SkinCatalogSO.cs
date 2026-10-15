@@ -9,8 +9,10 @@ public class SkinCatalogSO : ScriptableObject
     [System.Serializable]
     public struct SkinEntry
     {
-        public string label;      // 선택 버튼에 표시할 이름
-        public Material material;
+        public string label;      // 선택 버튼에 표시할 이름(캐릭터 이름 — 에셋에 입력)
+        public Material material; // 모델이 오기 전 임시 겉모습(지금 쿠키 몸에 입히는 색)
+        [Tooltip("캐릭터 모델(Request1009Plan.md §25.6 — 사용자가 만들면 넣는다). 비어 있으면 지금 쿠키 몸 + material.")]
+        public GameObject modelPrefab;
     }
 
     [SerializeField] private SkinEntry[] skins = new SkinEntry[0];
@@ -21,4 +23,5 @@ public class SkinCatalogSO : ScriptableObject
     public int ClampIndex(int index) => Count == 0 ? 0 : Mathf.Clamp(index, 0, Count - 1);
     public Material GetMaterial(int index) => Count == 0 ? null : skins[ClampIndex(index)].material;
     public string GetLabel(int index) => Count == 0 ? string.Empty : skins[ClampIndex(index)].label;
+    public GameObject GetModel(int index) => Count == 0 ? null : skins[ClampIndex(index)].modelPrefab;
 }

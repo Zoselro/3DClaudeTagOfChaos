@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Rune_Pink
   m_EditorClassIdentifier: 
   itemId: Rune_Pink
-  displayName: "\uB8EC"
+  displayName: "\uBD84\uD64D \uB8EC"
   icon: {fileID: 21300000, guid: 8bba9ab31695c7f469600aa58cd31ba8, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: 17a860742c5464d42a455203e87b10bb, type: 3}
   tint: {r: 1, g: 0.35, b: 0.8, a: 1}
@@ -21,3 +21,5 @@ MonoBehaviour:
   category: 0
   tool: {fileID: 0}
   fitsAnyRocketSlot: 0
+  holdOffset: {x: 0, y: 0, z: 0}
+  holdEuler: {x: 0, y: 0, z: 0}

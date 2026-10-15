@@ -56,6 +56,11 @@ public class EscapeRecipeSO : ScriptableObject
     [SerializeField] private ItemSO spyToolbox;
     [SerializeField, Min(0)] private int extraToolboxesPerSpy = 1;
 
+    [Header("Request1009Plan.md §25 — 사분면 건물 4곳")]
+    [Tooltip("건물 4곳에 넣는 재료 4종. 판마다 어느 건물에 어떤 재료를 넣을지 섞는다. 위의 칸 묶음·개수 모드·로켓 칸은 예전 규칙(쓰지 않음, 에셋 호환).")]
+    [SerializeField] private ItemSO[] buildingMaterials = new ItemSO[0];
+    public ItemSO[] BuildingMaterials => buildingMaterials;
+
     public string MapName => mapName;
     public EscapeExitKind ExitKind => exitKind;
     public RecipeMode Mode => mode;
@@ -80,6 +85,8 @@ public class EscapeRecipeSO : ScriptableObject
     }
 
 #if UNITY_EDITOR
+    public void EditorSetBuildingMaterials(ItemSO[] materials) => buildingMaterials = materials ?? new ItemSO[0];
+
     public void EditorSetup(string map, EscapeExitKind exit, RecipeMode recipeMode, SlotGroup[] slotGroups, string counterName,
         ItemSO[] counters, RocketSlot[] rocket, ItemSO toolbox, int toolboxesPerSpy, bool fillsCapacity = false)
     {

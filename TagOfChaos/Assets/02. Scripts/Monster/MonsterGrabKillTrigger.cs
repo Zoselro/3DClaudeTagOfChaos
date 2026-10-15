@@ -118,7 +118,9 @@ public class MonsterGrabKillTrigger : MonoBehaviour
     private static bool IsCatchable(HideOrSeekPlayer cookie)
     {
         PhotonView view = cookie.View;
-        return view != null && view.Owner != null && !RoomState.IsBroken(view.Owner) && !cookie.IsBroken;
+        if (view == null || view.Owner == null || RoomState.IsBroken(view.Owner) || cookie.IsBroken) return false;
+        // 감옥 풍선 안의 쿠키는 잡지 못한다(Request1009Plan.md §25.5 J). 헬리콥터 모자로 높이 오른 쿠키는 잡기 높이 검사가 막는다.
+        return !cookie.TryGetComponent(out StunReceiver stun) || !stun.IsJailed;
     }
 
     // 상호작용 키로 조준 대상을 잡는다. 잡기를 시작했으면 true(CharacterInteractor가 문 등보다 먼저 호출, F1-1).

@@ -61,9 +61,9 @@ public static class RoomState
     public static bool IsLocalSpy() => PhotonNetwork.LocalPlayer != null && IsSpy(PhotonNetwork.LocalPlayer.ActorNumber);
 
 
-    // 방장이 정한 제한시간·타임어택 시간(초). 방 설정이 없으면(오프라인 개발 방 등) 기본값.
-    public static int TimeLimitSeconds() =>
-        TryGetInt(NetKeys.RoomTimeLimit, out int seconds) && seconds > 0 ? seconds : Mathf.RoundToInt(GameSettings.Current.SurvivalDuration);
+    // 방장이 정한 스파이 수(0~1)·마녀 타이머(초). 방 설정이 없으면(오프라인 개발 방 등) 기본값.
+    public static int SpyCount() =>
+        TryGetInt(NetKeys.RoomSpyCount, out int spies) ? Mathf.Max(0, spies) : GameSettings.Current.DefaultSpies;
 
     public static int TimeAttackSeconds() =>
         TryGetInt(NetKeys.TimeAttackDuration, out int seconds) && seconds > 0 ? seconds : GameSettings.Current.DefaultTimeAttackMinutes * 60;

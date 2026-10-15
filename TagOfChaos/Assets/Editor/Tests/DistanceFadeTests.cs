@@ -188,7 +188,7 @@ public class DistanceFadeTests
         var ok = new ChaseContext { Phase = GamePhase.Hunt, LocalHasCookie = true };
         Assert.IsTrue(ChaseIntensity.CanListen(ok));
         Assert.IsTrue(ChaseIntensity.CanListen(With(ok, c => c.Phase = GamePhase.TimeAttack)));
-        Assert.IsFalse(ChaseIntensity.CanListen(With(ok, c => c.Phase = GamePhase.Paint)), "Not while disguising.");
+        Assert.IsFalse(ChaseIntensity.CanListen(With(ok, c => c.Phase = GamePhase.Prepare)), "Not while preparing.");
         Assert.IsFalse(ChaseIntensity.CanListen(With(ok, c => c.Phase = GamePhase.Lobby)));
         Assert.IsFalse(ChaseIntensity.CanListen(With(ok, c => c.Phase = GamePhase.Result)));
         Assert.IsFalse(ChaseIntensity.CanListen(With(ok, c => c.LocalIsMonster = true)), "The monster never hears it.");

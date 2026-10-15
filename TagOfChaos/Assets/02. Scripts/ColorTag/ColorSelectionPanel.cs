@@ -25,7 +25,7 @@ public class ColorSelectionPanel : MonoBehaviour
 
     private void Update()
     {
-        bool isPaintPhaseActive = GamePhaseState.TryGetActiveEndTime(GamePhase.Paint, out double endTime) && PhotonNetwork.Time < endTime;
+        bool isPaintPhaseActive = GamePhaseState.IsPaintActive; // 색칠 단계는 없앴다(Request1009Plan.md §25) — 늘 꺼짐
         SetVisible(isPaintPhaseActive);
         if (!isPaintPhaseActive) return;
 

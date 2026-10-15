@@ -21,3 +21,5 @@ MonoBehaviour:
   category: 1
   tool: {fileID: 11400000, guid: d3df0b86ea74cb641949ab9311373b23, type: 2}
   fitsAnyRocketSlot: 0
+  holdOffset: {x: 0, y: 0, z: 0}
+  holdEuler: {x: 0, y: 0, z: 0}

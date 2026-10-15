@@ -6,17 +6,23 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 // 맵 씬마다 하나(EscapeSetup 루트, EscapeMapSetup 에디터 도구가 배치). 탈출 상태의 사본을 들고 화면(상자·바닥 아이템·
-// 장치·로켓·HUD)을 맞추고, 로컬 요청을 방장에게 보낸다. 방장이면 EscapeAuthority로 요청을 처리한다(EscapePlan.md §5.2).
-// 이 컴포넌트가 없는 씬(GameScene 등)은 예전 규칙(생존)으로 돈다.
+// 건물·탈출구·로켓·무지개 상자·AI·폭탄·HUD)을 맞추고, 로컬 요청을 방장에게 보낸다. 방장이면 EscapeAuthority로 요청을 처리한다(EscapePlan.md §5.2).
+// 개편(Request1009Plan.md §25): 사분면 건물 4곳 + 동서남북 탈출구 4개 + 후보 자리(로켓·무지개 상자) — 테스트 맵 이름 규칙(§25.5 O)을 쓴다.
 public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
 {
     public static EscapeManager Instance { get; private set; }
 
     [SerializeField] private Transform[] chestAnchors = new Transform[0];
-    [SerializeField] private EscapeDevice device;
+    [SerializeField] private QuadrantBuilding[] buildings = new QuadrantBuilding[0];
+    [SerializeField] private EscapeGate[] exits = new EscapeGate[0];
     [SerializeField] private SpyRocket rocket;
+    [SerializeField] private Transform[] rocketAnchors = new Transform[0];
+    [SerializeField] private Transform[] rainbowAnchors = new Transform[0];
+    [SerializeField] private RainbowChest rainbowChest;
+    [SerializeField] private Transform monsterRoom;
+    [SerializeField] private float monsterRoomHalfSize = 13f;
     [SerializeField] private WitchPresenter witch;
-    [Tooltip("비우면 씬 이름(Game_<Map>)으로 카탈로그에서 찾는다.")]
+    [Tooltip("비우면 씬 이름(Game_<Map>·Test_<Map>)으로 카탈로그에서 찾는다.")]
     [SerializeField] private EscapeRecipeSO recipeOverride;
 
     private EscapeCatalogSO catalog;
@@ -26,64 +32,79 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     private readonly List<GroundItemView> groundPool = new List<GroundItemView>();
     private readonly HashSet<int> brokenReported = new HashSet<int>();
     private bool initRequested;
+    private Rect mapRect;
+    private Transform firstEscapeFocus;
 
     public EscapeState State { get; private set; }
     public EscapeCatalogSO Catalog => catalog;
     public EscapeRecipeSO Recipe => recipe;
-    public EscapeDevice Device => device;
     public SpyRocket Rocket => rocket;
     public WitchPresenter Witch => witch;
+    public Rect MapRect => mapRect;
     public event System.Action StateChanged;
 
-    public Vector3 DevicePosition => device != null ? device.transform.position : transform.position;
-
-    // 장치까지의 수평 거리: 장치 중심과 칸 자리(Slot_nn) 중 가장 가까운 곳(큰 장치는 둘레에 칸이 있다).
-    public float DistanceToDevice(Vector3 p) => device != null ? device.DistanceTo(p) : Flat(p - transform.position);
-
-    private static float Flat(Vector3 v) => new Vector2(v.x, v.z).magnitude;
-
-    // 맵별 탈출 연출(EscapeVisualPlan.md §4). 연출이 없으면(임시 도형) 완성 즉시 탈 수 있고 출발 연출도 없다.
-    public EscapeSequence Sequence => device != null ? device.Sequence : null;
-    public Vector3 BoardPosition => Sequence != null ? Sequence.BoardPoint.position : DevicePosition;
-    public float BoardReadySeconds => Sequence != null ? Sequence.BoardReadySeconds : 0f;
-    public float DepartureSeconds => Sequence != null ? Sequence.DepartureSeconds : 0f;
-
     // "탈출했나"의 단일 기준은 방장이 쓴 EscapeState다(AuditFixPlan.md F-07·S-05). 다른 도메인은 이 두 함수만 부른다.
-    // 맵을 떠남 = 탈것에 탔거나(기다림·출발) 탈출했거나 스파이 로켓에 탄 쿠키 — 몸 숨김·이동 잠금·관전 대상에서 빼기.
     public static bool HasLeftMap(int actor) => Instance != null && Instance.State != null && Instance.State.HasLeftMap(actor);
-    // 탈출 = 탈것이 출발해 탈출했거나 로켓에 탔다(결과 화면·징글·승패 판정).
     public static bool HasEscaped(int actor) => Instance != null && Instance.State != null && Instance.State.HasEscaped(actor);
-
-    // 탈것에 타서 출발을 기다리는 쿠키인지(관전 카메라를 탈것 쪽으로).
-
-    public static bool IsWaiting(int actor) => Instance != null && Instance.State != null && Instance.State.Waiting.Contains(actor) && !Instance.State.Escaped.Contains(actor);
-
-    // 출발 연출이 아직 진행 중인지(게임 끝 판정을 미룬다).
-    public bool IsDeparting(double now) =>
-        (State != null && State.DepartedAt > 0 && now < State.DepartedAt + DepartureSeconds) || IsRocketLaunchingWithoutTimeAttack(now);
 
     // 쿠키가 모두 끝나 타임어택 없이 스파이 로켓만 떠나는 경우(D10): 발사 연출이 보이도록 잠시 끝 판정을 미룬다.
     public const float RocketLaunchShowSeconds = 6f;
-    private static bool IsRocketLaunchingWithoutTimeAttack(double now) =>
+    public bool IsDeparting(double now) =>
         RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double at) && !RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out _)
         && now < at + RocketLaunchShowSeconds;
-    public Vector3 RocketPosition => rocket != null ? rocket.transform.position : transform.position;
-    public Vector3 ChestPosition(int anchor) => anchor >= 0 && anchor < chestAnchors.Length ? chestAnchors[anchor].position : transform.position;
-    public Vector3 ChestFront(int anchor) =>
-        anchor >= 0 && anchor < chestAnchors.Length ? chestAnchors[anchor].position + chestAnchors[anchor].forward * 1.2f : transform.position;
 
     public static bool IsActive => Instance != null && Instance.isActiveAndEnabled;
 
-    // 변장(색칠) 시간에는 상자 열기·줍기·도구·설치·로켓·탈출을 모두 막는다(EscapeVisualPlan.md §1.3).
-    public static bool ActionsAllowed => GamePhaseState.Current != GamePhase.Paint;
+    // 색칠(변장) 단계가 없어져(§25.5 C) 판이 시작되면 바로 상자·도구·수리를 쓸 수 있다. 결과가 나온 뒤에는 막는다.
+    public static bool ActionsAllowed => GamePhaseState.Current != GamePhase.Result;
 
-    // 상자는 변장 시간에는 숨긴다(Request1009Plan.md §16.1). 각 화면이 단계로 계산 — 네트워크 변경 없음.
-    public static bool ChestsVisibleIn(GamePhase phase) => phase != GamePhase.Paint;
+    // 상자는 판이 시작되면 늘 보인다.
+    public static bool ChestsVisibleIn(GamePhase phase) => phase != GamePhase.Lobby;
     private const float PhaseCheckSeconds = 0.2f;
-    private bool? chestsShown; // null = 아직 그린 적 없음(판 중간 입장은 연출 없이 바로 보임)
+    private bool? chestsShown;
     private float nextPhaseCheck;
-    private const float TrackSeconds = 0.2f; // 위치 기록 간격(F-10 — 매 프레임 → 간격)
+    private const float TrackSeconds = 0.2f; // 위치 기록 간격(F-10)
     private float nextTrack;
+
+    // ---------------- scene geometry ----------------
+
+    public int ExitCount => exits.Length;
+    public int RocketAnchorCount => rocketAnchors.Length;
+    public int RainbowAnchorCount => rainbowAnchors.Length;
+    public QuadrantBuilding BuildingView(int b) => b >= 0 && b < buildings.Length ? buildings[b] : null;
+    public EscapeGate ExitView(int k) => k >= 0 && k < exits.Length ? exits[k] : null;
+
+    public Vector3 ChestPosition(int anchor) => anchor >= 0 && anchor < chestAnchors.Length ? chestAnchors[anchor].position : transform.position;
+    public Vector3 ChestFront(int anchor) =>
+        anchor >= 0 && anchor < chestAnchors.Length ? chestAnchors[anchor].position + chestAnchors[anchor].forward * 1.2f : transform.position;
+    public Vector3 BuildingRepairPoint(int b) => b >= 0 && b < buildings.Length && buildings[b] != null ? buildings[b].RepairPoint : transform.position;
+    public Vector3 ExitPosition(int k) => k >= 0 && k < exits.Length && exits[k] != null ? exits[k].TriggerPoint : transform.position;
+    public Vector3 RainbowPosition(int anchor) => anchor >= 0 && anchor < rainbowAnchors.Length ? rainbowAnchors[anchor].position : transform.position;
+
+    // 이번 판 로켓 자리(상태가 정한 후보). 정하기 전이면 로켓이 놓인 곳.
+    public Vector3 RocketPosition
+    {
+        get
+        {
+            int a = State != null ? State.RocketAnchor : -1;
+            if (a >= 0 && a < rocketAnchors.Length) return rocketAnchors[a].position;
+            return rocket != null ? rocket.transform.position : transform.position;
+        }
+    }
+
+    // 마녀 연출 앞 샷 대상(첫 탈출 지점, §25.5 G). 값이 없으면 null.
+    public Transform FirstEscapeFocus
+    {
+        get
+        {
+            if (!RoomState.IsInRoom() || !PhotonNetwork.CurrentRoom.CustomProperties.TryGetValue(NetKeys.FirstEscapePoint, out object raw) || !(raw is Vector3 p))
+                return null;
+            if (firstEscapeFocus == null) firstEscapeFocus = new GameObject("FirstEscapeFocus").transform;
+            firstEscapeFocus.SetParent(transform, false);
+            firstEscapeFocus.position = p;
+            return firstEscapeFocus;
+        }
+    }
 
     // ---------------- lifecycle ----------------
 
@@ -91,7 +112,7 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         Instance = this;
         catalog = EscapeCatalogSO.Current;
-        string map = SceneManager.GetActiveScene().name.Replace("Game_", string.Empty);
+        string map = SceneNames.MapOf(SceneManager.GetActiveScene().name);
         recipe = recipeOverride != null ? recipeOverride : catalog != null ? catalog.RecipeFor(map) : null;
         if (catalog == null || recipe == null)
         {
@@ -100,6 +121,7 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
             return;
         }
 
+        if (!WitchPath.TryGetGroundRect(gameObject.scene, out mapRect)) mapRect = new Rect(-70f, -70f, 140f, 140f);
         chests = new MaterialChest[chestAnchors.Length];
         for (int i = 0; i < chestAnchors.Length; i++)
         {
@@ -108,6 +130,9 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
             if (chests[i] == null) chests[i] = chestAnchors[i].gameObject.AddComponent<MaterialChest>();
             chests[i].Bind(this, i);
         }
+        for (int i = 0; i < buildings.Length; i++) if (buildings[i] != null) buildings[i].Bind(this, i);
+        for (int i = 0; i < exits.Length; i++) if (exits[i] != null) exits[i].Bind(this, i);
+        if (rainbowChest != null) rainbowChest.Bind(this);
         authority = new EscapeAuthority(this, catalog, recipe);
     }
 
@@ -120,6 +145,9 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         EscapeHud.Create(this);
         gameObject.AddComponent<EscapeAudioPresenter>().Init(this); // 탈출 모드 소리(상태 차이, SoundPlan.md S5)
+        gameObject.AddComponent<DecoyPresenter>().Init(this);       // 맵의 AI(§25.5 L)
+        gameObject.AddComponent<NoiseBombPresenter>().Init(this);   // 괴물 소음폭탄(§25.5 K)
+        VoiceNet.SendLocalVoice();                                  // 대기실에서 녹음한 목소리를 방에 보낸다(§25.3 Q6)
         ReadStateFromRoom();
     }
 
@@ -148,14 +176,13 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
             authority.Initialize(chestAnchors.Length);
         }
         TrackBrokenPlayers(asMaster: true);
+        authority.Tick();
     }
 
-    // 판 시작 신호(PaintPhaseEndTime)가 있고 괴물이 정해졌으면 시작한다. 오프라인 개발 방은 바로 시작한다.
+    // 판 시작 신호(PrepareEndTime)가 있고 괴물이 정해졌으면 시작한다. 오프라인 개발 방은 바로 시작한다.
     private static bool CanInitialize() =>
-        PhotonNetwork.OfflineMode || (RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out _) && RoomState.HasMonster());
+        PhotonNetwork.OfflineMode || (RoomState.TryGetDouble(NetKeys.PrepareEndTime, out _) && RoomState.HasMonster());
 
-    // 잡힌 사람을 한 번씩 기록한다. 방장은 새로 잡힌 사람마다 스파이 잡힘 알림과 출발·로켓 조건을 다시 본다.
-    // 방장이 아닐 때 기록해 둔 사람은 방장이 된 뒤 다시 알리지 않는다(예전에는 새 방장이 이미 잡힌 스파이를 다시 알렸다).
     private void TrackBrokenPlayers(bool asMaster)
     {
         foreach (Player p in RoomState.Players)
@@ -163,6 +190,12 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
             if (!RoomState.IsBroken(p) || !brokenReported.Add(p.ActorNumber)) continue;
             if (asMaster) authority.OnPlayerBroken(p);
         }
+    }
+
+    // 마녀 타이머 시작(방장 — 안전 상한, §25.3 Q4).
+    public void StartWitchTimer(Vector3 point)
+    {
+        if (PhotonNetwork.IsMasterClient && authority != null) authority.StartWitchTimer(point);
     }
 
     // ---------------- state sync ----------------
@@ -189,7 +222,7 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         if (!PhotonNetwork.IsMasterClient || State == null) return;
         authority.Adopt(State); // 새 방장이 이어받는다
-        authority.Reevaluate(); // 이전 방장이 처리하기 전에 나갔을 수 있는 출발·로켓 조건을 한 번 다시 본다(알림은 다시 보내지 않음)
+        authority.Reevaluate();
     }
 
     public override void OnPlayerLeftRoom(Player otherPlayer)
@@ -235,8 +268,15 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
         }
         for (; g < groundPool.Count; g++) groundPool[g].Hide();
 
-        if (device != null) device.Refresh(this);
-        if (rocket != null) rocket.Refresh(this);
+        foreach (QuadrantBuilding b in buildings) if (b != null) b.Refresh();
+        foreach (EscapeGate e in exits) if (e != null) e.Refresh();
+        if (rocket != null)
+        {
+            if (State.RocketAnchor >= 0 && State.RocketAnchor < rocketAnchors.Length && !RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out _))
+                rocket.PlaceAt(rocketAnchors[State.RocketAnchor]);
+            rocket.Refresh(this);
+        }
+        if (rainbowChest != null) rainbowChest.Refresh();
     }
 
     // ---------------- requests ----------------
@@ -279,11 +319,13 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
                 if (!SentByMaster(e)) return;
                 ToolHitReceiver.Handle(e.CustomData);
                 break;
+            case NetEventCodes.VoiceClip:
+                VoiceNet.Receive(e.Sender, e.CustomData);
+                break;
         }
     }
 
     // 알림·도구 명중은 방장만 보낸다 — 다른 클라이언트가 직접 보낸 것은 무시한다(research.md R4.10-8).
-    // 오프라인에서는 PUN이 보낸 사람을 1번으로 채운다.
     private static bool SentByMaster(EventData e)
     {
         if (PhotonNetwork.OfflineMode) return true;
@@ -298,68 +340,81 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     public ItemSO ItemDef(int index) =>
         State != null && index >= 0 && index < State.Items.Count ? catalog.Find(State.Items[index].Id) : null;
 
-    // 장치 옆 바닥(Request1009Plan.md §22.6 M4·B5): 이번 판에 쓰는 장치 칸 자리 하나에서 장치 중심 반대쪽으로 조금씩 나가며, 그 자리 주변
-    // 바닥 높이(둘레 5 m 바닥 높이의 중앙값 ±DropFloorTolerance)에 닿는 첫 자리에 놓는다 — 제단 받침·차체 위가 아니라 쿠키가 서는 바닥.
-    // (장치 오브젝트의 위치는 맵에 따라 바닥이 아니다 — 진저브레드는 지하 제단과 떨어진 맵 원점.)
-    // 칸 자리는 모두 쿠키가 닿는 곳(EscapeReachabilityTests)이라 그 옆 바닥도 닿는다. 상태가 아직 없을 수 있어(판 초기화 중) 칸 목록을 받는다.
-    public Vector3 DeviceDropPoint(List<EscapeState.Slot> slots, int roll)
+    // 술래방 안인지(수평). 호박마차·AI는 술래방에 들어가지 않는다.
+    public bool InMonsterRoom(Vector3 p)
     {
-        Vector3 center = DevicePosition;
-        Vector3 anchor = center;
-        bool found = false;
-        if (device != null && slots != null && slots.Count > 0)
-            found = device.TryAnchorPosition(slots[(roll & int.MaxValue) % slots.Count].Anchor, out anchor);
-        Vector3 dir = anchor - center;
-        dir.y = 0f;
-        if (!found || dir.sqrMagnitude < 0.0001f)
-        {
-            dir = Quaternion.Euler(0f, (roll & 0xFFFF) / 65536f * 360f, 0f) * Vector3.forward;
-            anchor = center;
-        }
-        dir.Normalize();
-        float floor = FloorHeightAround(anchor);
-        for (int i = 1; i <= DropSteps; i++)
-        {
-            Vector3 p = SnapToGround(anchor + dir * (DropStep * i));
-            if (Mathf.Abs(p.y - floor) <= DropFloorTolerance) return p;
-        }
-        return SnapToGround(anchor + dir * FallbackDropRadius);
+        Vector3 c = monsterRoom != null ? monsterRoom.position : Vector3.zero;
+        return Mathf.Abs(p.x - c.x) < monsterRoomHalfSize && Mathf.Abs(p.z - c.z) < monsterRoomHalfSize;
     }
 
-    // 둘레 DropFloorRadius m 바닥 높이의 중앙값 — 장치 몸체 위가 아닌, 쿠키가 걸어 다니는 바닥 높이.
-    private float FloorHeightAround(Vector3 p)
+    // 맵 경계(Ground 사각형) 밖으로 margin m 넘게 나갔는지 — 헬리콥터 모자 탈출(§25.5 H).
+    public bool IsOutsideMap(Vector3 p, float margin) =>
+        p.x < mapRect.xMin - margin || p.x > mapRect.xMax + margin || p.z < mapRect.yMin - margin || p.z > mapRect.yMax + margin;
+
+    private const float CapsuleRadius = 0.45f, CapsuleHeight = 1.9f, MapInset = 4f;
+
+    // 맵 안 무작위 지점(호박마차·AI 배치, §25.3 Q7): 바닥이 있고, 술래방 밖이고, 캐릭터가 서도 아무것에도 끼지 않는 곳. 못 찾으면 false.
+    public bool TryRandomMapPoint(System.Random random, out Vector3 point)
     {
-        var heights = new List<float>(DropFloorSamples);
-        for (int i = 0; i < DropFloorSamples; i++)
-            heights.Add(SnapToGround(p + Quaternion.Euler(0f, i * 360f / DropFloorSamples, 0f) * Vector3.forward * DropFloorRadius).y);
-        heights.Sort();
-        return heights[heights.Count / 2];
+        for (int i = 0; i < 30; i++)
+        {
+            float x = Mathf.Lerp(mapRect.xMin + MapInset, mapRect.xMax - MapInset, (float)random.NextDouble());
+            float z = Mathf.Lerp(mapRect.yMin + MapInset, mapRect.yMax - MapInset, (float)random.NextDouble());
+            point = SnapToGround(new Vector3(x, 30f, z));
+            if (point.y > 20f || InMonsterRoom(point)) continue;
+            if (IsClearForCharacter(point)) return true;
+        }
+        point = default;
+        return false;
     }
 
-    private const float DropStep = 0.8f;
-    private const int DropSteps = 4;
-    private const float DropFloorTolerance = 0.6f;
-    private const float DropFloorRadius = 5f;
-    private const int DropFloorSamples = 12;
-    private const float FallbackDropRadius = 2.5f;
+    // 이동할 곳이 맞는지(방장 검사): 맵 안, 술래방 밖, 캐릭터가 끼지 않는다.
+    public bool IsValidTeleport(Vector3 p) => !IsOutsideMap(p, -1f) && !InMonsterRoom(p) && IsClearForCharacter(p);
+
+    private static bool IsClearForCharacter(Vector3 feet)
+    {
+        Vector3 bottom = feet + Vector3.up * (CapsuleRadius + 0.05f);
+        Vector3 top = feet + Vector3.up * (CapsuleHeight - CapsuleRadius);
+        foreach (Collider c in Physics.OverlapCapsule(bottom, top, CapsuleRadius, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+            if (c.GetComponentInParent<IGameCharacter>() == null) return false;
+        return true;
+    }
+
+    // 어떤 자리 둘레 바닥(상자가 모자랄 때 아이템을 놓는 곳).
+    public Vector3 DropPointNear(Vector3 center, int roll)
+    {
+        Vector3 dir = Quaternion.Euler(0f, (roll & 0xFFFF) / 65536f * 360f, 0f) * Vector3.forward;
+        for (int i = 1; i <= 4; i++)
+        {
+            Vector3 p = SnapToGround(center + dir * (2f * i) + Vector3.up * 2f);
+            if (IsClearForCharacter(p)) return p;
+        }
+        return SnapToGround(center + dir * 2.5f + Vector3.up * 2f);
+    }
 
     public Vector3 SnapToGround(Vector3 pos)
     {
         float best = float.NegativeInfinity;
-        foreach (RaycastHit h in Physics.RaycastAll(pos + Vector3.up * 3f, Vector3.down, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+        foreach (RaycastHit h in Physics.RaycastAll(pos + Vector3.up * 3f, Vector3.down, 60f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
         {
-            if (h.collider.GetComponentInParent<IGameCharacter>() != null) continue;
+            if (h.collider.GetComponentInParent<IGameCharacter>() != null || h.collider.GetComponentInParent<DecoyView>() != null) continue; // 캐릭터·AI 몸 위에 서지 않는다
             if (h.point.y > best && h.point.y <= pos.y + 1.5f) best = h.point.y;
         }
         return float.IsNegativeInfinity(best) ? pos : new Vector3(pos.x, best, pos.z);
     }
 
 #if UNITY_EDITOR
-    public void EditorBind(Transform[] anchors, EscapeDevice escapeDevice, SpyRocket spyRocket, WitchPresenter witchPresenter)
+    public void EditorBind(Transform[] chestSlots, QuadrantBuilding[] buildingViews, EscapeGate[] exitViews, SpyRocket spyRocket,
+        Transform[] rocketSpots, Transform[] rainbowSpots, RainbowChest rainbow, Transform room, WitchPresenter witchPresenter)
     {
-        chestAnchors = anchors;
-        device = escapeDevice;
+        chestAnchors = chestSlots;
+        buildings = buildingViews;
+        exits = exitViews;
         rocket = spyRocket;
+        rocketAnchors = rocketSpots;
+        rainbowAnchors = rainbowSpots;
+        rainbowChest = rainbow;
+        monsterRoom = room;
         witch = witchPresenter;
     }
 #endif

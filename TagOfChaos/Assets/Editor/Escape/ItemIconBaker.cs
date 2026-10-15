@@ -36,9 +36,12 @@ public static class ItemIconBaker
         foreach (string guid in AssetDatabase.FindAssets("t:ItemSO"))
         {
             var item = AssetDatabase.LoadAssetAtPath<ItemSO>(AssetDatabase.GUIDToAssetPath(guid));
-            if (item == null || item.ModelPrefab == null || string.IsNullOrEmpty(item.ItemId)) continue;
+            if (item == null || string.IsNullOrEmpty(item.ItemId)) continue;
             string path = IconPath(item);
-            File.WriteAllBytes(path, Render(item.ModelPrefab).EncodeToPNG());
+            // 모델이 아직 없는 새 아이템(Request1009Plan.md §25 G17)은 게임에서 보이는 색 도형으로 굽는다 — 모델이 오면 다시 굽는다
+            GameObject placeholder = item.ModelPrefab == null ? EscapeVisuals.CreateItemModel(item, null) : null;
+            try { File.WriteAllBytes(path, Render(placeholder != null ? placeholder : item.ModelPrefab).EncodeToPNG()); }
+            finally { if (placeholder != null) Object.DestroyImmediate(placeholder); }
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
             ConfigureImporter(path);
             var so = new SerializedObject(item);

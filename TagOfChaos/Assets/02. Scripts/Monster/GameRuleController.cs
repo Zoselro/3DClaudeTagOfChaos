@@ -4,8 +4,8 @@ using Photon.Pun;
 using Photon.Realtime;
 using UnityEngine;
 
-// 승리 판정(마스터 전용, GameRule.md §8.1). 쿠키 전원 파괴 → 괴물 승, GameEndTime 경과 →
-// 쿠키 승. 괴물 수와 무관하게 쿠키 쪽만 검사하면 되므로 다중 괴물 확장에도 그대로 동작한다.
+// 승리 판정(마스터 전용, GameRule.md §8.1). 탈출 모드 맵은 EscapeRules(Request1009Plan.md §25.5 D — 게임 제한시간 없음),
+// 탈출 모드가 없는 씬은 쿠키 전원 파괴 → 괴물 승. 괴물 수와 무관하게 쿠키 쪽만 검사하면 되므로 다중 괴물 확장에도 그대로 동작한다.
 // EscapeEnded: 탈출 모드가 끝났다 — 이유는 NetKeys.EscapeEndReason, 사람마다 결과는 Player Props로 계산한다(EscapePlan.md §5.8).
 public enum GameResult { CookiesWin, MonsterWins, EscapeEnded }
 
@@ -26,21 +26,12 @@ public class GameRuleController : MonoBehaviourPunCallbacks
         GamePhase phase = GamePhaseState.Current;
         if (EscapeManager.IsActive)
         {
-            if (phase == GamePhase.Hunt || phase == GamePhase.TimeAttack) UpdateEscape(monsters, phase == GamePhase.TimeAttack);
+            if (phase == GamePhase.Prepare || phase == GamePhase.Hunt || phase == GamePhase.TimeAttack) UpdateEscape(monsters, phase == GamePhase.TimeAttack);
             return;
         }
-        if (phase != GamePhase.Hunt) return; // 괴물 합류 전이거나 이미 판정됨
+        if (phase != GamePhase.Hunt) return; // 준비 중이거나 이미 판정됨
 
-        if (AllCookiesBroken(monsters))
-        {
-            Finish(GameResult.MonsterWins);
-            return;
-        }
-
-        if (RoomState.TryGetDouble(NetKeys.GameEndTime, out double endTime) && PhotonNetwork.Time >= endTime)
-        {
-            Finish(GameResult.CookiesWin);
-        }
+        if (AllCookiesBroken(monsters)) Finish(GameResult.MonsterWins);
     }
 
     // 탈출 모드 판정(EscapePlan.md §1.2). 규칙은 EscapeRules(순수 계산)에 있다.
@@ -77,23 +68,20 @@ public class GameRuleController : MonoBehaviourPunCallbacks
             witchDeathsWritten = true;
             WriteWitchDeaths(strikeMode, state, monsters);
         }
-        bool hasEnd = RoomState.TryGetDouble(NetKeys.GameEndTime, out double gameEnd);
         RoomState.TryGetDouble(NetKeys.TimeAttackEndTime, out double timeAttackEnd);
-        // 쿠키가 모두 탈출한 뒤 남은 스파이·괴물을 마녀가 없애러 왔다(Request1009Plan.md §19.4)
-        double appearAt = 0;
-        bool purge = WitchTimeline.Mode == WitchMode.Purge && WitchTimeline.TryGetAppearAt(out appearAt);
-        double purgeStrikeAt = purge ? WitchTimeline.PurgeStrikeAt(appearAt) : 0;
 
-        switch (EscapeRules.Evaluate(escapePlayers, timeAttack, PhotonNetwork.Time, gameEnd, hasEnd, timeAttackEnd,
-                     sinceStrike, EscapeManager.Instance.IsDeparting(PhotonNetwork.Time), purge, purgeStrikeAt))
+        // 안전 상한(§25.3 Q4): 아무도 탈출하지 못한 채 오래 지나면 마녀 타이머를 강제로 시작한다(맵 가운데를 앞 샷으로)
+        if (!timeAttack && RoomState.TryGetDouble(NetKeys.PrepareEndTime, out double prepareEnd)
+            && EscapeRules.ShouldForceWitchTimer(PhotonNetwork.Time, prepareEnd, GameSettings.Current.SafetyCapSeconds, false))
+            EscapeManager.Instance.StartWitchTimer(Vector3.zero);
+
+        switch (EscapeRules.Evaluate(escapePlayers, timeAttack, PhotonNetwork.Time, timeAttackEnd, sinceStrike, EscapeManager.Instance.IsDeparting(PhotonNetwork.Time)))
         {
             case EscapeRules.Decision.StrikeWitch:
                 if (!witchRequested)
                 {
                     witchRequested = true;
-                    // 내리친 이유를 값으로 남긴다 — 처단(2)이면 일반 쿠키는 죽지 않는다(EscapeCharacterState)
-                    int strike = (int)(purge ? WitchMode.Purge : WitchMode.TimeAttack);
-                    AuthorityProps.SetRoom(new Hashtable { { NetKeys.WitchStrike, strike }, { NetKeys.WitchStrikeAt, PhotonNetwork.Time } });
+                    AuthorityProps.SetRoom(new Hashtable { { NetKeys.WitchStrike, (int)WitchMode.TimeAttack }, { NetKeys.WitchStrikeAt, PhotonNetwork.Time } });
                 }
                 break;
             case EscapeRules.Decision.EndAllResolved: FinishEscape(EscapeEndReason.AllResolved); break;

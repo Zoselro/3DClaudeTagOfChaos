@@ -13,9 +13,15 @@ MonoBehaviour:
   m_Name: SkinCatalog
   m_EditorClassIdentifier: 
   skins:
-  - label: A
+  - label: "\uB9C8\uCE74\uB871 \uD560\uC544\uBC84\uC9C0"
     material: {fileID: 2100000, guid: 1268e9186102f9742b560cfaae4bf3f7, type: 2}
-  - label: B
+    modelPrefab: {fileID: 0}
+  - label: "\uCFE0\uD0A4\uC2E0\uC0AC"
     material: {fileID: 2100000, guid: a8e0827426930614b81f7af2d630a730, type: 2}
-  - label: C
+    modelPrefab: {fileID: 0}
+  - label: "\uC5D0\uC774\uB4DC\uACF5\uC8FC"
     material: {fileID: 2100000, guid: b76e273c63878c04d9685c6e6948b4cf, type: 2}
+    modelPrefab: {fileID: 0}
+  - label: "\uB9C8\uB4E4\uB80C\uC789\uC5B4"
+    material: {fileID: 2100000, guid: c6d41834f407f4d459b091bca868614b, type: 2}
+    modelPrefab: {fileID: 0}

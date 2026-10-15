@@ -13,14 +13,11 @@ public static class NetKeys
     public const string MonsterRevealTime = "MonsterRevealTime";
     public const string MonsterSelectDeadline = "MonsterSelectDeadline"; // double — 정원이 찬 시각 + 타임아웃(Bug-fix-plan.md §24.3 B1)
 
-    // 페인트 페이즈(GameRule.md §3)
-    public const string PaintPhaseEndTime = "PaintPhaseEndTime";
-    public const string MonsterJoined = "MonsterJoined";
+    // 판 시작 신호 겸 준비 끝 시각(Request1009Plan.md §25.5 C — 예전 색칠 끝 PaintPhaseEndTime·괴물 합류 MonsterJoined를 대신한다)
+    public const string PrepareEndTime = "PrepareEndTime";
+    // 예전 색칠 강제 도포(GameRule.md §3.6) — 색칠 단계는 없앴지만 PlayerPaintCanvas가 아직 읽는다
     public const string ForcedPaintActorNumbers = "ForcedPaintActorNumbers"; // int[]
     public const string ForcedPaintColors = "ForcedPaintColors"; // int[] — ForcedPaintActorNumbers와 인덱스로 1:1 대응
-
-    // 술래잡기 본게임(GameRule.md §6.4)
-    public const string GameEndTime = "GameEndTime";
 
     // 이탈/방장 위임(GameRule.md §7)
     public const string MonsterDepartedAt = "MonsterDepartedAt";
@@ -34,9 +31,9 @@ public static class NetKeys
     // 이번 판 맵 씬 이름(string) — 시작 때 방장이 고르고, 대기실에 남은 괴물도 이 씬으로 간다(GameScenePlan.md §3.2)
     public const string GameMapScene = "GameMapScene";
 
-    // 방 설정(EscapePlan.md §1.7) — 방을 만들 때 방장이 정한다(초, int). 판이 바뀌어도 유지된다.
-    public const string RoomTimeLimit = "RoomTimeLimit";
-    public const string TimeAttackDuration = "TimeAttackDuration";
+    // 방 설정 — 방을 만들 때 방장이 정한다. 판이 바뀌어도 유지된다. 게임 제한시간(RoomTimeLimit)은 없앴다(Request1009Plan.md §25.5 D).
+    public const string RoomSpyCount = "RoomSpyCount";             // int — 스파이 수(0~1)
+    public const string TimeAttackDuration = "TimeAttackDuration"; // int 초 — 마녀 타이머
     // 서버 지역 옮기기(Request1003Plan.md §1) — 방장이 쓰는 "지역|표"(string). 받으면 모두 새 지역의 같은 방으로 옮겨 간다.
     public const string RegionMove = "RegionMove";
     // 옮겨 간 방에 붙는 표(string) — 같은 이름의 남의 방에 잘못 들어가지 않았는지 확인한다.
@@ -53,6 +50,9 @@ public static class NetKeys
     public const string WitchAppearAt = "WitchAppearAt";       // double — 마녀가 나타나기 시작하는 시각(앞 샷: 로켓·탈출구가 끝난 뒤)
     public const string EscapeEndReason = "EscapeEndReason";   // int — EscapeEndReason
     public const string RevealedSpies = "RevealedSpies";       // int[] — 게임이 끝난 뒤 결과 화면용으로 공개
+    public const string FirstEscapeAt = "FirstEscapeAt";       // double — 첫 탈출 시각(마녀 타이머 시작, Request1009Plan.md §25.5 G)
+    public const string FirstEscapePoint = "FirstEscapePoint"; // Vector3 — 첫 탈출 지점(마녀 연출 앞 샷)
+    public const string CharacterAssignments = "CharacterAssignments"; // int[] — [액터, 캐릭터 번호, …] 시작 때 방장이 정한 캐릭터(중복 없음, §25.5 B)
 
     // Player CustomProperties (GameRule.md §4.4 — hitCount는 0 또는 2만 실제로 쓰임, v3.6). HitCount·DeathCause는 방장이 처형·마녀를 확정할 때 쓴다.
     public const string HitCount = "HitCount";
@@ -97,16 +97,14 @@ public static class NetKeys
         new Scope(MonsterActorNumbers, Target.Room, Lifetime.Round),
         new Scope(MonsterRevealTime, Target.Room, Lifetime.Round),
         new Scope(MonsterSelectDeadline, Target.Room, Lifetime.Round),
-        new Scope(PaintPhaseEndTime, Target.Room, Lifetime.Round),
-        new Scope(MonsterJoined, Target.Room, Lifetime.Round),
+        new Scope(PrepareEndTime, Target.Room, Lifetime.Round),
         new Scope(ForcedPaintActorNumbers, Target.Room, Lifetime.Round),
         new Scope(ForcedPaintColors, Target.Room, Lifetime.Round),
-        new Scope(GameEndTime, Target.Room, Lifetime.Round),
         new Scope(MonsterDepartedAt, Target.Room, Lifetime.Round),
         new Scope(GameResult, Target.Room, Lifetime.Round),
         new Scope(DoorStates, Target.Room, Lifetime.Round),
         new Scope(GameMapScene, Target.Room, Lifetime.Round),
-        new Scope(RoomTimeLimit, Target.Room, Lifetime.Session),
+        new Scope(RoomSpyCount, Target.Room, Lifetime.Session),
         new Scope(TimeAttackDuration, Target.Room, Lifetime.Session),
         new Scope(RegionMove, Target.Room, Lifetime.Round),
         new Scope(RegionMoveToken, Target.Room, Lifetime.Session),
@@ -120,6 +118,9 @@ public static class NetKeys
         new Scope(WitchAppearAt, Target.Room, Lifetime.Round),
         new Scope(EscapeEndReason, Target.Room, Lifetime.Round),
         new Scope(RevealedSpies, Target.Room, Lifetime.Round),
+        new Scope(FirstEscapeAt, Target.Room, Lifetime.Round),
+        new Scope(FirstEscapePoint, Target.Room, Lifetime.Round),
+        new Scope(CharacterAssignments, Target.Room, Lifetime.Round),
         new Scope(HitCount, Target.Player, Lifetime.Round),
         new Scope(RegisteredSlotCount, Target.Player, Lifetime.Round, Writer.Self),
         new Scope(SkinIndex, Target.Player, Lifetime.Session, Writer.Self),

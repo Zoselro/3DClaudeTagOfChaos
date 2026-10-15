@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_CandyCell_Orange
   m_EditorClassIdentifier: 
   itemId: CandyCell_Orange
-  displayName: "\uC54C\uC0AC\uD0D5 \uC804\uC9C0"
+  displayName: "\uC8FC\uD669 \uC54C\uC0AC\uD0D5 \uC804\uC9C0"
   icon: {fileID: 21300000, guid: d72e27b609220214daf6720aac1380bf, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: 59bcb97bf2339ad40ab030c7dec317cc, type: 3}
   tint: {r: 1, g: 0.55, b: 0.1, a: 1}
@@ -21,3 +21,5 @@ MonoBehaviour:
   category: 0
   tool: {fileID: 0}
   fitsAnyRocketSlot: 0
+  holdOffset: {x: 0, y: 0, z: 0}
+  holdEuler: {x: 0, y: 0, z: 0}

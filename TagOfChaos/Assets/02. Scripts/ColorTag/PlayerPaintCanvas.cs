@@ -484,7 +484,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
 
     // 지금이 색칠 시간(+늦게 도착 여유)인지. 대기실에서 기다리던 괴물이 보관한 색칠(NetHold)은 받은 시각의 값을 쓴다.
     public static bool InPaintWindowNow() =>
-        IsPaintPhaseActive() || (RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out double paintEnd) && PhotonNetwork.Time < paintEnd + LateStrokeGrace);
+        IsPaintPhaseActive(); // 색칠 단계는 없앴다(Request1009Plan.md §25) — 늦게 온 스탬프 여유도 필요 없다
 
     // 다른 클라이언트가 보낸 스탬프 묶음(또는 지우기) 적용 — 실시간 수신(OnEvent)과 보관했다 꺼낸 것(NetHold) 공용.
     public void ApplyRemote(byte code, int sender, object[] data, bool paintWindow)

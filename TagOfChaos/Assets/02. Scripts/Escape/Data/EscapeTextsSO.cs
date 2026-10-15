@@ -35,6 +35,29 @@ public class EscapeTextsSO : ScriptableObject
     public string deviceComplete = "The escape is open!";
     public string witchComing = "The witch is coming..."; // 마녀가 나타날 때(멀리서 걸어온다 — Request1009Plan.md §23)
 
+    [Header("Request1009Plan.md §25")]
+    public string unknownMaterial = "?";              // 스파이 화면의 재료 이름
+    public string wrongMaterial = "Wrong material";   // 스파이가 맞지 않는 재료로 건물을 누름
+    public string repairing = "Repairing";            // 다른 사람이 수리 중인 건물
+    public string buildingRepaired = "A building is running!";
+    public string exitsOpened = "Two exits are open!";
+    public string rainbowAppeared = "A rainbow chest appeared!";
+    public string rainbowChest = "Rainbow Chest";
+    public string rainbowBroken = "The rainbow chest was destroyed";
+    public string breakChest = "Break";
+    public string noiseBombAlarm = "ALARM! A building was disturbed";
+    public string noiseBombLabel = "Noise Bomb";
+    [Tooltip("{0} = 남은 칸, {1} = 최대")]
+    public string noiseBombCharges = "Bomb {0}/{1}";
+    public string removeBomb = "Remove";
+    public string decoyCatch = "Catch";
+    public string exitLabel = "Exit";
+    public string recordVoice = "Record voice (5s)";
+    public string recording = "Recording...";
+    public string recorded = "Voice recorded";
+    public string noMicrophone = "No microphone";
+    public string witchTimerFormat = "{0:00}:{1:00}";
+
     [Header("Timers")]
     public string timeAttackFormat = "{0:00}:{1:00}";
     [Tooltip("{0} = 탄 쿠키 수, {1} = 살아 있는 쿠키 수(스파이 제외)")]

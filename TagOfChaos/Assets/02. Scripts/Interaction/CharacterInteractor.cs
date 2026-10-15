@@ -22,6 +22,9 @@ public class CharacterInteractor : MonoBehaviour
     private float nextCheckTime;
     private readonly HoldProgress hold = new HoldProgress();
 
+    // 지금 E 아이콘이 떠 있는 사물이 있는지 — 없을 때만 E가 손에 든 헬리콥터 모자를 쓴다(Request1009Plan.md §25.5 H).
+    public static bool HasFocus => instance != null && instance.focused != null;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
@@ -75,10 +78,13 @@ public class CharacterInteractor : MonoBehaviour
         var target = hold.Target as IInteractable;
         bool usable = localCharacter != null && localCharacter.CanInteract && InteractableRegistry.IsAlive(target) && target.CanInteract(localCharacter);
         HoldProgress.Result result = hold.Tick(focused, PlayerInput.InteractHeld, usable, Time.time);
-        prompt?.SetProgress(hold.Progress);
+        float shown = target is IHoldProgressDisplay display ? display.DisplayProgress(hold.Progress) : hold.Progress;
+        prompt?.SetProgress(result == HoldProgress.Result.Holding ? shown : hold.Progress);
+        if (result == HoldProgress.Result.Canceled) (target as IHoldEndListener)?.OnHoldEnded(localCharacter, false);
         if (result != HoldProgress.Result.Completed) return;
         Refresh(); // 완료 순간 상태를 다시 확인(사물이 그 사이 사라졌을 수 있다)
         if (focused == target) target.Interact(localCharacter);
+        else (target as IHoldEndListener)?.OnHoldEnded(localCharacter, false);
     }
 
     private void Refresh()

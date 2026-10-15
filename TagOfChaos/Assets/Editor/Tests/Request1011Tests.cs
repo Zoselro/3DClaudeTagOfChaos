@@ -10,13 +10,12 @@ public class Request1011Tests
 {
     // ---- §16.1 상자 ----
 
-    [TestCase(GamePhase.Lobby, true)]
-    [TestCase(GamePhase.Paint, false)]
-    [TestCase(GamePhase.AwaitingMonster, true)]
+    [TestCase(GamePhase.Lobby, false)]
+    [TestCase(GamePhase.Prepare, true)]
     [TestCase(GamePhase.Hunt, true)]
     [TestCase(GamePhase.TimeAttack, true)]
     [TestCase(GamePhase.Result, true)]
-    public void Chests_HiddenOnlyWhileDisguising(GamePhase phase, bool visible)
+    public void Chests_ShownOnceTheRoundStarts(GamePhase phase, bool visible)
     {
         Assert.AreEqual(visible, EscapeManager.ChestsVisibleIn(phase));
     }
@@ -172,16 +171,6 @@ public class Request1011Tests
         Assert.IsTrue(catalog.TryGet(SoundId.OvenBroken, out SoundCatalogSO.Entry e));
         Assert.Greater(e.clips.Length, 0, "run Tools/TagOfChaos/Audio/Build Catalogs");
         Assert.Greater(e.clips[0].length, 7.9f);
-    }
-
-    // ---- §18.1 포탈 인형 ----
-
-    [Test]
-    public void RuneAltar_NoLongerShowsFloatingDolls()
-    {
-        const BindingFlags all = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-        Assert.IsNull(typeof(RuneAltarSequence).GetMethod("CreateFloater", all));
-        Assert.IsNull(typeof(RuneAltarSequence).GetMethod("UpdateFloating", all));
     }
 
     // ---- §18.3 스파이가 끼운 재료 → 열린 상자 ----
@@ -446,29 +435,18 @@ public class Request1011Tests
         new EscapeRules.PlayerInfo { Escaped = true },
     };
 
+    // §25.5 D: 마녀 타이머가 끝나면 밟고, 박살을 다 보여 준 뒤 끝. 괴물만 남으면 바로 끝.
     [Test]
-    public void EscapeRules_PurgeStrikesAfterCloseUpAndIgnoresRoomTime()
+    public void EscapeRules_WitchStrikesWhenTimerEnds()
     {
         var players = MonsterAndSpyLeft();
-        // 클로즈업이 끝나기 전: 방 제한시간이 지나도 기다린다
-        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(players, false, 63.0, 60.0, true, 0, -1f, false, true, 64.0));
-        Assert.AreEqual(EscapeRules.Decision.StrikeWitch, EscapeRules.Evaluate(players, false, 64.0, 60.0, true, 0, -1f, false, true, 64.0));
-        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(players, false, 65.0, 60.0, true, 0, 1f, false, true, 64.0));
-        Assert.AreEqual(EscapeRules.Decision.EndWitchStrike, EscapeRules.Evaluate(players, false, 67.0, 60.0, true, 0, EscapeRules.WitchSlamSeconds, false, true, 64.0));
-        // 처단 아님: 스파이가 남으면 계속, 아무도 안 남으면 끝(지금 규칙 그대로)
-        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(players, false, 30.0, 60.0, true, 0, -1f));
+        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(players, true, 63.0, 64.0, -1f));
+        Assert.AreEqual(EscapeRules.Decision.StrikeWitch, EscapeRules.Evaluate(players, true, 64.0, 64.0, -1f));
+        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(players, true, 65.0, 64.0, 1f));
+        Assert.AreEqual(EscapeRules.Decision.EndWitchStrike, EscapeRules.Evaluate(players, true, 67.0, 64.0, EscapeRules.WitchSlamSeconds));
+        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(players, false, 9999.0, 0.0, -1f), "no game time limit");
         var none = new System.Collections.Generic.List<EscapeRules.PlayerInfo> { new EscapeRules.PlayerInfo { IsMonster = true }, new EscapeRules.PlayerInfo { Escaped = true } };
-        Assert.AreEqual(EscapeRules.Decision.EndAllResolved, EscapeRules.Evaluate(none, false, 30.0, 60.0, true, 0, -1f));
-    }
-
-    [Test]
-    public void Steal_NeedsTenSecondsOnMaster()
-    {
-        Assert.AreEqual(10f, EscapeAuthority.StealHoldSeconds);
-        Assert.IsFalse(EscapeAuthority.StealHeldLongEnough(5f, 5f + 2f), "old 2 s hold is rejected");
-        Assert.IsFalse(EscapeAuthority.StealHeldLongEnough(5f, 5f + 9.4f));
-        Assert.IsTrue(EscapeAuthority.StealHeldLongEnough(5f, 5f + 9.5f), "0.5 s network tolerance");
-        Assert.AreEqual(11, (int)EscapeOp.StealBegin, "append only");
+        Assert.AreEqual(EscapeRules.Decision.EndAllResolved, EscapeRules.Evaluate(none, true, 30.0, 60.0, -1f));
     }
 
     [Test]
@@ -533,7 +511,7 @@ public class Request1011Tests
         Assert.IsFalse(LobbyKick.CanKick(3, 1, 2, true, GamePhase.Lobby), "not the host");
         Assert.IsFalse(LobbyKick.CanKick(1, 1, 1, true, GamePhase.Lobby), "host cannot kick self");
         Assert.IsFalse(LobbyKick.CanKick(1, 1, 2, false, GamePhase.Lobby), "already left");
-        Assert.IsFalse(LobbyKick.CanKick(1, 1, 2, true, GamePhase.Paint), "round in progress");
+        Assert.IsFalse(LobbyKick.CanKick(1, 1, 2, true, GamePhase.Prepare), "round in progress");
         Assert.IsFalse(LobbyKick.CanKick(1, 1, 2, true, GamePhase.Hunt));
         Assert.AreNotEqual(NetEventCodes.KickRequest, NetEventCodes.Kicked);
     }

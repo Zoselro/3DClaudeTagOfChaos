@@ -112,9 +112,9 @@ public class MonsterAssignmentAuthority : MonoBehaviourPunCallbacks, IOnEventCal
     // 서버 응답 전 같은 요청을 반복하지 않도록 resetRequested로 막는다. 처리했으면 true.
     private bool ResetSelectionIfRoomNotFull()
     {
-        // 판이 시작된 뒤(시작 버튼이 PaintPhaseEndTime을 기록, 복귀 시 RoundStateResetter가 지움)에는 건드리지 않는다 —
+        // 판이 시작된 뒤(시작 버튼이 PrepareEndTime을 기록, 복귀 시 RoundStateResetter가 지움)에는 건드리지 않는다 —
         // 쿠키들이 GameScene에 있는 동안 대기실의 괴물만 남아 방장이 되는 경우에도 진행 중인 판의 괴물 정보를 지우지 않도록.
-        if (RoomState.IsRoomFull() || !RoomState.HasMonster() || RoomState.TryGetDouble(NetKeys.PaintPhaseEndTime, out _))
+        if (RoomState.IsRoomFull() || !RoomState.HasMonster() || RoomState.TryGetDouble(NetKeys.PrepareEndTime, out _))
         {
             resetRequested = false;
             return false;

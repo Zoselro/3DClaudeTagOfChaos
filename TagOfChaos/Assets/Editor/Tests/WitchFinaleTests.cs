@@ -103,9 +103,9 @@ public class WitchFinaleTests
 
         // 방장: 도착하면 기록, 밟은 뒤 5초(기록 + 15초)에 끝
         var ta = new List<EscapeRules.PlayerInfo> { new EscapeRules.PlayerInfo { IsMonster = true }, new EscapeRules.PlayerInfo() };
-        Assert.AreEqual(EscapeRules.Decision.StrikeWitch, EscapeRules.Evaluate(ta, true, 600, 100, true, 600, -1f));
-        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(ta, true, 612, 100, true, 600, 12f), "still showing the finale");
-        Assert.AreEqual(EscapeRules.Decision.EndWitchStrike, EscapeRules.Evaluate(ta, true, 615, 100, true, 600, 15f));
+        Assert.AreEqual(EscapeRules.Decision.StrikeWitch, EscapeRules.Evaluate(ta, true, 600, 600, -1f));
+        Assert.AreEqual(EscapeRules.Decision.None, EscapeRules.Evaluate(ta, true, 612, 600, 12f), "still showing the finale");
+        Assert.AreEqual(EscapeRules.Decision.EndWitchStrike, EscapeRules.Evaluate(ta, true, 615, 600, 15f));
     }
 
     [Test]

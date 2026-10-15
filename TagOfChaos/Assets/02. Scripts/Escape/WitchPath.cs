@@ -38,7 +38,7 @@ public static class WitchPath
                 Transform t = root.transform.Find(GroundName);
                 if (t != null) return t;
             }
-            if (any == null) any = EscapeSequence.FindDeep(root.transform, GroundName); // 깊은 자식 찾기는 한 곳(F-14)
+            if (any == null) any = EscapeCue.FindDeep(root.transform, GroundName); // 깊은 자식 찾기는 한 곳(F-14)
         }
         return any;
     }

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Item_Rune_Yellow
   m_EditorClassIdentifier: 
   itemId: Rune_Yellow
-  displayName: "\uB8EC"
+  displayName: "\uB178\uB780 \uB8EC"
   icon: {fileID: 21300000, guid: bb5c7a6382ba3cb42b2aac792099bead, type: 3}
   modelPrefab: {fileID: 919132149155446097, guid: badaf03cec4d90840aa368c9b8223310, type: 3}
   tint: {r: 1, g: 0.9, b: 0.15, a: 1}
@@ -21,3 +21,5 @@ MonoBehaviour:
   category: 0
   tool: {fileID: 0}
   fitsAnyRocketSlot: 0
+  holdOffset: {x: 0, y: 0, z: 0}
+  holdEuler: {x: 0, y: 0, z: 0}

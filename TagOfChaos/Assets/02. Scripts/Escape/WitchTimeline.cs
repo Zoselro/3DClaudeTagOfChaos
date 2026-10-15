@@ -85,12 +85,9 @@ public static class WitchTimeline
     public static bool TryGetLeadInStart(WitchMode mode, out double start)
     {
         start = 0;
-        if (mode == WitchMode.TimeAttack) return RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out start);
-        if (mode != WitchMode.Purge) return false;
-        EscapeState state = EscapeManager.Instance != null ? EscapeManager.Instance.State : null;
-        if (state == null || state.DepartedAt <= 0) return false;
-        start = state.DepartedAt;
-        return true;
+        // 첫 탈출 시각(Request1009Plan.md §25.5 G). 처단(쿠키가 모두 탈출)은 개편에서 없어져 앞 샷이 없다.
+        if (mode == WitchMode.TimeAttack) return RoomState.TryGetDouble(NetKeys.FirstEscapeAt, out start) || RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out start);
+        return false;
     }
 
     // 도착 뒤 장면(순수 계산, since = 도착부터 초).
