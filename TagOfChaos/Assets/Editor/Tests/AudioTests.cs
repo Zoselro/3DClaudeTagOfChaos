@@ -323,23 +323,32 @@ public class AudioTests
         Assert.IsNotNull(so.FindProperty("closeButton").objectReferenceValue, "close button");
     }
 
+    // §27: 소리 창은 설정 창(SettingsMenu)의 "출력 장치" 탭으로 옮겼다 — 세 화면 모두 설정 창이 있고, 따로 떠 있는 소리 창은 없다.
     [Test]
-    public void EscMenus_AndLobby_OpenSoundSettings()
+    public void EscMenus_AndLobby_OpenSettingsMenu()
     {
         var core = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(SoundSettingsInstaller.CorePrefabPath).GetComponentInChildren<EscMenu>(true);
         AssertEscWired(core, "GameSceneCore");
-        var lobbyYaml = System.IO.File.ReadAllText(SoundSettingsInstaller.LobbyScenePath);
+        string menuGuid = UnityEditor.AssetDatabase.AssetPathToGUID(SettingsMenuInstaller.PrefabPath);
         string panelGuid = UnityEditor.AssetDatabase.AssetPathToGUID(SoundSettingsInstaller.PrefabPath);
-        Assert.IsTrue(lobbyYaml.Contains(panelGuid), "LobbyScene has the sound settings panel");
-        Assert.IsTrue(System.IO.File.ReadAllText(SoundSettingsInstaller.GameLobbyScenePath).Contains(panelGuid), "GameLobbyScene has the sound settings panel");
+        foreach (string scene in new[] { SoundSettingsInstaller.LobbyScenePath, SoundSettingsInstaller.GameLobbyScenePath })
+        {
+            string yaml = System.IO.File.ReadAllText(scene);
+            Assert.IsTrue(yaml.Contains(menuGuid), scene + " has the settings menu");
+            Assert.IsFalse(yaml.Contains(panelGuid), scene + " has no stand-alone sound panel any more");
+        }
+        var menu = UnityEditor.AssetDatabase.LoadAssetAtPath<SettingsMenu>(SettingsMenuInstaller.PrefabPath);
+        Assert.IsNotNull(menu.GetComponentInChildren<SoundSettingsPanel>(true), "output tab");
+        Assert.IsNotNull(menu.GetComponentInChildren<KeyBindingsPage>(true), "controls tab");
+        Assert.IsNotNull(menu.GetComponentInChildren<InputDevicePage>(true), "input tab");
     }
 
     private static void AssertEscWired(EscMenu esc, string where)
     {
         Assert.IsNotNull(esc, where);
         var so = new UnityEditor.SerializedObject(esc);
-        Assert.IsNotNull(so.FindProperty("soundButton").objectReferenceValue, where + " sound button");
-        Assert.IsNotNull(so.FindProperty("soundSettings").objectReferenceValue, where + " sound settings");
+        Assert.IsNotNull(so.FindProperty("optionsButton").objectReferenceValue, where + " settings button");
+        Assert.IsNotNull(so.FindProperty("settingsMenu").objectReferenceValue, where + " settings menu");
     }
 
     [Test]

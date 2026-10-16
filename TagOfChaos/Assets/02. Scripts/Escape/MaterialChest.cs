@@ -153,7 +153,7 @@ public class MaterialChest : MonoBehaviour, IHoldInteractable, IInteractionLabel
     }
 
     public bool CanInteract(IGameCharacter character) =>
-        EscapeManager.ActionsAllowed && chestIndex >= 0 && !data.Opened && character.Role == CharacterRole.Cookie;
+        EscapeManager.ActionsAllowed && EscapeManager.ChestsVisibleIn(GamePhaseState.Current) && chestIndex >= 0 && !data.Opened && character.Role == CharacterRole.Cookie;
 
     public float HoldSecondsFor(IGameCharacter character) => data.Spy && !RoomState.IsLocalSpy() ? 0f : holdSeconds;
 

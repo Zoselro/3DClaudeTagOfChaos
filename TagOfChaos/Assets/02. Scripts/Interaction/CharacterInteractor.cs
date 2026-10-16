@@ -99,7 +99,7 @@ public class CharacterInteractor : MonoBehaviour
         // 괴물이 쿠키를 조준 중이면 E키는 잡기로 쓰이므로(F1-1) 사물 아이콘을 띄우지 않는다. 잡기에는 아이콘이 없다(F4).
         bool grabAiming = localCharacter is MonsterController monster && monster.HasGrabAimTarget;
         if (focused != null && !grabAiming)
-            prompt.Show(PlayerInput.Bindings.InteractKey, focused.InteractionPoint, (focused as IInteractionLabel)?.GetLabel(localCharacter));
+            prompt.Show(KeyBindings.Get(KeyAction.Interact), focused.InteractionPoint, (focused as IInteractionLabel)?.GetLabel(localCharacter));
         else prompt.Hide();
         if (!hold.Active) prompt.SetProgress(0f);
     }

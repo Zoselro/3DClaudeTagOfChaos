@@ -195,12 +195,12 @@ public class SpyRocket : MonoBehaviour, IHoldInteractable, IInteractionLabel
         return ps;
     }
 
-    // 이 재료가 로켓의 빈 칸에 맞는지(공구상자는 아무 칸이나, D18).
+    // 이 아이템을 로켓에 넣을 수 있는지: 빈 칸에 맞는 재료이거나, 빈 칸이 남은 동안의 수리키트(§26 H4 — 50%씩 채운다).
     public static bool RocketNeeds(EscapeState s, EscapeCatalogSO catalog, string itemId)
     {
-        ItemSO def = catalog.Find(itemId);
+        bool kit = catalog.RepairKit != null && itemId == catalog.RepairKit.ItemId;
         foreach (EscapeState.Slot slot in s.RocketSlots)
-            if (!slot.Filled && (slot.Allows(itemId) || (def != null && def.FitsAnyRocketSlot))) return true;
+            if (!slot.Filled && (kit || slot.Allows(itemId))) return true;
         return false;
     }
 

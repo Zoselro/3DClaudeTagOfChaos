@@ -31,9 +31,9 @@ public class Request1009Tests
         Assert.AreEqual(0f, h.Progress);
     }
 
-    // §9 관전 대상 표(결정 Q1): 탈출 = 일반 쿠키만, 부서짐 = 스파이 포함, 괴물은 부서진 쿠키 + 설정이 허락할 때만
+    // §9 관전 대상 표: 탈출·부서짐 모두 스파이 포함 쿠키 전부(§26 H15), 괴물은 부서진 쿠키 + 설정이 허락할 때만
     [TestCase(SpectatorKind.Escaped, CharacterRole.Cookie, false, true)]
-    [TestCase(SpectatorKind.Escaped, CharacterRole.Cookie, true, false)]
+    [TestCase(SpectatorKind.Escaped, CharacterRole.Cookie, true, true)]
     [TestCase(SpectatorKind.Escaped, CharacterRole.Monster, false, false)]
     [TestCase(SpectatorKind.Broken, CharacterRole.Cookie, false, true)]
     [TestCase(SpectatorKind.Broken, CharacterRole.Cookie, true, true)]

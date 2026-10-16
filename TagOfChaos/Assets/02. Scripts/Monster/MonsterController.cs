@@ -100,6 +100,7 @@ public class MonsterController : MonoBehaviour, IPunObservable, IRespawnable, IG
     private readonly RaycastHit[] dashSweepHits = new RaycastHit[8];
 
     public bool IsTentacleDashing => tentacleDashAnimRemaining > 0f;
+    public float DashCooldownLeft => tentacleDash.CooldownLeft; // 스킬 칸(SkillHud, §26 H9)
 
     // 괴물 체격에 맞는 3인칭 카메라 설정 — 본인 조작 카메라와 관전 카메라(SpectatorController)가 같은 값을 쓴다.
     public float CameraTargetHeight => eyeSocket != null ? eyeSocket.position.y - transform.position.y : cameraTargetHeight;

@@ -60,6 +60,9 @@ public class EscapeRecipeSO : ScriptableObject
     [Tooltip("건물 4곳에 넣는 재료 4종. 판마다 어느 건물에 어떤 재료를 넣을지 섞는다. 위의 칸 묶음·개수 모드·로켓 칸은 예전 규칙(쓰지 않음, 에셋 호환).")]
     [SerializeField] private ItemSO[] buildingMaterials = new ItemSO[0];
     public ItemSO[] BuildingMaterials => buildingMaterials;
+    [Tooltip("스파이 수리키트 수(§26: 0 = 로켓 칸 수). 1개는 스파이 상자, 나머지는 일반 상자. 위의 rocketSlots가 맵별 로켓 재료다.")]
+    [SerializeField, Min(0)] private int repairKitCount;
+    public int RepairKitCount => repairKitCount;
 
     public string MapName => mapName;
     public EscapeExitKind ExitKind => exitKind;

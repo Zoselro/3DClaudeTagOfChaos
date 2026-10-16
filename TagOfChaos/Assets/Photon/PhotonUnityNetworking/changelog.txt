@@ -3,15 +3,18 @@ PUN 2 - Changelog
 www.photonengine.com  -  Join the community Discord Server: https://dashboard.photonengine.com/account/profile
 
 
-v2.55 (3. July 2026)
+v2.56 (10. September 2026)
+Updated: Library, Realtime and Chat API to 4.1.8.23. More details in the change logs.
+
+v2.55 (03. July 2026)
 Changed: In Unity 6.4 and up GetInstanceID() is replaced with GetEntityId(). This was only used in PhotonHandler.
 Changed: DefaultPool instantiation to fetch and restore "dirty flag" of prefabs that gets instantiated. This only happens in Editor and extends the solution provided in v2.53.
 Updated: Library, Realtime and Chat API to 4.1.8.21. More details in the change logs.
 
-v2.54 (4. June 2026)
+v2.54 (04. June 2026)
 Updated: Library, Realtime and Chat API to 4.1.8.20. Fixing a protocol-selection bug from previous version.
 
-v2.53 (2. June 2026)
+v2.53 (02. June 2026)
 Fixed: The DefaultPool now clears the dirty flag on persistent assets. The flag being set is a sideeffect of using SetActive on the resource.
 Changed: PUN ConnectUsingSettings() to rely on the LoadBalancingClient.ConnectUsingSettings(). It avoids duplicate code which was not handling addresses correctly (only in PUN's case).
 Changed: ConnectTo* methods are now officially obsolete and should not be used anymore. They don't have benefits over using a config and are outdated.

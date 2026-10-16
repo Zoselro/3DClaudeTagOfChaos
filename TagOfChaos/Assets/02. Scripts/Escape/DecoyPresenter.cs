@@ -3,8 +3,8 @@ using Photon.Pun;
 using UnityEngine;
 
 // 맵에 깔린 AI(미끼, Request1009Plan.md §25.5 L)를 그린다. PhotonView 없이 상태의 Decoys만 보고 각 화면이 만든다.
-// 모습 = 그 사람 캐릭터(쿠키 프리팹을 겉모습만 남기고 복제 + 판의 캐릭터 색). 평소엔 가만히 서 있고(Idle), 녹음기가 붙으면
-// DecoyWalk 경로로 걸으며 주인의 녹음 목소리(없으면 기본 목소리)를 3D로 반복한다. 괴물은 E로 잡는다(DecoyView).
+// 모습 = 그 사람 캐릭터(쿠키 프리팹을 겉모습만 남기고 복제 + 판의 캐릭터 색). 늘 가만히 서 있고(Idle), 녹음기가 붙으면
+// 주인의 녹음 목소리를 5~20초 간격으로 3D로 낸다(§26 H7). 괴물은 E로 잡는다(DecoyView — 잡기 동작 뒤 사라짐).
 public class DecoyPresenter : MonoBehaviour
 {
     private const string CookiePrefabPath = "HideOrSeekPlayer";
@@ -57,7 +57,7 @@ public class DecoyPresenter : MonoBehaviour
         if (s == null) return;
         double now = PhotonNetwork.Time;
         foreach (EscapeState.Decoy d in s.Decoys)
-            if (views.TryGetValue(d.Id, out DecoyView view) && view != null) view.Tick(d, now, manager.MapRect);
+            if (views.TryGetValue(d.Id, out DecoyView view) && view != null) view.Tick(d, now);
     }
 
     private DecoyView Create(EscapeState.Decoy d)

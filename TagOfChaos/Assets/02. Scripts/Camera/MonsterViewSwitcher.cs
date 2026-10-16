@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-// 괴물 본인 클라이언트의 시점 선택(GameFixPlan.md F6). 기본값은 GameSettings.MonsterDefaultView이고,
-// GameSettings.AllowMonsterViewToggle이 켜져 있으면 전환 키(기본 V)로 1인칭/3인칭을 바꿀 수 있다(테스트용).
+// 괴물 본인 클라이언트의 시점(GameFixPlan.md F6). 늘 GameSettings.MonsterDefaultView(1인칭)로 본다 — 전환 키(V)는 없앴다(§27).
 // 1인칭에서는 자기 몸이 화면을 가리지 않도록 본인 화면에서만 몸 렌더러를 그림자만 남긴다(다른 사람 화면은 그대로).
 // MonsterController.Awake(IsMine)가 AddComponent로 붙인다.
 public class MonsterViewSwitcher : MonoBehaviour
@@ -39,12 +38,6 @@ public class MonsterViewSwitcher : MonoBehaviour
 
         GrabAimReticle.Create(owner);
         Apply(GameSettings.Current.MonsterDefaultView);
-    }
-
-    private void Update()
-    {
-        if (firstPerson == null || !GameSettings.Current.AllowMonsterViewToggle || !PlayerInput.ToggleViewPressed) return;
-        Apply(current == MonsterViewMode.FirstPerson ? MonsterViewMode.ThirdPerson : MonsterViewMode.FirstPerson);
     }
 
     private void OnDestroy()

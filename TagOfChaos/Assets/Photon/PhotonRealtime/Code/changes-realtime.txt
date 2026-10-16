@@ -3,14 +3,22 @@ Photon Realtime C# Client - Changelog
 www.photonengine.com  -  Join our Discord Server: https://dashboard.photonengine.com/account/profile
 
 
-Version 4.1.8.21 (1. July 2026)
+Version 4.1.8.23 (10. September 2026)
+    Added: PhotonUtilitiesUnity now adds a compile define to the current build target on load: PHOTON_REALTIME_4.
+
+Version 4.1.8.22 (04. September 2026)
+    Changed: ConnectUsingSettings() checks if AppSettings.Server is an IP address. In that case, WS and WSS are refused (logged as error, returns false) and AuthMode AuthOnceWss is changed to AuthOnce (logged as warning). Before, this failed on connect with no hint about the cause.
+    Added: Support for the Video SDK. AppSettings.AppIdVideo and a property AppIdVoiceOrVideo to get the preferred AppId (Video, if the Video SDK is present). If the preferred AppId field is null or empty, the other is returned.
+    Added: ClientAppType.Video and VoiceOrVideo (for components that work with either SDK).
+
+Version 4.1.8.21 (01. July 2026)
     No notable changes.
 
-Version 4.1.8.20 (4. June 2026)
+Version 4.1.8.20 (04. June 2026)
     Fixed: v4.1.8.19 introduced a bug where the transport protocol from the AppSettings was no longer applied. This was a sideeffect of the changes for Protocol Correction for WebGL.
     Note: In Unity WebGL builds, it is now possible to use AuthMode AuthOnceWss with WS as selected protocol. It will use WSS on the Name Server but WS on other servers.
 
-Version 4.1.8.19 (1. June 2026)
+Version 4.1.8.19 (01. June 2026)
     Changed: Error handling in SocketWebTcp to ignore most temporary error codes when using WebSocket-sharp.
     Fixed: For Unity WebGL, ConnectUsingSettings() first makes sure the protocol is WS/WSS, then configures AuthOnceWss with an expected protocol, if selected.
     Removed: Surplus prococol change in the LoadBalancingClient constructor. Even for WebGL builds, it is unclear if the connection (later) is WS or WSS.

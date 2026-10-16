@@ -27,8 +27,15 @@ public class QuadrantBuilding : MonoBehaviour, IHoldInteractable, IHoldStartList
     private GameObject hint;        // 쿠키에게만 보이는 "필요한 재료" 모양(받침 위에서 돈다)
     private string hintId;
     private Transform gauge, gaugeFill;
-    private float localStartProgress = -1f; // 누르기 시작할 때의 게이지(내 화면 미리 그리기)
+    private float localStartProgress = -1f; // 누르기 시작할 때의 게이지(방장이 받아 주기 전까지 링에 보인다)
     private bool dismantling;
+    private float nextRetryTime;
+    private int retries;
+
+    // 수리는 뗄 때까지 누르고 있고, 다 찼는지는 방장 Tick이 정한다(§26 H2) — 내 화면 시간으로 끝내지 않는다.
+    private const float RepairHoldSeconds = 3600f;
+    private const float RetryInterval = 0.6f;
+    private const int MaxRetries = 3;
 
     public int Index => index;
     public Vector3 RepairPoint => repairPoint != null ? repairPoint.position : transform.position;
@@ -191,8 +198,7 @@ public class QuadrantBuilding : MonoBehaviour, IHoldInteractable, IHoldStartList
         {
             case Mode.Dismantle: return EscapeState.DismantleSeconds;
             case Mode.Repair:
-                TryGetState(out EscapeState.Building b);
-                return Mathf.Max(0.2f, (1f - b.ProgressAtTime(PhotonNetwork.Time)) * EscapeState.RepairSeconds);
+                return RepairHoldSeconds;
             default: return 0f; // 맞지 않는 재료는 바로 안내
         }
     }
@@ -205,6 +211,8 @@ public class QuadrantBuilding : MonoBehaviour, IHoldInteractable, IHoldStartList
         {
             TryGetState(out EscapeState.Building b);
             localStartProgress = b.ProgressAtTime(PhotonNetwork.Time);
+            retries = 0;
+            nextRetryTime = Time.time + RetryInterval;
             manager.Request(EscapeOp.RepairBegin, index, PlayerInventory.Local.Selected);
         }
         else if (dismantling) manager.Request(EscapeOp.DismantleBegin, index);
@@ -217,11 +225,21 @@ public class QuadrantBuilding : MonoBehaviour, IHoldInteractable, IHoldStartList
         dismantling = false;
     }
 
-    // 링에는 누른 시간이 아니라 건물 게이지를 보여 준다(이어서 찬다). 해체는 누른 시간 그대로.
+    // 링에는 누른 시간이 아니라 방장이 들고 있는 건물 게이지를 보여 준다(이어서 찬다). 해체는 누른 시간 그대로.
+    // 방장이 아직 나를 수리하는 사람으로 받지 않았으면(요청 유실·위치 검사 등) 0.6초마다 다시 보내고, 3번 실패하면 안내한다.
     public float DisplayProgress(float holdProgress)
     {
         if (dismantling || localStartProgress < 0f) return holdProgress;
-        return Mathf.Lerp(localStartProgress, 1f, holdProgress);
+        if (!TryGetState(out EscapeState.Building b)) return localStartProgress;
+        int me = PhotonNetwork.LocalPlayer != null ? PhotonNetwork.LocalPlayer.ActorNumber : 0;
+        if (b.Repairer == me) return b.ProgressAtTime(PhotonNetwork.Time);
+        if (Time.time >= nextRetryTime && retries <= MaxRetries)
+        {
+            nextRetryTime = Time.time + RetryInterval;
+            if (retries++ < MaxRetries && PlayerInventory.Local != null) manager.Request(EscapeOp.RepairBegin, index, PlayerInventory.Local.Selected);
+            else { EscapeHud.Toast(EscapeTextsSO.Current.repairRetry); UiSoundCues.Error(); }
+        }
+        return b.ProgressAtTime(PhotonNetwork.Time);
     }
 
     public void Interact(IGameCharacter character)

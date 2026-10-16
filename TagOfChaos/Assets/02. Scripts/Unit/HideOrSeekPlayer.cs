@@ -120,7 +120,7 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
     // 조작된 클라이언트는 잡혀도 죽지 않을 수 있었다.
     // 파괴는 맵에서만 의미가 있다 — 대기실로 돌아온 직후에는 이전 판 HitCount가 방장의 초기화(RoundStateResetter)가 도착할 때까지
     // 잠깐 남아 있어, 대기실 쿠키가 잠기고 관전으로 넘어가던 문제(2026-10-12 멀티 시험)를 막는다.
-    public bool IsBroken => PaintPhaseController.IsPaintScene && pv != null && pv.Owner != null && RoomState.IsBroken(pv.Owner);
+    public bool IsBroken => EscapeManager.IsActive && pv != null && pv.Owner != null && RoomState.IsBroken(pv.Owner);
 
     // 본인: 붙잡혀 처형 연출을 시작했지만 방장의 확정(HitCount)을 기다리는 중 — 이 시각까지 확정이 없으면(방장이 거절) 풀린다.
     private const float GrabKillConfirmTimeout = 4f;
@@ -495,10 +495,16 @@ public class HideOrSeekPlayer : MonoBehaviourPunCallbacks, IPunObservable, IResp
         }
     }
 
+    // 회피는 3초에 한 번(§26 H9). 스킬 칸(SkillHud)이 남은 시간을 그린다.
+    public const float DodgeCooldown = 3f;
+    private float dodgeReadyAt;
+    public float DodgeCooldownLeft => Mathf.Max(0f, dodgeReadyAt - Time.time);
+
     private void CheckDodgeInput()
     {
-        if (PlayerInput.DodgePressed && rotation != Vector3.zero && !isJump && !isDodge)
+        if (PlayerInput.DodgePressed && rotation != Vector3.zero && !isJump && !isDodge && Time.time >= dodgeReadyAt)
         {
+            dodgeReadyAt = Time.time + DodgeCooldown;
             dodgeMoveDir = rotation;
             dodgeRotation = rotation;
             isDodge = true;

@@ -43,6 +43,8 @@ public enum EscapeNoticeKind : byte
     RainbowAppeared = 8,  // 마녀 시간에 무지개 상자가 나타났다(§25.5 H)
     RainbowBroken = 9,    // 괴물이 무지개 상자를 부쉈다
     NoiseBomb = 10,       // 소음폭탄이 터졌다(비상벨). 내용: 건물 번호(문자열)
+    MaterialRestored = 11, // 닿는 곳에 하나도 없던 재료를 방장이 다시 만들었다(§26 D). 내용: 아이템 ID, 아이템 번호, 보여 줄 시각 — 괴물 제외
+    AllDecoysGone = 12,    // 마녀 시간이 시작돼 AI가 모두 사라졌다(§26 Q16)
 }
 
 // 게임이 끝난 이유(NetKeys.EscapeEndReason).

@@ -32,6 +32,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: f9ba074e3450ccc4ca5226201abe85c7, type: 2}
   - {fileID: 11400000, guid: 7d376c6670741634ab2cf05253c8342f, type: 2}
   - {fileID: 11400000, guid: 8525455d2c9fa2a4792469865254179c, type: 2}
+  - {fileID: 11400000, guid: 5b2bbf84513d51a47811843c6dd813b0, type: 2}
   - {fileID: 11400000, guid: 6a8a959f64edca14e9e2702bb6b6a076, type: 2}
   - {fileID: 11400000, guid: e764750df5e14db4a968cef49e8012f6, type: 2}
   - {fileID: 11400000, guid: afa0b1df432c7374597be7cb7c6036b2, type: 2}
@@ -50,7 +51,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7d376c6670741634ab2cf05253c8342f, type: 2}
   - {fileID: 11400000, guid: 8525455d2c9fa2a4792469865254179c, type: 2}
   hammersPerCookie: 0.5
-  repairKit: {fileID: 11400000, guid: ae546c479713bc942b6409ba871e24d8, type: 2}
+  repairKit: {fileID: 11400000, guid: 5b2bbf84513d51a47811843c6dd813b0, type: 2}
   dismantleTool: {fileID: 11400000, guid: 6a8a959f64edca14e9e2702bb6b6a076, type: 2}
   spyRandomTools:
   - {fileID: 11400000, guid: 7d376c6670741634ab2cf05253c8342f, type: 2}

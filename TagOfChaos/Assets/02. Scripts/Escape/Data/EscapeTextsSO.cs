@@ -57,6 +57,21 @@ public class EscapeTextsSO : ScriptableObject
     public string recorded = "Voice recorded";
     public string noMicrophone = "No microphone";
     public string witchTimerFormat = "{0:00}:{1:00}";
+    // Request1009Plan.md §26
+    public string materialRestored = "{0} appeared again in a chest"; // D 안전장치({0} = 재료 이름)
+    public string allDecoysGone = "All AIs are gone!";
+    public string noRecording = "No recorded voice";
+    public string repairRetry = "Try again";
+    public string rocketKitHalf = "50%";
+    public string rocketKits = "Repair kits used {0}";   // {0} = 넣은 수리키트 수
+    public string rocketTitle = "Spy rocket";
+    public string reRecordVoice = "Record again (5s)"; // 대기실 녹음 버튼 — 이미 녹음했을 때(§26 H11)
+    public string listenVoice = "Listen";
+    public string skillDash = "Dash";         // 스킬 칸 이름(§26 H9)
+    public string skillBomb = "Noise bomb";
+    public string skillBombPlaced = "Placed";
+    public string skillDodge = "Dodge";
+    public string skillUnknown = "TBD";        // 생존자 스킬(아직 미정)
 
     [Header("Timers")]
     public string timeAttackFormat = "{0:00}:{1:00}";

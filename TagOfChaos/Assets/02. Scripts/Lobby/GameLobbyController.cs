@@ -28,6 +28,8 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     [SerializeField] private string readyForOthersFormat = "Monster: {0} - waiting for host {1} to start"; // {1}=방장 닉네임
     [Tooltip("강퇴 확인 문구. {0} = 대상 닉네임(Request1009Plan.md §19.6)")]
     [SerializeField] private string kickConfirmFormat = "Kick {0}?";
+    [Tooltip("녹음하지 않은 사람이 있을 때 시작 확인 문구(§26 H11)")]
+    [SerializeField] private string unrecordedConfirmText = "Some players have not recorded. Start anyway?";
 
     // 시작 요청 후 방장 응답(씬 전환)을 기다리는 동안 버튼을 잠시 막는다 — 방장 교체 순간에 요청이 무시됐으면 다시 누를 수 있다.
     private const float StartRequestCooldown = 2f;
@@ -86,6 +88,12 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         RefreshPlayerList();
         RefreshStartButton();
+    }
+
+    // 누가 목소리를 녹음하면 목록의 녹음 표시를 바꾼다.
+    public override void OnPlayerPropertiesUpdate(Player targetPlayer, Hashtable changedProps)
+    {
+        if (changedProps != null && changedProps.ContainsKey(NetKeys.HasVoice)) RefreshPlayerList();
     }
 
     public override void OnPlayerLeftRoom(Player otherPlayer)
@@ -162,7 +170,7 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
         foreach (Player p in PhotonNetwork.PlayerList.OrderBy(pl => pl.ActorNumber)) // 입장 순서대로 표시
         {
             var item = Instantiate(playerListItemPrefab, playerListContent);
-            item.SetNickname(p.NickName);
+            item.SetNickname(p.NickName, RoomState.HasVoice(p));
             Player target = p;
             item.SetKick(LobbyKick.LocalCanKick(target), () => ConfirmKick(target));
         }
@@ -284,6 +292,22 @@ public class GameLobbyController : MonoBehaviourPunCallbacks, IOnEventCallback
     public void OnStartGameButtonClicked()
     {
         if (!RoomState.IsLocalHost() || !CanStartGame()) return; // 방어적 재확인
+
+        // 녹음하지 않은 사람이 있으면 한 번 묻는다(§26 H11 — 예: 시작, 아니오: 그대로)
+        ConfirmDialog dialog = FindFirstObjectByType<RoomExitController>()?.Dialog;
+        if (AnyoneUnrecorded() && dialog != null) { dialog.Show(unrecordedConfirmText, StartGame); return; }
+        StartGame();
+    }
+
+    private static bool AnyoneUnrecorded()
+    {
+        foreach (Player p in PhotonNetwork.PlayerList) if (!RoomState.HasVoice(p)) return true;
+        return false;
+    }
+
+    private void StartGame()
+    {
+        if (!RoomState.IsLocalHost() || !CanStartGame()) return; // 확인하는 사이 조건이 바뀌었을 수 있다
 
         startRequestPendingUntil = Time.unscaledTime + StartRequestCooldown;
         RefreshStartButton();

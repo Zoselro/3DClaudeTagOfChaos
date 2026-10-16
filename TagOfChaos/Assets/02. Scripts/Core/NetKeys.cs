@@ -61,6 +61,7 @@ public static class NetKeys
     public const string SelectedSlot = "SelectedSlot"; // int — 인벤토리에서 고른 칸(본인만 쓴다, EscapePlan.md §1.9)
     public const string CatchCount = "CatchCount";     // int — 괴물이 잡은 횟수(방장이 처형을 확정할 때 쓴다)
     public const string DeathCause = "DeathCause";     // int — DeathCause(1 괴물, 2 마녀)
+    public const string HasVoice = "HasVoice";         // bool — 대기실에서 목소리를 녹음했다(본인이 쓴다, Request1009Plan.md §26 Q11·Q26)
 
     public enum Target { Room, Player }
 
@@ -127,6 +128,7 @@ public static class NetKeys
         new Scope(SelectedSlot, Target.Player, Lifetime.Round, Writer.Self),
         new Scope(CatchCount, Target.Player, Lifetime.Round),
         new Scope(DeathCause, Target.Player, Lifetime.Round),
+        new Scope(HasVoice, Target.Player, Lifetime.Session, Writer.Self),
     };
 
     // 한 판이 끝나 GameLobbyScene으로 돌아올 때 초기화해야 하는 키 목록(RoundStateResetter, research.md §8.7).

@@ -16,9 +16,25 @@ public class PlayerBillBoard : MonoBehaviour
             nameText.text = pv.Owner.NickName;
     }
 
+    private const float VisibilityCheckSeconds = 0.25f;
+    private float nextVisibilityCheck;
+
     private void LateUpdate()
     {
-        if (Camera.main != null)
+        if (Time.unscaledTime >= nextVisibilityCheck)
+        {
+            nextVisibilityCheck = Time.unscaledTime + VisibilityCheckSeconds;
+            bool show = ShouldShow();
+            if (nameText.enabled != show) nameText.enabled = show;
+        }
+        if (nameText.enabled && Camera.main != null)
             transform.forward = Camera.main.transform.forward;
+    }
+
+    // 판 중 괴물 화면에는 쿠키·스파이 이름표가 보이지 않는다(괴물끼리는 보인다, §26 H6). 대기실에서는 모두 보인다.
+    private bool ShouldShow()
+    {
+        if (!EscapeManager.IsActive || !RoomState.IsLocalMonster()) return true;
+        return pv != null && pv.Owner != null && RoomState.IsMonster(pv.Owner.ActorNumber);
     }
 }

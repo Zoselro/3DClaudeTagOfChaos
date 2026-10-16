@@ -223,7 +223,11 @@ namespace Photon.Realtime
         /// <summary>Voice apps stream audio.</summary>
         Voice,
         /// <summary>Fusion clients are for matchmaking and relay in Photon Fusion.</summary>
-        Fusion
+        Fusion,
+        /// <summary>Video apps stream video (and audio).</summary>
+        Video,
+        /// <summary>Used for components that work for either Voice or Video SDK. These get AppSettings.AppIdVoiceOrVideo.</summary>
+        VoiceOrVideo
     }
 
     /// <summary>
@@ -939,6 +943,9 @@ namespace Photon.Realtime
         /// - Network issues<br/>
         /// - Region not available<br/>
         /// - Subscription CCU limit<br/>
+        /// <br/>
+        /// Components that can work for the Voice SDK or the Video SDK can use ClientAppType.VoiceOrVideo.
+        /// ConnectUsingSettings will use AppIdVoiceOrVideo to connect.
         /// </remarks>
         /// <see cref="IConnectionCallbacks"/>
         /// <see cref="AuthValues"/>
@@ -965,6 +972,12 @@ namespace Photon.Realtime
                     break;
                 case ClientAppType.Voice:
                     this.AppId = appSettings.AppIdVoice;
+                    break;
+                case ClientAppType.Video:
+                    this.AppId = appSettings.AppIdVideo;
+                    break;
+                case ClientAppType.VoiceOrVideo:
+                    this.AppId = appSettings.AppIdVoiceOrVideo;
                     break;
                 case ClientAppType.Fusion:
                     this.AppId = appSettings.AppIdFusion;
@@ -1002,6 +1015,30 @@ namespace Photon.Realtime
 
 
             this.CheckConnectSetupWebGl();
+
+
+            // an IP address as server means: self-hosted. WS/WSS require a hostname (TLS certificates don't cover IPs), so refuse those and downgrade AuthOnceWss (which uses WSS on the Name Server).
+            // note: this check must be done after CheckConnectSetupWebGl(), which may switch the protocol to WSS.
+            System.Net.IPAddress serverIpAddress;
+            if (!string.IsNullOrEmpty(appSettings.Server) && System.Net.IPAddress.TryParse(appSettings.Server, out serverIpAddress))
+            {
+                if (this.LoadBalancingPeer.TransportProtocol == ConnectionProtocol.WebSocket || this.LoadBalancingPeer.TransportProtocol == ConnectionProtocol.WebSocketSecure)
+                {
+                    if (this.AuthMode != AuthModeOption.AuthOnceWss || this.ExpectedProtocol == ConnectionProtocol.WebSocket || this.ExpectedProtocol == ConnectionProtocol.WebSocketSecure)
+                    {
+                        this.DebugReturn(DebugLevel.ERROR, "ConnectUsingSettings() failed. AppSettings.Server is an IP address. Can not use WS or WSS protocols with IP addresses.");
+                        return false;
+                    }
+                }
+
+                if (this.AuthMode == AuthModeOption.AuthOnceWss)
+                {
+                    this.DebugReturn(DebugLevel.WARNING, "AppSettings.Server is an IP address. Changing this client's AuthMode to AuthOnce.");
+                    this.AuthMode = AuthModeOption.AuthOnce;
+                    this.LoadBalancingPeer.TransportProtocol = (ConnectionProtocol)this.ExpectedProtocol;
+                    this.ExpectedProtocol = null;
+                }
+            }
 
 
             if (this.IsUsingNameServer)
@@ -3360,7 +3397,7 @@ namespace Photon.Realtime
 
                 case StatusCode.TimeoutDisconnect:
                     this.SystemConnectionSummary = new SystemConnectionSummary(this);
-                    this.DebugReturn(DebugLevel.ERROR, $"Connection lost. OnStatusChanged to {statusCode}. Client state was: {this.State}. {this.SystemConnectionSummary.ToString()}");
+                    this.DebugReturn(DebugLevel.ERROR, $"Connection lost. OnStatusChanged to {statusCode}. Client state was: {this.State} ({this.CurrentServerAddress}). {this.SystemConnectionSummary.ToString()}");
 
                     this.DisconnectedCause = DisconnectCause.ClientTimeout;
                     nextState = ClientState.Disconnecting;

@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 // 접착 목소리 녹음기(Request1009Plan.md §25.3 Q6, §25.3.1 R2): 게임 시작 전(대기실) 5초 동안 내 목소리를 녹음해 두고,
-// 판이 시작되면 방 안 사람들에게 한 번 보낸다. 녹음기가 붙은 내 AI가 이 목소리를 3D로 낸다. 녹음하지 않았으면 기본 목소리(합성).
+// 판이 시작되면 방 안 사람들에게 한 번 보낸다. 녹음기가 붙은 내 AI가 이 목소리를 3D로 낸다. 녹음하지 않은 사람은 녹음기를 쓸 수 없다(§26 H7).
 // 8 kHz 한 채널을 8비트 μ-law로 줄여 약 40 KB, 8 KB 조각으로 보낸다(Photon 이벤트 VoiceClip). 받은 목소리는 방 안에서만, 판이 바뀌면 버린다.
 public static class VoiceStore
 {
@@ -15,7 +15,6 @@ public static class VoiceStore
     public const int Seconds = 5;
     private static float[] localSamples;
     private static readonly Dictionary<int, AudioClip> clips = new Dictionary<int, AudioClip>();
-    private static AudioClip defaultClip;
 
     public static bool HasLocal => localSamples != null && localSamples.Length > 0;
     public static float[] LocalSamples => localSamples;
@@ -36,7 +35,7 @@ public static class VoiceStore
 
     public static void ClearRemote() => clips.Clear();
 
-    // 그 사람의 목소리(녹음이 없으면 기본 목소리).
+    // 그 사람의 목소리(녹음이 없으면 null — 기본 합성 목소리는 없앴다, §26 H7).
     public static AudioClip ClipFor(int actor)
     {
         if (clips.TryGetValue(actor, out AudioClip clip) && clip != null) return clip;
@@ -45,36 +44,7 @@ public static class VoiceStore
             SetRemote(actor, localSamples);
             return clips[actor];
         }
-        return DefaultClip;
-    }
-
-    // 기본 목소리: 높낮이가 바뀌는 짧은 "재잘거림"(합성, 1.6초).
-    public static AudioClip DefaultClip
-    {
-        get
-        {
-            if (defaultClip != null) return defaultClip;
-            int n = SampleRate * 16 / 10;
-            var data = new float[n];
-            var rng = new System.Random(7);
-            float phase = 0f;
-            for (int syl = 0, i = 0; i < n; syl++)
-            {
-                int len = SampleRate / 8 + rng.Next(SampleRate / 10);
-                float pitch = 220f + (float)rng.NextDouble() * 220f;
-                for (int k = 0; k < len && i < n; k++, i++)
-                {
-                    float env = Mathf.Sin(Mathf.PI * k / len);
-                    phase += 2f * Mathf.PI * (pitch + 40f * Mathf.Sin(k * 0.002f)) / SampleRate;
-                    data[i] = 0.35f * env * (Mathf.Sin(phase) + 0.3f * Mathf.Sin(phase * 2f));
-                }
-                int gap = SampleRate / 25;
-                for (int k = 0; k < gap && i < n; k++, i++) data[i] = 0f;
-            }
-            defaultClip = AudioClip.Create("VoiceDefault", n, 1, SampleRate, false);
-            defaultClip.SetData(data, 0);
-            return defaultClip;
-        }
+        return null;
     }
 
     // μ-law 8비트(순수 계산, 시험용).

@@ -126,6 +126,7 @@ public class GameManager : MonoBehaviour
             case KindChat:
                 string body = ChatText.Sanitize(text);
                 if (body.Length == 0) return;
+                if (!ChatRules.IsVisible(ChatRules.RoundActive, ChatRules.IsOut(sender), ChatRules.IsOut(PhotonNetwork.LocalPlayer))) return;
                 msg = string.Format(sender != null && sender.IsLocal ? ownChatFormat : chatFormat, name, body);
                 break;
             case KindConnected:

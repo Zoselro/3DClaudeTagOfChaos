@@ -22,6 +22,7 @@ public class MonsterTentacleDash
     private int blockedSteps;
 
     public bool IsDashing => isDashing;
+    public float CooldownLeft => cooldownTimer;
     public float DashSpeed => dashSpeed;
 
     public bool TryStartDash(Vector3 forward)

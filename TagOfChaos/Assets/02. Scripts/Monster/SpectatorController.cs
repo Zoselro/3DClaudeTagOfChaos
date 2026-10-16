@@ -41,6 +41,7 @@ public class SpectatorController : MonoBehaviour
     private SpectatorKind kind;
     private bool vehicleDismissed; // 탈것을 보다가 Space를 누르면 다시 탈것으로 돌아가지 않는다
     private bool watchingVehicle;
+    private bool wasCutscene;
     private Camera_Ctrl camCtrl;
 
     public SpectatorKind Kind => kind;
@@ -73,6 +74,12 @@ public class SpectatorController : MonoBehaviour
     private void Update()
     {
         if (!pv.IsMine || !isSpectating || camCtrl == null) return;
+
+        // 연출(마녀 등장 등)이 끝나면 카메라를 다시 보던 사람에게 붙이고, 그 사이 대상이 사라졌으면 바로 넘긴다(§26 H15).
+        bool cutscene = PlayerInput.CutsceneActive;
+        if (wasCutscene && !cutscene) Revalidate();
+        wasCutscene = cutscene;
+        if (cutscene) return;
 
         // Space(InputBindings)는 언제나 먼저 — 탈것을 보는 중이어도 다음 사람으로 넘어간다(Request1009Plan.md §9).
         bool next = PlayerInput.SpectateNextPressed;
@@ -115,14 +122,12 @@ public class SpectatorController : MonoBehaviour
     private const float VehicleTargetHeight = 2f;
     private const float VehicleCameraDistance = 13f;
 
-    // 스파이 로켓에 탄 스파이는 로켓이 날아오르는 동안 로켓을 본다. 그 밖에는 null(탈것 대기는 Request1009Plan.md §25에서 없어졌다).
+    // 스파이 로켓이 날아오르는 동안(약 7초)은 관전 중인 모두가 로켓을 본다(§26 H15). 그 밖에는 null.
     private static Transform VehicleFocus()
     {
         EscapeManager manager = EscapeManager.Instance;
-        if (manager == null || manager.State == null || PhotonNetwork.LocalPlayer == null) return null;
-        int actor = PhotonNetwork.LocalPlayer.ActorNumber;
-        if (manager.Rocket != null && manager.State.Boarded.Contains(actor)
-            && RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double launchedAt)
+        if (manager == null || manager.State == null) return null;
+        if (manager.Rocket != null && RoomState.TryGetDouble(NetKeys.SpyEscapedAt, out double launchedAt)
             && PhotonNetwork.Time < launchedAt + EscapeManager.RocketLaunchShowSeconds + 1f)
             return manager.Rocket.transform;
         return null;
@@ -142,6 +147,13 @@ public class SpectatorController : MonoBehaviour
         if (watchingVehicle) SpectatingVehicleChanged?.Invoke(false);
     }
 
+    private void Revalidate()
+    {
+        if (watchingVehicle) return;
+        if (!IsCandidate(currentTarget)) { SwitchToNext(); return; }
+        camCtrl.SetFollowTarget(currentTarget.gameObject, currentTarget.CameraTargetHeight, currentTarget.CameraDistance, keepRotation: true);
+    }
+
     private void SwitchToNext()
     {
         RefreshCandidates();
@@ -153,6 +165,7 @@ public class SpectatorController : MonoBehaviour
                 currentTarget = null;
                 camCtrl.SetFollowTarget(null, Camera_Ctrl.CookieTargetHeight, -1f, keepRotation: true);
                 SpectateTargetChanged?.Invoke(null);
+                Debug.Log($"[Spectator] {kind}: no one to watch.");
             }
             return;
         }
@@ -164,6 +177,7 @@ public class SpectatorController : MonoBehaviour
         currentTarget = next;
         camCtrl.SetFollowTarget(next.gameObject, next.CameraTargetHeight, next.CameraDistance, keepRotation: true);
         SpectateTargetChanged?.Invoke(GetDisplayName(next));
+        Debug.Log($"[Spectator] {kind}: now watching actor {GetActorNumber(next)} ({next.Role}).");
     }
 
     private void RefreshCandidates()

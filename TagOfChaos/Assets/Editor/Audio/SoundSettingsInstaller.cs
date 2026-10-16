@@ -192,7 +192,7 @@ public static class SoundSettingsInstaller
     }
 
     // 장치 이름이 길어 글자를 줄이고, 펼친 목록은 6줄 높이(넘치면 스크롤).
-    private static TMP_Dropdown CreateDropdown(Transform parent, Style style)
+    internal static TMP_Dropdown CreateDropdown(Transform parent, Style style)
     {
         var res = new TMP_DefaultControls.Resources
         {
@@ -226,7 +226,7 @@ public static class SoundSettingsInstaller
         return dropdown;
     }
 
-    private static Slider CreateSlider(Transform parent, Style style)
+    internal static Slider CreateSlider(Transform parent, Style style)
     {
         var res = new DefaultControls.Resources
         {
@@ -330,7 +330,7 @@ public static class SoundSettingsInstaller
 
     // ---------------- helpers ----------------
 
-    private static Button CreateButton(Transform parent, string name, string text, Style style)
+    internal static Button CreateButton(Transform parent, string name, string text, Style style)
     {
         var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
         go.transform.SetParent(parent, false);
@@ -341,7 +341,7 @@ public static class SoundSettingsInstaller
         return b;
     }
 
-    private static TMP_Text Text(Transform parent, string name, string text, float size, TMP_FontAsset font, Color color, TextAlignmentOptions align)
+    internal static TMP_Text Text(Transform parent, string name, string text, float size, TMP_FontAsset font, Color color, TextAlignmentOptions align)
     {
         var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
         go.transform.SetParent(parent, false);
@@ -351,7 +351,7 @@ public static class SoundSettingsInstaller
         return t;
     }
 
-    private static RectTransform Child(Transform parent, string name, params System.Type[] extra)
+    internal static RectTransform Child(Transform parent, string name, params System.Type[] extra)
     {
         var types = new System.Type[extra.Length + 1]; types[0] = typeof(RectTransform); extra.CopyTo(types, 1);
         var go = new GameObject(name, types);
@@ -359,12 +359,12 @@ public static class SoundSettingsInstaller
         return (RectTransform)go.transform;
     }
 
-    private static void Stretch(RectTransform rt)
+    internal static void Stretch(RectTransform rt)
     {
         rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero; rt.pivot = new Vector2(0.5f, 0.5f);
     }
 
-    private static void SetRect(RectTransform rt, Vector2 min, Vector2 max, Vector2 pos, Vector2 size, Vector2? pivot = null)
+    internal static void SetRect(RectTransform rt, Vector2 min, Vector2 max, Vector2 pos, Vector2 size, Vector2? pivot = null)
     {
         rt.anchorMin = min; rt.anchorMax = max; rt.pivot = pivot ?? new Vector2(0.5f, 0.5f); rt.anchoredPosition = pos; rt.sizeDelta = size;
     }

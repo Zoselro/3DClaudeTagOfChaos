@@ -130,7 +130,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
     }
 
     // 진행도에 따른 몸 크기 배율: 눌림 구간에 세로는 줄고 가로는 넓어지고, 축소 구간에 전체가 0으로.
-    private static Vector3 CrushScale(MonsterController monster, float progress)
+    public static Vector3 CrushScale(MonsterController monster, float progress)
     {
         if (progress < 0f) return Vector3.one;
         float squash = Mathf.InverseLerp(monster.GrabKillSquashStart, monster.GrabKillSquashEnd, progress);
@@ -191,7 +191,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
     // 본인 쿠키가 방장 확정으로 부서졌으면 관전으로 넘어간다(같은 이유로 여러 번 불러도 SpectatorController가 한 번만 처리).
     private void EnterSpectatorIfConfirmed()
     {
-        if (!PaintPhaseController.IsPaintScene) return; // 대기실: 이전 판 HitCount가 초기화 전에 잠깐 남아 있어도 관전으로 넘어가지 않는다
+        if (!EscapeManager.IsActive) return; // 대기실: 이전 판 HitCount가 초기화 전에 잠깐 남아 있어도 관전으로 넘어가지 않는다
         if (pv == null || !pv.IsMine || pv.Owner == null || !RoomState.IsBroken(pv.Owner)) return;
         if (TryGetComponent(out SpectatorController spectator)) spectator.EnterSpectatorMode(SpectatorKind.Broken);
     }
@@ -225,7 +225,7 @@ public class CookieLifeStatePresenter : MonoBehaviourPunCallbacks
         if (pv == null || pv.Owner == null) return;
         if (IsBeingGrabKilled) return; // 붙잡힘 동안에는 부서지는 순간(FinishGrabKill)까지 숨기기를 미룬다
         // 대기실에서는 늘 살아 있는 모습 — 이전 판 HitCount가 방장의 초기화 전에 잠깐 남아 있다(2026-10-12 멀티 시험).
-        LifeState desired = PaintPhaseController.IsPaintScene && RoomState.IsBroken(pv.Owner) ? LifeState.Broken : LifeState.Alive;
+        LifeState desired = EscapeManager.IsActive && RoomState.IsBroken(pv.Owner) ? LifeState.Broken : LifeState.Alive;
         if (desired == LifeState.Broken) EnterSpectatorIfConfirmed(); // 처형 연출이 먼저 끝나고 확정이 나중에 온 경우·마녀
         if (desired == appliedState) return;
 

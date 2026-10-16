@@ -91,8 +91,6 @@ public class GameSettingsSO : ScriptableObject
     [Header("Monster View (GameFixPlan.md F6)")]
     [Tooltip("괴물이 판을 시작할 때의 시점.")]
     [SerializeField] private MonsterViewMode monsterDefaultView = MonsterViewMode.FirstPerson;
-    [Tooltip("true면 괴물이 전환 키(InputBindings.ToggleViewKey)로 1인칭/3인칭을 바꿀 수 있다(테스트용). 출시 전에 끌 수 있다.")]
-    [SerializeField] private bool allowMonsterViewToggle = true;
 
     [Header("Network Load (research.md §12.4)")]
     [Tooltip("캐릭터 위치 동기화 횟수(초당, PhotonNetwork.SerializationRate). PUN 기본 10.")]
@@ -138,7 +136,6 @@ public class GameSettingsSO : ScriptableObject
     public float GrabAimRadius => grabAimRadius;
     public float MaxGrabHeight => maxGrabHeight;
     public MonsterViewMode MonsterDefaultView => monsterDefaultView;
-    public bool AllowMonsterViewToggle => allowMonsterViewToggle;
     public float CookieSpawnRange => cookieSpawnRange;
     public float MonsterSpawnRange => monsterSpawnRange;
     public float FallRespawnHeight => fallRespawnHeight;

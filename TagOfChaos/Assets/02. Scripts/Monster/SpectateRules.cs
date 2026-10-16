@@ -1,5 +1,5 @@
 // 관전 대상 규칙(Request1009Plan.md §9, 결정 Q1). 네트워크·씬과 분리한 순수 함수라 EditMode에서 표로 시험한다.
-//   탈출한 쿠키(탈출구·장치 탈것 탑승/대기, 스파이 로켓으로 탈출한 스파이 포함) → 남은 일반 쿠키만(스파이·괴물 제외)
+//   탈출한 쿠키(탈출구·모자 탈출, 스파이 로켓으로 탈출한 스파이 포함)          → 남은 쿠키 전부(스파이 포함, 괴물 제외 — §26 H15)
 //   부서진 쿠키(괴물에게 잡힘·마녀)                                             → 남은 쿠키 전부(스파이 포함), 괴물은 설정이 허락할 때만
 public enum SpectatorKind
 {
@@ -14,7 +14,7 @@ public static class SpectateRules
         if (!spectatable) return false;
         switch (role)
         {
-            case CharacterRole.Cookie: return viewer == SpectatorKind.Broken || !targetIsSpy;
+            case CharacterRole.Cookie: return true; // 모자로 나는 중·괴물이 든·갇힌 쿠키도 남은 사람이다(spectatable은 캐릭터가 정한다)
             case CharacterRole.Monster: return allowMonsters && viewer == SpectatorKind.Broken;
             default: return false;
         }

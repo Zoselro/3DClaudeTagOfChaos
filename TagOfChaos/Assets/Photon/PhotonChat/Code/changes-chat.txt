@@ -3,13 +3,19 @@ Photon Chat C# Client - Changelog
 www.photonengine.com  -  Join our Discord Server: https://dashboard.photonengine.com/account/profile
 
 
-Version 4.1.8.21 (1. July 2026)
+Version 4.1.8.23 (10. September 2026)
     No notable changes.
 
-Version 4.1.8.20 (4. June 2026)
+Version 4.1.8.22 (04. September 2026)
     No notable changes.
 
-Version 4.1.8.19 (1. June 2026)
+Version 4.1.8.21 (01. July 2026)
+    No notable changes.
+
+Version 4.1.8.20 (04. June 2026)
+    No notable changes.
+
+Version 4.1.8.19 (01. June 2026)
     Fixed: Initialization of static value in ChannelCreationOptions for Unity (if run without Domain Reload).
 
 Version 4.1.8.18 (30. March 2026 - rev8338)

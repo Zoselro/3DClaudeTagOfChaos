@@ -11,7 +11,7 @@ public class Request1011Tests
     // ---- §16.1 상자 ----
 
     [TestCase(GamePhase.Lobby, false)]
-    [TestCase(GamePhase.Prepare, true)]
+    [TestCase(GamePhase.Prepare, false)] // §26 H3: 준비 시간에는 숨긴다
     [TestCase(GamePhase.Hunt, true)]
     [TestCase(GamePhase.TimeAttack, true)]
     [TestCase(GamePhase.Result, true)]

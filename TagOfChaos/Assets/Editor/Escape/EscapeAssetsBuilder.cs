@@ -42,7 +42,7 @@ public static class EscapeAssetsBuilder
         ItemSO redButton = Mat("RedButton", "Red Button", new Color(0.9f, 0.1f, 0.1f));
         ItemSO seatbelt = Mat("Seatbelt", "Seatbelt", new Color(0.35f, 0.45f, 0.6f));
         ItemSO battery = Mat("Battery", "Battery", new Color(0.55f, 0.85f, 0.2f));
-        ItemSO toolbox = Mat("Toolbox", "Toolbox", new Color(0.85f, 0.35f, 0.15f), anyRocket: true);
+        ItemSO toolbox = Mat("Toolbox", "Toolbox", new Color(0.85f, 0.35f, 0.15f)); // 건물 재료 전용(§26 H4)
         ItemSO gear = Mat("Gear", "Gear", new Color(0.75f, 0.75f, 0.8f));
         ItemSO macaronWheel = Mat("MacaronWheel", "Macaron Wheel", new Color(1f, 0.6f, 0.75f));
         ItemSO cookieWheel = Mat("CookieWheel", "Cookie Wheel", new Color(0.8f, 0.55f, 0.3f));
@@ -65,7 +65,11 @@ public static class EscapeAssetsBuilder
         ItemSO stunGun = ToolItem("StunGun", "Stun Gun", new Color(0.3f, 0.7f, 1f), stunTool);
         ItemSO balloon = ToolItem("WaterBalloon", "Water Balloon", new Color(0.3f, 0.85f, 1f), balloonTool);
 
-        // Request1009Plan.md §25 — 새 아이템(모델이 오기 전에는 색 도형). 수리키트는 지금 공구상자(Toolbox) 그대로.
+        // Request1009Plan.md §25 — 새 아이템(모델이 오기 전에는 색 도형).
+        // 수리키트는 공구상자와 다른 아이템(§26 H4) — 스파이 로켓 칸을 50%씩 채운다. 모델·아이콘은 공구상자 것을 같이 쓴다.
+        ItemSO repairKit = Item("Item_RepairKit", "RepairKit", "Repair Kit", new Color(0.85f, 0.35f, 0.15f), HoldType.OneHanded, ItemCategory.Material, null, false);
+        items.Add(repairKit);
+        if (repairKit.ModelPrefab == null && toolbox.ModelPrefab != null) repairKit.EditorSetVisuals(toolbox.Icon, toolbox.ModelPrefab);
         ItemSO dismantle = ToolItem("Dismantle", "Dismantle Tool", new Color(0.55f, 0.55f, 0.6f), Tool("Tool_Dismantle", ToolKind.Dismantle, 1, 2f, 0.5f, 0f, 0f, 1f, false));
         ItemSO jail = ToolItem("JailBalloon", "Jail Balloon", new Color(0.6f, 0.85f, 1f), Tool("Tool_JailBalloon", ToolKind.JailBalloon, 1, 12f, 1.5f, 4f, 3f, 3f, false));
         ItemSO skates = ToolItem("Skates", "Inline Skates", new Color(0.95f, 0.3f, 0.55f), Tool("Tool_Skates", ToolKind.Skates, 1, 1f, 0.5f, 0f, 0f, 1f, false, 5f, 2f));
@@ -100,7 +104,7 @@ public static class EscapeAssetsBuilder
 
         var catalog = LoadOrCreate<EscapeCatalogSO>(ResourcesRoot + "/EscapeCatalog.asset");
         catalog.EditorSetup(items.ToArray(), recipes.ToArray(), hammer, new[] { stunGun, balloon });
-        catalog.EditorSetupReform(toolbox, dismantle, new[] { stunGun, hammer, balloon, jail }, new[] { skates, pumpkin, recorder }, new[] { 5, 3, 5 }, heliHat, noiseBomb);
+        catalog.EditorSetupReform(repairKit, dismantle, new[] { stunGun, hammer, balloon, jail }, new[] { skates, pumpkin, recorder }, new[] { 5, 3, 5 }, heliHat, noiseBomb);
         BuildXRayMaterial();
         EditorUtility.SetDirty(catalog);
         LoadOrCreate<EscapeTextsSO>(ResourcesRoot + "/EscapeTexts.asset");

@@ -58,8 +58,8 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
     // 색칠(변장) 단계가 없어져(§25.5 C) 판이 시작되면 바로 상자·도구·수리를 쓸 수 있다. 결과가 나온 뒤에는 막는다.
     public static bool ActionsAllowed => GamePhaseState.Current != GamePhase.Result;
 
-    // 상자는 판이 시작되면 늘 보인다.
-    public static bool ChestsVisibleIn(GamePhase phase) => phase != GamePhase.Lobby;
+    // 상자는 준비 시간이 끝나(술래문이 열려) 사냥이 시작되면 보인다(§26 H3 — 준비 시간에는 숨기고 열 수 없다).
+    public static bool ChestsVisibleIn(GamePhase phase) => phase != GamePhase.Lobby && phase != GamePhase.Prepare;
     private const float PhaseCheckSeconds = 0.2f;
     private bool? chestsShown;
     private float nextPhaseCheck;
@@ -370,6 +370,48 @@ public class EscapeManager : MonoBehaviourPunCallbacks, IOnEventCallback
 
     // 이동할 곳이 맞는지(방장 검사): 맵 안, 술래방 밖, 캐릭터가 끼지 않는다.
     public bool IsValidTeleport(Vector3 p) => !IsOutsideMap(p, -1f) && !InMonsterRoom(p) && IsClearForCharacter(p);
+
+    // ---------------- 재료 안전장치(Request1009Plan.md §26 A~D) ----------------
+
+    private const float ReachableHeight = 2.5f; // 줍기 화면 판정(CharacterInteractor.MaxHeightDifference)과 같게
+
+    // 쿠키·스파이가 주울 수 있는 바닥인가: 맵 안, 술래방 밖, 그 아래 바닥에서 손이 닿는 높이.
+    public bool IsReachableGround(Vector3 p)
+    {
+        if (IsOutsideMap(p, -0.5f) || InMonsterRoom(p)) return false;
+        Vector3 floor = SnapToGround(new Vector3(p.x, p.y - 0.05f, p.z));
+        return p.y - floor.y <= ReachableHeight + 0.5f;
+    }
+
+    // 바닥에 놓을 자리: 요청 자리가 닿는 곳이면 그대로(바닥 맞춤), 아니면 가장 가까운 건물 수리 자리 둘레.
+    public Vector3 SafeGroundPoint(Vector3 requested, int roll)
+    {
+        Vector3 p = SnapToGround(requested);
+        if (IsReachableGround(p)) return p;
+        int best = 0;
+        float bestDistance = float.MaxValue;
+        for (int b = 0; b < buildings.Length; b++)
+        {
+            float d = (BuildingRepairPoint(b) - requested).sqrMagnitude;
+            if (d < bestDistance) { bestDistance = d; best = b; }
+        }
+        Debug.Log($"[EscapeManager] Drop point {requested} is not reachable — moved next to building {best}.");
+        return DropPointNear(BuildingRepairPoint(best), roll);
+    }
+
+    // 위치를 모를 때 아이템을 둘 곳: 쿠키 스폰 근처(원점은 술래방 한가운데라 쓰지 않는다).
+    public Vector3 FallbackDropPoint(int roll)
+    {
+        GameObject spawn = GameObject.Find(SceneSpawnPoints.Cookie);
+        return DropPointNear(spawn != null ? spawn.transform.position : BuildingRepairPoint(0), roll);
+    }
+
+    // 맵 밖으로 떨어져 쿠키 스폰 자리로 돌아온 위치인지(이동 검사 예외).
+    public bool IsNearCookieSpawn(Vector3 p)
+    {
+        GameObject spawn = GameObject.Find(SceneSpawnPoints.Cookie);
+        return spawn != null && Vector3.Distance(spawn.transform.position, p) <= GameSettings.Current.CookieSpawnRange + 2f;
+    }
 
     private static bool IsClearForCharacter(Vector3 feet)
     {

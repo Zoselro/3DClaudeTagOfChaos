@@ -3,8 +3,8 @@ using UnityEngine.UI;
 
 // ESC 메뉴(EscapeVisualPlan.md §1.2, 결정 Q4). 쿠키·스파이·괴물 모두 ESC로 연다. 열려 있는 동안(나가기 확인창 포함)
 // 이동·시점·상호작용 입력을 막고 커서를 풀어 버튼을 누를 수 있게 한다 — 괴물 1인칭 카메라는 매 프레임 커서를 잠그므로 이 값을 본다.
-// 게임은 멈추지 않는다(온라인). 버튼 목록은 Buttons 아래에 늘어서므로 나중에 "설정" 버튼(지금은 꺼 둠)을 켜기만 하면 된다.
-// "소리" 버튼(SoundPlan.md S9)은 모든 사람에게 보이고 소리 설정 창을 연다 — 창을 닫으면 메뉴로 돌아온다.
+// 게임은 멈추지 않는다(온라인). 버튼: 계속하기 · 방 설정(대기실 호스트만) · 설정(모두 — 조작키·출력 장치·입력 장치, §27) · 나가기.
+// 설정 창을 닫으면 메뉴로 돌아온다.
 // 문구는 프리팹·씬에서 입력한다(코드에 한글 금지).
 public class EscMenu : MonoBehaviour
 {
@@ -18,9 +18,9 @@ public class EscMenu : MonoBehaviour
     [SerializeField] private RoomSettingsMenu roomSettings; // 대기실에만 연결된다 — 없으면 설정 버튼을 숨긴다
     [SerializeField] private RectTransform box;             // 버튼이 하나 늘면 상자를 키운다
     [SerializeField, Min(0f)] private float settingsRowHeight = 70f;
-    [Header("Sound settings (everyone)")]
-    [SerializeField] private Button soundButton;
-    [SerializeField] private SoundSettingsPanel soundSettings;
+    [Header("Settings (everyone, §27)")]
+    [SerializeField] private Button optionsButton;
+    [SerializeField] private SettingsMenu settingsMenu;
     private float baseBoxHeight = -1f;
 
     public static EscMenu Instance { get; private set; }
@@ -29,7 +29,7 @@ public class EscMenu : MonoBehaviour
     public static bool IsOpen => Instance != null && Instance.Visible;
 
     private bool Visible => (panel != null && panel.activeSelf) || (confirmDialog != null && confirmDialog.activeSelf)
-                            || (roomSettings != null && roomSettings.IsOpen) || (soundSettings != null && soundSettings.IsOpen);
+                            || (roomSettings != null && roomSettings.IsOpen) || (settingsMenu != null && settingsMenu.IsOpen);
 
     private void Awake()
     {
@@ -43,11 +43,11 @@ public class EscMenu : MonoBehaviour
             roomSettings.gameObject.SetActive(false);
             roomSettings.Closed += Open; // 설정 창에서 뒤로 → 메뉴
         }
-        if (soundButton != null) soundButton.onClick.AddListener(OnSoundClicked);
-        if (soundSettings != null)
+        if (optionsButton != null) optionsButton.onClick.AddListener(OnOptionsClicked);
+        if (settingsMenu != null)
         {
-            soundSettings.gameObject.SetActive(false);
-            soundSettings.Closed += Open; // 소리 창에서 닫기 → 메뉴
+            settingsMenu.gameObject.SetActive(false);
+            settingsMenu.Closed += Open; // 설정 창에서 닫기 → 메뉴
         }
         if (box != null) baseBoxHeight = box.sizeDelta.y;
     }
@@ -60,7 +60,7 @@ public class EscMenu : MonoBehaviour
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetKeyDown(KeyCode.Escape) && !KeyBindingsPage.ConsumesEscape) // 키를 바꾸는 중의 Esc는 취소에 쓰인다
         {
             // 키로 여닫을 때만 소리를 낸다 — 버튼으로 여닫으면 버튼 클릭 소리가 이미 난다
             if (Visible) { Close(); UiSoundCues.WindowClosed(); }
@@ -85,14 +85,14 @@ public class EscMenu : MonoBehaviour
         if (panel != null) panel.SetActive(false);
         if (confirmDialog != null) confirmDialog.SetActive(false);
         if (roomSettings != null && roomSettings.IsOpen) roomSettings.gameObject.SetActive(false);
-        if (soundSettings != null && soundSettings.IsOpen) soundSettings.Hide();
+        if (settingsMenu != null && settingsMenu.IsOpen) settingsMenu.Hide();
     }
 
-    private void OnSoundClicked()
+    private void OnOptionsClicked()
     {
-        if (soundSettings == null) return;
+        if (settingsMenu == null) return;
         if (panel != null) panel.SetActive(false);
-        soundSettings.Open();
+        settingsMenu.Open();
     }
 
     private void OnSettingsClicked()

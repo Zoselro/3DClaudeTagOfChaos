@@ -37,6 +37,17 @@ public static class RoomState
         return true;
     }
 
+    // 대기실에서 목소리를 녹음했는지(§26 H11).
+    public static bool HasVoice(Player player) => TryGetPlayerBool(player, NetKeys.HasVoice, out bool v) && v;
+
+    public static bool TryGetPlayerBool(Player player, string key, out bool value)
+    {
+        value = default;
+        if (player == null || !player.CustomProperties.TryGetValue(key, out object raw) || !(raw is bool v)) return false;
+        value = v;
+        return true;
+    }
+
     public static bool TryGetPlayerInt(Player player, string key, out int value)
     {
         value = default;

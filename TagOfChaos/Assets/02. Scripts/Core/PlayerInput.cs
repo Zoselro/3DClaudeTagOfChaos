@@ -2,7 +2,7 @@ using UnityEngine;
 
 // 게임 입력을 읽는 유일한 창구(research.md §12 E5). 게임 코드는 "의도"(이동·점프·회피·그랩·색칠·시점 회전)만
 // 묻고, 어떤 키인지와 어떤 입력 API인지는 여기서만 안다. 레거시 Input Manager를 쓰고 있으며, Input System
-// 패키지로 옮길 때는 이 파일만 바꾸면 된다. 키 값은 Resources/InputBindings 에셋(InputBindingsSO)에서 읽는다.
+// 패키지로 옮길 때는 이 파일만 바꾸면 된다. 키 값은 KeyBindings(사용자 설정 → 없으면 Resources/InputBindings 기본값)에서 읽는다.
 public static class PlayerInput
 {
     private const string ResourcePath = "InputBindings";
@@ -41,10 +41,17 @@ public static class PlayerInput
     // ESC 메뉴(나가기 확인창 포함)가 열려 있는 동안 true(EscapeVisualPlan.md §1.2). 키 입력에 더해 시점 회전도 막는다.
     public static bool IsMenuOpen { get; set; }
 
-    // 이동 입력(x=좌우, y=앞뒤), 각 축 -1~1.
+    // 이동 입력(x=좌우, y=앞뒤), 각 축 -1~1. 설정한 4개 키 + 방향키(고정 보조).
     public static Vector2 Move => IsGameplaySuppressed
         ? Vector2.zero
-        : EditorMove != Vector2.zero ? EditorMove : new Vector2(Input.GetAxisRaw(Bindings.HorizontalAxis), Input.GetAxisRaw(Bindings.VerticalAxis));
+        : EditorMove != Vector2.zero ? EditorMove : new Vector2(
+            Axis(KeyAction.MoveRight, KeyCode.RightArrow) - Axis(KeyAction.MoveLeft, KeyCode.LeftArrow),
+            Axis(KeyAction.MoveForward, KeyCode.UpArrow) - Axis(KeyAction.MoveBack, KeyCode.DownArrow));
+
+    private static float Axis(KeyAction action, KeyCode secondary) => Input.GetKey(KeyBindings.Get(action)) || Input.GetKey(secondary) ? 1f : 0f;
+    private static bool Down(KeyAction action) => Input.GetKeyDown(KeyBindings.Get(action));
+    private static bool Held(KeyAction action) => Input.GetKey(KeyBindings.Get(action));
+    private static bool Up(KeyAction action) => Input.GetKeyUp(KeyBindings.Get(action));
 
     // 카메라가 바라보는 방향 기준의 수평 이동 방향(정규화, 입력이 없으면 0). 쿠키·괴물 공용(3인칭 궤도 카메라 전제).
     public static Vector3 CameraRelativeMove(Transform cameraTransform)
@@ -56,12 +63,12 @@ public static class PlayerInput
         return (forward * move.y + right * move.x).normalized;
     }
 
-    public static bool RunHeld => !IsGameplaySuppressed && (Input.GetKey(Bindings.RunKey) || EditorRunHeld);
-    public static bool JumpPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.JumpKey);
-    public static bool DodgePressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DodgeKey);
-    public static bool GrabPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.GrabKey);
-    public static bool InteractPressed => !IsGameplaySuppressed && (Input.GetKeyDown(Bindings.InteractKey) || EditorTakeInteractPress());
-    public static bool SkillPressed => !IsGameplaySuppressed && (Input.GetKeyDown(Bindings.SkillKey) || EditorTakeSkillPress()); // 괴물 소음폭탄(§25.5 K)
+    public static bool RunHeld => !IsGameplaySuppressed && (Held(KeyAction.Run) || EditorRunHeld);
+    public static bool JumpPressed => !IsGameplaySuppressed && Down(KeyAction.Jump);
+    public static bool DodgePressed => !IsGameplaySuppressed && Down(KeyAction.Dodge);
+    public static bool GrabPressed => !IsGameplaySuppressed && Down(KeyAction.Grab);
+    public static bool InteractPressed => !IsGameplaySuppressed && (Down(KeyAction.Interact) || EditorTakeInteractPress());
+    public static bool SkillPressed => !IsGameplaySuppressed && (Down(KeyAction.MonsterSkill) || EditorTakeSkillPress()); // 괴물 소음폭탄(§25.5 K)
     public static bool EditorSkillPress;
     private static bool EditorTakeSkillPress()
     {
@@ -69,7 +76,7 @@ public static class PlayerInput
         EditorSkillPress = false;
         return true;
     }
-    public static bool InteractHeld => !IsGameplaySuppressed && (Input.GetKey(Bindings.InteractKey) || EditorInteractHeld); // 상자·장치 길게 누르기(IHoldInteractable)
+    public static bool InteractHeld => !IsGameplaySuppressed && (Held(KeyAction.Interact) || EditorInteractHeld); // 상자·장치 길게 누르기(IHoldInteractable)
 
 #if UNITY_EDITOR
     // Play Mode 자동 검증용(에디터 전용, 빌드에는 없다): E를 누른 것처럼 한 번 / 누르고 있는 것처럼.
@@ -98,10 +105,10 @@ public static class PlayerInput
     private static readonly Vector2 EditorMove = Vector2.zero;
     private const bool EditorRunHeld = false;
 #endif
-    public static bool TentacleDashPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.TentacleDashKey);
+    public static bool TentacleDashPressed => !IsGameplaySuppressed && Down(KeyAction.MonsterDash);
     // 인벤토리(EscapePlan.md §1.9): G키로 떨어뜨리기, 숫자키 1~4로 칸 고르기, 마우스로 도구 쓰기.
-    public static bool DropPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.DropKey);
-    public static bool UseToolPressed => !IsGameplaySuppressed && Input.GetMouseButtonDown(Bindings.UseToolButton);
+    public static bool DropPressed => !IsGameplaySuppressed && Down(KeyAction.Drop);
+    public static bool UseToolPressed => !IsGameplaySuppressed && Down(KeyAction.UseTool);
 
     // 눌린 칸 번호(1~4 → 0~3), 없으면 -1.
     public static int SlotKeyPressed
@@ -110,22 +117,23 @@ public static class PlayerInput
         {
             if (IsGameplaySuppressed) return -1;
             for (int i = 0; i < 4; i++)
-                if (Input.GetKeyDown(KeyCode.Alpha1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i)) return i;
+                if (Down(KeyAction.Slot1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i)) return i; // 숫자판은 고정 보조 키
             return -1;
         }
     }
 
-    public static bool ToggleViewPressed => !IsGameplaySuppressed && Input.GetKeyDown(Bindings.ToggleViewKey);
-    public static bool SpectateNextPressed => !IsGameplaySuppressed && (Input.GetKeyDown(Bindings.SpectateNextKey) || EditorTakeSpectateNextPress());
-    public static bool ChatSubmitReleased => Input.GetKeyUp(Bindings.ChatSubmitKey);
+    public static bool SpectateNextPressed => !IsGameplaySuppressed && (Down(KeyAction.SpectateNext) || EditorTakeSpectateNextPress());
+    public static bool ChatSubmitReleased => Up(KeyAction.Chat);
+    // 대기실 음성 채팅 "누르면서 말하기"(§26 H11). 채팅 입력 중에는 말하지 않는다.
+    public static bool PushToTalkHeld => !chatSuppressed && Held(KeyAction.PushToTalk);
 
     public static Vector2 PointerPosition => Input.mousePosition;
     public static bool PaintHeld => Input.GetMouseButton(Bindings.PaintButton);
     public static float BrushSizeDelta => Input.mouseScrollDelta.y;
 
-    public static bool CameraRotateHeld => Input.GetMouseButton(Bindings.CameraRotateButton);
-    public static bool CameraRotatePressed => !IsMenuOpen && Input.GetMouseButtonDown(Bindings.CameraRotateButton);
-    public static bool CameraRotateReleased => Input.GetMouseButtonUp(Bindings.CameraRotateButton);
+    public static bool CameraRotateHeld => Held(KeyAction.CameraRotate);
+    public static bool CameraRotatePressed => !IsMenuOpen && Down(KeyAction.CameraRotate);
+    public static bool CameraRotateReleased => Up(KeyAction.CameraRotate);
     public static Vector2 CameraRotateDelta => IsMenuOpen ? Vector2.zero : new Vector2(Input.GetAxis(Bindings.MouseXAxis), Input.GetAxis(Bindings.MouseYAxis));
 
     // 1인칭 시점 회전(GameFixPlan.md F6): 우클릭 없이 마우스 이동만으로 돌린다. 채팅 중에는 멈춘다.

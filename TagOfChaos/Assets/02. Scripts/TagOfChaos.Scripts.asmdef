@@ -4,7 +4,10 @@
         "PhotonUnityNetworking",
         "PhotonRealtime",
         "Unity.TextMeshPro",
-        "Unity.ugui"
+        "Unity.ugui",
+        "PhotonVoice",
+        "PhotonVoice.API",
+        "PhotonVoice.PUN"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -129,7 +129,7 @@ public class EscapeTests
     }
 
     [Test]
-    public void State_v5_EncodeDecode_RoundTrips()
+    public void State_v6_EncodeDecode_RoundTrips()
     {
         var s = new EscapeState { Revision = 9, RocketAnchor = 2, OpenExits = 0b0101, ExitsOpenedAt = 77.5, RainbowAnchor = 4, Rainbow = RainbowState.Opened, NextId = 31 };
         s.Items.Add(new EscapeState.Item { Id = "Gear", Loc = ItemLocation.Held, A = 2, B = 1, Pos = new Vector3(1, 2, 3), Charges = 3 });
@@ -138,11 +138,12 @@ public class EscapeTests
         s.Buildings.Add(new EscapeState.Building { MaterialId = "Gear", Active = true, ItemIndex = -1, Progress = 0.25f, ProgressAt = 50.5, Repairer = 3 });
         s.Buildings.Add(new EscapeState.Building { MaterialId = "Battery", Active = true, ItemIndex = 1, Progress = 1f });
         s.RocketSlots.Add(new EscapeState.Slot { Label = "Kit", Accepts = new[] { "Toolbox", "Gear" }, ItemIndex = -1, RocketFilled = true });
+        s.RocketSlots.Add(new EscapeState.Slot { Label = "Oil", Accepts = new[] { "Oil" }, ItemIndex = -1, KitHalf = true });
         s.Escaped.Add(5);
         s.Boarded.Add(6);
         s.Flights.Add(new EscapeState.Flight { Actor = 4, StartAt = 88.25 });
         s.Bombs.Add(new EscapeState.Bomb { Id = 11, Owner = 1, Pos = new Vector3(4, 0, 5), Spent = true, SpentAt = 60 });
-        s.Decoys.Add(new EscapeState.Decoy { Id = 12, Owner = 2, Pos = new Vector3(-3, 0, 9), Yaw = 90f, VoiceAt = 70, Seed = 1234 });
+        s.Decoys.Add(new EscapeState.Decoy { Id = 12, Owner = 2, Pos = new Vector3(-3, 0, 9), Yaw = 90f, VoiceAt = 70, Seed = 1234, CaughtBy = 7, CaughtAt = 81.5 });
 
         EscapeState d = EscapeState.Decode(s.Encode());
         Assert.NotNull(d);
@@ -172,6 +173,10 @@ public class EscapeTests
         Assert.AreEqual(0, d.DecoyIndex(12));
         Assert.AreEqual(1234, d.Decoys[0].Seed);
         Assert.AreEqual(90f, d.Decoys[0].Yaw, 1e-4f);
+        Assert.IsTrue(d.Decoys[0].Caught && d.Decoys[0].CaughtBy == 7);
+        Assert.AreEqual(81.5, d.Decoys[0].CaughtAt, 1e-9);
+        Assert.IsTrue(d.RocketSlots[1].KitHalf && !d.RocketSlots[1].Filled);
+        Assert.AreEqual(0.5f, d.RocketSlots[1].Progress);
         Assert.IsNull(EscapeState.Decode(new byte[] { 4, 0, 0 }), "old format is rejected");
     }
 
@@ -187,23 +192,67 @@ public class EscapeTests
         Assert.AreEqual(1, s.BombChargesLeft(1, 3, 110, 20f));
         Assert.AreEqual(2, s.BombChargesLeft(1, 3, 120, 20f));
         Assert.AreEqual(2, s.BombChargesLeft(2, 3, 0, 20f), "other monster's bombs do not count");
+        Assert.AreEqual(1, EscapeAuthority.BombMaxCharges, "one bomb at a time (§26 H6)");
+        Assert.AreEqual(20f, EscapeAuthority.BombCooldown);
     }
 
-    // §25.5 L: AI 걷는 길은 씨앗값만으로 정해지고(모든 화면이 같다) 맵 밖으로 나가지 않는다
+    // §26 H7: 녹음 목소리는 붙은 뒤 5~20초 쉬고 한 번, 다시 5~20초 쉬고 한 번… 씨앗값만으로 정해진다(모든 화면이 같다)
     [Test]
-    public void DecoyWalk_IsDeterministicAndStaysInMap()
+    public void DecoyVoice_PlaysEveryFiveToTwentySeconds()
     {
-        var map = new Rect(-70, -70, 140, 140);
-        Vector3 start = new Vector3(60f, 0f, 60f);
-        for (float t = 0f; t <= 30f; t += 0.5f)
+        for (int k = 0; k < 50; k++)
         {
-            Vector3 a = DecoyWalk.PositionAt(start, 42, t, map);
-            Assert.AreEqual(a, DecoyWalk.PositionAt(start, 42, t, map));
-            Assert.IsTrue(a.x > -71f && a.x < 71f && a.z > -71f && a.z < 71f, $"t={t} {a}");
+            float gap = DecoyVoice.Gap(77, k);
+            Assert.That(gap, Is.InRange(DecoyVoice.MinGap, DecoyVoice.MaxGap));
+            Assert.AreEqual(gap, DecoyVoice.Gap(77, k));
         }
-        Assert.AreEqual(start, DecoyWalk.PositionAt(start, 42, 0f, map));
-        Assert.AreEqual(DecoyWalk.Speed * 3f, Vector3.Distance(start, DecoyWalk.PositionAt(start, 42, 3f, map)), 0.05f);
-        Assert.AreNotEqual(DecoyWalk.PositionAt(start, 1, 20f, map), DecoyWalk.PositionAt(start, 2, 20f, map));
+        Assert.IsFalse(DecoyVoice.TryCurrentPlay(0, 77, 2f, 100, out _), "no recorder");
+        Assert.IsFalse(DecoyVoice.TryCurrentPlay(100, 77, 2f, 100 + DecoyVoice.MinGap - 0.1, out _), "still the first rest");
+        double first = 100 + DecoyVoice.Gap(77, 0);
+        Assert.IsTrue(DecoyVoice.TryCurrentPlay(100, 77, 2f, first + 0.5, out double s1));
+        Assert.AreEqual(first, s1, 1e-9);
+        double second = first + 2f + DecoyVoice.Gap(77, 1);
+        Assert.IsTrue(DecoyVoice.TryCurrentPlay(100, 77, 2f, second + 0.1, out double s2));
+        Assert.AreEqual(second, s2, 1e-6, "next play waits for the clip to end, then rests again");
+    }
+
+    // §26 H8: 40 m까지 오른 모자는 가장 가까운 맵 가장자리로 곧장 난다
+    [Test]
+    public void HatFlight_HeadsToNearestEdge()
+    {
+        var map = new Rect(-70, -50, 140, 100);
+        Assert.AreEqual(Vector3.left, HatFlight.NearestEdgeDirection(map, new Vector3(-60, 40, 0)));
+        Assert.AreEqual(Vector3.right, HatFlight.NearestEdgeDirection(map, new Vector3(65, 40, 10)));
+        Assert.AreEqual(Vector3.back, HatFlight.NearestEdgeDirection(map, new Vector3(0, 40, -45)));
+        Assert.AreEqual(Vector3.forward, HatFlight.NearestEdgeDirection(map, new Vector3(5, 40, 30)));
+    }
+
+    // §26 H4: 수리키트 — 0% 칸이 있으면 0% 칸을 모두 50%로, 없으면 50% 칸 하나를 100%로(스파이가 그 재료를 들고 있지 않은 칸 먼저)
+    [Test]
+    public void RepairKit_HalfFillsThenCompletes()
+    {
+        var slots = new List<EscapeState.Slot>
+        {
+            new EscapeState.Slot { Accepts = new[] { "Gear" }, ItemIndex = -1 },
+            new EscapeState.Slot { Accepts = new[] { "Battery" }, ItemIndex = -1 },
+        };
+        Assert.IsTrue(EscapeState.ApplyRepairKit(slots, _ => false));
+        Assert.IsTrue(slots[0].KitHalf && slots[1].KitHalf && !slots[0].Filled && !slots[1].Filled);
+        Assert.AreEqual(0.5f, slots[0].Progress);
+        Assert.IsTrue(EscapeState.ApplyRepairKit(slots, slot => slot.Accepts[0] == "Gear"), "spy holds Gear");
+        Assert.IsFalse(slots[0].Filled, "the Gear slot is left for the Gear the spy holds");
+        Assert.IsTrue(slots[1].Filled);
+        Assert.IsTrue(EscapeState.ApplyRepairKit(slots, _ => true), "every slot held: first one");
+        Assert.IsTrue(slots[0].Filled);
+        Assert.IsFalse(EscapeState.ApplyRepairKit(slots, _ => false), "nothing left to fill");
+
+        var mixed = new List<EscapeState.Slot>
+        {
+            new EscapeState.Slot { Accepts = new[] { "Gear" }, ItemIndex = -1, KitHalf = true },
+            new EscapeState.Slot { Accepts = new[] { "Oil" }, ItemIndex = -1 },
+        };
+        Assert.IsTrue(EscapeState.ApplyRepairKit(mixed, _ => false));
+        Assert.IsTrue(!mixed[0].Filled && mixed[1].KitHalf, "a 0% slot exists, so only 0% slots rise to 50%");
     }
 
     // §25.3 Q6: 녹음 목소리 μ-law 8비트(보낼 때 줄이고 받을 때 되돌린다)
@@ -212,8 +261,7 @@ public class EscapeTests
     {
         foreach (float v in new[] { -1f, -0.5f, -0.01f, 0f, 0.02f, 0.3f, 0.99f })
             Assert.AreEqual(v, VoiceStore.Decode(VoiceStore.Encode(v)), Mathf.Max(0.004f, Mathf.Abs(v) * 0.05f), v.ToString());
-        Assert.NotNull(VoiceStore.DefaultClip);
-        Assert.Greater(VoiceStore.DefaultClip.length, 1f);
+        Assert.IsNull(VoiceStore.ClipFor(-99), "no default voice any more (§26 H7)");
     }
 
     // 다시 생길 상자: 열린 빈 일반 상자 → 빈 일반 상자 → 바닥(-1). 스파이 상자는 빼다

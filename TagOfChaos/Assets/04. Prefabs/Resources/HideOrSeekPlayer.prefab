@@ -903,7 +903,6 @@ MonoBehaviour:
   bodyRenderer: {fileID: 9080992935516163813}
   paintedSkinShader: {fileID: 4800000, guid: ecba02a4c8c1b0c46bd48afb54543f2d, type: 3}
   palette: {fileID: 11400000, guid: 9d4f892f8a785f04ea2292914bc401eb, type: 2}
-  brushSettings: {fileID: 11400000, guid: 6f5c9bb5696a6a8488f5898cdcf869ce, type: 2}
   brushStampMaterial: {fileID: 2100000, guid: f91f4b7a219d36a4f9fc214c8b0d7854, type: 2}
   finalizeStampMaterial: {fileID: 2100000, guid: 7698b9f3930b22743a2bb62c5f9d291a, type: 2}
   eraseStampMaterial: {fileID: 2100000, guid: 018f297987fecfc4fa69d5e255323110, type: 2}

@@ -170,7 +170,7 @@ public class RuleTests
         string coreGuid = AssetDatabase.AssetPathToGUID("Assets/04. Prefabs/Scene/GameSceneCore.prefab");
         Assert.IsNotEmpty(coreGuid, "GameSceneCore prefab is missing.");
 
-        var sceneOwnedTypes = new[] { "GameManager", "GameRuleController", "MonsterJoinController", "PaintPhaseController", "ResultScreenController", "ColorSelectionPanel" };
+        var sceneOwnedTypes = new[] { "GameManager", "GameRuleController", "MonsterJoinController", "ResultScreenController" };
         var scriptGuids = new List<string>();
         foreach (string type in sceneOwnedTypes)
         {

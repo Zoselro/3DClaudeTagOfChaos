@@ -14,7 +14,7 @@ using UnityEngine.UI;
 // - 타임어택 타이머(빨강). 문구는 모두 EscapeTextsSO에서 읽는다(코드에 한글 금지).
 public class EscapeHud : MonoBehaviour
 {
-    private const int MaxRequirementRows = 6;
+    private const int MaxRequirementRows = 7;
     private static EscapeHud instance;
     private readonly List<StolenNotice> pendingStolen = new List<StolenNotice>();
 
@@ -119,6 +119,12 @@ public class EscapeHud : MonoBehaviour
             case EscapeNoticeKind.ExitsOpened: Toast(t.exitsOpened, alert: true); break;
             case EscapeNoticeKind.RainbowAppeared: Toast(t.rainbowAppeared, alert: true); break;
             case EscapeNoticeKind.RainbowBroken: Toast(t.rainbowBroken, alert: true); break;
+            case EscapeNoticeKind.AllDecoysGone: instance.StartCoroutine(instance.ToastLater(t.allDecoysGone, DecoysGoneToastDelay)); break;
+            case EscapeNoticeKind.MaterialRestored:
+                ItemSO restored = instance.manager.Catalog.Find(itemId);
+                string restoredName = restored == null ? itemId : instance.IsUnknownToLocal(restored) ? t.unknownMaterial : restored.DisplayName;
+                Toast(string.Format(t.materialRestored, restoredName));
+                break;
             case EscapeNoticeKind.NoiseBomb:
                 Toast(t.noiseBombAlarm, alert: true);
                 if (RoomState.IsLocalMonster() && int.TryParse(itemId, out int building)) AlarmBeacon.Show(instance.manager.BuildingRepairPoint(building));
@@ -198,6 +204,9 @@ public class EscapeHud : MonoBehaviour
         bombText.rectTransform.anchoredPosition = new Vector2(0f, 60f); bombText.rectTransform.sizeDelta = new Vector2(400f, 44f);
         bombText.color = new Color(1f, 0.55f, 0.5f);
         bombText.gameObject.SetActive(false);
+
+        // 오른쪽 아래 스킬 칸(§26 H9)
+        gameObject.AddComponent<SkillHud>().Init(manager, texts);
 
         // 마녀 타이머(가운데 위, 빨강)
 
@@ -291,17 +300,27 @@ public class EscapeHud : MonoBehaviour
         }
     }
 
-    // 스파이는 건물 재료가 무엇인지 모른다(§25 요청) — 수리키트·도구는 안다.
+    // 스파이는 건물 재료가 무엇인지 모른다(§25 요청) — 수리키트·도구·로켓에 필요한 재료는 안다(§26 H4).
     private bool IsUnknownToLocal(ItemSO item) =>
-        RoomState.IsLocalSpy() && item.Category == ItemCategory.Material && (manager.Catalog.RepairKit == null || item != manager.Catalog.RepairKit);
+        RoomState.IsLocalSpy() && item.Category == ItemCategory.Material && (manager.Catalog.RepairKit == null || item != manager.Catalog.RepairKit)
+        && !RocketAccepts(manager.State, item.ItemId);
 
-    // 건물 4곳(활성만): 쿠키 = 재료 그림·이름·게이지 %, 스파이·괴물 = "?"·가동 여부. 스파이는 아래에 로켓 수리(n/2)도 본다.
+    private static bool RocketAccepts(EscapeState s, string itemId)
+    {
+        if (s == null) return false;
+        foreach (EscapeState.Slot slot in s.RocketSlots) if (slot.Allows(itemId)) return true;
+        return false;
+    }
+
+    // 건물 4곳(활성만): 쿠키 = 재료 그림·이름·게이지 %, 괴물 = "?"·가동 여부.
+    // 스파이는 건물 대신 "스파이 로켓" 제목 + 칸마다 재료 그림·이름·%(✓) + 넣은 수리키트 수(§26 H4).
     private void RefreshRequirements()
     {
         RefreshHotbar();
         EscapeState s = manager.State;
         var entries = new List<(Sprite icon, Color color, string label, bool done)>();
-        if (s != null)
+        if (s != null && RoomState.IsLocalSpy()) AddRocketEntries(s, entries);
+        else if (s != null)
         {
             bool seesMaterials = !RoomState.IsLocalSpy() && !RoomState.IsLocalMonster();
             double now = PhotonNetwork.Time;
@@ -317,12 +336,6 @@ public class EscapeHud : MonoBehaviour
                 }
                 else entries.Add((WhiteSprite(), new Color(0.5f, 0.5f, 0.55f), $"{texts.unknownMaterial}  {(done ? "OK" : "...")}", done));
             }
-            if (RoomState.IsLocalSpy() && s.RocketSlots.Count > 0)
-            {
-                int filled = 0;
-                foreach (EscapeState.Slot slot in s.RocketSlots) if (slot.Filled) filled++;
-                entries.Add((WhiteSprite(), new Color(1f, 0.55f, 0.2f), $"{texts.spyRocket}  {filled}/{s.RocketSlots.Count}", filled >= s.RocketSlots.Count));
-            }
         }
         for (int i = 0; i < rows.Count; i++)
         {
@@ -335,6 +348,39 @@ public class EscapeHud : MonoBehaviour
             rows[i].Label.text = e.label;
             rows[i].Label.color = e.done ? new Color(0.5f, 1f, 0.5f) : Color.white;
         }
+    }
+
+    private void AddRocketEntries(EscapeState s, List<(Sprite icon, Color color, string label, bool done)> entries)
+    {
+        if (s.RocketSlots.Count == 0) return;
+        Color rocketColor = new Color(1f, 0.55f, 0.2f);
+        entries.Add((WhiteSprite(), rocketColor, texts.rocketTitle, s.RocketComplete));
+        foreach (EscapeState.Slot slot in s.RocketSlots)
+        {
+            if (entries.Count >= MaxRequirementRows - 1) break;
+            ItemSO item = slot.Accepts != null && slot.Accepts.Length > 0 ? manager.Catalog.Find(slot.Accepts[0]) : null;
+            bool single = slot.Accepts != null && slot.Accepts.Length == 1;
+            string name = item != null ? item.DisplayName : slot.Label;
+            string state = slot.Filled ? "✓" : slot.KitHalf ? texts.rocketKitHalf : "0%";
+            Sprite icon = single && item != null && item.Icon != null ? item.Icon : WhiteSprite();
+            Color color = icon != WhiteSprite() ? Color.white : single && item != null ? item.Tint : new Color(0.85f, 0.85f, 0.9f);
+            entries.Add((icon, color, $"{name}  {state}", slot.Filled));
+        }
+        int kitsUsed = 0;
+        if (manager.Catalog.RepairKit != null)
+            foreach (EscapeState.Item it in s.Items) if (it.Id == manager.Catalog.RepairKit.ItemId && it.Loc == ItemLocation.Gone) kitsUsed++;
+        ItemSO kit = manager.Catalog.RepairKit;
+        entries.Add((kit != null && kit.Icon != null ? kit.Icon : WhiteSprite(), kit != null && kit.Icon != null ? Color.white : rocketColor,
+            string.Format(texts.rocketKits, kitsUsed), false));
+    }
+
+    // 마녀 타이머 알림과 같은 순간에 오므로 그 알림이 지나간 뒤 띄운다.
+    private const float DecoysGoneToastDelay = 4f;
+
+    private IEnumerator ToastLater(string message, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        Toast(message, alert: true);
     }
 
     private void ShowToast(string message, float hold)
@@ -360,7 +406,7 @@ public class EscapeHud : MonoBehaviour
 
     // ---------------- ui helpers ----------------
 
-    private static RectTransform NewRect(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 pos, Vector2 size)
+    internal static RectTransform NewRect(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 pos, Vector2 size)
     {
         var go = new GameObject(name, typeof(RectTransform));
         var rt = (RectTransform)go.transform;
@@ -372,7 +418,7 @@ public class EscapeHud : MonoBehaviour
         return rt;
     }
 
-    private static Image NewImage(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
+    internal static Image NewImage(string name, Transform parent, Vector2 anchor, Vector2 pos, Vector2 size)
     {
         RectTransform rt = NewRect(name, parent, anchor, anchor, pos, size);
         var image = rt.gameObject.AddComponent<Image>();
@@ -381,7 +427,7 @@ public class EscapeHud : MonoBehaviour
         return image;
     }
 
-    private static TMP_Text NewText(string name, Transform parent, float size, TextAlignmentOptions align)
+    internal static TMP_Text NewText(string name, Transform parent, float size, TextAlignmentOptions align)
     {
         var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
         go.transform.SetParent(parent, false);
@@ -394,7 +440,7 @@ public class EscapeHud : MonoBehaviour
         return text;
     }
 
-    private static Sprite WhiteSprite()
+    internal static Sprite WhiteSprite()
     {
         if (whiteSprite == null)
         {

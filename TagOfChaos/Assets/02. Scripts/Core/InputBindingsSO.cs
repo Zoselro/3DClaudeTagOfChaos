@@ -1,14 +1,15 @@
 using UnityEngine;
 
-// 키·마우스 입력 설정(research.md §12 E5, CLAUDE.md: 전역 SO → Assets/Resources). 예전에는 7개 클래스가
-// Input.GetKey(KeyCode.LeftShift) 같은 값을 각자 하드코딩해 키를 바꾸려면 여러 파일을 고쳐야 했다.
-// 키 설정 UI가 생기면 이 에셋(또는 런타임 복제본)의 값만 바꾸면 된다.
+// 키·마우스 입력의 기본값(research.md §12 E5, CLAUDE.md: 전역 SO → Assets/Resources). 사용자가 설정 창에서 바꾼 값은
+// KeyBindings가 PC마다 따로 저장하고(Request1009Plan.md §27), 이 에셋은 "기본값으로"가 되돌아갈 값이다.
 [CreateAssetMenu(menuName = "TagOfChaos/InputBindings", fileName = "InputBindings")]
 public class InputBindingsSO : ScriptableObject
 {
-    [Header("Movement (Input Manager axes)")]
-    [SerializeField] private string horizontalAxis = "Horizontal";
-    [SerializeField] private string verticalAxis = "Vertical";
+    [Header("Movement (방향키는 늘 함께 쓰이는 고정 보조 키)")]
+    [SerializeField] private KeyCode moveForwardKey = KeyCode.W;
+    [SerializeField] private KeyCode moveBackKey = KeyCode.S;
+    [SerializeField] private KeyCode moveLeftKey = KeyCode.A;
+    [SerializeField] private KeyCode moveRightKey = KeyCode.D;
 
     [Header("Cookie")]
     [SerializeField] private KeyCode runKey = KeyCode.LeftShift;
@@ -30,12 +31,12 @@ public class InputBindingsSO : ScriptableObject
     [SerializeField] private KeyCode tentacleDashKey = KeyCode.LeftShift;
     [Tooltip("괴물 두 번째 스킬 — 소음폭탄 설치(Request1009Plan.md §25.5 K).")]
     [SerializeField] private KeyCode skillKey = KeyCode.Q;
-    [Tooltip("괴물 1인칭/3인칭 전환(테스트용, GameFixPlan.md F6). GameSettings.AllowMonsterViewToggle이 꺼져 있으면 무시된다.")]
-    [SerializeField] private KeyCode toggleViewKey = KeyCode.V;
 
     [Header("Spectator / UI")]
     [SerializeField] private KeyCode spectateNextKey = KeyCode.Space;
     [SerializeField] private KeyCode chatSubmitKey = KeyCode.Return;
+    [Tooltip("대기실 음성 채팅 — 누르면서 말하기(§26 Q19).")]
+    [SerializeField] private KeyCode pushToTalkKey = KeyCode.T;
 
     [Header("Mouse")]
     [Tooltip("0=왼쪽, 1=오른쪽, 2=가운데")]
@@ -44,8 +45,11 @@ public class InputBindingsSO : ScriptableObject
     [SerializeField] private string mouseXAxis = "Mouse X";
     [SerializeField] private string mouseYAxis = "Mouse Y";
 
-    public string HorizontalAxis => horizontalAxis;
-    public string VerticalAxis => verticalAxis;
+    public KeyCode MoveForwardKey => moveForwardKey;
+    public KeyCode MoveBackKey => moveBackKey;
+    public KeyCode MoveLeftKey => moveLeftKey;
+    public KeyCode MoveRightKey => moveRightKey;
+    public KeyCode PushToTalkKey => pushToTalkKey;
     public KeyCode RunKey => runKey;
     public KeyCode JumpKey => jumpKey;
     public KeyCode DodgeKey => dodgeKey;
@@ -55,7 +59,6 @@ public class InputBindingsSO : ScriptableObject
     public int UseToolButton => useToolButton;
     public KeyCode TentacleDashKey => tentacleDashKey;
     public KeyCode SkillKey => skillKey;
-    public KeyCode ToggleViewKey => toggleViewKey;
     public KeyCode SpectateNextKey => spectateNextKey;
     public KeyCode ChatSubmitKey => chatSubmitKey;
     public int PaintButton => paintButton;

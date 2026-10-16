@@ -4,7 +4,7 @@ using UnityEngine;
 // 헬리콥터 모자 비행(Request1009Plan.md §25.5 H, §25.3.1 R6·S3). 쿠키 캐릭터(스파이 포함)마다 붙고, 상태의 Flights에 내 번호가 있으면 난다.
 // - 모든 화면: 머리에 무지개 모자 + 도는 프로펠러.
 // - 본인 화면: 제자리에서 초당 RiseSpeed로 CruiseHeight까지 떠오른 뒤(이동 잠금, 낮을 때는 괴물이 잡을 수 있다),
-//   그 높이에서 WASD로 수평 비행(카메라 기준). 맵 경계 + EscapeMargin을 넘으면 방장에게 탈출을 요청한다.
+//   그 높이에서 가장 가까운 맵 가장자리로 초당 CruiseSpeed로 곧장 날아간다(입력 없음, §26 H8). 맵 경계 + EscapeMargin을 넘으면 방장에게 탈출을 요청한다.
 //   위치는 지금 캐릭터 동기화로 다른 화면에 보인다.
 public class HatFlight : MonoBehaviour
 {
@@ -21,6 +21,7 @@ public class HatFlight : MonoBehaviour
     private bool flying;
     private float startY;
     private float nextRequest;
+    private Vector3 cruiseDirection;
 
     public bool IsFlying => flying;
 
@@ -42,7 +43,7 @@ public class HatFlight : MonoBehaviour
         {
             flying = nowFlying;
             SetHat(flying);
-            if (flying) startY = transform.position.y;
+            if (flying) { startY = transform.position.y; cruiseDirection = Vector3.zero; }
             if (cookie.IsMine) SetPhysics(!flying);
         }
         if (propeller != null && flying) propeller.Rotate(0f, 900f * Time.deltaTime, 0f, Space.Self);
@@ -53,14 +54,9 @@ public class HatFlight : MonoBehaviour
         Vector3 p = transform.position;
         if (since * RiseSpeed >= CruiseHeight)
         {
-            Vector2 input = PlayerInput.Move;
-            Camera cam = Camera.main;
-            Vector3 fwd = cam != null ? Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up).normalized : transform.forward;
-            Vector3 right = Vector3.Cross(Vector3.up, fwd);
-            Vector3 move = (fwd * input.y + right * input.x);
-            if (move.sqrMagnitude > 1f) move.Normalize();
-            p += move * CruiseSpeed * Time.deltaTime;
-            if (move.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(move);
+            if (cruiseDirection == Vector3.zero) cruiseDirection = NearestEdgeDirection(manager.MapRect, p);
+            p += cruiseDirection * CruiseSpeed * Time.deltaTime;
+            transform.rotation = Quaternion.LookRotation(cruiseDirection);
         }
         p.y = y;
         body.position = p;
@@ -71,6 +67,16 @@ public class HatFlight : MonoBehaviour
             nextRequest = Time.unscaledTime + RequestInterval;
             manager.Request(EscapeOp.HatEscape);
         }
+    }
+
+    // 맵(x·z 사각형)에서 이 점과 가장 가까운 가장자리로 향하는 수평 방향(순수 계산, 시험용).
+    public static Vector3 NearestEdgeDirection(Rect map, Vector3 p)
+    {
+        float left = p.x - map.xMin, right = map.xMax - p.x, down = p.z - map.yMin, up = map.yMax - p.z;
+        float best = Mathf.Min(Mathf.Min(left, right), Mathf.Min(down, up));
+        if (best == left) return Vector3.left;
+        if (best == right) return Vector3.right;
+        return best == down ? Vector3.back : Vector3.forward;
     }
 
     // 나는 동안은 중력·충돌 없이(키네마틱) 직접 옮긴다. 끝나면(잡힘 등) 되돌린다.

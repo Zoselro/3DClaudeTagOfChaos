@@ -148,8 +148,12 @@ public class ToolUser : MonoBehaviour
                 }
                 break;
             }
-            case ToolKind.Skates:
             case ToolKind.Recorder:
+                // 녹음한 목소리가 없으면 쓸 수 없다(§26 H7 — 방장도 HasVoice로 다시 확인한다)
+                if (!VoiceStore.HasLocal) { EscapeHud.Toast(EscapeTextsSO.Current.noRecording); UiSoundCues.Error(); return; }
+                point = transform.position;
+                break;
+            case ToolKind.Skates:
                 point = transform.position; // 나에게 쓰는 아이템 — 대상은 방장이 정한다(§25.5 I)
                 break;
             case ToolKind.Pumpkin:

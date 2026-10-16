@@ -14,7 +14,6 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     [SerializeField] private Renderer bodyRenderer; // 캐릭터 스킨 렌더러 (SkinnedMeshRenderer)
     [SerializeField] private Shader paintedSkinShader; // ColorTag/PlayerPaintedSkin
     [SerializeField] private ColorPaletteSO palette;
-    [SerializeField] private BrushSettingsSO brushSettings;
     [SerializeField] private Material brushStampMaterial;    // 일반 스탬프: 잠긴(알파=1) 픽셀은 건드리지 않음
     [SerializeField] private Material finalizeStampMaterial; // 강제 도포 전용: 잠금 무시하고 항상 덮어씀
     [SerializeField] private Material eraseStampMaterial;    // 지우개: 알파를 0으로 되돌림
@@ -125,7 +124,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         if (pv.IsMine) Local = this;
         localCamera = Camera.main;
-        currentBrushRadius = Mathf.Clamp(brushSettings.DefaultRadius, brushSettings.MinRadius, brushSettings.MaxRadius);
+        currentBrushRadius = DefaultBrushRadius;
         ApplyPaintedSkinMaterial();
 
         // 콜라이더 베이크는 로컬 소유자가 색칠할 때만 필요하므로 원격 인스턴스에는 메시를 만들지 않는다(research.md §8.19).
@@ -137,7 +136,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
         // 이 클라이언트가 강제 도포 대상으로 이미 확정돼 있는 상태에서 늦게 Start()가 실행되는
         // 경우(재접속 등)를 대비해 한 번 확인한다. 색칠 씬이 아니면(대기실) 하지 않는다 — 대기실로 돌아온 쿠키가
         // 아직 지워지지 않은 이전 판 강제 도포 정보를 읽어 다시 칠해지던 문제(Bug-fix-plan.md §26.2 ⑲).
-        if (pv.IsMine && PaintPhaseController.IsPaintScene) ApplyForcedColorIfAssignedToMe();
+        if (pv.IsMine && EscapeManager.IsActive) ApplyForcedColorIfAssignedToMe();
     }
 
     // 인스턴스 전용 RenderTexture를 만들어 투명(미도색)으로 초기화한다 — 스킨과 무관한 부분이라 Awake에서 수행
@@ -179,7 +178,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
 
         // 대기실 등 색칠 씬이 아닌 곳에서는 입력·콜라이더 베이크를 하지 않는다. 괴물이 대기실에서 기다리는 동안
         // PaintPhaseEndTime이 유효해 대기실 쿠키가 3프레임마다 베이크(프레임당 약 6ms)하던 비용도 없앤다.
-        if (!PaintPhaseController.IsPaintScene || !IsPaintPhaseActive())
+        if (!EscapeManager.IsActive || !IsPaintPhaseActive())
         {
             isStroking = false;
             colliderUpdater?.Tick(false, 0f); // 진행 중인 쿠킹 Job의 완료 처리만
@@ -191,7 +190,6 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
         // 가만히 서 있는 동안에는 비용이 없다(§30.5 F1).
         colliderUpdater?.Tick(IsColliderRefreshWanted(), GameSettings.Current.PaintColliderRefreshInterval);
 
-        HandleBrushSizeInput();
         HandlePaintInput();
         DrawStamps(localDrawStamps);
 
@@ -421,17 +419,8 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     public static bool IsPointerOverUi() =>
         UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
 
-    // 마우스 휠로 붓 크기를 min~max 범위 내에서 조절
-    private void HandleBrushSizeInput()
-    {
-        float scroll = PlayerInput.BrushSizeDelta;
-        if (Mathf.Approximately(scroll, 0f)) return;
-
-        currentBrushRadius = Mathf.Clamp(
-            currentBrushRadius + scroll * brushSettings.WheelStep,
-            brushSettings.MinRadius,
-            brushSettings.MaxRadius);
-    }
+    // 손 색칠(붓 크기 조절·커서·색 고르기 UI)은 없앴다(§26 H12) — 남은 붓 크기는 물풍선 등 코드 경로의 기본값.
+    private const float DefaultBrushRadius = 0.02f;
 
     private void QueueStamp(Vector2 uv, float radius, int colorIndex, StrokeKind kind)
     {
@@ -491,7 +480,7 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
     {
         if (data == null || data.Length == 0 || !(data[0] is int viewId)) return;
         if (pv == null || viewId != pv.ViewID) return;
-        if (!PaintPhaseController.IsPaintScene) return; // 씬 전환 중 늦게 도착한 스트로크가 대기실 캐릭터에 그려지지 않게
+        if (!EscapeManager.IsActive) return; // 씬 전환 중 늦게 도착한 스트로크가 대기실 캐릭터에 그려지지 않게
         // 자기 몸은 자기만 칠한다 — 보낸 사람이 이 캐릭터의 주인이 아니면 무시한다(F-06, 조작된 클라이언트가 남의 위장을 칠하거나 지우던 경로).
         if (!PhotonNetwork.OfflineMode && (pv.Owner == null || sender != pv.Owner.ActorNumber)) return;
 
@@ -586,11 +575,11 @@ public class PlayerPaintCanvas : MonoBehaviourPunCallbacks, IOnEventCallback
         GL.TexCoord2(1f, -1f); GL.Vertex3(s.U + r, s.V - r, 0f);
     }
 
-    // 강제 도포(§3.6) — 마스터가 PaintPhaseController로 배정한 색을 전신에 덮어씌운다.
+    // 강제 도포(§3.6) — 마스터가 배정한 색을 전신에 덮어씌운다.
     public override void OnRoomPropertiesUpdate(Hashtable changedProps)
     {
         if (!changedProps.ContainsKey(NetKeys.ForcedPaintActorNumbers)) return;
-        if (!pv.IsMine || !PaintPhaseController.IsPaintScene) return;
+        if (!pv.IsMine || !EscapeManager.IsActive) return;
         ApplyForcedColorIfAssignedToMe();
     }
 
